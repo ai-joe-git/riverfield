@@ -198,6 +198,20 @@ Mesuré ici : **4,1 s** (design) et **4,7 s** (clone) pour une phrase, modèle c
 Python 3.13 : l'installeur du nœud échoue sur `pyaudioop` (le module `audioop` a disparu de 3.13) ;
 corrigé avec `pip install --no-deps audioop-lts`.
 
+
+### Qwen3-TTS : incompatible, écarté
+
+Testé et **abandonné** : Qwen3-TTS (`qwen-tts`) épingle `transformers==4.57.3`, alors
+qu'OmniVoice exige `transformers>=5.3`. Dans le même venv, l'un casse l'autre.
+
+Le nœud `ComfyUI-FL-Qwen3TTS` (vendored) se charge quand même sur transformers 5.19,
+mais il faut recoller l'API RoPE (`default`) et `pad_token_id`, et le tokenizer audio
+décode alors **1 s de silence**. Les 3 apps (`tts-qwen*`), le nœud et les 4,3 Go de poids
+ont été retirés.
+
+Pour l'avoir un jour : venv séparé + service HTTP à côté (nouveau type d'app), ou
+sacrifier OmniVoice en redescendant transformers — aucun des deux n'est gratuit.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
