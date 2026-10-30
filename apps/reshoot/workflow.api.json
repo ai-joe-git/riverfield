@@ -262,7 +262,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "14",
+        "44",
         0
       ],
       "scheduler": "simple",
@@ -274,7 +274,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "14",
+        "44",
         0
       ],
       "conditioning": [
@@ -358,7 +358,7 @@
         "37",
         0
       ],
-      "filename_prefix": "freefield/reshoot",
+      "filename_prefix": "riverfield/reshoot",
       "format": "mp4",
       "format.codec": "h264"
     }
@@ -383,7 +383,7 @@
         "40",
         0
       ],
-      "filename_prefix": "freefield/reshoot",
+      "filename_prefix": "riverfield/reshoot",
       "format": "mp4",
       "format.codec": "h264"
     }
@@ -415,9 +415,33 @@
         "42",
         0
       ],
-      "filename_prefix": "freefield/reshoot",
+      "filename_prefix": "riverfield/reshoot",
       "format": "mp4",
       "format.codec": "h264"
+    }
+  },
+  "44": {
+    "class_type": "H3SLAAttentionROCM",
+    "inputs": {
+      "model": [
+        "14",
+        0
+      ],
+      "sparsity_ratio": 0.9,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 1,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "comfy_kitchen",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false
+    },
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM"
     }
   }
 }

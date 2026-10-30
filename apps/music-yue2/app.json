@@ -1,0 +1,106 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "music-yue2",
+  "name": "YuE2",
+  "section": "audio",
+  "pack": "audio-yue2",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "A full song from a style and a lyric sheet, with YuE2: sung vocals and the band in one pass, verse and chorus.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "audio_yue2_text2music.json",
+    "comfyui": "0.42.0",
+    "notes": "The user workflow converted with tools/ui2api.py (its pipeline lives in a subgraph, so the nodes keep the 33: prefix ComfyUI's API export gives them). 'Plan the song structure' toggles YuE2GenerateABC in place of the empty ABC the music node accepts; the 32-step dpm_2 / sgm_uniform sampler is the template's."
+  },
+  "inputs": [
+    {
+      "id": "style",
+      "type": "textarea",
+      "label": "Style",
+      "required": true,
+      "default": "upbeat indie pop with warm female vocals, bright electric guitars, punchy drums, 120 bpm",
+      "help": "Instruments, genre, mood, tempo; the model reads it as tags.",
+      "bind": [
+        { "node": "33:36", "field": "value" }
+      ]
+    },
+    {
+      "id": "lyrics",
+      "type": "textarea",
+      "label": "Lyrics",
+      "default": "[Verse]\nMorning light across the window\nCity waking down below\nI can hear the streets are calling\nFeels like somewhere we should go\n\n[Chorus]\nRun with me into the sunlight\nLeave the shadows far behind",
+      "help": "Section tags in brackets ([Verse], [Chorus]); leave empty for an instrumental.",
+      "bind": [
+        { "node": "33:37", "field": "value" }
+      ]
+    },
+    {
+      "id": "seconds",
+      "type": "slider",
+      "label": "Max seconds",
+      "min": 10,
+      "max": 360,
+      "step": 5,
+      "default": 60,
+      "bind": [
+        { "node": "33:25", "field": "max_duration" }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 64,
+      "step": 1,
+      "default": 32,
+      "help": "The template runs 32; fewer steps are faster and rougher.",
+      "bind": [
+        { "node": "33:8", "field": "steps" }
+      ]
+    },
+    {
+      "id": "abc",
+      "type": "toggle",
+      "label": "Plan the structure first",
+      "default": false,
+      "help": "YuE2GenerateABC lays the song out (verse, chorus, bridge) before the music model runs: better long songs, slower.",
+      "bind": [
+        { "node": "33:31", "field": "value" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        { "node": "33:34", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "10", "type": "audio", "label": "Song" }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/YuE2",
+      "file": "checkpoints/yue2_3b_int8_convrot.safetensors",
+      "dir": "checkpoints",
+      "gb": 3.96,
+      "phase": "all",
+      "license": "CC BY-NC 4.0"
+    }
+  ],
+  "credits": [
+    "YuE2 by m-a-p (CC BY-NC 4.0, non-commercial)"
+  ],
+  "notes": "YuE2 generates the song and its vocals together: the style is read as tags, the lyrics keep their [Verse] / [Chorus] sections, and an empty lyric sheet gives an instrumental. One checkpoint holds the text-to-music model and its decoder. The weights are CC BY-NC 4.0: personal use only, no commercial output.",
+  "test": {
+    "style": "lofi piano, rain, 70 bpm",
+    "lyrics": "[Verse]\nRain on the window\nCoffee going cold",
+    "seconds": 20
+  }
+}
