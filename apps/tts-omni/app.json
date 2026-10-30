@@ -1,0 +1,218 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "tts-omni",
+  "name": "Text to Speech (voice design)",
+  "section": "audio",
+  "pack": "tts",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "Invents the voice you describe — gender, pitch, accent, age, whisper — and reads the script with it, in 600+ languages, with OmniVoice.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "ComfyUI-OmniVoice-TTS (Saganaki22) OmniVoiceVoiceDesignTTS",
+    "comfyui": "0.42.0",
+    "notes": "One node (OmniVoice Voice Design) into SaveAudio. OmniVoice is k2-fsa's 0.6B diffusion-LM TTS (Apache-2.0); the node downloads the weights into ComfyUI/models/ on first use. No reference clip: the voice comes from the description alone."
+  },
+  "inputs": [
+    {
+      "id": "text",
+      "type": "textarea",
+      "label": "Text",
+      "required": true,
+      "default": "Bonjour, je suis une voix imaginée par la description. Elle lit ce texte en français.",
+      "help": "Any language OmniVoice knows (600+) is read from the text itself.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "text"
+        }
+      ]
+    },
+    {
+      "id": "voice",
+      "type": "select",
+      "label": "The voice",
+      "required": true,
+      "default": [
+        "female",
+        "low pitch",
+        "british accent"
+      ],
+      "multiple": {
+        "max": 5,
+        "join": ", "
+      },
+      "help": "The model's own vocabulary: it refuses anything else. Pick up to five, in any order — gender, age, pitch, accent, whisper.",
+      "options": [
+        {
+          "value": "female",
+          "label": "Female"
+        },
+        {
+          "value": "male",
+          "label": "Male"
+        },
+        {
+          "value": "child",
+          "label": "Child"
+        },
+        {
+          "value": "teenager",
+          "label": "Teenager"
+        },
+        {
+          "value": "young adult",
+          "label": "Young adult"
+        },
+        {
+          "value": "middle-aged",
+          "label": "Middle-aged"
+        },
+        {
+          "value": "elderly",
+          "label": "Elderly"
+        },
+        {
+          "value": "very low pitch",
+          "label": "Very low pitch"
+        },
+        {
+          "value": "low pitch",
+          "label": "Low pitch"
+        },
+        {
+          "value": "moderate pitch",
+          "label": "Moderate pitch"
+        },
+        {
+          "value": "high pitch",
+          "label": "High pitch"
+        },
+        {
+          "value": "very high pitch",
+          "label": "Very high pitch"
+        },
+        {
+          "value": "american accent",
+          "label": "American"
+        },
+        {
+          "value": "australian accent",
+          "label": "Australian"
+        },
+        {
+          "value": "british accent",
+          "label": "British"
+        },
+        {
+          "value": "canadian accent",
+          "label": "Canadian"
+        },
+        {
+          "value": "chinese accent",
+          "label": "Chinese"
+        },
+        {
+          "value": "indian accent",
+          "label": "Indian"
+        },
+        {
+          "value": "japanese accent",
+          "label": "Japanese"
+        },
+        {
+          "value": "korean accent",
+          "label": "Korean"
+        },
+        {
+          "value": "portuguese accent",
+          "label": "Portuguese"
+        },
+        {
+          "value": "russian accent",
+          "label": "Russian"
+        },
+        {
+          "value": "whisper",
+          "label": "Whisper"
+        }
+      ],
+      "bind": [
+        {
+          "node": "10",
+          "field": "voice_instruct",
+          "template": "{voice}"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 64,
+      "step": 1,
+      "default": 32,
+      "help": "The model's default is 32; fewer steps are faster and rougher.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 0,
+      "help": "Same seed and description give the same voice again; 0 picks a random one.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "20",
+      "type": "audio",
+      "label": "Voice"
+    }
+  ],
+  "models": [
+    {
+      "repo": "k2-fsa/OmniVoice",
+      "file": "OmniVoice/model.safetensors",
+      "dir": "omnivoice",
+      "gb": 2.45,
+      "phase": "all",
+      "optional": true,
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "k2-fsa/OmniVoice",
+      "file": "OmniVoice/audio_tokenizer/model.safetensors",
+      "dir": "omnivoice",
+      "gb": 0.81,
+      "phase": "all",
+      "optional": true,
+      "license": "Apache-2.0"
+    }
+  ],
+  "credits": [
+    "OmniVoice by k2-fsa (Apache-2.0)",
+    "ComfyUI-OmniVoice-TTS by Saganaki22 (MIT)"
+  ],
+  "notes": "OmniVoice invents a speaker from the attributes you give it, so the same description and seed give the same voice every time: save the pair to keep a character's voice across a project. It covers 600+ languages, and the language is read from the text itself. The weights are a 0.6B model downloaded on the first run. Use a voice you have the right to use.",
+  "test": {
+    "text": "Bonjour, ceci est un test.",
+    "voice": [
+      "female",
+      "low pitch",
+      "british accent"
+    ]
+  }
+}

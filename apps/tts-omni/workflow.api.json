@@ -1,0 +1,41 @@
+{
+  "10": {
+    "class_type": "OmniVoiceVoiceDesignTTS",
+    "_meta": {
+      "title": "OmniVoice — Voice Design"
+    },
+    "inputs": {
+      "model": "OmniVoice (auto download)",
+      "steps": 32,
+      "guidance_scale": 2.0,
+      "t_shift": 0.1,
+      "speed": 1.0,
+      "duration": 0.0,
+      "device": "auto",
+      "dtype": "auto",
+      "attention": "auto",
+      "seed": 0,
+      "position_temperature": 5.0,
+      "class_temperature": 0.0,
+      "layer_penalty_factor": 5.0,
+      "denoise": true,
+      "postprocess_output": true,
+      "keep_model_loaded": true,
+      "text": "Bonjour, je suis une voix imaginée par la description.",
+      "voice_instruct": "female, low pitch, british accent, warm, slow"
+    }
+  },
+  "20": {
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "Save Audio"
+    },
+    "inputs": {
+      "audio": [
+        "10",
+        0
+      ],
+      "filename_prefix": "riverfield/tts-omni"
+    }
+  }
+}
