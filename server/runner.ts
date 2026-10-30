@@ -184,11 +184,11 @@ export function explainSubmitError(app: App, e: unknown): string | null {
 }
 
 export type RunnerOptions = {
-  /** Gateway in front of comfy-api-proxy, e.g. https://you--freefield-serve.modal.run */
+  /** Gateway in front of comfy-api-proxy, e.g. https://you--riverfield-serve.modal.run */
   baseUrl?: string;
   /** Token the gateway expects; sent by the SDK as a bearer token. */
   token?: string;
-  /** Let draft apps run too (default: FREEFIELD_DRAFTS=1). Drafts have a workflow nobody has run on a GPU yet. */
+  /** Let draft apps run too (default: RIVERFIELD_DRAFTS=1). Drafts have a workflow nobody has run on a GPU yet. */
   allowDrafts?: boolean;
   fetch?: typeof fetch;
 };
@@ -203,21 +203,21 @@ export class Runner {
   constructor(opts: RunnerOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? process.env.COMFY_BASE_URL ?? "").replace(/\/$/, "");
     if (!this.baseUrl) throw new Error("Set COMFY_BASE_URL to the gateway URL");
-    this.token = opts.token ?? process.env.FREEFIELD_TOKEN ?? undefined;
-    this.allowDrafts = opts.allowDrafts ?? process.env.FREEFIELD_DRAFTS === "1";
+    this.token = opts.token ?? process.env.RIVERFIELD_TOKEN ?? undefined;
+    this.allowDrafts = opts.allowDrafts ?? process.env.RIVERFIELD_DRAFTS === "1";
     process.env.COMFY_BASE_URL = this.baseUrl; // the SDK reads its base URL from the environment
     this.doFetch = opts.fetch ?? fetch;
-    this.comfy = new Comfy({ apiKey: this.token, clientInfo: "freefield", fetch: opts.fetch });
+    this.comfy = new Comfy({ apiKey: this.token, clientInfo: "riverfield", fetch: opts.fetch });
   }
 
   /**
    * Ask the gateway to make room for this app. It compares the model set with the one
    * loaded last and unloads everything from VRAM when they differ. A backend without the
-   * Freefield gateway (a bare comfy-api-proxy, a hosted Comfy API) answers 404 and manages
+   * RiverField gateway (a bare comfy-api-proxy, a hosted Comfy API) answers 404 and manages
    * its own memory, so that is not an error.
    */
   async prepare(app: App): Promise<{ freed: boolean; skipped?: boolean }> {
-    const res = await this.doFetch(`${this.baseUrl}/freefield/prepare`, {
+    const res = await this.doFetch(`${this.baseUrl}/riverfield/prepare`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -226,14 +226,14 @@ export class Runner {
       body: JSON.stringify({ app: app.id, models: modelKey(app) }),
     });
     if (res.status === 404 || res.status === 405) return { freed: false, skipped: true };
-    if (!res.ok) throw new Error(`gateway /freefield/prepare answered ${res.status}`);
+    if (!res.ok) throw new Error(`gateway /riverfield/prepare answered ${res.status}`);
     return (await res.json()) as { freed: boolean };
   }
 
   async submit(app: App, rawValues: Values, presetId?: string) {
     if (!app.workflowPath) throw new InputError(`${app.id} has no workflow yet`);
     if (app.status !== "ready" && !this.allowDrafts) {
-      throw new InputError(`${app.id} is a draft; set FREEFIELD_DRAFTS=1 (or pass --draft) to run it anyway`);
+      throw new InputError(`${app.id} is a draft; set RIVERFIELD_DRAFTS=1 (or pass --draft) to run it anyway`);
     }
     const values = resolveValues(app, rawValues);
     await this.prepare(app);

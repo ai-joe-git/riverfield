@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A CPU-only ComfyUI at the commit Freefield pins, with every custom node the packs pin, started
+# A CPU-only ComfyUI at the commit RiverField pins, with every custom node the packs pin, started
 # in the background. Enough for tools/comfy_validate.py; no GPU and no model weights needed.
 #
 #   bash tools/ci_comfyui.sh /tmp/comfyui            # then:

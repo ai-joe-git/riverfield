@@ -7,7 +7,7 @@
 It checks Node and the npm install, the Modal CLI and its two secrets, that your Hugging Face
 token can download every gated model the packs need (one HEAD request per file, nothing is
 downloaded), and the .env the web app reads. Tokens are never printed; the Hugging Face token
-is only sent to huggingface.co and FREEFIELD_TOKEN only to your own COMFY_BASE_URL.
+is only sent to huggingface.co and RIVERFIELD_TOKEN only to your own COMFY_BASE_URL.
 """
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def check_modal() -> None:
         report(OK, f'Modal profile "{active or pinned}" (pinned in .env)')
     else:
         report(WARN, f'Modal profile "{active}" is active and nothing pins this repo to it',
-               "add FREEFIELD_MODAL_PROFILE=<profile> to .env (modal profile list shows them)")
+               "add RIVERFIELD_MODAL_PROFILE=<profile> to .env (modal profile list shows them)")
     code, out = run([sys.executable, "-m", "modal", "secret", "list", "--json"], timeout=90)
     if code != 0:
         report(BAD, "Modal is not logged in (or unreachable)", "modal setup")
@@ -78,9 +78,9 @@ def check_modal() -> None:
     try:
         names = {s.get("Name") or s.get("name") for s in json.loads(out)}
     except json.JSONDecodeError:
-        names = set(re.findall(r"\b(freefield|huggingface)\b", out))
+        names = set(re.findall(r"\b(riverfield|huggingface)\b", out))
     fixes = {
-        "freefield": "python tools/setup_token.py   (same token in the secret and in .env)",
+        "riverfield": "python tools/setup_token.py   (same token in the secret and in .env)",
         "huggingface": "modal secret create huggingface HF_TOKEN=hf_...",
     }
     for name, fix in fixes.items():
@@ -151,16 +151,16 @@ def check_hf(packs: list[str], with_lab: bool) -> None:
 def check_env() -> None:
     env = ROOT / ".env"
     if not env.exists():
-        report(BAD, ".env missing (the web app reads COMFY_BASE_URL and FREEFIELD_TOKEN from it)",
+        report(BAD, ".env missing (the web app reads COMFY_BASE_URL and RIVERFIELD_TOKEN from it)",
                "python tools/setup_token.py   (creates .env with the same token as the Modal secret)")
         return
     values = dict(re.findall(r"^\s*([A-Z_]+)\s*=\s*(.*?)\s*$", env.read_text(encoding="utf-8"), flags=re.M))
-    base, token = values.get("COMFY_BASE_URL", ""), values.get("FREEFIELD_TOKEN", "")
+    base, token = values.get("COMFY_BASE_URL", ""), values.get("RIVERFIELD_TOKEN", "")
     if not base or "YOUR-WORKSPACE" in base:
         report(BAD, "COMFY_BASE_URL not set in .env", "paste the URL printed by: modal deploy infra/modal_app.py")
         return
     if not token:
-        report(BAD, "FREEFIELD_TOKEN empty in .env", "python tools/setup_token.py   (writes one token to .env and the Modal secret)")
+        report(BAD, "RIVERFIELD_TOKEN empty in .env", "python tools/setup_token.py   (writes one token to .env and the Modal secret)")
     try:
         with urllib.request.urlopen(f"{base.rstrip('/')}/health", timeout=20) as r:
             report(OK, f"backend answers at {base} (HTTP {r.status})")
@@ -169,7 +169,7 @@ def check_env() -> None:
                "deploy it (modal deploy infra/modal_app.py) or wait for a cold start and retry")
         return
     if token:
-        req = urllib.request.Request(f"{base.rstrip('/')}/freefield/status", headers={"authorization": f"Bearer {token}"})
+        req = urllib.request.Request(f"{base.rstrip('/')}/riverfield/status", headers={"authorization": f"Bearer {token}"})
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 report(OK, f"gateway accepts the token (HTTP {r.status})")
@@ -177,7 +177,7 @@ def check_env() -> None:
             report(BAD, f"gateway refused the token (HTTP {e.code})",
                    "python tools/setup_token.py, then modal deploy infra/modal_app.py so the backend gets the new token")
         except Exception as e:
-            report(WARN, f"could not reach /freefield/status ({type(e).__name__})")
+            report(WARN, f"could not reach /riverfield/status ({type(e).__name__})")
 
 
 def main(argv: list[str] | None = None) -> int:

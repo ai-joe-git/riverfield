@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Freefield's backend on your own GPU, without Modal.
+"""RiverField's backend on your own GPU, without Modal.
 
 The same three processes infra/modal_app.py runs in its container: ComfyUI at the pinned commit with the pinned
 custom nodes, comfy-api-proxy (Comfy API v2) next to it, and infra/gateway.py in front (token check, unloads the
 GPU when the app changes).
 
-    python tools/local_backend.py setup  D:/freefield-comfy               # once: ComfyUI, custom nodes, comfy-api-proxy
-    python tools/local_backend.py download D:/freefield-comfy image-flux3  # the model files of one or more packs
-    python tools/local_backend.py serve  D:/freefield-comfy               # ComfyUI :8188, proxy :8189, gateway :8000
+    python tools/local_backend.py setup  D:/riverfield-comfy               # once: ComfyUI, custom nodes, comfy-api-proxy
+    python tools/local_backend.py download D:/riverfield-comfy image-flux3  # the model files of one or more packs
+    python tools/local_backend.py serve  D:/riverfield-comfy               # ComfyUI :8188, proxy :8189, gateway :8000
 
 Run it in a virtualenv that already has the PyTorch build for your GPU (https://pytorch.org); setup installs ComfyUI's
 other requirements but leaves torch alone. Models go to <dir>/models unless --models says otherwise. Gated repos
 (LTX-2.5, FLUX 3 Klein) need their license accepted on Hugging Face and HF_TOKEN set, or `hf auth login`.
-serve reads FREEFIELD_TOKEN from the environment or from .env (python tools/setup_token.py --env-only writes one);
+serve reads RIVERFIELD_TOKEN from the environment or from .env (python tools/setup_token.py --env-only writes one);
 then COMFY_BASE_URL=http://127.0.0.1:8000 in .env and `npm run serve`.
 """
 from __future__ import annotations
@@ -68,7 +68,7 @@ def setup(comfy: Path, models: Path) -> None:
         if (dst / "requirements.txt").exists():
             pip("-r", dst / "requirements.txt")
     pip(COMFY_API_PROXY, "aiohttp", "huggingface_hub[hf-xet]")
-    lines = ["freefield:", f"  base_path: {models.as_posix()}"] + [f"  {d}: {d}" for d in MODEL_DIRS]
+    lines = ["riverfield:", f"  base_path: {models.as_posix()}"] + [f"  {d}: {d}" for d in MODEL_DIRS]
     (comfy / "extra_model_paths.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\nComfyUI {COMFYUI_COMMIT[:7]} with {len(pinned)} custom nodes in {comfy}; models in {models}")
     print(f"next: python tools/local_backend.py download {comfy} <pack> (packs: {', '.join(packs())})")
@@ -134,13 +134,13 @@ def wait_port(port: int, proc: subprocess.Popen, timeout_s: float = 120) -> None
 
 
 def env_token() -> str:
-    tok = os.environ.get("FREEFIELD_TOKEN", "")
+    tok = os.environ.get("RIVERFIELD_TOKEN", "")
     env = ROOT / ".env"
     if not tok and env.exists():
-        m = re.search(r"^FREEFIELD_TOKEN=(\S+)\s*$", env.read_text(encoding="utf-8"), re.M)
+        m = re.search(r"^RIVERFIELD_TOKEN=(\S+)\s*$", env.read_text(encoding="utf-8"), re.M)
         tok = m[1] if m else ""
     if not tok:
-        sys.exit("no FREEFIELD_TOKEN: python tools/setup_token.py --env-only writes one to .env, "
+        sys.exit("no RIVERFIELD_TOKEN: python tools/setup_token.py --env-only writes one to .env, "
                  "which npm run serve also reads")
     return tok
 
@@ -159,7 +159,7 @@ def serve(comfy: Path, comfy_args: list[str], port: int) -> None:
         procs.append(subprocess.Popen([proxy, "--comfyui", "http://127.0.0.1:8188", "--port", "8189",
                                        "--comfyui-base-dir", str(comfy)]))
         wait_port(8189, procs[-1])
-        env = {**os.environ, "FREEFIELD_TOKEN": token, "COMFYUI_URL": "http://127.0.0.1:8188",
+        env = {**os.environ, "RIVERFIELD_TOKEN": token, "COMFYUI_URL": "http://127.0.0.1:8188",
                "PROXY_URL": "http://127.0.0.1:8189", "GATEWAY_PORT": str(port)}
         procs.append(subprocess.Popen([sys.executable, str(ROOT / "infra" / "gateway.py")], env=env))
         wait_http(f"http://127.0.0.1:{port}/health", procs[-1], 120)

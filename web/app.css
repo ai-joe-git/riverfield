@@ -1,4 +1,4 @@
-/* Freefield web UI. Dark studio: near-black canvas, dark rounded cards, one lime accent,
+/* RiverField web UI. Dark studio: near-black canvas, dark rounded cards, one lime accent,
    wide uppercase display type. Fonts are self-hosted (web/fonts, SIL OFL). */
 @font-face { font-family: "Archivo Variable"; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%;
   src: url(fonts/archivo.woff2) format("woff2-variations"); }

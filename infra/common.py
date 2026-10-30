@@ -2,7 +2,7 @@
 
 The image pins the exact ComfyUI commit the workflows in apps/ were validated against,
 and installs every custom node pack the manifests declare. Model weights never go into
-the image: they live in the "freefield-models" volume and are fetched per pack.
+the image: they live in the "riverfield-models" volume and are fetched per pack.
 """
 from __future__ import annotations
 
@@ -29,10 +29,10 @@ MODEL_DIRS = ["diffusion_models", "text_encoders", "vae", "loras", "checkpoints"
               "latent_upscale_models", "upscale_models", "model_patches", "geometry_estimation",
               "background_removal", "frame_interpolation", "audio_encoders", "embeddings", "detection"]
 
-models_volume = modal.Volume.from_name("freefield-models", create_if_missing=True)
-lab_volume = modal.Volume.from_name("freefield-lab", create_if_missing=True)
+models_volume = modal.Volume.from_name("riverfield-models", create_if_missing=True)
+lab_volume = modal.Volume.from_name("riverfield-lab", create_if_missing=True)
 hf_secret = modal.Secret.from_name("huggingface")        # HF_TOKEN, for gated repos (LTX-2.5, FLUX 3 Klein)
-freefield_secret = modal.Secret.from_name("freefield")   # FREEFIELD_TOKEN, the gateway's bearer token
+riverfield_secret = modal.Secret.from_name("riverfield")   # RIVERFIELD_TOKEN, the gateway's bearer token
 
 
 def custom_nodes() -> dict[str, str]:
@@ -47,7 +47,7 @@ def custom_nodes() -> dict[str, str]:
 
 
 def extra_model_paths() -> str:
-    lines = ["freefield:", f"  base_path: {MODELS_DIR}"] + [f"  {d}: {d}" for d in MODEL_DIRS]
+    lines = ["riverfield:", f"  base_path: {MODELS_DIR}"] + [f"  {d}: {d}" for d in MODEL_DIRS]
     return "\n".join(lines) + "\n"
 
 
@@ -72,10 +72,10 @@ def build_image() -> modal.Image:
     yaml = extra_model_paths().replace("\n", "\\n")
     img = img.run_commands(f"printf '{yaml}' > {COMFY_DIR}/extra_model_paths.yaml")
     # code last, so editing it does not rebuild the layers above
-    return (img.add_local_dir(ROOT / "apps", "/freefield/apps")
-               .add_local_dir(ROOT / "packs", "/freefield/packs")
-               .add_local_dir(ROOT / "infra", "/freefield/infra")
-               .add_local_dir(ROOT / "lab", "/freefield/lab", ignore=["results", "assets"]))
+    return (img.add_local_dir(ROOT / "apps", "/riverfield/apps")
+               .add_local_dir(ROOT / "packs", "/riverfield/packs")
+               .add_local_dir(ROOT / "infra", "/riverfield/infra")
+               .add_local_dir(ROOT / "lab", "/riverfield/lab", ignore=["results", "assets"]))
 
 
 # ---------------------------------------------------------------- runtime helpers (run inside containers)

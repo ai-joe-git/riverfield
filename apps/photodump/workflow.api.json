@@ -95,7 +95,7 @@
         "pd_b4",
         0
       ],
-      "filename_prefix": "freefield/photodump"
+      "filename_prefix": "riverfield/photodump"
     },
     "_meta": {
       "title": "Save Image"

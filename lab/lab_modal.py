@@ -3,14 +3,14 @@
     modal run lab/lab_modal.py --showcase                        # one example per app (+ the references they need)
     modal run lab/lab_modal.py                                   # every case in lab/cases.json, on an L40S
     modal run lab/lab_modal.py --apps camera-moves,relight       # every case of these apps
-    FREEFIELD_GPU=A10G modal run lab/lab_modal.py --only ic-clean-plate,ic-day-to-night   # 24 GB parity check
+    RIVERFIELD_GPU=A10G modal run lab/lab_modal.py --only ic-clean-plate,ic-day-to-night   # 24 GB parity check
     modal run lab/lab_modal.py --apps effects --shards 4         # the same cases split over 4 GPUs at once
     modal run lab/lab_modal.py --pull <run_id>                   # copy back and publish a run that finished without you
 
 Missing model files are downloaded first on a CPU container (no GPU billed while they
-arrive) into the "freefield-models" volume; gated repos need the "huggingface" secret and an
+arrive) into the "riverfield-models" volume; gated repos need the "huggingface" secret and an
 accepted license. Results, a results.jsonl with time and peak VRAM per case, and small web
-versions of every output go to the "freefield-lab" volume as each case finishes, so a partial
+versions of every output go to the "riverfield-lab" volume as each case finishes, so a partial
 run is still useful. At the end the run is copied to lab/results/<run_id>, review.html is
 built there, and the examples the web UI shows are refreshed (--no-publish to skip).
 
@@ -36,10 +36,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # lab/core.py, imported where it is used (the container has it elsewhere)
 from infra.common import build_image, ensure_models, hf_secret, lab_volume, models_volume, start_comfyui  # noqa: E402
 
-GPU = os.environ.get("FREEFIELD_GPU", "L40S")
-COMFY_ARGS = os.environ.get("FREEFIELD_COMFY_ARGS", "")
+GPU = os.environ.get("RIVERFIELD_GPU", "L40S")
+COMFY_ARGS = os.environ.get("RIVERFIELD_COMFY_ARGS", "")
 
-app = modal.App("freefield-lab")
+app = modal.App("riverfield-lab")
 image = build_image().add_local_python_source("infra")
 
 
@@ -55,10 +55,10 @@ def fetch(models: list[dict]) -> dict[str, str]:
 @app.function(image=image, gpu=GPU, volumes={"/models": models_volume, "/lab": lab_volume},
               secrets=[hf_secret], timeout=8 * 3600)
 def run(cases: list[dict], run_id: str, assets: dict[str, bytes]) -> list[dict]:
-    sys.path.insert(0, "/freefield/lab")
+    sys.path.insert(0, "/riverfield/lab")
     from core import Lab, models_for_cases  # noqa: E402
 
-    needed = models_for_cases(cases, Path("/freefield/apps"))
+    needed = models_for_cases(cases, Path("/riverfield/apps"))
     fetched, failed = ensure_models(needed)
     if fetched:
         models_volume.commit()
@@ -71,7 +71,7 @@ def run(cases: list[dict], run_id: str, assets: dict[str, bytes]) -> list[dict]:
     proc = start_comfyui(8188, COMFY_ARGS)
     try:
         lab = Lab("http://127.0.0.1:8188", Path("/comfyui/input"), Path("/comfyui/output"), Path("/lab") / run_id,
-                  apps_dir=Path("/freefield/apps"), assets_dir=assets_dir, on_case_done=lab_volume.commit,
+                  apps_dir=Path("/riverfield/apps"), assets_dir=assets_dir, on_case_done=lab_volume.commit,
                   missing=failed)
         results = lab.run_all(cases)
     finally:

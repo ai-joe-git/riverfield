@@ -21,7 +21,7 @@ export function el(tag, attrs = {}, ...kids) {
   return e;
 }
 
-// 24×24 stroke icons drawn for Freefield
+// 24×24 stroke icons drawn for RiverField
 const P = {
   plus: "M12 5v14M5 12h14",
   chevR: "M9 6l6 6-6 6", chevL: "M15 6l-6 6 6 6", chevD: "M6 9l6 6 6-6",
@@ -89,7 +89,7 @@ export function icon(name, cls = "") {
   return svg;
 }
 
-/** The Freefield mark: three rows of a field, the middle one free. */
+/** The RiverField mark: three rows of a field, the middle one free. */
 export function logoMark() {
   const svg = el("svg", { svg: true, class: "mark", viewBox: "0 0 32 32", "aria-hidden": "true" });
   svg.append(

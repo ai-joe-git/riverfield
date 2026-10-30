@@ -1,7 +1,7 @@
-// What a hosted Freefield allows: a passcode at the door and a cap on runs. Off unless configured.
-//   FREEFIELD_PASSCODE          every request needs it: once as ?key=… (it becomes a cookie), or the form at /
-//   FREEFIELD_MAX_RUNS_PER_DAY  runs started per UTC day across all visitors (counted in <out>/limits.json)
-//   FREEFIELD_MAX_ACTIVE        runs going at the same time
+// What a hosted RiverField allows: a passcode at the door and a cap on runs. Off unless configured.
+//   RIVERFIELD_PASSCODE          every request needs it: once as ?key=… (it becomes a cookie), or the form at /
+//   RIVERFIELD_MAX_RUNS_PER_DAY  runs started per UTC day across all visitors (counted in <out>/limits.json)
+//   RIVERFIELD_MAX_ACTIVE        runs going at the same time
 // Running locally with none of these set, nothing changes.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -33,14 +33,14 @@ export class Guard {
     this.stateFile = opts.stateFile;
     this.now = opts.now ?? (() => new Date());
     // the cookie holds a keyed hash of the passcode, never the passcode itself
-    this.cookieValue = this.passcode ? createHmac("sha256", this.passcode).update("freefield-visitor").digest("hex") : undefined;
+    this.cookieValue = this.passcode ? createHmac("sha256", this.passcode).update("riverfield-visitor").digest("hex") : undefined;
     this.state = this.load();
   }
 
   static fromEnv(stateFile: string, env: NodeJS.ProcessEnv = process.env): Guard {
     const num = (v?: string) => (v && /^\d+$/.test(v) ? Number(v) : undefined);
-    return new Guard({ passcode: env.FREEFIELD_PASSCODE, maxRunsPerDay: num(env.FREEFIELD_MAX_RUNS_PER_DAY),
-      maxActive: num(env.FREEFIELD_MAX_ACTIVE), stateFile });
+    return new Guard({ passcode: env.RIVERFIELD_PASSCODE, maxRunsPerDay: num(env.RIVERFIELD_MAX_RUNS_PER_DAY),
+      maxActive: num(env.RIVERFIELD_MAX_ACTIVE), stateFile });
   }
 
   get hosted(): boolean {
@@ -131,12 +131,12 @@ function same(a: string, b: string): boolean {
 
 /** The page a visitor without the cookie gets: one field for the passcode. */
 export const DOOR_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Freefield</title>
+<title>RiverField</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='1' width='30' height='30' rx='9' fill='%23e8ff5a'/%3E%3Cpath d='M8 11.5h16M8 16.5h9M8 21.5h12' stroke='%2311140a' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='22.5' cy='16.5' r='1.9' fill='%2311140a'/%3E%3C/svg%3E">
 <style>
 :root{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#09090a;color:#f4f4f2;font:15px/1.5 system-ui,sans-serif}
 form{display:grid;gap:12px;width:min(320px,calc(100vw - 32px))}h1{margin:0;font-size:22px}p{margin:0;color:#9b9ba3}
 input,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid #2e2e33;background:#151517;color:inherit}
 button{background:#e8ff5a;color:#11140a;border:0;font-weight:600;cursor:pointer}</style></head>
-<body><form method="get" action="/"><h1>Freefield</h1><p>This demo is private. Enter the passcode you were given.</p>
+<body><form method="get" action="/"><h1>RiverField</h1><p>This demo is private. Enter the passcode you were given.</p>
 <input name="key" type="password" autocomplete="current-password" aria-label="Passcode" required autofocus><button>Open</button></form></body></html>`;

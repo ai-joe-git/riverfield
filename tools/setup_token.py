@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """One gateway token, written to the two places that need it.
 
-    python tools/setup_token.py              # new token → Modal secret "freefield" and .env
+    python tools/setup_token.py              # new token → Modal secret "riverfield" and .env
     python tools/setup_token.py --env-only   # only .env (when the backend is not on Modal)
 
-The backend's gateway reads FREEFIELD_TOKEN from the Modal secret; the web app and the CLI read
+The backend's gateway reads RIVERFIELD_TOKEN from the Modal secret; the web app and the CLI read
 the same value from .env. This creates .env from .env.example when it is missing, stores a fresh
 random token in the secret (overwriting it), and only then writes it to .env, so the two never
 disagree. The token is not printed; .env is ignored by git. Run it again to rotate the token,
@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f'Modal profile "{active}" is active, but .env pins "{pinned}"; nothing changed. '
                   f"Switch with:  modal profile activate {pinned}", file=sys.stderr)
             return 1
-        cmd = [sys.executable, "-m", "modal", "secret", "create", "freefield", f"FREEFIELD_TOKEN={token}", "--force"]
+        cmd = [sys.executable, "-m", "modal", "secret", "create", "riverfield", f"RIVERFIELD_TOKEN={token}", "--force"]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         except (OSError, subprocess.TimeoutExpired) as e:
@@ -50,14 +50,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         if r.returncode != 0:
             print((r.stderr or r.stdout).strip(), file=sys.stderr)
-            print('the Modal secret "freefield" was not updated, so .env was left as it was', file=sys.stderr)
+            print('the Modal secret "riverfield" was not updated, so .env was left as it was', file=sys.stderr)
             return 1
-        print(f'stored the token in the Modal secret "freefield" of profile "{active}"')
+        print(f'stored the token in the Modal secret "riverfield" of profile "{active}"')
 
     text = env.read_text(encoding="utf-8")
-    line = f"FREEFIELD_TOKEN={token}"
-    if re.search(r"^FREEFIELD_TOKEN=.*$", text, flags=re.M):
-        text = re.sub(r"^FREEFIELD_TOKEN=.*$", line, text, count=1, flags=re.M)
+    line = f"RIVERFIELD_TOKEN={token}"
+    if re.search(r"^RIVERFIELD_TOKEN=.*$", text, flags=re.M):
+        text = re.sub(r"^RIVERFIELD_TOKEN=.*$", line, text, count=1, flags=re.M)
     else:
         text = text.rstrip("\n") + "\n" + line + "\n"
     with open(env, "w", encoding="utf-8", newline="\n") as f:

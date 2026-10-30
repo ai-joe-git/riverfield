@@ -1,6 +1,6 @@
 # Import a ComfyUI workflow as an app
 
-`tools/import_workflow.py` turns a ComfyUI workflow into a draft Freefield app: `apps/<id>/app.json` and
+`tools/import_workflow.py` turns a ComfyUI workflow into a draft RiverField app: `apps/<id>/app.json` and
 `apps/<id>/workflow.api.json`. The draft passes `npm run validate`; you check what it guessed, then mark it ready.
 
 ```sh
@@ -25,7 +25,7 @@ utility), `--out` (another folder) and `--force` (overwrite) are optional.
 | literal `width`, `height`, `length` on an `Empty…Latent…` node | selects (768–1536) and a frames slider |
 | `ResolutionSelector` | an aspect-ratio select with the node's options |
 | `PrimitiveInt`, `PrimitiveFloat`, `PrimitiveBoolean` with a title | a slider or toggle labelled with the title |
-| `Save…` nodes (`PreviewImage` becomes `SaveImage`) | outputs, saved under `freefield/<id>` |
+| `Save…` nodes (`PreviewImage` becomes `SaveImage`) | outputs, saved under `riverfield/<id>` |
 | every loader value that ends in `.safetensors`, `.ckpt`, `.pt`, `.pth`, `.gguf`, `.bin` | models |
 
 A model file that one of `packs/*.json` already lists gets its repo, path, size, folder, license and gate from
@@ -53,7 +53,7 @@ ui-test: 7 inputs, 1 outputs, 4 models → apps/ui-test
     - flux3-image-klein-int8-convrot.safetensors  black-forest-labs/flux-3-image-klein-comfy  5.83 GB  (denoise)
     - qwen3vl_4b_int8_convrot.safetensors  black-forest-labs/flux-3-image-klein-comfy  4.86 GB  (encode)
     - flux2-vae.safetensors  black-forest-labs/flux-3-image-klein-comfy  0.34 GB  (decode)
-  models Freefield does not know:
+  models RiverField does not know:
     - qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors  (loaded by CLIPLoader 46.clip_name; folder guessed as text_encoders)
   check by hand:
     - converted from the UI format with object_info.json

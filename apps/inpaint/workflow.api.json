@@ -95,7 +95,7 @@
         "ip_paste",
         0
       ],
-      "filename_prefix": "freefield/inpaint"
+      "filename_prefix": "riverfield/inpaint"
     },
     "_meta": {
       "title": "Save Image"

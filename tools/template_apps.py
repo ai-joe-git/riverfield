@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Template apps: one app per Higgsfield app that is a fixed prompt over a pipeline Freefield already runs.
+"""Template apps: one app per Higgsfield app that is a fixed prompt over a pipeline RiverField already runs.
 
     python tools/template_apps.py            # writes apps/<id>/app.json + workflow.api.json and the tpl-* lab cases
     python tools/template_apps.py --check    # only checks the table (ids, lengths, placeholders)
@@ -892,7 +892,7 @@ def workflow(t: dict) -> dict:
     for n in api.values():
         if n["class_type"] == "SaveImage" or n["class_type"] == "SaveVideo" or n["class_type"] == "CreateVideo":
             if "filename_prefix" in n["inputs"]:
-                n["inputs"]["filename_prefix"] = f"freefield/{t['id']}"
+                n["inputs"]["filename_prefix"] = f"riverfield/{t['id']}"
     return api
 
 

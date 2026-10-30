@@ -6,7 +6,7 @@
         "398:370",
         0
       ],
-      "filename_prefix": "freefield/cinema-video",
+      "filename_prefix": "riverfield/cinema-video",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -723,7 +723,7 @@
         "still:18:8",
         0
       ],
-      "filename_prefix": "freefield/cinema-video"
+      "filename_prefix": "riverfield/cinema-video"
     },
     "_meta": {
       "title": "Save Image"

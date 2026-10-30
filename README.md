@@ -1,6 +1,10 @@
-# Freefield
+# RiverField
 
 Open-source Higgsfield on ComfyUI: every app is one folder, every model is open weights.
+
+**RiverField is a fork of [Freefield](https://github.com/neuregex/freefield) by Sammir Femat (neuregex), MIT.**
+It adds turbo variants of the MiniMax H3 apps (taomate 3-step, Ref2V 4-step), YuE2 music and cover apps, and the
+H3 SLA Attention node on ROCm in every H3 workflow. Upstream stays the reference for everything else.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
@@ -23,7 +27,7 @@ run on Modal or on your own ComfyUI. Every example in the app is a real GPU run 
 </tr>
 </table>
 
-Freefield rebuilds Higgsfield's creative apps (image, video, VFX, audio) on top of ComfyUI and the Comfy SDK.
+RiverField rebuilds Higgsfield's creative apps (image, video, VFX, audio) on top of ComfyUI and the Comfy SDK.
 There is no per-app code. Each app is a folder in `apps/` with an `app.json` manifest and a ComfyUI workflow in API
 format; the web UI, the runner, the model downloads, the VRAM map and the tests are all derived from those manifests.
 
@@ -112,7 +116,7 @@ newer ComfyUI than the one pinned here and its weights are licensed for non-comm
 
 ### Soul ID without training
 
-Higgsfield's Soul ID trains a model of a person from their photos. Freefield does not train: `character` (one photo)
+Higgsfield's Soul ID trains a model of a person from their photos. RiverField does not train: `character` (one photo)
 and `character-3` (three photos) copy the person from the references on every run, 13.0 s of L40S time in the lab
 (about $0.007 at Modal's base price of $1.95 an hour). A character LoRA keeps a GPU busy for tens of minutes instead
 (an estimate, not measured here: 30 minutes of H100 at $3.95 an hour is about $2 per person), the hosted demo would
@@ -120,12 +124,12 @@ bill that to its owner's Modal account, and a LoRA of someone's face has to be s
 which a demo without user accounts cannot do. So training is left for later, and the path uses ComfyUI 0.42's own
 nodes: an app that takes 10 to 20 photos of one person → `VAEEncode` → `TrainLoraNode` on FLUX 3 Image Klein →
 `SaveLoRA` to the Modal volume, then `character` loads it with `LoraModelLoader`. Still to check: whether
-`TrainLoraNode` trains on the int8 Klein file Freefield downloads (5.83 GB) or needs the full weights.
+`TrainLoraNode` trains on the int8 Klein file RiverField downloads (5.83 GB) or needs the full weights.
 
 ### Template apps
 
 Higgsfield's catalog is mostly fixed prompts over a few pipelines, and so is this: each of these apps is one of
-Freefield's pipelines with its prompt baked in, selects that fill parts of it, and an "Extra direction" box appended
+RiverField's pipelines with its prompt baked in, selects that fill parts of it, and an "Extra direction" box appended
 to it. The bases: `edit` (FLUX 3 Image Klein, one reference image), `edit` with a second reference (a garment, another
 person; for `face-swap`, MediaPipe's face oval from core ComfyUI nodes masks the edit and the face photo is Klein's only
 reference; for `expand-image`, the photo gets a border that only Klein draws), `create-image` without its upsampler (Klein text to image), `video`
@@ -224,16 +228,16 @@ You need Node 22.6+, Python 3.10+ and a [Modal](https://modal.com) account, or a
 # 0. what is missing: Node, Modal login and secrets, Hugging Face license access per model, .env
 python tools/doctor.py
 
-# 1. secrets (once). Pick the Modal workspace first: in .env, FREEFIELD_MODAL_PROFILE=<profile from `modal profile list`>
-python tools/setup_token.py                       # gateway token: Modal secret "freefield" and .env get the same value
+# 1. secrets (once). Pick the Modal workspace first: in .env, RIVERFIELD_MODAL_PROFILE=<profile from `modal profile list`>
+python tools/setup_token.py                       # gateway token: Modal secret "riverfield" and .env get the same value
 modal secret create huggingface HF_TOKEN=hf_...   # accept the gated licenses on the Hub first (doctor.py checks them)
 
-# 2. models into the "freefield-models" volume, per pack (see packs/index.json)
+# 2. models into the "riverfield-models" volume, per pack (see packs/index.json)
 python tools/catalog.py packs
 modal run infra/modal_app.py::download --pack image
 
 # 3. backend (private: it needs the token)
-modal deploy infra/modal_app.py                   # FREEFIELD_GPU=A10G to try the 24 GB plan
+modal deploy infra/modal_app.py                   # RIVERFIELD_GPU=A10G to try the 24 GB plan
 
 # 4. web app
 npm install
@@ -242,7 +246,7 @@ npm run serve                                     # http://127.0.0.1:3000
 npm run app -- create-image --set prompt="a red bicycle against a white wall"   # or from the terminal
 ```
 
-On Windows PowerShell, environment variables go before the command as `$env:FREEFIELD_GPU = "A10G"; modal deploy ...`.
+On Windows PowerShell, environment variables go before the command as `$env:RIVERFIELD_GPU = "A10G"; modal deploy ...`.
 
 ### On your own GPU, without Modal
 
@@ -252,15 +256,15 @@ virtualenv that already has the PyTorch build for your GPU ([pytorch.org](https:
 
 ```sh
 # 1. ComfyUI, the custom nodes and comfy-api-proxy (once)
-python tools/local_backend.py setup ~/freefield-comfy
+python tools/local_backend.py setup ~/riverfield-comfy
 
 # 2. the models of the apps you want, by pack (packs/index.json says which apps each pack serves)
-python tools/local_backend.py download ~/freefield-comfy image-flux3 --dry-run   # what is missing, and how big
-python tools/local_backend.py download ~/freefield-comfy image-flux3             # gated repos: HF_TOKEN or `hf auth login`
+python tools/local_backend.py download ~/riverfield-comfy image-flux3 --dry-run   # what is missing, and how big
+python tools/local_backend.py download ~/riverfield-comfy image-flux3             # gated repos: HF_TOKEN or `hf auth login`
 
 # 3. a gateway token in .env, then the backend: ComfyUI :8188, comfy-api-proxy :8189, gateway :8000
 python tools/setup_token.py --env-only
-python tools/local_backend.py serve ~/freefield-comfy      # ComfyUI flags after --, e.g. -- --lowvram
+python tools/local_backend.py serve ~/riverfield-comfy      # ComfyUI flags after --, e.g. -- --lowvram
 
 # 4. in another terminal, with COMFY_BASE_URL=http://127.0.0.1:8000 in .env
 npm install
@@ -314,25 +318,25 @@ back in the form.
 
 ### A private link to the studio
 
-To let someone else use your Freefield (a reviewer, a friend) without installing anything, the same web app runs on
+To let someone else use your RiverField (a reviewer, a friend) without installing anything, the same web app runs on
 Modal next to the backend, behind a passcode:
 
 ```sh
-python tools/setup_demo.py            # once: a passcode → Modal secret "freefield-demo" and .env
+python tools/setup_demo.py            # once: a passcode → Modal secret "riverfield-demo" and .env
 modal deploy infra/web_app.py         # the web UI on a small CPU container that scales to zero
-python tools/setup_demo.py --link     # the link to share: https://<workspace>--freefield-demo.modal.run/?key=…
+python tools/setup_demo.py --link     # the link to share: https://<workspace>--riverfield-demo.modal.run/?key=…
 ```
 
 The link sets the passcode as a cookie; without it every page and API call gets a passcode page. Runs are capped at
-30 a day (UTC) and 2 at a time, so a shared link cannot run up the GPU bill (`FREEFIELD_MAX_RUNS_PER_DAY` and
-`FREEFIELD_MAX_ACTIVE` at deploy time change that); the GPU pill shows how many are left. Lab marks are read-only
-there, uploads stop at 100 MB, and the history lives in the `freefield-web` volume. Running `setup_demo.py` again
+30 a day (UTC) and 2 at a time, so a shared link cannot run up the GPU bill (`RIVERFIELD_MAX_RUNS_PER_DAY` and
+`RIVERFIELD_MAX_ACTIVE` at deploy time change that); the GPU pill shows how many are left. Lab marks are read-only
+there, uploads stop at 100 MB, and the history lives in the `riverfield-web` volume. Running `setup_demo.py` again
 changes the passcode and locks out the old link once you redeploy.
 
 Any ComfyUI works as the backend: run `comfy-api-proxy` next to it and `python infra/gateway.py` in front, and point
 `COMFY_BASE_URL` at the gateway. Pointing it straight at a `comfy-api-proxy` (or another Comfy API v2 endpoint) works
 too; only the unload-between-apps step is skipped. An app marked `draft` (none is, today) stays locked in the UI and
-the CLI until you set `FREEFIELD_DRAFTS=1` (or pass `--draft` to `npm run app`).
+the CLI until you set `RIVERFIELD_DRAFTS=1` (or pass `--draft` to `npm run app`).
 
 ## The LoRA lab and the gallery
 
@@ -388,7 +392,7 @@ the form so you can run it again and compare.
 ```sh
 modal run lab/lab_modal.py                        # every case (LoRA comparisons included) on an L40S
 modal run lab/lab_modal.py --apps camera-moves,relight   # only these apps (their reference cases come along)
-FREEFIELD_GPU=A10G modal run lab/lab_modal.py --only ic-clean-plate    # 24 GB parity check
+RIVERFIELD_GPU=A10G modal run lab/lab_modal.py --only ic-clean-plate    # 24 GB parity check
 python lab/publish.py lab/results/<run_id>        # republish examples from a run you already have
 python lab/review.py lab/results/<run_id> --apply-peaks   # measured VRAM into each app.json
 python tools/comfy_validate.py --comfy-dir /path/to/ComfyUI --placeholders --lab lab/cases.json   # free, CPU: every case's prompt is valid

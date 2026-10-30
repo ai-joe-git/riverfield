@@ -230,7 +230,7 @@
         "105",
         0
       ],
-      "filename_prefix": "freefield/camera-moves",
+      "filename_prefix": "riverfield/camera-moves",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -279,7 +279,7 @@
       "strength_model": 0.0
     },
     "_meta": {
-      "title": "Freefield LoRA"
+      "title": "RiverField LoRA"
     }
   },
   "ff_lora_low": {
@@ -293,7 +293,7 @@
       "strength_model": 0.0
     },
     "_meta": {
-      "title": "Freefield LoRA"
+      "title": "RiverField LoRA"
     }
   }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn a ComfyUI workflow into a draft Freefield app: apps/<id>/app.json + apps/<id>/workflow.api.json.
+"""Turn a ComfyUI workflow into a draft RiverField app: apps/<id>/app.json + apps/<id>/workflow.api.json.
 
     python tools/import_workflow.py my_workflow.json --id my-app [--name "My App"] [--section image]
     python tools/import_workflow.py ui_workflow.json --id my-app --object-info object_info.json   # a UI workflow
@@ -12,9 +12,9 @@ tools/object_info.json lacks one). What it writes:
 - inputs: each LoadImage / LoadVideo / LoadAudio, the positive prompt (the literal text of a text encoder, or the
   PrimitiveString node that feeds it), the negative prompt when it has words, seeds, steps, literal latent
   width/height, a ResolutionSelector aspect ratio, and Primitive nodes someone gave a title;
-- outputs: every Save node (a PreviewImage becomes a SaveImage), filename_prefix "freefield/<id>";
-- models: every loader file, with repo, path, size, folder and license taken from packs/*.json when Freefield
-  already knows the file, and its phase from the apps that use it. A file Freefield does not know gets
+- outputs: every Save node (a PreviewImage becomes a SaveImage), filename_prefix "riverfield/<id>";
+- models: every loader file, with repo, path, size, folder and license taken from packs/*.json when RiverField
+  already knows the file, and its phase from the apps that use it. A file RiverField does not know gets
   repo "TODO/unknown" and a note: find it on Hugging Face before the app is used;
 - status "draft", and the pack that already holds all its models, when one does.
 
@@ -84,7 +84,7 @@ def plain_label(title: str, class_type: str) -> str | None:
     return None if t.lower() in defaults else t
 
 
-# ---------------------------------------------------------------- what Freefield already knows
+# ---------------------------------------------------------------- what RiverField already knows
 def known_files(root: Path) -> tuple[dict[str, dict], dict[str, set[str]], dict[str, str]]:
     """basename → pack entry, basename → packs holding it, basename → the phase apps use it in."""
     files: dict[str, dict] = {}
@@ -292,7 +292,7 @@ def build(api: dict, app_id: str, name: str | None, section: str | None, source:
             n["_meta"] = {"title": "Save Image"}
             report["check"].append(f"PreviewImage {nid} became a SaveImage")
         if n["class_type"] in SAVE_TYPES:
-            n["inputs"]["filename_prefix"] = f"freefield/{app_id}"
+            n["inputs"]["filename_prefix"] = f"riverfield/{app_id}"
             t = SAVE_TYPES[n["class_type"]]
             outputs.append({"node": nid, "type": t, "label": t.capitalize()})
     if len(outputs) > 1:
@@ -393,7 +393,7 @@ def validate(app: dict, api: dict, root: Path = ROOT) -> tuple[list[str], list[s
 def print_report(app: dict, report: dict, checked, out: Path) -> None:
     print(f"{app['id']}: {len(app['inputs'])} inputs, {len(app['outputs'])} outputs, {len(app['models'])} models → {out}")
     for title, key in (("inputs", "inputs"), ("outputs", "outputs"), ("models matched in packs/", "models"),
-                       ("models Freefield does not know", "unknown"), ("check by hand", "check")):
+                       ("models RiverField does not know", "unknown"), ("check by hand", "check")):
         if report[key]:
             print(f"  {title}:")
             for line in report[key]:

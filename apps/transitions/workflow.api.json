@@ -24,7 +24,7 @@
         "251:218",
         0
       ],
-      "filename_prefix": "freefield/transitions",
+      "filename_prefix": "riverfield/transitions",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -646,7 +646,7 @@
       "strength_model": 1.0
     },
     "_meta": {
-      "title": "Freefield LoRA"
+      "title": "RiverField LoRA"
     }
   }
 }

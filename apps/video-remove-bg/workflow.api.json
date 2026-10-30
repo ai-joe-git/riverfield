@@ -160,7 +160,7 @@
       ],
       "format": "auto",
       "format.codec": "auto",
-      "filename_prefix": "freefield/video-remove-bg"
+      "filename_prefix": "riverfield/video-remove-bg"
     },
     "_meta": {
       "title": "Save cutout"
@@ -203,7 +203,7 @@
       ],
       "format": "auto",
       "format.codec": "auto",
-      "filename_prefix": "freefield/video-remove-bg"
+      "filename_prefix": "riverfield/video-remove-bg"
     },
     "_meta": {
       "title": "Save matte"

@@ -1,8 +1,8 @@
 """Which Modal profile a command will act on, and whether it is the one this repo is pinned to.
 
 Modal takes the profile from MODAL_PROFILE, otherwise from the section marked `active = true`
-in ~/.modal.toml (MODAL_CONFIG_PATH moves that file). Freefield pins its own with
-FREEFIELD_MODAL_PROFILE, in the environment or in .env, so a deploy, a download or a lab run
+in ~/.modal.toml (MODAL_CONFIG_PATH moves that file). RiverField pins its own with
+RIVERFIELD_MODAL_PROFILE, in the environment or in .env, so a deploy, a download or a lab run
 cannot land in another workspace by accident. Only section names are read, never tokens.
 No Modal import here: tools/doctor.py and tools/setup_token.py use it too.
 """
@@ -37,10 +37,10 @@ def active_profile() -> str | None:
 
 
 def pinned_profile(root: Path = ROOT) -> str | None:
-    """FREEFIELD_MODAL_PROFILE from the environment, else from .env; None when not set."""
-    value = os.environ.get("FREEFIELD_MODAL_PROFILE", "").strip()
+    """RIVERFIELD_MODAL_PROFILE from the environment, else from .env; None when not set."""
+    value = os.environ.get("RIVERFIELD_MODAL_PROFILE", "").strip()
     if not value and (root / ".env").exists():
-        m = re.search(r"^\s*FREEFIELD_MODAL_PROFILE\s*=\s*(\S+)\s*$", (root / ".env").read_text(encoding="utf-8"), flags=re.M)
+        m = re.search(r"^\s*RIVERFIELD_MODAL_PROFILE\s*=\s*(\S+)\s*$", (root / ".env").read_text(encoding="utf-8"), flags=re.M)
         value = m[1].strip("\"'") if m else ""
     return value or None
 
@@ -56,7 +56,7 @@ def enforce(root: Path = ROOT) -> None:
     active, pinned, ok = check(root)
     if not ok:
         raise SystemExit(f'Modal profile "{active}" is active, but this repo is pinned to "{pinned}" '
-                         f"(FREEFIELD_MODAL_PROFILE). Switch with:  modal profile activate {pinned}")
+                         f"(RIVERFIELD_MODAL_PROFILE). Switch with:  modal profile activate {pinned}")
     where = active if active else "chosen by MODAL_TOKEN_ID"
-    hint = "" if pinned else "   (pin it with FREEFIELD_MODAL_PROFILE=<profile> in .env)"
+    hint = "" if pinned else "   (pin it with RIVERFIELD_MODAL_PROFILE=<profile> in .env)"
     print(f"Modal profile: {where}{hint}", file=sys.stderr)
