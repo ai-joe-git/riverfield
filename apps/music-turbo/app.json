@@ -1,0 +1,112 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "music-turbo",
+  "name": "Music Turbo",
+  "section": "audio",
+  "pack": "audio",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "A full song in eight steps with MiniMax Music 3 and its 8-step turbo LoRA: several times faster than the plain app, made for drafts and batches.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "MiniMax Music 3 (ComfyUI template) + minimax_music3_turbo_lora_8step",
+    "comfyui": "0.42.0",
+    "notes": "The plain Music app's graph with the 8-step turbo LoRA on the DiT, the sampler at 8 steps (euler / simple), and the tiled audio decode wired in. Caption, lyrics, max duration, CFG and top-k stay the text encoder's own inputs."
+  },
+  "inputs": [
+    {
+      "id": "style",
+      "type": "textarea",
+      "label": "Style",
+      "required": true,
+      "default": "upbeat cumbia with accordion and modern synths, 100 bpm",
+      "help": "Genre, instruments, mood, tempo and production; the model reads it as a caption.",
+      "bind": [
+        { "node": "3713", "field": "caption" }
+      ]
+    },
+    {
+      "id": "lyrics",
+      "type": "textarea",
+      "label": "Lyrics (optional)",
+      "default": "",
+      "help": "Section tags in brackets ([Verse], [Chorus]); leave empty for an instrumental.",
+      "bind": [
+        { "node": "3713", "field": "lyrics" }
+      ]
+    },
+    {
+      "id": "seconds",
+      "type": "slider",
+      "label": "Max seconds",
+      "min": 10,
+      "max": 240,
+      "step": 5,
+      "default": 120,
+      "bind": [
+        { "node": "3713", "field": "max_duration" }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 4,
+      "max": 20,
+      "step": 1,
+      "default": 8,
+      "help": "The turbo LoRA is trained for 8 steps; fewer are rougher, more barely help.",
+      "bind": [
+        { "node": "379", "field": "steps" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        { "node": "3738", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "35", "type": "audio", "label": "Song" }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-Music-3",
+      "file": "diffusion_models/minimax_music3_dit_fp16.safetensors",
+      "dir": "diffusion_models",
+      "gb": 4.91,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-Music-3",
+      "file": "text_encoders/minimax_music3_text_encoder_pruned_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 9.2,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-Music-3",
+      "file": "vae/minimax_music3_dav.safetensors",
+      "dir": "vae",
+      "gb": 0.22,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    }
+  ],
+  "credits": [
+    "MiniMax Music 3 (Apache-2.0)",
+    "minimax_music3_turbo_lora_8step (community LoRA, local file)"
+  ],
+  "notes": "The same graph and weights as Music, with the 8-step turbo LoRA (minimax_music3_turbo_lora_8step.safetensors, strength 1.0) on the diffusion model and the sampler at 8 steps with euler. It is not in the audio pack, so keep the file in ComfyUI/models/loras. Use Music Turbo HQ (12 steps) when a draft is good enough but the final still needs more. The MP3 lands in riverfield/music-turbo.",
+  "test": {
+    "style": "lofi piano, rain, 70 bpm",
+    "seconds": 20
+  }
+}

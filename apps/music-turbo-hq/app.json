@@ -1,0 +1,131 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "music-turbo-hq",
+  "name": "Music Turbo HQ",
+  "section": "audio",
+  "pack": "audio",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "The same turbo LoRA at twelve steps: slower than Music Turbo, closer to the plain app's detail, for the takes you keep.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "MiniMax Music 3 (ComfyUI template) + minimax_music3_turbo_lora_8step, 12 steps",
+    "comfyui": "0.42.0",
+    "notes": "Same graph as Music Turbo, the sampler at 12 steps instead of 8: the turbo LoRA still carries the structure, the extra steps recover fine detail. MP3 in riverfield/music-turbo-hq."
+  },
+  "inputs": [
+    {
+      "id": "style",
+      "type": "textarea",
+      "label": "Style",
+      "required": true,
+      "default": "upbeat cumbia with accordion and modern synths, 100 bpm",
+      "help": "Genre, instruments, mood, tempo and production; the model reads it as a caption.",
+      "bind": [
+        {
+          "node": "3713",
+          "field": "caption"
+        }
+      ]
+    },
+    {
+      "id": "lyrics",
+      "type": "textarea",
+      "label": "Lyrics (optional)",
+      "default": "",
+      "help": "Section tags in brackets ([Verse], [Chorus]); leave empty for an instrumental.",
+      "bind": [
+        {
+          "node": "3713",
+          "field": "lyrics"
+        }
+      ]
+    },
+    {
+      "id": "seconds",
+      "type": "slider",
+      "label": "Max seconds",
+      "min": 10,
+      "max": 240,
+      "step": 5,
+      "default": 120,
+      "bind": [
+        {
+          "node": "3713",
+          "field": "max_duration"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 4,
+      "max": 20,
+      "step": 1,
+      "default": 12,
+      "help": "12 is this app's setting; 8 is Music Turbo (faster), 16-20 barely moves further.",
+      "bind": [
+        {
+          "node": "379",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "3738",
+          "field": "seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "35",
+      "type": "audio",
+      "label": "Song"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-Music-3",
+      "file": "diffusion_models/minimax_music3_dit_fp16.safetensors",
+      "dir": "diffusion_models",
+      "gb": 4.91,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-Music-3",
+      "file": "text_encoders/minimax_music3_text_encoder_pruned_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 9.2,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-Music-3",
+      "file": "vae/minimax_music3_dav.safetensors",
+      "dir": "vae",
+      "gb": 0.22,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    }
+  ],
+  "credits": [
+    "MiniMax Music 3 (Apache-2.0)",
+    "minimax_music3_turbo_lora_8step (community LoRA, local file)"
+  ],
+  "notes": "Music Turbo HQ runs the same 8-step turbo LoRA for 12 steps: a middle ground between Music Turbo (8) and the plain Music app (no LoRA). Keep minimax_music3_turbo_lora_8step.safetensors in ComfyUI/models/loras, it is not in the audio pack. The MP3 lands in riverfield/music-turbo-hq.",
+  "test": {
+    "style": "lofi piano, rain, 70 bpm",
+    "seconds": 20
+  }
+}
