@@ -65,6 +65,8 @@ export const MODELS = [
   { name: "SeedVR2 3B", file: "seedvr2", app: "upscale-video", note: ["Video and image upscale", "Escalado de video y de imagen"] },
   { name: "MiniMax Music 3", file: "minimax_music3", app: "music", note: ["Songs with lyrics", "Canciones con letra"] },
   { name: "Stable Audio 3", file: "stable_audio_3", app: "sfx", note: ["Sound effects and instrumental music", "Efectos de sonido y música instrumental"] },
+  { name: "YuE2 3B", file: "yue2_3b", app: "music-yue2", note: ["Songs with sung vocals, covers", "Canciones con voz, versiones"] },
+  { name: "Chatterbox", file: "t3_mtl23ls", app: "tts", note: ["Speech in 23 languages, voice clone", "Voz en 23 idiomas, clonación"] },
   { name: "Qwen-Image-Edit 2509", file: "qwen_image_edit", app: "relight", note: ["Light, angles and the next shot", "Luz, ángulos y la siguiente toma"] },
   { name: "Krea 2 Turbo", file: "krea2_turbo", app: "styles", note: ["Styles with Krea's LoRAs", "Estilos con los LoRAs de Krea"] },
   { name: "MOSS-Image", file: "moss_image", app: "moss-image", note: ["Layout prompts", "Prompts con layout"] },

@@ -20,9 +20,14 @@
       "label": "Reference voice",
       "required": true,
       "help": "5 to 6 seconds of clean speech, one speaker, no music. The words do not matter, the timbre does.",
-      "limits": { "max_mb": 50 },
+      "limits": {
+        "max_mb": 50
+      },
       "bind": [
-        { "node": "5", "field": "audio" }
+        {
+          "node": "5",
+          "field": "audio"
+        }
       ]
     },
     {
@@ -33,7 +38,10 @@
       "default": "Bonjour, c'est moi. Ceci est une phrase lue avec ma propre voix.",
       "help": "Write it in the reference's language, or pick another one below.",
       "bind": [
-        { "node": "10", "field": "text" }
+        {
+          "node": "10",
+          "field": "text"
+        }
       ]
     },
     {
@@ -42,32 +50,104 @@
       "label": "Language",
       "default": "fr",
       "options": [
-        { "value": "ar", "label": "Arabic" },
-        { "value": "da", "label": "Danish" },
-        { "value": "de", "label": "German" },
-        { "value": "el", "label": "Greek" },
-        { "value": "en", "label": "English" },
-        { "value": "es", "label": "Spanish" },
-        { "value": "fi", "label": "Finnish" },
-        { "value": "fr", "label": "French" },
-        { "value": "he", "label": "Hebrew" },
-        { "value": "hi", "label": "Hindi" },
-        { "value": "it", "label": "Italian" },
-        { "value": "ja", "label": "Japanese" },
-        { "value": "ko", "label": "Korean" },
-        { "value": "ms", "label": "Malay" },
-        { "value": "nl", "label": "Dutch" },
-        { "value": "no", "label": "Norwegian" },
-        { "value": "pl", "label": "Polish" },
-        { "value": "pt", "label": "Portuguese" },
-        { "value": "ru", "label": "Russian" },
-        { "value": "sv", "label": "Swedish" },
-        { "value": "sw", "label": "Swahili" },
-        { "value": "tr", "label": "Turkish" },
-        { "value": "zh", "label": "Chinese" }
+        {
+          "value": "ar",
+          "label": "Arabic"
+        },
+        {
+          "value": "da",
+          "label": "Danish"
+        },
+        {
+          "value": "de",
+          "label": "German"
+        },
+        {
+          "value": "el",
+          "label": "Greek"
+        },
+        {
+          "value": "en",
+          "label": "English"
+        },
+        {
+          "value": "es",
+          "label": "Spanish"
+        },
+        {
+          "value": "fi",
+          "label": "Finnish"
+        },
+        {
+          "value": "fr",
+          "label": "French"
+        },
+        {
+          "value": "he",
+          "label": "Hebrew"
+        },
+        {
+          "value": "hi",
+          "label": "Hindi"
+        },
+        {
+          "value": "it",
+          "label": "Italian"
+        },
+        {
+          "value": "ja",
+          "label": "Japanese"
+        },
+        {
+          "value": "ko",
+          "label": "Korean"
+        },
+        {
+          "value": "ms",
+          "label": "Malay"
+        },
+        {
+          "value": "nl",
+          "label": "Dutch"
+        },
+        {
+          "value": "no",
+          "label": "Norwegian"
+        },
+        {
+          "value": "pl",
+          "label": "Polish"
+        },
+        {
+          "value": "pt",
+          "label": "Portuguese"
+        },
+        {
+          "value": "ru",
+          "label": "Russian"
+        },
+        {
+          "value": "sv",
+          "label": "Swedish"
+        },
+        {
+          "value": "sw",
+          "label": "Swahili"
+        },
+        {
+          "value": "tr",
+          "label": "Turkish"
+        },
+        {
+          "value": "zh",
+          "label": "Chinese"
+        }
       ],
       "bind": [
-        { "node": "10", "field": "language" }
+        {
+          "node": "10",
+          "field": "language"
+        }
       ]
     },
     {
@@ -80,7 +160,10 @@
       "default": 0.5,
       "help": "How far the reading leans into the emotion of the line.",
       "bind": [
-        { "node": "10", "field": "exaggeration" }
+        {
+          "node": "10",
+          "field": "exaggeration"
+        }
       ]
     },
     {
@@ -90,14 +173,58 @@
       "default": 0,
       "help": "0 lets the model pick a random seed.",
       "bind": [
-        { "node": "10", "field": "seed" }
+        {
+          "node": "10",
+          "field": "seed"
+        }
       ]
     }
   ],
   "outputs": [
-    { "node": "20", "type": "audio", "label": "Voice" }
+    {
+      "node": "20",
+      "type": "audio",
+      "label": "Voice"
+    }
   ],
-  "models": [],
+  "models": [
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "t3_mtl23ls_v3.safetensors",
+      "dir": "tts",
+      "gb": 2.14,
+      "phase": "all",
+      "optional": true,
+      "license": "MIT"
+    },
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "t3_cfg.safetensors",
+      "dir": "tts",
+      "gb": 2.13,
+      "phase": "all",
+      "optional": true,
+      "license": "MIT"
+    },
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "s3gen.safetensors",
+      "dir": "tts",
+      "gb": 1.06,
+      "phase": "all",
+      "optional": true,
+      "license": "MIT"
+    },
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "ve.safetensors",
+      "dir": "tts",
+      "gb": 0.01,
+      "phase": "all",
+      "optional": true,
+      "license": "MIT"
+    }
+  ],
   "credits": [
     "Chatterbox by Resemble AI (MIT)",
     "ComfyUI-Chatterbox by wildminder (Apache-2.0)"
