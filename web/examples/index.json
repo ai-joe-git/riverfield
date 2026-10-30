@@ -4853,6 +4853,40 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "local-20261030"
+    },
+    "music-turbo": {
+      "case": "music-turbo-cumbia",
+      "type": "audio",
+      "card": "examples/music-turbo/card.png",
+      "full": "examples/music-turbo/full.mp3",
+      "inputs": [],
+      "values": {
+        "style": "upbeat cumbia with accordion and modern synths, 100 bpm",
+        "seconds": 20,
+        "steps": 8
+      },
+      "seed": -1,
+      "seconds": 110.7,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261030"
+    },
+    "music-turbo-hq": {
+      "case": "music-turbo-hq-cumbia",
+      "type": "audio",
+      "card": "examples/music-turbo-hq/card.png",
+      "full": "examples/music-turbo-hq/full.mp3",
+      "inputs": [],
+      "values": {
+        "style": "upbeat cumbia with accordion and modern synths, 100 bpm",
+        "seconds": 20,
+        "steps": 12
+      },
+      "seed": -1,
+      "seconds": 180.7,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261030"
     }
   },
   "updated_from": "20261026-041209-l40s"

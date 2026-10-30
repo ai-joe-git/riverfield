@@ -212,6 +212,22 @@ ont été retirés.
 Pour l'avoir un jour : venv séparé + service HTTP à côté (nouveau type d'app), ou
 sacrifier OmniVoice en redescendant transformers — aucun des deux n'est gratuit.
 
+### MiniMax Music 3 Turbo et Turbo HQ
+
+Deux apps sur le même graphe que `music`, avec le LoRA turbo communautaire
+`minimax_music3_turbo_lora_8step.safetensors` (à garder dans `ComfyUI/models/loras`,
+il n'est pas dans le pack `audio`) :
+
+| App | Steps | Mesuré (20 s de chanson) |
+|---|---|---|
+| `music-turbo` | 8 (euler / simple) | **110,7 s** |
+| `music-turbo-hq` | 12 | **180,7 s** |
+| `music` (sans LoRA) | 20 | ~131 s (15 s d'audio) |
+
+Entrées : style (caption), paroles, durée max, steps, seed. Sortie MP3 dans
+`riverfield/music-turbo` et `riverfield/music-turbo-hq`. Le décodeur audio tuilé du
+workflow d'origine (`VAEDecodeAudioTiled`) est conservé, avec repli sur `VAEDecodeAudio`.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.

@@ -1,0 +1,200 @@
+{
+  "35": {
+    "class_type": "SaveAudioAdvanced",
+    "inputs": {
+      "audio": [
+        "3743",
+        0
+      ],
+      "filename_prefix": "riverfield/music-turbo-hq",
+      "format": "mp3",
+      "format.quality": "V0"
+    },
+    "_meta": {
+      "title": "Save Audio (Advanced)"
+    }
+  },
+  "36": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "376",
+        0
+      ],
+      "lora_name": "minimax_music3_turbo_lora_8step.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "373": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "minimax_music3_text_encoder_pruned_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "376": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_music3_dit_fp16.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "377": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_music3_dav.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "379": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "36",
+        0
+      ],
+      "positive": [
+        "3713",
+        0
+      ],
+      "negative": [
+        "3710",
+        0
+      ],
+      "latent_image": [
+        "3715",
+        0
+      ],
+      "seed": [
+        "3738",
+        0
+      ],
+      "steps": 12,
+      "cfg": 1.5,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "3710": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "3713",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Conditioning Zero Out"
+    }
+  },
+  "3712": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "379",
+        0
+      ],
+      "vae": [
+        "377",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAE Decode Audio"
+    }
+  },
+  "3713": {
+    "class_type": "MiniMaxMusic3TextEncode",
+    "inputs": {
+      "clip": [
+        "373",
+        0
+      ],
+      "seed": [
+        "3738",
+        0
+      ],
+      "caption": "Authentic Sinaloa corrido sierreño, raw intimate live recording. Virtuosic 12-string requinto, bajo sexto, deep acoustic tololoche bass. Driving traditional guitar rhythms, natural string resonance. Deep weathered Mexican male baritone, gravelly and commanding, serious storytelling delivery. Catchy traditional melodies, tight musicianship, warm analog studio sound. No synths, MIDI, pop beats, electronic instruments or autotune.",
+      "lyrics": "[Intro - Spoken, low gravelly voice]\nDesde la sierra de Sinaloa...\nLes traigo un corrido muy pesado.\nDel hombre que lo tenía todo...\n¡Hasta que conoció a la torta!\n¡Échele, compadre!\n\n[Verse 1]\nTenía troca blindada,\nun rancho y un dineral,\ntodos le decían Patrón,\nnadie lo podía mirar.\nPero una tarde en Culiacán,\nse le acabó la valentía,\ncuando vio pasar a Rosa,\ncon tremenda anatomía.\n\n[Verse 2]\nTraía botas de vaquera,\nvestidito de color,\ny una FUPA tan hermosa,\nque al Patrón le dio calor.\nSe le cayó hasta el sombrero,\nse le olvidó su pistola,\ndijo: «Quédense con todo,\n¡yo me quedo con la gordota!»\n\n[Chorus - Strong traditional hook]\n¡Ay, qué bonita FUPA!\n¡Qué bendición del Señor!\nNi los dólares ni el oro\nme dan tanto calor.\n¡Que se queden con mis trocas!\n¡Que se queden el millón!\nYo me voy con mi tortita,\n¡la patrona del Patrón!\n\n[Instrumental - Requinto solo]\n\n[Verse 3]\nSus muchachos preocupados\nlo salieron a buscar,\nlo encontraron en la cocina,\ncon mandil para cocinar.\n«Jefe, lo esperan los socios,\nhay negocios que arreglar».\nDijo: «Bájenle, cabrones,\n¡que mi Rosa quiere cenar!»\n\n[Verse 4]\nYa no cuenta los billetes,\nni presume su poder,\nahora cuenta las gorditas\nque le cocina su mujer.\nY si alguno se le ríe,\nél responde sin temor:\n«¡Ustedes mandan en la calle,\npero aquí manda mi amor!»\n\n[Chorus - Full voice]\n¡Ay, qué bonita FUPA!\n¡Qué bendición del Señor!\nNi los dólares ni el oro\nme dan tanto calor.\n¡Que se queden con mis trocas!\n¡Que se queden el millón!\nYo me voy con mi tortita,\n¡la patrona del Patrón!\n\n[Outro - Spoken over acoustic guitar]\nY así termina el corrido...\nDel hombre más temido de Sinaloa.\nPerdió su imperio...\n¡Pero ganó una FUPA de lujo!\n¡Arriba las tortas, compadre!\n¡Y puro BlackRiver, viejo!",
+      "max_duration": 180,
+      "cfg_scale": 1.7,
+      "top_k": 50
+    },
+    "_meta": {
+      "title": "MiniMax Music3 Text Encode"
+    }
+  },
+  "3715": {
+    "class_type": "EmptyMiniMaxMusic3LatentAudio",
+    "inputs": {
+      "seconds": [
+        "3713",
+        1
+      ],
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Empty MiniMax Music3 Latent Audio"
+    }
+  },
+  "3738": {
+    "class_type": "SeedNode",
+    "inputs": {
+      "seed": 42
+    },
+    "_meta": {
+      "title": "Seed"
+    }
+  },
+  "3742": {
+    "class_type": "VAEDecodeAudioTiled",
+    "inputs": {
+      "samples": [
+        "379",
+        0
+      ],
+      "vae": [
+        "377",
+        0
+      ],
+      "tile_size": 1536,
+      "overlap": 64
+    },
+    "_meta": {
+      "title": "VAE Decode Audio (Tiled)"
+    }
+  },
+  "3743": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "3712",
+        0
+      ],
+      "on_true": [
+        "3742",
+        0
+      ],
+      "switch": false
+    },
+    "_meta": {
+      "title": "If/Else Switch"
+    }
+  }
+}

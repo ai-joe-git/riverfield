@@ -22,7 +22,7 @@ export async function loadCatalog() {
 
 /** Apps grouped like a store: a card can only sit in one row. */
 export const CATEGORIES = [
-  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-photo", "h3-photo-turbo", "music", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone"] },
+  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
   { id: "identity", apps: ["character", "character-3", "speak", "talking", "recast", "motion-transfer", "genjutsu", "dub", "character-swap", "face-swap"] },
   { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reshoot-turbo", "reframe", "extend-video", "extend-video-turbo", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
   { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-video", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
