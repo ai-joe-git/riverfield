@@ -1,0 +1,99 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "tts",
+  "name": "Text to Speech",
+  "section": "audio",
+  "pack": "tts",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "Reads a script out loud in 23 languages with Resemble AI's Chatterbox, on open weights: a clean voice, no API and no account.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "ComfyUI-Chatterbox (wildminder) ChatterboxMTLTTS",
+    "comfyui": "0.42.0",
+    "notes": "One node (Chatterbox Multilingual TTS, 23 languages) into SaveAudio. The node downloads its weights into ComfyUI/models/tts/chatterbox/ on the first run (safetensors + tokenizer, a few GB) and runs on ROCm like the rest of the stack; the only package it adds is s3tokenizer."
+  },
+  "inputs": [
+    {
+      "id": "text",
+      "type": "textarea",
+      "label": "Text",
+      "required": true,
+      "default": "Bonjour, ici RiverField. Ceci est une courte phrase lue par Chatterbox pour vérifier la voix.",
+      "help": "Punctuation is respected: commas and full stops set the pacing.",
+      "bind": [
+        { "node": "10", "field": "text" }
+      ]
+    },
+    {
+      "id": "language",
+      "type": "select",
+      "label": "Language",
+      "default": "fr",
+      "options": [
+        { "value": "ar", "label": "Arabic" },
+        { "value": "da", "label": "Danish" },
+        { "value": "de", "label": "German" },
+        { "value": "el", "label": "Greek" },
+        { "value": "en", "label": "English" },
+        { "value": "es", "label": "Spanish" },
+        { "value": "fi", "label": "Finnish" },
+        { "value": "fr", "label": "French" },
+        { "value": "he", "label": "Hebrew" },
+        { "value": "hi", "label": "Hindi" },
+        { "value": "it", "label": "Italian" },
+        { "value": "ja", "label": "Japanese" },
+        { "value": "ko", "label": "Korean" },
+        { "value": "ms", "label": "Malay" },
+        { "value": "nl", "label": "Dutch" },
+        { "value": "no", "label": "Norwegian" },
+        { "value": "pl", "label": "Polish" },
+        { "value": "pt", "label": "Portuguese" },
+        { "value": "ru", "label": "Russian" },
+        { "value": "sv", "label": "Swedish" },
+        { "value": "sw", "label": "Swahili" },
+        { "value": "tr", "label": "Turkish" },
+        { "value": "zh", "label": "Chinese" }
+      ],
+      "bind": [
+        { "node": "10", "field": "language" }
+      ]
+    },
+    {
+      "id": "exaggeration",
+      "type": "slider",
+      "label": "Expressiveness",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 0.5,
+      "help": "0 reads flat and calm, 1 pushes the emotion; 0.5 is the model's default.",
+      "bind": [
+        { "node": "10", "field": "exaggeration" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 0,
+      "help": "0 lets the model pick a random seed.",
+      "bind": [
+        { "node": "10", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "20", "type": "audio", "label": "Voice" }
+  ],
+  "models": [],
+  "credits": [
+    "Chatterbox by Resemble AI (MIT)",
+    "ComfyUI-Chatterbox by wildminder (Apache-2.0)"
+  ],
+  "notes": "The weights are not in a pack: the node downloads them itself into ComfyUI/models/tts/chatterbox/ the first time it runs (a few GB), then keeps them. 23 languages share one multilingual model, so a single voice reads a French line and an English one. For a voice of your own, the Text to Speech (clone) app takes a reference clip instead of the built-in voice. Chatterbox adds a Resemble watermark unless it is turned off; it is off here.",
+  "test": {
+    "text": "Bonjour, ceci est un test.",
+    "language": "fr"
+  }
+}

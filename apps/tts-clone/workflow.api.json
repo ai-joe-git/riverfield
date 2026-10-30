@@ -1,0 +1,52 @@
+{
+  "5": {
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Reference Voice"
+    },
+    "inputs": {
+      "audio": "voice.wav"
+    }
+  },
+  "10": {
+    "class_type": "ChatterboxMTLTTS",
+    "_meta": {
+      "title": "Chatterbox Multilingual TTS (clone)"
+    },
+    "inputs": {
+      "model_pack_name": "resembleai_default_voice",
+      "model_version": "t3_mtl23ls_v3.safetensors",
+      "language": "fr",
+      "text": "Bonjour, ici RiverField.",
+      "exaggeration": 0.5,
+      "temperature": 0.8,
+      "cfg_weight": 0.5,
+      "repetition_penalty": 1.2,
+      "min_p": 0.05,
+      "top_p": 1.0,
+      "seed": 0,
+      "use_watermark": false,
+      "device": "default",
+      "dtype": "auto",
+      "attention_mode": "sdpa",
+      "crash_protection_template": "hmm ,, {seg} hmm ,,",
+      "audio_prompt": [
+        "5",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "Save Audio"
+    },
+    "inputs": {
+      "audio": [
+        "10",
+        0
+      ],
+      "filename_prefix": "riverfield/tts-clone"
+    }
+  }
+}
