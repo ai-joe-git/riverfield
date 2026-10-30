@@ -1,0 +1,238 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "tts-omni-clone",
+  "name": "Text to Speech (OmniVoice clone)",
+  "section": "audio",
+  "pack": "tts",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "Copies a voice from 3 to 15 seconds of speech and reads a new script with it, in 600+ languages: OmniVoice's zero-shot cloning.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "ComfyUI-OmniVoice-TTS (Saganaki22) OmniVoiceVoiceCloneTTS + LoadAudio",
+    "comfyui": "0.42.0",
+    "notes": "The clip is loaded with core LoadAudio and handed to the node's ref_audio. The transcript is optional: left empty, the node transcribes the reference itself before cloning. Same OmniVoice weights as Text to Speech (voice design), downloaded on first use."
+  },
+  "inputs": [
+    {
+      "id": "voice",
+      "type": "audio",
+      "label": "Reference voice",
+      "required": true,
+      "help": "3 to 15 seconds of one speaker, clean and dry. Record it with the mic or upload it.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "5",
+          "field": "audio"
+        }
+      ]
+    },
+    {
+      "id": "text",
+      "type": "textarea",
+      "label": "Text",
+      "required": true,
+      "default": "Bonjour, c'est la même voix qui lit une autre phrase. Elle garde son timbre et son accent.",
+      "help": "The language can differ from the reference's: the voice follows your text.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "text"
+        }
+      ]
+    },
+    {
+      "id": "transcript",
+      "type": "textarea",
+      "label": "What the reference says",
+      "default": "",
+      "help": "Optional. Leave empty and OmniVoice transcribes the clip itself (a Whisper pass, slower but one less thing to type).",
+      "bind": [
+        {
+          "node": "10",
+          "field": "ref_text"
+        }
+      ]
+    },
+    {
+      "id": "style",
+      "type": "select",
+      "label": "Delivery",
+      "default": [],
+      "multiple": {
+        "max": 3,
+        "join": ", "
+      },
+      "help": "Optional direction on top of the clone, from the model's own vocabulary. Leave empty to keep the reference's delivery.",
+      "options": [
+        {
+          "value": "female",
+          "label": "Female"
+        },
+        {
+          "value": "male",
+          "label": "Male"
+        },
+        {
+          "value": "child",
+          "label": "Child"
+        },
+        {
+          "value": "teenager",
+          "label": "Teenager"
+        },
+        {
+          "value": "young adult",
+          "label": "Young adult"
+        },
+        {
+          "value": "middle-aged",
+          "label": "Middle-aged"
+        },
+        {
+          "value": "elderly",
+          "label": "Elderly"
+        },
+        {
+          "value": "very low pitch",
+          "label": "Very low pitch"
+        },
+        {
+          "value": "low pitch",
+          "label": "Low pitch"
+        },
+        {
+          "value": "moderate pitch",
+          "label": "Moderate pitch"
+        },
+        {
+          "value": "high pitch",
+          "label": "High pitch"
+        },
+        {
+          "value": "very high pitch",
+          "label": "Very high pitch"
+        },
+        {
+          "value": "american accent",
+          "label": "American"
+        },
+        {
+          "value": "australian accent",
+          "label": "Australian"
+        },
+        {
+          "value": "british accent",
+          "label": "British"
+        },
+        {
+          "value": "canadian accent",
+          "label": "Canadian"
+        },
+        {
+          "value": "chinese accent",
+          "label": "Chinese"
+        },
+        {
+          "value": "indian accent",
+          "label": "Indian"
+        },
+        {
+          "value": "japanese accent",
+          "label": "Japanese"
+        },
+        {
+          "value": "korean accent",
+          "label": "Korean"
+        },
+        {
+          "value": "portuguese accent",
+          "label": "Portuguese"
+        },
+        {
+          "value": "russian accent",
+          "label": "Russian"
+        },
+        {
+          "value": "whisper",
+          "label": "Whisper"
+        }
+      ],
+      "bind": [
+        {
+          "node": "10",
+          "field": "instruct",
+          "template": "{style}"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 64,
+      "step": 1,
+      "default": 32,
+      "help": "The model's default is 32; fewer steps are faster and rougher.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 0,
+      "help": "0 picks a random seed.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "20",
+      "type": "audio",
+      "label": "Voice"
+    }
+  ],
+  "models": [
+    {
+      "repo": "k2-fsa/OmniVoice",
+      "file": "OmniVoice/model.safetensors",
+      "dir": "omnivoice",
+      "gb": 2.45,
+      "phase": "all",
+      "optional": true,
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "k2-fsa/OmniVoice",
+      "file": "OmniVoice/audio_tokenizer/model.safetensors",
+      "dir": "omnivoice",
+      "gb": 0.81,
+      "phase": "all",
+      "optional": true,
+      "license": "Apache-2.0"
+    }
+  ],
+  "credits": [
+    "OmniVoice by k2-fsa (Apache-2.0)",
+    "ComfyUI-OmniVoice-TTS by Saganaki22 (MIT)"
+  ],
+  "notes": "Nothing is trained and nothing is stored: the timbre is read from the clip at each run, so it copies that recording only. Three to fifteen seconds of dry, single-speaker speech follow best; music, noise or two speakers confuse it. If the transcript is empty the node runs Whisper on the clip first, which is the slowest part of the first run. Use a voice you have the right to use.",
+  "test": {
+    "text": "Bonjour, ceci est un test.",
+    "transcript": ""
+  }
+}

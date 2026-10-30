@@ -180,6 +180,24 @@ Les poids (~5 Go) se téléchargent tout seuls au premier run dans
 **4,6 s** en `tts-clone` (modèle chaud). Le nœud tourne sur ROCm ; la seule dépendance
 ajoutée au venv est `s3tokenizer` (+ `onnx`, `ml_dtypes`, `protobuf`).
 
+
+### OmniVoice (design et clonage, 600+ langues)
+
+`ComfyUI-OmniVoice-TTS` (Saganaki22, MIT) + poids **OmniVoice** de k2-fsa (Apache-2.0, 0.6B) :
+
+| App | Entrées | Sortie |
+|---|---|---|
+| `tts-omni` | texte + description de voix (vocabulaire fermé : femelle/mâle, âge, hauteur, accent, whisper) | la voix inventée lit le texte |
+| `tts-omni-clone` | extrait de 3–15 s + texte (+ transcript optionnel) | la voix clonée lit le texte |
+
+Le `voice_instruct` d'OmniVoice est une **liste d'attributs** (« female, low pitch, british accent »),
+pas du texte libre : l'app l'expose en sélecteur multiple pour éviter les erreurs du modèle.
+Poids : **3,2 Go** dans `ComfyUI/models/omnivoice/`, téléchargés au premier run, chargés en 3 s.
+Mesuré ici : **4,1 s** (design) et **4,7 s** (clone) pour une phrase, modèle chaud.
+
+Python 3.13 : l'installeur du nœud échoue sur `pyaudioop` (le module `audioop` a disparu de 3.13) ;
+corrigé avec `pip install --no-deps audioop-lts`.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.

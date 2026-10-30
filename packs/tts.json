@@ -2,7 +2,9 @@
   "pack": "tts",
   "apps": [
     "tts",
-    "tts-clone"
+    "tts-clone",
+    "tts-omni",
+    "tts-omni-clone"
   ],
   "download_gb": 0,
   "needs_hf_token": false,
@@ -10,6 +12,10 @@
     {
       "repo": "https://github.com/wildminder/ComfyUI-Chatterbox",
       "commit": "b619de9e605b8477ba76bfd069f64be2ce2b7b5c"
+    },
+    {
+      "repo": "https://github.com/Saganaki22/ComfyUI-OmniVoice-TTS",
+      "commit": "3fe8e42a6d4a03628471aa1ba8506657e2e96dea"
     }
   ],
   "models": []

@@ -4806,6 +4806,53 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "local-20261030"
+    },
+    "tts-omni": {
+      "case": "tts-omni-design",
+      "type": "audio",
+      "card": "examples/tts-omni/card.png",
+      "full": "examples/tts-omni/full.mp3",
+      "inputs": [],
+      "values": {
+        "text": "Bonjour, je suis une voix imaginée par la description. Elle lit ce texte en français.",
+        "voice": [
+          "female",
+          "low pitch",
+          "british accent"
+        ],
+        "steps": 32
+      },
+      "seed": 0,
+      "seconds": 4.1,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261030"
+    },
+    "tts-omni-clone": {
+      "case": "tts-omni-clone",
+      "type": "audio",
+      "card": "examples/tts-omni-clone/card.png",
+      "full": "examples/tts-omni-clone/full.mp3",
+      "inputs": [
+        {
+          "id": "voice",
+          "label": "Reference voice",
+          "type": "audio",
+          "src": "examples/tts-omni-clone/input-voice.flac",
+          "full": "examples/tts-omni-clone/input-voice.flac"
+        }
+      ],
+      "values": {
+        "text": "Et maintenant la même voix, clonée par OmniVoice, lit une seconde phrase.",
+        "transcript": "Bonjour, ceci est un test de RiverField. La voix est générée localement, sans API.",
+        "style": [],
+        "steps": 32
+      },
+      "seed": 0,
+      "seconds": 4.7,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261030"
     }
   },
   "updated_from": "20261026-041209-l40s"

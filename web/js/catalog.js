@@ -67,6 +67,7 @@ export const MODELS = [
   { name: "Stable Audio 3", file: "stable_audio_3", app: "sfx", note: ["Sound effects and instrumental music", "Efectos de sonido y música instrumental"] },
   { name: "YuE2 3B", file: "yue2_3b", app: "music-yue2", note: ["Songs with sung vocals, covers", "Canciones con voz, versiones"] },
   { name: "Chatterbox", file: "t3_mtl23ls", app: "tts", note: ["Speech in 23 languages, voice clone", "Voz en 23 idiomas, clonación"] },
+  { name: "OmniVoice", file: "OmniVoice/model", app: "tts-omni", note: ["Voice design and cloning, 600+ languages", "Diseño y clonación de voz, 600+ idiomas"] },
   { name: "Qwen-Image-Edit 2509", file: "qwen_image_edit", app: "relight", note: ["Light, angles and the next shot", "Luz, ángulos y la siguiente toma"] },
   { name: "Krea 2 Turbo", file: "krea2_turbo", app: "styles", note: ["Styles with Krea's LoRAs", "Estilos con los LoRAs de Krea"] },
   { name: "MOSS-Image", file: "moss_image", app: "moss-image", note: ["Layout prompts", "Prompts con layout"] },

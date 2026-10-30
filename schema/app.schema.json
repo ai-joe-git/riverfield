@@ -192,7 +192,8 @@
             "diffusion_models", "text_encoders", "vae", "loras", "checkpoints", "clip_vision",
             "latent_upscale_models", "upscale_models", "model_patches", "geometry_estimation",
             "background_removal", "frame_interpolation", "audio_encoders",
-    "tts", "embeddings", "detection"
+    "tts",
+    "omnivoice", "embeddings", "detection"
           ],
           "description": "ComfyUI models/ subfolder."
         },
