@@ -1,0 +1,110 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "tts-clone",
+  "name": "Text to Speech (your voice)",
+  "section": "audio",
+  "pack": "tts",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "Reads a script in a voice you give it: five seconds of clean speech are enough for Chatterbox to copy the timbre, in 23 languages.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "ComfyUI-Chatterbox (wildminder) ChatterboxMTLTTS + LoadAudio",
+    "comfyui": "0.42.0",
+    "notes": "The reference clip is loaded with core LoadAudio and handed to the node's audio_prompt in memory; the node never writes a temp wav. Same multilingual model as Text to Speech, same automatic download into ComfyUI/models/tts/chatterbox/."
+  },
+  "inputs": [
+    {
+      "id": "voice",
+      "type": "audio",
+      "label": "Reference voice",
+      "required": true,
+      "help": "5 to 6 seconds of clean speech, one speaker, no music. The words do not matter, the timbre does.",
+      "limits": { "max_mb": 50 },
+      "bind": [
+        { "node": "5", "field": "audio" }
+      ]
+    },
+    {
+      "id": "text",
+      "type": "textarea",
+      "label": "Text",
+      "required": true,
+      "default": "Bonjour, c'est moi. Ceci est une phrase lue avec ma propre voix.",
+      "help": "Write it in the reference's language, or pick another one below.",
+      "bind": [
+        { "node": "10", "field": "text" }
+      ]
+    },
+    {
+      "id": "language",
+      "type": "select",
+      "label": "Language",
+      "default": "fr",
+      "options": [
+        { "value": "ar", "label": "Arabic" },
+        { "value": "da", "label": "Danish" },
+        { "value": "de", "label": "German" },
+        { "value": "el", "label": "Greek" },
+        { "value": "en", "label": "English" },
+        { "value": "es", "label": "Spanish" },
+        { "value": "fi", "label": "Finnish" },
+        { "value": "fr", "label": "French" },
+        { "value": "he", "label": "Hebrew" },
+        { "value": "hi", "label": "Hindi" },
+        { "value": "it", "label": "Italian" },
+        { "value": "ja", "label": "Japanese" },
+        { "value": "ko", "label": "Korean" },
+        { "value": "ms", "label": "Malay" },
+        { "value": "nl", "label": "Dutch" },
+        { "value": "no", "label": "Norwegian" },
+        { "value": "pl", "label": "Polish" },
+        { "value": "pt", "label": "Portuguese" },
+        { "value": "ru", "label": "Russian" },
+        { "value": "sv", "label": "Swedish" },
+        { "value": "sw", "label": "Swahili" },
+        { "value": "tr", "label": "Turkish" },
+        { "value": "zh", "label": "Chinese" }
+      ],
+      "bind": [
+        { "node": "10", "field": "language" }
+      ]
+    },
+    {
+      "id": "exaggeration",
+      "type": "slider",
+      "label": "Expressiveness",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 0.5,
+      "help": "How far the reading leans into the emotion of the line.",
+      "bind": [
+        { "node": "10", "field": "exaggeration" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 0,
+      "help": "0 lets the model pick a random seed.",
+      "bind": [
+        { "node": "10", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "20", "type": "audio", "label": "Voice" }
+  ],
+  "models": [],
+  "credits": [
+    "Chatterbox by Resemble AI (MIT)",
+    "ComfyUI-Chatterbox by wildminder (Apache-2.0)"
+  ],
+  "notes": "The timbre comes from the clip you upload, not from a trained model of the person: nothing is stored and nothing is trained, so it copies the voice of that recording only. A dry, close-miked voice follows best; music, noise or two speakers confuse it. Same weights as Text to Speech, downloaded once into ComfyUI/models/tts/chatterbox/. Use a voice you have the right to use.",
+  "test": {
+    "text": "Bonjour, ceci est un test.",
+    "language": "fr"
+  }
+}

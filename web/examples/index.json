@@ -4764,6 +4764,48 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "media repris de l'exemple de reshoot (mêmes entrées) ; lance-le pour un rendu turbo"
+    },
+    "tts": {
+      "case": "tts-bonjour",
+      "type": "audio",
+      "card": "examples/tts/card.png",
+      "full": "examples/tts/full.mp3",
+      "inputs": [],
+      "values": {
+        "text": "Bonjour, ceci est un test de RiverField. La voix est générée localement, sans API.",
+        "language": "fr",
+        "exaggeration": 0.5
+      },
+      "seed": 0,
+      "seconds": 4.1,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261030"
+    },
+    "tts-clone": {
+      "case": "tts-clone-bonjour",
+      "type": "audio",
+      "card": "examples/tts-clone/card.png",
+      "full": "examples/tts-clone/full.mp3",
+      "inputs": [
+        {
+          "id": "voice",
+          "label": "Reference voice",
+          "type": "audio",
+          "src": "examples/tts-clone/input-voice.flac",
+          "full": "examples/tts-clone/input-voice.flac"
+        }
+      ],
+      "values": {
+        "text": "Et maintenant, la même voix lit une autre phrase : c'est le clonage.",
+        "language": "fr",
+        "exaggeration": 0.5
+      },
+      "seed": 0,
+      "seconds": 4.6,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261030"
     }
   },
   "updated_from": "20261026-041209-l40s"

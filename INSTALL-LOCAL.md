@@ -165,6 +165,21 @@ cd ~/riverfield && python3 local/make-turbo-apps.py && npm run validate
 Les LoRA ne sont pas déclarés dans `models` (pas d'entrée Hub) : ils doivent être dans
 `ComfyUI/models/loras`, ce qui est le cas ici.
 
+## Audio : Text to Speech (Chatterbox)
+
+Deux apps ajoutées, sur **ComfyUI-Chatterbox** (wildminder, Apache-2.0) et les poids
+**Chatterbox** de Resemble AI (MIT, 23 langues) :
+
+| App | Entrées | Sortie |
+|---|---|---|
+| `tts` | texte, langue, expressivité, seed | voix (voix par défaut du modèle) |
+| `tts-clone` | extrait de voix de référence + texte, langue, expressivité | la même voix lit le texte |
+
+Les poids (~5 Go) se téléchargent tout seuls au premier run dans
+`ComfyUI/models/tts/chatterbox/`. Mesuré ici : **4,1 s** pour une phrase en `tts`,
+**4,6 s** en `tts-clone` (modèle chaud). Le nœud tourne sur ROCm ; la seule dépendance
+ajoutée au venv est `s3tokenizer` (+ `onnx`, `ml_dtypes`, `protobuf`).
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
