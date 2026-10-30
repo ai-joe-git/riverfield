@@ -22,9 +22,9 @@ export async function loadCatalog() {
 
 /** Apps grouped like a store: a card can only sit in one row. */
 export const CATEGORIES = [
-  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-photo", "music", "sfx"] },
+  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-photo", "h3-photo-turbo", "music", "music-yue2", "music-yue2-cover", "sfx"] },
   { id: "identity", apps: ["character", "character-3", "speak", "talking", "recast", "motion-transfer", "genjutsu", "dub", "character-swap", "face-swap"] },
-  { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reframe", "extend-video", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
+  { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reshoot-turbo", "reframe", "extend-video", "extend-video-turbo", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
   { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-video", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
   { id: "vfx", apps: ["effects", "morph", "edit", "inpaint", "vfx-clean-plate", "vfx-day-to-night", "vfx-water"] },
   { id: "ads", apps: ["product-shot", "poster", "packshot", "macro-scene", "macro-product", "giant-product", "billboard", "graffiti-ad", "fridge-ad", "ugc-shot",
@@ -40,8 +40,8 @@ export function categoryOf(id) {
 
 /** The video studio's three tabs, like a camera crew: shoot, fix, move. */
 export const VIDEO_TABS = [
-  { id: "create", apps: ["video", "cinema-video", "h3-video", "h3-photo", "effects", "morph", "video-t2v", "genjutsu", "speak", "talking", "dub", "transitions", "camera-moves"] },
-  { id: "edit", apps: ["recast", "mixed-media", "reframe", "extend-video", "vfx-clean-plate", "vfx-day-to-night", "vfx-water", "sdr-hdr", "upscale-video", "smooth", "reshoot", "video-remove-bg"] },
+  { id: "create", apps: ["video", "cinema-video", "h3-video", "h3-video-turbo", "h3-photo", "h3-photo-turbo", "effects", "morph", "video-t2v", "genjutsu", "speak", "talking", "dub", "transitions", "camera-moves"] },
+  { id: "edit", apps: ["recast", "mixed-media", "reframe", "extend-video", "extend-video-turbo", "vfx-clean-plate", "vfx-day-to-night", "vfx-water", "sdr-hdr", "upscale-video", "smooth", "reshoot", "reshoot-turbo", "video-remove-bg"] },
   { id: "motion", apps: ["motion-transfer", "camera-copy"] },
   { id: "templates", apps: ["behind-the-scenes", "asmr-product", "asmr-whisper", "asmr-host", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad",
     "roller-coaster", "storm-creature", "cloud-surf", "mukbang", "melting-doodle", "rap-video", "idol", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },

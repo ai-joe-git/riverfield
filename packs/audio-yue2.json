@@ -1,0 +1,37 @@
+{
+  "pack": "audio-yue2",
+  "apps": [
+    "music-yue2",
+    "music-yue2-cover"
+  ],
+  "download_gb": 5.35,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "Comfy-Org/YuE2",
+      "file": "checkpoints/yue2_3b_int8_convrot.safetensors",
+      "dir": "checkpoints",
+      "gb": 3.96,
+      "name": "yue2_3b_int8_convrot.safetensors",
+      "gated": false,
+      "license": "CC BY-NC 4.0",
+      "used_by": [
+        "music-yue2",
+        "music-yue2-cover"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/YuE2",
+      "file": "audio_encoders/sheetsage2_bf16.safetensors",
+      "dir": "audio_encoders",
+      "gb": 1.39,
+      "name": "sheetsage2_bf16.safetensors",
+      "gated": false,
+      "license": "CC BY-NC 4.0",
+      "used_by": [
+        "music-yue2-cover"
+      ]
+    }
+  ]
+}

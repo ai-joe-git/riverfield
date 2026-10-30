@@ -1,0 +1,114 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "music-yue2-cover",
+  "name": "YuE2 Cover",
+  "section": "audio",
+  "pack": "audio-yue2",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "A new version of an existing song: YuE2 follows the melody of the clip you upload and sings it again in the style you ask for.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "audio_yue2_music_cover.json",
+    "comfyui": "0.42.0",
+    "notes": "The user workflow converted with tools/ui2api.py (subgraph nodes keep the 33: prefix). SheetSage2 turns the uploaded clip into an ABC melody score, YuE2GenerateMusic runs in melody mode on that score, and the 32-step dpm_2 / sgm_uniform sampler is the template's."
+  },
+  "inputs": [
+    {
+      "id": "audio",
+      "type": "audio",
+      "label": "Song to cover",
+      "required": true,
+      "help": "The reference song; SheetSage2 reads its melody, so a clear, dry mix follows better.",
+      "limits": { "max_mb": 100 },
+      "bind": [
+        { "node": "45", "field": "audio" }
+      ]
+    },
+    {
+      "id": "style",
+      "type": "textarea",
+      "label": "Style",
+      "default": "English, soulful jazz-pop, expressive male vocal, relaxed 88 BPM, Rhodes piano, upright bass",
+      "help": "How the cover should sound; leave empty to keep the reference's own style.",
+      "bind": [
+        { "node": "33:25", "field": "style" }
+      ]
+    },
+    {
+      "id": "lyrics",
+      "type": "textarea",
+      "label": "Lyrics",
+      "default": "",
+      "help": "Leave empty to sing the reference's words, or write new ones with [Verse] / [Chorus] tags.",
+      "bind": [
+        { "node": "33:25", "field": "lyrics" }
+      ]
+    },
+    {
+      "id": "seconds",
+      "type": "slider",
+      "label": "Max seconds",
+      "min": 10,
+      "max": 360,
+      "step": 5,
+      "default": 60,
+      "bind": [
+        { "node": "33:25", "field": "max_duration" }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 64,
+      "step": 1,
+      "default": 32,
+      "help": "The template runs 32; fewer steps are faster and rougher.",
+      "bind": [
+        { "node": "33:8", "field": "steps" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        { "node": "33:34", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "10", "type": "audio", "label": "Cover" }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/YuE2",
+      "file": "checkpoints/yue2_3b_int8_convrot.safetensors",
+      "dir": "checkpoints",
+      "gb": 3.96,
+      "phase": "all",
+      "license": "CC BY-NC 4.0"
+    },
+    {
+      "repo": "Comfy-Org/YuE2",
+      "file": "audio_encoders/sheetsage2_bf16.safetensors",
+      "dir": "audio_encoders",
+      "gb": 1.39,
+      "phase": "encode",
+      "license": "CC BY-NC 4.0"
+    }
+  ],
+  "credits": [
+    "YuE2 by m-a-p (CC BY-NC 4.0, non-commercial)",
+    "SheetSage2 melody transcription (CC BY-NC 4.0)"
+  ],
+  "notes": "SheetSage2 reads the melody of the uploaded song into an ABC score, and YuE2GenerateMusic sings a new version over it in the style you ask for; the reference's words are kept unless you write lyrics. Only the melody guides the model, so a very produced mix still follows, but a dry vocal or a piano line follows best. The weights are CC BY-NC 4.0: personal use only, no commercial output.",
+  "test": {
+    "style": "acoustic folk, 90 bpm",
+    "seconds": 20
+  }
+}

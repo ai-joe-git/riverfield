@@ -1,0 +1,148 @@
+{
+  "music-yue2": {
+    "case": "music-yue2-rain",
+    "type": "audio",
+    "card": "examples/music-yue2/card.png",
+    "full": "examples/music-yue2/full.mp3",
+    "inputs": [],
+    "values": {
+      "style": "upbeat indie pop with warm female vocals, bright electric guitars, punchy drums, 120 bpm",
+      "lyrics": "[Verse]\nMorning light across the window\nCity waking down below\nI can hear the streets are calling\nFeels like somewhere we should go\n\n[Chorus]\nRun with me into the sunlight\nLeave the shadows far behind",
+      "seconds": 20,
+      "steps": 16,
+      "abc": false
+    },
+    "seed": 42,
+    "seconds": 21.8,
+    "peak_vram_gb": null,
+    "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+    "run": "local-20261028"
+  },
+  "music-yue2-cover": {
+    "case": "music-yue2-cover-folk",
+    "type": "audio",
+    "card": "examples/music-yue2-cover/card.png",
+    "full": "examples/music-yue2-cover/full.mp3",
+    "inputs": [
+      {
+        "id": "audio",
+        "label": "Song to cover",
+        "type": "audio",
+        "src": "examples/music-yue2-cover/input-audio.mp3",
+        "full": "examples/music-yue2-cover/input-audio.mp3"
+      }
+    ],
+    "values": {
+      "style": "acoustic folk, warm male vocal, 90 bpm, fingerpicked guitar",
+      "lyrics": "[Verse]\nRain on the window\nCoffee going cold",
+      "seconds": 20,
+      "steps": 16
+    },
+    "seed": 42,
+    "seconds": 26.2,
+    "peak_vram_gb": null,
+    "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+    "run": "local-20261028"
+  },
+  "h3-video-turbo": {
+    "case": "h3-video-turbo-tacos",
+    "type": "video",
+    "card": "examples/h3-video-turbo/card.mp4",
+    "poster": "examples/h3-video-turbo/poster.jpg",
+    "full": "examples/h3-video-turbo/full.mp4",
+    "inputs": [],
+    "values": {
+      "duration": 4,
+      "steps": 3,
+      "resolution": 0.4
+    },
+    "seed": 42,
+    "seconds": null,
+    "peak_vram_gb": null,
+    "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+    "run": "local-20261028"
+  },
+  "h3-photo-turbo": {
+    "case": "h3-photo-turbo-man",
+    "type": "video",
+    "card": "examples/h3-photo-turbo/card.mp4",
+    "poster": "examples/h3-photo-turbo/poster.jpg",
+    "full": "examples/h3-photo-turbo/full.mp4",
+    "inputs": [
+      {
+        "id": "image",
+        "label": "Photo",
+        "type": "image",
+        "src": "examples/h3-photo-turbo/input-image.jpg",
+        "full": "examples/h3-photo-turbo/input-image-full.jpg"
+      }
+    ],
+    "values": {
+      "duration": 4,
+      "steps": 3,
+      "resolution": 0.6,
+      "sampler": "euler"
+    },
+    "seed": 42,
+    "seconds": null,
+    "peak_vram_gb": null,
+    "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+    "run": "media repris de l'exemple de h3-photo (mêmes entrées) ; lance-le pour un rendu turbo"
+  },
+  "extend-video-turbo": {
+    "case": "extend-video-turbo-continuation",
+    "type": "video",
+    "card": "examples/extend-video-turbo/card.mp4",
+    "poster": "examples/extend-video-turbo/poster.jpg",
+    "full": "examples/extend-video-turbo/full.mp4",
+    "inputs": [
+      {
+        "id": "clip",
+        "label": "Clip",
+        "type": "video",
+        "src": "examples/h3-photo/full.mp4",
+        "full": "examples/h3-photo/full.mp4"
+      }
+    ],
+    "values": {
+      "duration": 3,
+      "steps": 3,
+      "sampler": "euler"
+    },
+    "seed": 42,
+    "seconds": null,
+    "peak_vram_gb": null,
+    "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+    "run": "media repris de l'exemple de h3-photo (mêmes entrées) ; lance-le pour un rendu turbo"
+  },
+  "reshoot-turbo": {
+    "case": "reshoot-turbo-alley",
+    "type": "video",
+    "card": "examples/reshoot-turbo/card.mp4",
+    "poster": "examples/reshoot-turbo/poster.jpg",
+    "full": "examples/reshoot-turbo/full.mp4",
+    "inputs": [
+      {
+        "id": "clip",
+        "label": "Clip",
+        "type": "video",
+        "src": "examples/reshoot-turbo/input-clip.jpg",
+        "full": "examples/reshoot-turbo/input-clip.mp4"
+      }
+    ],
+    "values": {
+      "azimuth": -30,
+      "elevation": 20,
+      "distance": 1,
+      "duration": 4,
+      "steps": 4,
+      "sampler": "euler",
+      "prompt": ""
+    },
+    "seed": 42,
+    "seconds": null,
+    "peak_vram_gb": null,
+    "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+    "run": "media repris de l'exemple de reshoot (mêmes entrées) ; lance-le pour un rendu turbo"
+  }
+}

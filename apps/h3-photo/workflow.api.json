@@ -6,7 +6,7 @@
         "105:91",
         0
       ],
-      "filename_prefix": "freefield/h3-photo",
+      "filename_prefix": "riverfield/h3-photo",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -28,7 +28,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "105:6",
+        "105:125",
         0
       ],
       "steps": [
@@ -119,7 +119,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "105:6",
+        "105:125",
         0
       ],
       "conditioning": [
@@ -281,6 +281,30 @@
     },
     "_meta": {
       "title": "Get Image Size"
+    }
+  },
+  "105:125": {
+    "class_type": "H3SLAAttentionROCM",
+    "inputs": {
+      "model": [
+        "105:6",
+        0
+      ],
+      "sparsity_ratio": 0.9,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 1,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "comfy_kitchen",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false
+    },
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM"
     }
   }
 }

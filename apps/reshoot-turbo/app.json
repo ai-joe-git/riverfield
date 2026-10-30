@@ -1,0 +1,241 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "reshoot-turbo",
+  "name": "Re-shoot Turbo",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "higgsfield_feature": "Camera angles",
+  "summary": "Moves the camera to a new angle on an existing clip with MiniMax H3's 4-step turbo LoRA instead of the 8-step one (MoGe + CrossView).",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "Comfy-Org/comfy-reshoot workflows/generate.api.json (dc53fc7)",
+    "comfyui": "0.42.0",
+    "notes": "Local turbo clone of reshoot (minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors at 4 steps, euler), rebuilt by local/make-turbo-apps.py; the upstream app is untouched."
+  },
+  "inputs": [
+    {
+      "id": "clip",
+      "type": "video",
+      "label": "Your clip",
+      "required": true,
+      "limits": {
+        "max_mb": 100,
+        "seconds": [
+          5,
+          15
+        ]
+      },
+      "bind": [
+        {
+          "node": "1",
+          "field": "file"
+        }
+      ]
+    },
+    {
+      "id": "azimuth",
+      "type": "slider",
+      "label": "Orbit (degrees)",
+      "min": -90,
+      "max": 90,
+      "step": 5,
+      "default": -30,
+      "bind": [
+        {
+          "node": "5",
+          "field": "azimuth"
+        }
+      ]
+    },
+    {
+      "id": "elevation",
+      "type": "slider",
+      "label": "Height (degrees)",
+      "min": -30,
+      "max": 60,
+      "step": 5,
+      "default": 20,
+      "bind": [
+        {
+          "node": "5",
+          "field": "elevation"
+        }
+      ]
+    },
+    {
+      "id": "distance",
+      "type": "slider",
+      "label": "Distance",
+      "min": 0.5,
+      "max": 2.0,
+      "step": 0.05,
+      "default": 1.0,
+      "bind": [
+        {
+          "node": "5",
+          "field": "distance"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds to keep",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "default": 5,
+      "bind": [
+        {
+          "node": "2",
+          "field": "duration"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Extra description (optional)",
+      "default": "",
+      "bind": [
+        {
+          "node": "20",
+          "field": "prompt",
+          "template": "crossview. {prompt}"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "30",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 2,
+      "max": 30,
+      "step": 1,
+      "default": 4,
+      "help": "The turbo LoRA is trained for 4 steps; more steps cost time and usually add nothing. Fewer look rougher.",
+      "bind": [
+        {
+          "node": "32",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "help": "euler is what the turbo LoRA was trained with; res_multistep is the plain app's sampler, smoother at equal steps but slower to settle at 3 or 4.",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        }
+      ],
+      "bind": [
+        {
+          "node": "31",
+          "field": "sampler_name"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "38",
+      "type": "video",
+      "label": "New angle"
+    },
+    {
+      "node": "41",
+      "type": "video",
+      "label": "Warp guide"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MoGe",
+      "file": "geometry_estimation/moge_2_vitl_normal_fp16.safetensors",
+      "dir": "geometry_estimation",
+      "gb": 0.66,
+      "phase": "aux",
+      "license": "MIT"
+    },
+    {
+      "repo": "Cseti/MiniMax-H3_Ref2VA-LoRA-CrossView-Warp_v1",
+      "file": "MiniMax-H3_Ref2VA-LoRA-CrossView-Warp_v1_3500.safetensors",
+      "dir": "loras",
+      "gb": 0.6,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/comfyrob/ComfyUI-CrossViewWarp",
+      "commit": "fbb1e93c7193329ff3ce7c17f95166b539687876"
+    }
+  ],
+  "credits": [
+    "Comfy-Org/comfy-reshoot (MIT)",
+    "CrossView-Warp node (Apache-2.0) and LoRA by Cseti",
+    "MiniMax H3 (MiniMax H3 Community License)",
+    "Turbo LoRA: minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors (local file)"
+  ],
+  "test": {
+    "clip": "test/clip.mp4",
+    "duration": 5
+  },
+  "notes": "Re-shoot with minimax_h3_ref2v_turbo_4step_v0.1 in place of the 8-step turbo LoRA, at 4 steps with euler; the CrossView-Warp LoRA stays at 0.8 and the second output (\"Warp guide\") is unchanged. Local turbo variant, not part of the video-h3 pack: freefield's catalogue has no Hub entry for minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors, so it is not downloaded with the pack. Keep the file in ComfyUI/models/loras."
+}
