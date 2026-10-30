@@ -1,4 +1,4 @@
-// Compare a Freefield result with another one: a file from Higgsfield (or anywhere), or another
+// Compare a RiverField result with another one: a file from Higgsfield (or anywhere), or another
 // generation. Images side by side or as a wipe; videos side by side with one transport, kept in sync.
 // Dropped files stay in the browser (object URLs); nothing is uploaded.
 import { el, icon, fmtSeconds } from "./util.js";
@@ -34,7 +34,7 @@ const mb = (n) => (n ? `${(n / 1e6).toFixed(n > 1e7 ? 0 : 1)} MB` : "");
 
 export function openCompare(item) {
   const app = byId.get(item.app);
-  const left = { label: `Freefield · ${app?.name ?? item.app}`, type: item.type, url: item.full, size: null };
+  const left = { label: `RiverField · ${app?.name ?? item.app}`, type: item.type, url: item.full, size: null };
   let right = null;
   let mode = "side";
   const root = el("div", { class: "cmpx", role: "dialog", "aria-modal": "true" });
@@ -76,7 +76,7 @@ export function openCompare(item) {
             const it = entryItem(e);
             return el("button", { type: "button", style: { flex: "none", width: "64px", height: "64px", borderRadius: "10px", overflow: "hidden", border: "1px solid #2a2a2f", padding: 0, background: "#000", cursor: "pointer" },
               title: byId.get(e.app)?.name ?? e.app,
-              onclick: () => { right = { label: `Freefield · ${byId.get(e.app)?.name ?? e.app}`, type: it.type, url: it.full, size: null }; draw(); } },
+              onclick: () => { right = { label: `RiverField · ${byId.get(e.app)?.name ?? e.app}`, type: it.type, url: it.full, size: null }; draw(); } },
               it.type === "video" ? el("video", { src: `${it.full}#t=0.1`, muted: true, preload: "metadata", style: { width: "100%", height: "100%", objectFit: "cover" } })
                 : el("img", { src: it.full, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }));
           }))) : el("div"));

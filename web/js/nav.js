@@ -78,7 +78,7 @@ export function topbar({ onLang }) {
     ["apps", "#/apps", "layers"], ["library", "#/library", "film"],
   ];
   const links = new Map();
-  const nav = el("nav", { class: "nav-main", "aria-label": "Freefield" });
+  const nav = el("nav", { class: "nav-main", "aria-label": "RiverField" });
   for (const [key, hash] of items) {
     const a = el("a", { href: hash }, t(`nav.${key}`));
     links.set(key, a);
@@ -104,7 +104,7 @@ export function topbar({ onLang }) {
     .map(([label, hash, ic]) => el("a", { class: "opt", href: hash, onclick: closePopover }, icon(ic), label))));
   const bar = el("header", { class: "topbar" },
     menuBtn,
-    el("a", { class: "logo", href: "#/", "aria-label": "Freefield" }, logoMark(), el("span", { class: "word" }, "freefield")),
+    el("a", { class: "logo", href: "#/", "aria-label": "RiverField" }, logoMark(), el("span", { class: "word" }, "riverfield")),
     nav,
     el("div", { class: "nav-right" }, vram, langBtn, gpuPill(), el("a", { class: "btn lime small cta", href: "#/image" }, icon("spark"), t("nav.create"))));
   attachMenus(bar, links);

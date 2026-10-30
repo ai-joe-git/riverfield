@@ -2,19 +2,19 @@
 
     client (SDK) ──▶ gateway :8000 ──▶ comfy-api-proxy :8189 ──▶ ComfyUI :8188
 
-- Every request needs `Authorization: Bearer $FREEFIELD_TOKEN` (the Comfy SDK sends its
+- Every request needs `Authorization: Bearer $RIVERFIELD_TOKEN` (the Comfy SDK sends its
   apiKey that way). The header is stripped before forwarding; the proxy has no auth.
-- POST /freefield/prepare {"app", "models"} is the pantry manager: when the requested
+- POST /riverfield/prepare {"app", "models"} is the pantry manager: when the requested
   app needs a different set of models than the one that ran last, it asks ComfyUI to
   unload everything (POST /free) so nothing from the previous app stays in VRAM.
-- GET /freefield/status shows the current app and ComfyUI's device stats.
+- GET /riverfield/status shows the current app and ComfyUI's device stats.
 - GET /health is open, for Modal's startup probe.
 - The proxy writes absolute links (a job's `urls.self`, `.events`, `.cancel`, an output's
   `url`) from the host *it* sees, http://127.0.0.1:8189; the SDK follows those links
   verbatim, so from outside they went nowhere ("fetch failed", 23 oct). JSON answers are
   rewritten to the address the client reached the gateway on.
 
-Run: python gateway.py  (env: FREEFIELD_TOKEN, COMFYUI_URL, PROXY_URL, GATEWAY_PORT)
+Run: python gateway.py  (env: RIVERFIELD_TOKEN, COMFYUI_URL, PROXY_URL, GATEWAY_PORT)
 """
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ from aiohttp import ClientSession, ClientTimeout, web
 
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
 PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:8189")
-TOKEN = os.environ.get("FREEFIELD_TOKEN", "")
-ALLOW_OPEN = os.environ.get("FREEFIELD_ALLOW_OPEN") == "1"
+TOKEN = os.environ.get("RIVERFIELD_TOKEN", "")
+ALLOW_OPEN = os.environ.get("RIVERFIELD_ALLOW_OPEN") == "1"
 HOP_HEADERS = {"host", "authorization", "content-length", "transfer-encoding", "connection", "keep-alive"}
 
 log = logging.getLogger("gateway")
@@ -154,11 +154,11 @@ async def on_cleanup(app: web.Application) -> None:
 
 def make_app() -> web.Application:
     if not TOKEN and not ALLOW_OPEN:
-        raise SystemExit("FREEFIELD_TOKEN is not set; refusing to start an open gateway")
+        raise SystemExit("RIVERFIELD_TOKEN is not set; refusing to start an open gateway")
     app = web.Application(middlewares=[auth_mw], client_max_size=1024 ** 3)
     app.router.add_get("/health", health)
-    app.router.add_post("/freefield/prepare", prepare)
-    app.router.add_get("/freefield/status", status)
+    app.router.add_post("/riverfield/prepare", prepare)
+    app.router.add_get("/riverfield/status", status)
     app.router.add_route("*", "/{tail:.*}", forward)
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)

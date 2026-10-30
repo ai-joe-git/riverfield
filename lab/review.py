@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Freefield lab · {run}</title>
+<title>RiverField lab · {run}</title>
 <style>
 :root{{--bg:#0d1520;--card:#152232;--line:#2a3d52;--ink:#e8eef5;--dim:#8fa3b8;--good:#74d97a;--meh:#f5cf4a;--bad:#ff7466}}
 body{{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}}
@@ -37,7 +37,7 @@ button.export{{padding:8px 14px;border-radius:6px;border:0;background:var(--ink)
 <header><h1>Lab run {run}</h1><span class="meta">{gpu} · {ok}/{n} ok</span><button class="export" id="export">Export ratings.json</button></header>
 <main>{cards}</main>
 <script>
-const KEY = "freefield-lab-{run}";
+const KEY = "riverfield-lab-{run}";
 let state = {{}}; try {{ state = JSON.parse(localStorage.getItem(KEY) || "{{}}"); }} catch (e) {{}}
 const save = () => {{ try {{ localStorage.setItem(KEY, JSON.stringify(state)); }} catch (e) {{}} }};
 document.querySelectorAll(".card").forEach(card => {{

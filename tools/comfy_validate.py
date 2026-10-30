@@ -122,7 +122,7 @@ def make_placeholders(api: dict, comfy_dir: Path) -> None:
 
 
 def validate(url: str, api: dict, label: str) -> bool:
-    status, body = _post(f"{url}/prompt", {"prompt": api, "client_id": "freefield-validate"})
+    status, body = _post(f"{url}/prompt", {"prompt": api, "client_id": "riverfield-validate"})
     if status == 200 and "prompt_id" in body:
         _post(f"{url}/queue", {"delete": [body["prompt_id"]]})
         _post(f"{url}/interrupt", {})
@@ -192,7 +192,7 @@ def lab_variants(cases_path: Path) -> list[tuple[str, dict]]:
     cases = json.loads(cases_path.read_text(encoding="utf-8"))["cases"]
     out = []
     for c in cases:
-        _, api, _ = core.build_case(ROOT / "apps", c, lambda _cid, _raw, kind: f"freefield_check_{kind}.{ext[kind]}")
+        _, api, _ = core.build_case(ROOT / "apps", c, lambda _cid, _raw, kind: f"riverfield_check_{kind}.{ext[kind]}")
         out.append((f"lab:{c['id']} ({c['app']})", api))
     return out
 

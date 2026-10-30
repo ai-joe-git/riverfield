@@ -6,7 +6,7 @@
         "9014",
         0
       ],
-      "filename_prefix": "freefield/sdr-hdr",
+      "filename_prefix": "riverfield/sdr-hdr",
       "format": "auto",
       "format.codec": "auto",
       "codec": "auto"
@@ -413,7 +413,7 @@
       "save_exr": false,
       "exr_color_space": "acescg",
       "output_dir": "output/hdr_exr",
-      "filename_prefix": "freefield/sdr-hdr",
+      "filename_prefix": "riverfield/sdr-hdr",
       "half_precision": true
     },
     "_meta": {
@@ -554,7 +554,7 @@
         "ff_hdr_video",
         0
       ],
-      "filename_prefix": "freefield/sdr-hdr",
+      "filename_prefix": "riverfield/sdr-hdr",
       "format": "auto",
       "format.codec": "auto",
       "codec": "auto"

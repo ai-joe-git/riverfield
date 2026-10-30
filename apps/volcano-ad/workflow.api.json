@@ -15,7 +15,7 @@
         "251:218",
         0
       ],
-      "filename_prefix": "freefield/volcano-ad",
+      "filename_prefix": "riverfield/volcano-ad",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -637,7 +637,7 @@
       "strength_model": 1.0
     },
     "_meta": {
-      "title": "Freefield LoRA"
+      "title": "RiverField LoRA"
     }
   },
   "edit:1": {

@@ -15,9 +15,9 @@
 //   GET    /api/flags                        lab examples marked "mediocre" from the UI (lab/flags.json)
 //   POST   /api/flags                        JSON { key, mediocre, note? }: mark or unmark one example
 // Everything else is served from web/ when it exists (with byte ranges, so videos seek everywhere).
-// Hosted (server/guard.ts): FREEFIELD_PASSCODE closes every route behind a passcode, FREEFIELD_MAX_RUNS_PER_DAY and
-// FREEFIELD_MAX_ACTIVE cap the runs (429 past them), lab marks become read-only and uploads are capped at
-// FREEFIELD_MAX_UPLOAD_MB. FREEFIELD_OUT moves out/ (history, the run count), FREEFIELD_HOST the listening address.
+// Hosted (server/guard.ts): RIVERFIELD_PASSCODE closes every route behind a passcode, RIVERFIELD_MAX_RUNS_PER_DAY and
+// RIVERFIELD_MAX_ACTIVE cap the runs (429 past them), lab marks become read-only and uploads are capped at
+// RIVERFIELD_MAX_UPLOAD_MB. RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
@@ -41,10 +41,10 @@ const vram = new Map<string, VramRow>(
 );
 let runner: Runner | null = null;
 const getRunner = () => (runner ??= new Runner());
-const draftsAllowed = process.env.FREEFIELD_DRAFTS === "1";
-const outDir = process.env.FREEFIELD_OUT || join(root, "out");
+const draftsAllowed = process.env.RIVERFIELD_DRAFTS === "1";
+const outDir = process.env.RIVERFIELD_OUT || join(root, "out");
 const guard = Guard.fromEnv(join(outDir, "limits.json"));
-const maxUploadMb = Number(process.env.FREEFIELD_MAX_UPLOAD_MB || (guard.hosted ? 100 : 0));
+const maxUploadMb = Number(process.env.RIVERFIELD_MAX_UPLOAD_MB || (guard.hosted ? 100 : 0));
 
 // the backend scales to zero 10 minutes after its last request (infra/modal_app.py scaledown_window).
 // lastContact only moves on real work (a run, a wake): status checks must not keep the GPU alive.
@@ -213,7 +213,7 @@ async function gpuStatus(withDevice = false) {
   let device: unknown = null;
   try {
     const r = getRunner();
-    const res = await fetch(`${r.baseUrl}/freefield/status`, {
+    const res = await fetch(`${r.baseUrl}/riverfield/status`, {
       headers: r.token ? { authorization: `Bearer ${r.token}` } : {}, signal: AbortSignal.timeout(4000),
     });
     if (res.ok) {
@@ -276,14 +276,14 @@ const server = createServer(async (req, res) => {
         if (!app?.workflowPath) return send(res, 404, { error: "no workflow" });
         const body = readFileSync(app.workflowPath);
         res.writeHead(200, { "content-type": "application/json; charset=utf-8", "content-length": body.byteLength, "cache-control": "no-cache",
-          "content-disposition": `attachment; filename="freefield-${app.id}.json"` });
+          "content-disposition": `attachment; filename="riverfield-${app.id}.json"` });
         return res.end(body);
       }
       if (req.method === "POST" && area === "apps" && sub === "run") {
         const app = byId.get(id);
         if (!app) return send(res, 404, { error: "unknown app" });
         if (!app.workflowPath) throw new InputError(`${app.id} has no workflow yet`);
-        if (!runnable(app)) throw new InputError(`${app.id} is a draft; start the server with FREEFIELD_DRAFTS=1 to run it anyway`);
+        if (!runnable(app)) throw new InputError(`${app.id} is a draft; start the server with RIVERFIELD_DRAFTS=1 to run it anyway`);
         const refused = guard.refuse(activeRuns());
         if (refused) return send(res, 429, { error: refused });
         const { values, preset } = await readValues(app, await toRequest(req));
@@ -360,6 +360,6 @@ const server = createServer(async (req, res) => {
 history.resume(async (jobId) => getRunner().jobs().get(jobId));
 
 const port = Number(process.env.PORT ?? 3000);
-const host = process.env.FREEFIELD_HOST || "127.0.0.1";
-server.listen(port, host, () => console.log(`freefield on http://${host}:${port} (${apps.length} apps)`
+const host = process.env.RIVERFIELD_HOST || "127.0.0.1";
+server.listen(port, host, () => console.log(`riverfield on http://${host}:${port} (${apps.length} apps)`
   + (guard.passcode ? " · passcode required" : "") + (guard.maxRunsPerDay ? ` · ${guard.maxRunsPerDay} runs a day` : "")));

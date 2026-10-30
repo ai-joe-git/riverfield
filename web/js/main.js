@@ -47,7 +47,7 @@ function render({ keepScroll = false } = {}) {
   bar?.update(view.active);
   if (!keepScroll) window.scrollTo(0, 0);
   const app = view.app;
-  document.title = app ? `${app.name} · Freefield` : "Freefield";
+  document.title = app ? `${app.name} · RiverField` : "RiverField";
 }
 
 function buildBar() {

@@ -92,18 +92,18 @@ def add_lora_after(api: Api, model_node: str, lora: str, strength: float = 1.0, 
     rewire(api, [model_node, 0], [nid, 0])
     api[nid] = {"class_type": "LoraLoaderModelOnly",
                 "inputs": {"model": [model_node, 0], "lora_name": lora, "strength_model": strength},
-                "_meta": {"title": "Freefield LoRA"}}
+                "_meta": {"title": "RiverField LoRA"}}
 
 
 def prefix_outputs(api: Api, app_id: str) -> None:
     for node in api.values():
         if "filename_prefix" in node["inputs"]:
-            node["inputs"]["filename_prefix"] = f"freefield/{app_id}"
+            node["inputs"]["filename_prefix"] = f"riverfield/{app_id}"
 
 
 # ---------------------------------------------------------------- MiniMax H3 specifics
 def h3_local(api: Api) -> None:
-    """Comfy's MiniMax H3 templates on Freefield's weights, without the turbo LoRA.
+    """Comfy's MiniMax H3 templates on RiverField's weights, without the turbo LoRA.
 
     The templates load an NVFP4 text encoder (it needs a Blackwell GPU); the int8 one reshoot already uses goes
     in its place. Their turbo switch (a PrimitiveBoolean, off by default) picks lightx2v's 8-step LoRA or the
@@ -157,7 +157,7 @@ def video_remove_bg(birefnet: Api) -> Api:
     """BiRefNet (the remove-bg template's two nodes) on every frame of a clip, from core video nodes: the cutout
     over a solid color with the clip's sound, and the matte (white subject on black) for compositing."""
     loader = birefnet[find(birefnet, "LoadBackgroundRemovalModel")]
-    save = {"format": "auto", "format.codec": "auto", "filename_prefix": "freefield/video-remove-bg"}
+    save = {"format": "auto", "format.codec": "auto", "filename_prefix": "riverfield/video-remove-bg"}
     return {
         "1": {"class_type": "LoadVideo", "inputs": {"file": "clip.mp4"}, "_meta": {"title": "Clip"}},
         "2": {"class_type": "Video Slice", "inputs": {"video": ["1", 0], "start_time": 0.0, "duration": 10.0, "strict_duration": False},
@@ -377,11 +377,11 @@ def cinema_video(api: Api, still: Api) -> None:
     lighting, palette) reach the picture through that frame, which Klein follows closely; LTX-2.5 then moves it with
     the camera moves, the pacing, the action and the sound the prompt describes. The still is saved as a second output."""
     merge(api, still, "still")
-    put(api, "still:9", "filename_prefix", "freefield/cinema-video-still")
+    put(api, "still:9", "filename_prefix", "riverfield/cinema-video-still")
     load = find(api, "LoadImage")
     rewire(api, [load, 0], ["still:18:8", 0])
     drop(api, load)
-    put(api, find(api, "SaveVideo"), "filename_prefix", "freefield/cinema-video")
+    put(api, find(api, "SaveVideo"), "filename_prefix", "riverfield/cinema-video")
 
 
 def ltx_union_control(api: Api, edit: Api) -> None:
@@ -521,7 +521,7 @@ def ltx_outpaint(api: Api) -> None:
 SMOKE: Api = {
     "1": {"class_type": "EmptyImage", "inputs": {"width": 256, "height": 256, "batch_size": 1, "color": 0x2A6F97},
           "_meta": {"title": "Solid color"}},
-    "2": {"class_type": "SaveImage", "inputs": {"images": ["1", 0], "filename_prefix": "freefield/smoke"},
+    "2": {"class_type": "SaveImage", "inputs": {"images": ["1", 0], "filename_prefix": "riverfield/smoke"},
           "_meta": {"title": "Save Image"}},
 }
 
@@ -540,7 +540,7 @@ def _collect_types(ui: dict) -> None:
 SMOKE_INVERT: Api = {
     "1": {"class_type": "LoadImage", "inputs": {"image": "example.png"}, "_meta": {"title": "Load Image"}},
     "2": {"class_type": "ImageInvert", "inputs": {"image": ["1", 0]}, "_meta": {"title": "Invert"}},
-    "3": {"class_type": "SaveImage", "inputs": {"images": ["2", 0], "filename_prefix": "freefield/smoke-invert"},
+    "3": {"class_type": "SaveImage", "inputs": {"images": ["2", 0], "filename_prefix": "riverfield/smoke-invert"},
           "_meta": {"title": "Save Image"}},
 }
 
@@ -677,7 +677,7 @@ def recipes(templates: Path, ltx: Path, info: dict, reshoot: Path | None = None)
     out["upscale-video"] = tpl("utility_seedvr2_3b_int8_upscale_video.json")
 
     b = tpl("utility_birefnet_remove_background.json")
-    to_save_image(b, find(b, "PreviewImage"), "freefield/remove-bg")
+    to_save_image(b, find(b, "PreviewImage"), "riverfield/remove-bg")
     drop(b, find(b, "MaskPreview"))
     out["remove-bg"] = b
 
@@ -778,7 +778,7 @@ def recipes(templates: Path, ltx: Path, info: dict, reshoot: Path | None = None)
     # MoGe-2 (the geometry model reshoot loads too): one render saved, the map picked in the app; the depth and
     # mask previews go
     colored = find(dm, "MoGeRender", output="depth_colored")
-    to_save_image(dm, find(dm, "PreviewImage", images=[colored, 0]), "freefield/depth-map")
+    to_save_image(dm, find(dm, "PreviewImage", images=[colored, 0]), "riverfield/depth-map")
     drop(dm, find(dm, "PreviewImage"), find(dm, "MaskPreview"))
     drop(dm, find(dm, "ImageToMask"))
     drop(dm, find(dm, "MoGeRender", output="depth"), find(dm, "MoGeRender", output="mask"))

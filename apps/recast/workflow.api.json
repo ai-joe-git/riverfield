@@ -45,7 +45,7 @@
         "201",
         0
       ],
-      "filename_prefix": "freefield/recast",
+      "filename_prefix": "riverfield/recast",
       "format": "auto",
       "format.codec": "auto"
     },

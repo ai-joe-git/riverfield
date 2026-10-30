@@ -147,5 +147,5 @@ export function waveform(url) {
 /** File name for a download link. */
 export function downloadName(item, url) {
   const ext = extOf(url) || (item.type === "video" ? "mp4" : item.type === "audio" ? "mp3" : "png");
-  return `freefield-${item.app}-${item.kind === "history" ? item.id : "example"}.${ext}`;
+  return `riverfield-${item.app}-${item.kind === "history" ? item.id : "example"}.${ext}`;
 }

@@ -51,8 +51,8 @@ for app_id in ("z-image", "remove-bg", "edit"):
     check(all(m["repo"] == h["repo"] and m["dir"] == h["dir"] and m["phase"] == h["phase"]
               for m in app["models"] for h in hand["models"] if m["file"] == h["file"]), f"{app_id}: repo, folder and phase match")
     check(app["status"] == "draft" and not report["unknown"], f"{app_id}: a draft with no unknown model")
-    check(all(n["inputs"]["filename_prefix"] == f"freefield/imp-{app_id}" for n in api.values() if "filename_prefix" in n["inputs"]),
-          f"{app_id}: outputs saved under freefield/imp-{app_id}")
+    check(all(n["inputs"]["filename_prefix"] == f"riverfield/imp-{app_id}" for n in api.values() if "filename_prefix" in n["inputs"]),
+          f"{app_id}: outputs saved under riverfield/imp-{app_id}")
 
 # a bigger graph (LTX-2.5 image to video): everything the hand-written app exposes, plus what it chose to hide
 hand, app, api, report = imported("video")
@@ -64,7 +64,7 @@ check(any("seed writes 2 nodes" in c for c in report["check"]), "video: the repo
 check(next(i for i in app["inputs"] if i["id"] == "prompt")["bind"] == [{"node": "398:376", "field": "value"}],
       "video: the prompt is the PrimitiveStringMultiline upstream of the switch")
 
-# a file Freefield does not know is marked, never given a made-up repo
+# a file RiverField does not know is marked, never given a made-up repo
 api = json.loads((ROOT / "apps" / "z-image" / "workflow.api.json").read_text(encoding="utf-8"))
 api["57:28"]["inputs"]["unet_name"] = "someone_elses_model.safetensors"
 app, _, report = iw.build(api, "imp-unknown", None, None, "x.json")

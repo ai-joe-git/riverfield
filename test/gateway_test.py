@@ -5,7 +5,7 @@
 import asyncio, os, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "infra"))
-os.environ["FREEFIELD_TOKEN"] = "t0k"
+os.environ["RIVERFIELD_TOKEN"] = "t0k"
 os.environ["PROXY_URL"] = "http://127.0.0.1:18189"
 from aiohttp import web, ClientSession
 import gateway  # infra/gateway.py

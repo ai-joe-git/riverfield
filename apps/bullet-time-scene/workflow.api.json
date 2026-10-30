@@ -201,7 +201,7 @@
         "55",
         0
       ],
-      "filename_prefix": "freefield/bullet-time-scene",
+      "filename_prefix": "riverfield/bullet-time-scene",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -220,7 +220,7 @@
       "strength_model": 1.0
     },
     "_meta": {
-      "title": "Freefield LoRA"
+      "title": "RiverField LoRA"
     }
   },
   "ff_lora_fast": {
@@ -234,7 +234,7 @@
       "strength_model": 0.0
     },
     "_meta": {
-      "title": "Freefield LoRA"
+      "title": "RiverField LoRA"
     }
   }
 }

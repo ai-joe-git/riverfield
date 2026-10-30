@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """The passcode of the hosted demo (infra/web_app.py), and the link to share.
 
-    python tools/setup_demo.py           # new passcode → Modal secret "freefield-demo" and .env (FREEFIELD_DEMO_PASSCODE)
+    python tools/setup_demo.py           # new passcode → Modal secret "riverfield-demo" and .env (RIVERFIELD_DEMO_PASSCODE)
     python tools/setup_demo.py --link    # print the link: the deployed demo URL with ?key=<passcode>
 
-The hosted web UI reads FREEFIELD_PASSCODE from the Modal secret; .env keeps the same value under another name
-(FREEFIELD_DEMO_PASSCODE) so that `npm run serve` on your machine stays open. Run it again to change the passcode,
+The hosted web UI reads RIVERFIELD_PASSCODE from the Modal secret; .env keeps the same value under another name
+(RIVERFIELD_DEMO_PASSCODE) so that `npm run serve` on your machine stays open. Run it again to change the passcode,
 then `modal deploy infra/web_app.py` so the container picks it up; anyone holding the old link is locked out.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-KEY = "FREEFIELD_DEMO_PASSCODE"
+KEY = "RIVERFIELD_DEMO_PASSCODE"
 
 
 def read_env(env: Path) -> str:
@@ -33,7 +33,7 @@ def link(env: Path) -> int:
         return 1
     try:
         import modal
-        url = modal.Function.from_name("freefield-web", "web").get_web_url()
+        url = modal.Function.from_name("riverfield-web", "web").get_web_url()
     except Exception as e:  # noqa: BLE001 - not deployed yet, or no Modal login here
         print(f"could not find the deployed demo ({e}); deploy it with  modal deploy infra/web_app.py", file=sys.stderr)
         return 1
@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     passcode = secrets.token_urlsafe(12)
-    cmd = [sys.executable, "-m", "modal", "secret", "create", "freefield-demo", f"FREEFIELD_PASSCODE={passcode}", "--force"]
+    cmd = [sys.executable, "-m", "modal", "secret", "create", "riverfield-demo", f"RIVERFIELD_PASSCODE={passcode}", "--force"]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired) as e:
@@ -69,9 +69,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if r.returncode != 0:
         print((r.stderr or r.stdout).strip(), file=sys.stderr)
-        print('the Modal secret "freefield-demo" was not updated, so .env was left as it was', file=sys.stderr)
+        print('the Modal secret "riverfield-demo" was not updated, so .env was left as it was', file=sys.stderr)
         return 1
-    print(f'stored a new passcode in the Modal secret "freefield-demo" of profile "{active}"')
+    print(f'stored a new passcode in the Modal secret "riverfield-demo" of profile "{active}"')
 
     text = read_env(env)
     line = f"{KEY}={passcode}"

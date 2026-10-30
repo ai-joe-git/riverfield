@@ -45,7 +45,7 @@
         "245",
         0
       ],
-      "filename_prefix": "freefield/motion-transfer",
+      "filename_prefix": "riverfield/motion-transfer",
       "format": "auto",
       "format.codec": "auto"
     },
@@ -738,7 +738,7 @@
         "291:80",
         0
       ],
-      "filename_prefix": "freefield/motion-transfer",
+      "filename_prefix": "riverfield/motion-transfer",
       "format": "auto",
       "format.codec": "auto"
     },

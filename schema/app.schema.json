@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/neuregex/freefield/schema/app.schema.json",
-  "title": "Freefield app manifest (app.json)",
+  "title": "RiverField app manifest (app.json)",
   "description": "One app = one folder in apps/ with this manifest and a ComfyUI workflow in API format. The web UI, the runner, the model packs and the tests are all derived from this file.",
   "type": "object",
   "additionalProperties": false,

@@ -800,7 +800,7 @@ function howTab(app) {
     el("div", { class: "card" }, el("h3", {}, icon("layers"), t("how.pipeline")), el("p", {}, t("how.pipeline.d", { id: app.id })),
       el("div", { class: "statline" }, el("span", {}, `${t("how.pack")}: ${app.pack}`), el("span", {}, app.status === "ready" ? "ready" : t("tag.draft")),
         app.higgsfield_feature ? el("span", {}, `${t("how.equiv")}: ${app.higgsfield_feature}`) : null),
-      app.runnable || app.status === "draft" ? el("p", { class: "row" }, el("a", { class: "btn small", href: `/api/apps/${app.id}/workflow`, download: `freefield-${app.id}.json` },
+      app.runnable || app.status === "draft" ? el("p", { class: "row" }, el("a", { class: "btn small", href: `/api/apps/${app.id}/workflow`, download: `riverfield-${app.id}.json` },
         icon("download"), t("how.workflow")), el("span", { class: "dim", style: { fontSize: "12.5px" } }, t("how.workflow.d"))) : null,
       el("p", {}, t("how.download")), el("pre", { class: "code" }, `modal run infra/modal_app.py::download --pack ${app.pack}`),
       el("p", {}, t("how.cli")), el("pre", { class: "code" }, cliLine(app))),

@@ -223,5 +223,5 @@ test("drafts run only when allowed", async () => {
   const seen: string[] = [];
   const open = new Runner({ baseUrl: "http://backend.test", fetch: fakeFetch(() => 500, seen), allowDrafts: true });
   await assert.rejects(open.submit(draft, values), (e: unknown) => !(e instanceof InputError));
-  assert.ok(seen[0]?.endsWith("/freefield/prepare"), "got past the draft gate and asked the gateway");
+  assert.ok(seen[0]?.endsWith("/riverfield/prepare"), "got past the draft gate and asked the gateway");
 });
