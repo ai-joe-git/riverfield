@@ -53,6 +53,80 @@ function fileMatches(type, file) {
   return { image: ["png", "jpg", "jpeg", "webp", "gif"], video: ["mp4", "mov", "webm", "mkv"], audio: ["mp3", "wav", "flac", "ogg", "m4a"] }[type]?.includes(ext);
 }
 
+/** A recorded clip as a small 16-bit mono WAV: what ComfyUI's LoadAudio reads everywhere. */
+function wavBlob(buffer) {
+  const n = buffer.length;
+  const mono = new Float32Array(n);
+  if (buffer.numberOfChannels > 1) {
+    const l = buffer.getChannelData(0), r = buffer.getChannelData(1);
+    for (let i = 0; i < n; i++) mono[i] = (l[i] + r[i]) / 2;
+  } else {
+    mono.set(buffer.getChannelData(0));
+  }
+  const view = new DataView(new ArrayBuffer(44 + n * 2));
+  const tag = (at, s) => { for (let i = 0; i < s.length; i++) view.setUint8(at + i, s.charCodeAt(i)); };
+  tag(0, "RIFF"); view.setUint32(4, 36 + n * 2, true); tag(8, "WAVEfmt ");
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); tag(36, "data");
+  view.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, mono[i]));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([view.buffer], { type: "audio/wav" });
+}
+
+/** A mic button for an audio input: records in the browser, hands back a WAV file. */
+function recButton(inp, onFile, cls = "att need rec") {
+  const label = el("span", {}, t("rec.start"));
+  const btn = el("button", { class: cls, type: "button", title: t("rec.start"), "aria-label": t("rec.start") },
+    icon("mic"), cls.includes("att") ? null : label);
+  let rec = null;
+  btn.onclick = async (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    if (rec) { rec.stop(); return; }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toast(t("rec.denied"), { error: true });
+      return;
+    }
+    const chunks = [];
+    const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg", "audio/mp4"];
+    const mime = types.find((x) => window.MediaRecorder?.isTypeSupported?.(x)) || "";
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const started = Date.now();
+    const tick = setInterval(() => {
+      const s = ((Date.now() - started) / 1000).toFixed(1);
+      btn.setAttribute("title", `${t("rec.stop")} · ${s} s`);
+      if (label.isConnected) label.textContent = `${s} s`;
+    }, 100);
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = async () => {
+      clearInterval(tick);
+      stream.getTracks().forEach((tr) => tr.stop());
+      rec = null;
+      btn.classList.remove("recording");
+      btn.setAttribute("title", t("rec.start"));
+      if (label.isConnected) label.textContent = t("rec.start");
+      try {
+        const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
+        const ctx = new AudioContext();
+        const buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+        await ctx.close();
+        onFile(new File([wavBlob(buffer)], "voice.wav", { type: "audio/wav" }));
+      } catch {
+        toast(t("rec.failed"), { error: true });
+      }
+    };
+    rec.start();
+    btn.classList.add("recording");
+  };
+  return btn;
+}
+
 function setFile(app, inp, file) {
   if (!fileMatches(inp.type, file)) {
     toast(`${inp.label}: ${file.name}?`, { error: true });
@@ -371,8 +445,11 @@ function composerBar(app, rerenderBar) {
   const attach = el("div", { class: "cmp-attach" }, ...mediaInputs.map((inp) => {
     const x = f.files[inp.id];
     if (!x) {
-      return el("button", { class: "att need", type: "button", title: `${t("ws.add", { what: inp.label })}${inp.required ? "" : ` (${t("ws.optional")})`}`,
+      const add = el("button", { class: "att need", type: "button", title: `${t("ws.add", { what: inp.label })}${inp.required ? "" : ` (${t("ws.optional")})`}`,
         "aria-label": t("ws.add", { what: inp.label }), dataset: { slot: inp.id }, onclick: () => pick(inp) }, icon(inp.type === "image" ? "image" : inp.type));
+      if (inp.type !== "audio") return add;
+      return el("span", { style: { display: "contents" } }, add,
+        recButton(inp, (file) => { if (setFile(app, inp, file)) rerenderBar(); }));
     }
     const m = inp.type === "image" ? el("img", { src: x.url, alt: "" }) : inp.type === "video" ? el("video", { src: `${x.url}#t=0.1`, muted: true, preload: "metadata" }) : el("span", { style: { display: "grid", placeItems: "center", height: "100%" } }, icon("audio"));
     return el("div", { class: "att", title: x.file.name },
@@ -527,6 +604,7 @@ function dropzone(app, inp, rerender) {
       el("b", {}, inp.label, inp.required ? "" : el("span", { class: "faint", style: { fontWeight: 500 } }, ` · ${t("ws.optional")}`)),
       el("small", {}, inp.help || t(`ws.drop.${inp.type}`)),
       el("small", { class: "faint" }, [t("ws.drop.hint"), limits].filter(Boolean).join(" · ")),
+      inp.type === "audio" ? recButton(inp, (file) => { if (setFile(app, inp, file)) rerender(); }, "mini rec") : null,
       input);
   } else {
     const media = inp.type === "image" ? el("img", { src: x.url, alt: "" })
@@ -543,6 +621,7 @@ function dropzone(app, inp, rerender) {
     zone = el("div", { class: "drop has", dataset: { slot: inp.id } }, media, warn,
       el("div", { class: "bar2" },
         el("button", { class: "mini", type: "button", title: t("ws.replace"), "aria-label": t("ws.replace"), onclick: () => input.click() }, icon("swap")),
+        inp.type === "audio" ? recButton(inp, (file) => { if (setFile(app, inp, file)) rerender(); }, "mini rec") : null,
         el("button", { class: "mini", type: "button", title: t("ws.remove"), "aria-label": t("ws.remove"), onclick: () => { clearFile(app, inp.id); rerender(); } }, icon("x"))),
       input);
   }

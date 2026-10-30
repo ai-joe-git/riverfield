@@ -261,6 +261,11 @@ pre.code { margin: 0; padding: 12px 14px; border-radius: 10px; background: #0d0d
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .att.need { border: 1px dashed #55555c; display: grid; place-items: center; color: #8a8a93; cursor: pointer; background: transparent; font-size: 20px; }
 .att.need:hover { border-color: var(--accent); color: var(--accent); }
+.att.rec.recording { border-color: #ff5a5a; color: #ff5a5a; animation: recpulse 1.1s ease-in-out infinite; }
+.att.rec.recording:hover { border-color: #ff5a5a; color: #ff5a5a; }
+@keyframes recpulse { 50% { opacity: .45; } }
+.mini.rec { width: auto; padding: 0 10px; gap: 6px; grid-auto-flow: column; }
+.mini.rec.recording { background: #ff5a5a; color: #14060a; }
 .att.need.missing { border-color: var(--bad); color: var(--bad); animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .cmp-prompt { flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent; color: var(--ink); font: 15px/1.5 var(--font); padding: 6px 2px;

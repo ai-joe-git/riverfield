@@ -25,7 +25,7 @@ COMFYUI_COMMIT = "e3bee7ffcb7d6547ed0bcd15221792f3b8646b17"   # 2026-10-19, Comf
 COMFY_API_PROXY = "comfy-api-proxy==0.1.6"
 COMFY_DIR = "/comfyui"
 MODELS_DIR = "/models"
-MODEL_DIRS = ["diffusion_models", "text_encoders", "vae", "loras", "checkpoints", "clip_vision",
+MODEL_DIRS = ["tts", "diffusion_models", "text_encoders", "vae", "loras", "checkpoints", "clip_vision",
               "latent_upscale_models", "upscale_models", "model_patches", "geometry_estimation",
               "background_removal", "frame_interpolation", "audio_encoders", "embeddings", "detection"]
 
