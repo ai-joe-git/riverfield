@@ -169,10 +169,11 @@ Les LoRA ne sont pas déclarés dans `models` (pas d'entrée Hub) : ils doivent 
 
 La palette vient de blackriver-ai.com : fond **#020306**, panneaux **#0B0F16 / #101722**,
 encre **#F0F4FA**, gris **#98A2B3 / #5F6877**, bordures `rgba(255,255,255,.10)`.
-Accents : **menthe #58E6B1** (action), **bleu #8DB4FF**, **cyan #8DF1FF**, **violet #B8A2FF**,
-**ambre #FFD166**. Les grands titres prennent le dégradé du site
-(blanc → #BFC9D8 → bleu → cyan), le fond porte trois halos radiaux très bas, et le logo est
-un dégradé menthe → bleu. Tout est dans `web/app.css` (`:root`) ; un changement de marque ne
+Accent principal : **bleu nuit #8DB4FF** (boutons, sélection, focus), avec **cyan #8DF1FF** et
+**violet #B8A2FF** en supports ; le **menthe #58E6B1** est réservé aux états (prêt / ok), jamais
+à l'action, comme sur le site où il n'est qu'une touche. Les grands titres prennent le dégradé
+blanc → #BFC9D8 → bleu → cyan, le fond porte trois halos radiaux très bas (bleu, violet, cyan) et
+le logo est un dégradé bleu → cyan. L'ambre #FFD166 ne sert qu'aux avertissements. Tout est dans `web/app.css` (`:root`) ; un changement de marque ne
 demande qu'un bloc.
 
 ## MCP : piloter RiverField par agent

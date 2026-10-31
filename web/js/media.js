@@ -131,7 +131,7 @@ export function waveform(url) {
       const data = audio.getChannelData(0);
       const g = canvas.getContext("2d");
       const bars = 96, step = Math.floor(data.length / bars), w = canvas.width / bars;
-      g.fillStyle = "#58e6b1";
+      g.fillStyle = "#8db4ff";
       for (let b = 0; b < bars; b++) {
         let peak = 0;
         for (let i = b * step; i < (b + 1) * step; i += 64) peak = Math.max(peak, Math.abs(data[i] || 0));
