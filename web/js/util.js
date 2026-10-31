@@ -96,8 +96,8 @@ export function logoMark() {
   svg.append(
     el("defs", { svg: true },
       el("linearGradient", { svg: true, id: "rf-mark", x1: "0", y1: "0", x2: "1", y2: "1" },
-        el("stop", { svg: true, offset: "0", "stop-color": "#58e6b1" }),
-        el("stop", { svg: true, offset: "1", "stop-color": "#8db4ff" }))),
+        el("stop", { svg: true, offset: "0", "stop-color": "#8db4ff" }),
+        el("stop", { svg: true, offset: "1", "stop-color": "#8df1ff" }))),
     el("rect", { svg: true, x: "1", y: "1", width: "30", height: "30", rx: "9", fill: "url(#rf-mark)" }),
     el("path", { svg: true, d: "M8 11.5h16", stroke: "#04140d", "stroke-width": "3", "stroke-linecap": "round" }),
     el("path", { svg: true, d: "M8 16.5h9", stroke: "#04140d", "stroke-width": "3", "stroke-linecap": "round" }),
