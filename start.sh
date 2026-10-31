@@ -25,6 +25,14 @@ else
   echo "web lancé (PID $!)"
 fi
 
+if running "$LOG/mcp.pid"; then
+  echo "mcp déjà lancé (PID $(cat "$LOG/mcp.pid"))"
+else
+  setsid nohup ./run-mcp.sh > "$LOG/mcp.log" 2>&1 &
+  echo $! > "$LOG/mcp.pid"
+  echo "mcp lancé (PID $!)"
+fi
+
 wait_url() {  # url secondes libellé
   local url="$1" limit="$2" label="$3" t=0
   printf 'attente %s' "$label"
@@ -45,10 +53,12 @@ wait_url() {  # url secondes libellé
 
 wait_url http://127.0.0.1:8000/health 90 "du backend"
 wait_url http://127.0.0.1:3000/ 30 "de l'interface"
+wait_url "http://127.0.0.1:${RIVERFIELD_MCP_PORT:-3010}/health" 20 "du MCP"
 
 echo
 [[ -f "$LOG/ports.env" ]] && . "$LOG/ports.env"
 echo "  Interface : http://127.0.0.1:3000"
 echo "  Backend   : http://127.0.0.1:${GATEWAY_PORT:-8000}   (ComfyUI derrière, :${COMFY_PORT:-8188})"
 echo "  Logs      : $LOG"
+echo "  MCP       : http://127.0.0.1:${RIVERFIELD_MCP_PORT:-3010}/mcp"
 echo "  Arrêt     : ./stop.sh"

@@ -165,7 +165,33 @@ cd ~/riverfield && python3 local/make-turbo-apps.py && npm run validate
 Les LoRA ne sont pas déclarés dans `models` (pas d'entrée Hub) : ils doivent être dans
 `ComfyUI/models/loras`, ce qui est le cas ici.
 
+## Identité visuelle (BlackRiver)
+
+La palette vient de blackriver-ai.com : fond **#020306**, panneaux **#0B0F16 / #101722**,
+encre **#F0F4FA**, gris **#98A2B3 / #5F6877**, bordures `rgba(255,255,255,.10)`.
+Accents : **menthe #58E6B1** (action), **bleu #8DB4FF**, **cyan #8DF1FF**, **violet #B8A2FF**,
+**ambre #FFD166**. Les grands titres prennent le dégradé du site
+(blanc → #BFC9D8 → bleu → cyan), le fond porte trois halos radiaux très bas, et le logo est
+un dégradé menthe → bleu. Tout est dans `web/app.css` (`:root`) ; un changement de marque ne
+demande qu'un bloc.
+
+## MCP : piloter RiverField par agent
+
+`mcp/server.ts` expose le studio en MCP (9 outils : `list_apps`, `get_app`, `run_app`, `job`,
+`wait_job`, `cancel_job`, `history`, `gpu`, `examples`). C'est un client de l'API web : aucun
+accès direct à ComfyUI.
+
+- **HTTP** : `./start.sh` lance le serveur avec l'app → `http://127.0.0.1:3010/mcp`
+  (`GET /health` pour vérifier). Logs dans `/tmp/opencode/riverfield/mcp.log`.
+- **stdio** : `./run-mcp.sh --stdio`, pour les clients qui spawnent leur serveur.
+- Branché dans `~/.config/opencode/opencode.jsonc` (`mcp.riverfield`, stdio) : mes propres outils
+  `riverfield.*` l'ont validé (`run_app` → `wait_job` → `out/history/<id>/out-01.png`).
+- Détails et exemples curl : `mcp/README.md`.
+
+Ports par défaut : app 3000, MCP 3010, gateway 8000, ComfyUI 8189, proxy 8190.
+
 ## Audio : Text to Speech (Chatterbox)
+
 
 Deux apps ajoutées, sur **ComfyUI-Chatterbox** (wildminder, Apache-2.0) et les poids
 **Chatterbox** de Resemble AI (MIT, 23 langues) :
