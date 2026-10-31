@@ -4383,24 +4383,22 @@
       "run": "20261024-230058-l40s"
     },
     "moss-image": {
-      "case": "cmp-fisher-ms",
+      "case": "moss-image-bicycle",
       "type": "image",
       "card": "examples/moss-image/card.jpg",
       "poster": null,
       "full": "examples/moss-image/full.jpg",
       "inputs": [],
       "values": {
-        "prompt": "Candid photo of a 60-year-old fisherman from Veracruz mending a fishing net on a wooden dock at golden hour, weathered skin, gray stubble, faded blue work shirt, gulls in the background, shot on 35mm film",
-        "rewrite": true,
-        "width": 1024,
-        "height": 1024,
-        "steps": 25
+        "prompt": "a red bicycle against a white wall, studio light, product photo",
+        "steps": 25,
+        "rewrite": true
       },
-      "seed": 42,
-      "seconds": 23.4,
-      "peak_vram_gb": 13.03,
-      "gpu": "NVIDIA L40S, 46068 MiB",
-      "run": "20261024-230058-l40s"
+      "seed": -1,
+      "seconds": 190.9,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261031"
     },
     "character-3": {
       "case": "character-3-cafe",
@@ -4887,6 +4885,25 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "local-20261030"
+    },
+    "moss-turbo": {
+      "case": "moss-turbo-bicycle",
+      "type": "image",
+      "card": "examples/moss-turbo/card.jpg",
+      "poster": null,
+      "full": "examples/moss-turbo/full.jpg",
+      "inputs": [],
+      "values": {
+        "prompt": "a red bicycle against a white wall, studio light, product photo",
+        "steps": 8,
+        "cfg": 1.5,
+        "rewrite": true
+      },
+      "seed": -1,
+      "seconds": 96.4,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261031"
     }
   },
   "updated_from": "20261026-041209-l40s"
