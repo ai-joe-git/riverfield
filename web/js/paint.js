@@ -4,7 +4,7 @@
 import { el, icon, toast, clamp } from "./util.js";
 import { t } from "./i18n.js";
 
-const TINT = "rgba(232, 255, 90, 0.55)";
+const TINT = "rgba(88, 230, 177, 0.55)";
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {

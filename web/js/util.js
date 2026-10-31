@@ -94,11 +94,15 @@ export function icon(name, cls = "") {
 export function logoMark() {
   const svg = el("svg", { svg: true, class: "mark", viewBox: "0 0 32 32", "aria-hidden": "true" });
   svg.append(
-    el("rect", { svg: true, x: "1", y: "1", width: "30", height: "30", rx: "9", fill: "#e8ff5a" }),
-    el("path", { svg: true, d: "M8 11.5h16", stroke: "#11140a", "stroke-width": "3", "stroke-linecap": "round" }),
-    el("path", { svg: true, d: "M8 16.5h9", stroke: "#11140a", "stroke-width": "3", "stroke-linecap": "round" }),
-    el("circle", { svg: true, cx: "22.5", cy: "16.5", r: "1.9", fill: "#11140a" }),
-    el("path", { svg: true, d: "M8 21.5h12", stroke: "#11140a", "stroke-width": "3", "stroke-linecap": "round" }),
+    el("defs", { svg: true },
+      el("linearGradient", { svg: true, id: "rf-mark", x1: "0", y1: "0", x2: "1", y2: "1" },
+        el("stop", { svg: true, offset: "0", "stop-color": "#58e6b1" }),
+        el("stop", { svg: true, offset: "1", "stop-color": "#8db4ff" }))),
+    el("rect", { svg: true, x: "1", y: "1", width: "30", height: "30", rx: "9", fill: "url(#rf-mark)" }),
+    el("path", { svg: true, d: "M8 11.5h16", stroke: "#04140d", "stroke-width": "3", "stroke-linecap": "round" }),
+    el("path", { svg: true, d: "M8 16.5h9", stroke: "#04140d", "stroke-width": "3", "stroke-linecap": "round" }),
+    el("circle", { svg: true, cx: "22.5", cy: "16.5", r: "1.9", fill: "#04140d" }),
+    el("path", { svg: true, d: "M8 21.5h12", stroke: "#04140d", "stroke-width": "3", "stroke-linecap": "round" }),
   );
   return svg;
 }

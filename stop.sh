@@ -19,7 +19,7 @@ stop_tree() {
 [[ -f "$LOG/ports.env" ]] && source "$LOG/ports.env"
 COMFY_PORT="${COMFY_PORT:-8188}"
 
-for name in web backend; do
+for name in web mcp backend; do
   f="$LOG/$name.pid"
   if [[ -f "$f" ]]; then
     pid=$(cat "$f")
@@ -31,7 +31,7 @@ done
 
 # filet de sécurité : les enfants restés en vie si le parent est parti avant eux.
 # On ne tue que des interpréteurs (python/node), jamais le shell qui lance ce script.
-for pat in "main.py --listen 127.0.0.1 --port $COMFY_PORT" "comfy-api-proxy --comfyui http://127.0.0.1:$COMFY_PORT" "infra/gateway.py" "server/server.ts"; do
+for pat in "main.py --listen 127.0.0.1 --port $COMFY_PORT" "comfy-api-proxy --comfyui http://127.0.0.1:$COMFY_PORT" "infra/gateway.py" "server/server.ts" "mcp/server.ts"; do
   for p in $(pgrep -f "$pat" 2>/dev/null || true); do
     [[ "$p" == "$$" ]] && continue
     case "$(ps -o comm= -p "$p" 2>/dev/null | tr -d ' ')" in
