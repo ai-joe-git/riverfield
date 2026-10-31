@@ -1,0 +1,131 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "moss-turbo",
+  "name": "MOSS Turbo",
+  "section": "image",
+  "pack": "image-moss",
+  "status": "ready",
+  "higgsfield_feature": "Create Image",
+  "summary": "MOSS-Image with its 8-step turbo LoRA: a full 1 MP picture in 8 to 15 steps, with guidance between 1.0 and 1.8, for drafts and batches.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "image_moss_image_t2i_turbo.json (ComfyUI user workflow)",
+    "comfyui": "0.42.0",
+    "notes": "The user's turbo graph, converted with tools/import_workflow.py: MOSS-Image int8, the 9B qwen text encoder, the small flux2 VAE, MOSS_8_STEPS_lora_latest on the model and er_sde / simple. The original TextGenerate branch (qwen rewriting the prompt) and the skip-layer guidance branch are both kept behind switches; rewrite is on by default like the original, cfg and steps are the two knobs this app adds."
+  },
+  "inputs": [
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "Cinematic night street photograph: a model in an exaggerated balloon-sleeve white wool coat walking toward camera under a huge illuminated theatre marquee, wet asphalt with long reflections, warm tungsten glow against cold blue night, anamorphic flare, 35mm film grain, low angle",
+      "bind": [
+        { "node": "18:17", "field": "value" }
+      ]
+    },
+    {
+      "id": "rewrite",
+      "type": "toggle",
+      "label": "Rewrite the prompt",
+      "default": true,
+      "help": "The original workflow passes your text through the 9B qwen as a prompt engineer first. On: fuller prompts, one more model pass. Off: your words go straight to the image model.",
+      "bind": [
+        { "node": "18:16", "field": "switch" }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Format",
+      "default": "1:1 (Square)",
+      "options": [
+        { "value": "1:1 (Square)", "label": "1:1" },
+        { "value": "2:3 (Portrait Photo)", "label": "2:3" },
+        { "value": "3:2 (Photo)", "label": "3:2" },
+        { "value": "3:4 (Portrait Standard)", "label": "3:4" },
+        { "value": "4:3 (Standard)", "label": "4:3" },
+        { "value": "9:16 (Portrait Widescreen)", "label": "9:16" },
+        { "value": "16:9 (Widescreen)", "label": "16:9" },
+        { "value": "21:9 (Ultrawide)", "label": "21:9" }
+      ],
+      "bind": [
+        { "node": "19", "field": "aspect_ratio" }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 15,
+      "step": 1,
+      "default": 8,
+      "help": "The turbo LoRA is trained for 8 steps; 10 to 15 recover detail at a little cost.",
+      "bind": [
+        { "node": "18:7", "field": "steps" }
+      ]
+    },
+    {
+      "id": "cfg",
+      "type": "slider",
+      "label": "Guidance",
+      "min": 1.0,
+      "max": 1.8,
+      "step": 0.05,
+      "default": 1.5,
+      "help": "How hard the prompt is followed. 1.0 is loose and fast, 1.8 sticks to the words; the plain app runs 2.5 without the LoRA.",
+      "bind": [
+        { "node": "18:7", "field": "cfg" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        { "node": "18:7", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "9", "type": "image", "label": "Picture" }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MOSS-Image",
+      "file": "diffusion_models/moss_image_sft_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.41,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MOSS-Image",
+      "file": "text_encoders/qwen3.5_9b_w4a8_gptq.safetensors",
+      "dir": "text_encoders",
+      "gb": 7.34,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MOSS-Image",
+      "file": "vae/flux2-vae_small.safetensors",
+      "dir": "vae",
+      "gb": 0.25,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    }
+  ],
+  "credits": [
+    "MOSS-Image by OpenMOSS (Apache-2.0)",
+    "MOSS_8_STEPS_lora_latest (community LoRA, local file)"
+  ],
+  "notes": "The same weights as MOSS Image with MOSS_8_STEPS_lora_latest (strength 1.0) on the diffusion model and er_sde at 8 steps. Guidance is the one dial worth learning: 1.2 to 1.5 keeps a scene natural, 1.7 to 1.8 makes text and layout obey. The LoRA is a local file, not in the image-moss pack: keep it in ComfyUI/models/loras. Rewrite on sends your prompt through qwen first, as the original workflow did.",
+  "test": {
+    "prompt": "a red bicycle against a white wall, studio light",
+    "steps": 8
+  }
+}

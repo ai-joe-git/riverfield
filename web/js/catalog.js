@@ -22,7 +22,7 @@ export async function loadCatalog() {
 
 /** Apps grouped like a store: a card can only sit in one row. */
 export const CATEGORIES = [
-  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
+  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
   { id: "identity", apps: ["character", "character-3", "speak", "talking", "recast", "motion-transfer", "genjutsu", "dub", "character-swap", "face-swap"] },
   { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reshoot-turbo", "reframe", "extend-video", "extend-video-turbo", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
   { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-video", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
@@ -67,14 +67,14 @@ export const MODELS = [
   { name: "Stable Audio 3", file: "stable_audio_3", app: "sfx", note: ["Sound effects and instrumental music", "Efectos de sonido y música instrumental"] },
   { name: "YuE2 3B", file: "yue2_3b", app: "music-yue2", note: ["Songs with sung vocals, covers", "Canciones con voz, versiones"] },
   { name: "Chatterbox", file: "t3_mtl23ls", app: "tts", note: ["Speech in 23 languages, voice clone", "Voz en 23 idiomas, clonación"] },
-  { name: "OmniVoice", file: "OmniVoice/model", app: "tts-omni", note: ["Voice design and cloning, 600+ languages", "Diseño y clonación de voz, 600+ idiomas"] },
+  { name: "OmniVoice", file: "model.safetensors", app: "tts-omni", note: ["Voice design and cloning, 600+ languages", "Diseño y clonación de voz, 600+ idiomas"] },
   { name: "Qwen-Image-Edit 2509", file: "qwen_image_edit", app: "relight", note: ["Light, angles and the next shot", "Luz, ángulos y la siguiente toma"] },
   { name: "Krea 2 Turbo", file: "krea2_turbo", app: "styles", note: ["Styles with Krea's LoRAs", "Estilos con los LoRAs de Krea"] },
   { name: "MOSS-Image", file: "moss_image", app: "moss-image", note: ["Layout prompts", "Prompts con layout"] },
   { name: "Z-Image Turbo", file: "z_image_turbo", app: "z-image", note: ["Fast drafts", "Borradores rápidos"] },
   { name: "FLUX 3 Image Klein", file: "flux3-image-klein", app: "create-image", note: ["Text to image and every edit", "Texto a imagen y todas las ediciones"] },
 ];
-export const usesModel = (app, m) => app.models.some((x) => x.name.includes(m.file));
+export const usesModel = (app, m) => m.app === app.id || app.models.some((x) => x.name.includes(m.file));
 /** The model an app is built on, for a one-line label ("FLUX 3 Image Klein"); null for the model-free apps. */
 export function modelOf(app) {
   return MODELS.find((m) => usesModel(app, m)) ?? null;

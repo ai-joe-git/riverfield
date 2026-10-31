@@ -4,7 +4,7 @@
   "name": "Layout Image",
   "section": "image",
   "pack": "image-moss",
-  "status": "draft",
+  "status": "ready",
   "higgsfield_feature": "Create Image",
   "summary": "Text to image with MOSS-Image (Apache-2.0); also takes a layout JSON that places each text and object in its own box.",
   "workflow": "workflow.api.json",
@@ -168,5 +168,6 @@
   "test": {
     "prompt": "a red bicycle against a white wall",
     "rewrite": false
-  }
+  },
+  "notes": "MOSS-Image int8 with the 9B qwen text encoder and the small flux2 VAE, at 25 steps and guidance 2.5 (er_sde / simple). The Rewrite toggle passes your prompt through qwen as a prompt engineer first, like the original workflow. Measured here on gfx1151 / ROCm 10.1: 190.9 s for a 1 MP picture with rewrite on. For drafts, MOSS Turbo runs the 8-step LoRA in about a minute."
 }

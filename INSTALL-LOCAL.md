@@ -228,6 +228,23 @@ Entrées : style (caption), paroles, durée max, steps, seed. Sortie MP3 dans
 `riverfield/music-turbo` et `riverfield/music-turbo-hq`. Le décodeur audio tuilé du
 workflow d'origine (`VAEDecodeAudioTiled`) est conservé, avec repli sur `VAEDecodeAudio`.
 
+### MOSS-Image et MOSS Turbo
+
+`moss-image` **n'est plus un brouillon** : les trois poids sont sur le disque et l'app a tourné ici
+(**190,9 s** pour 1 MP, 25 steps, cfg 2.5, rewrite activé), donc `status: ready`.
+
+`moss-turbo` (workflow `image_moss_image_t2i_turbo.json`) ajoute le LoRA
+`MOSS_8_STEPS_lora_latest.safetensors` (fichier local, pas dans le pack `image-moss`) :
+
+| Réglage | Valeur |
+|---|---|
+| steps | **8 → 15** (défaut 8) |
+| guidance (cfg) | **1.0 → 1.8** (défaut 1.5 ; l'app sans LoRA tourne à 2.5) |
+| rewrite | toggle : passe le prompt dans qwen 9B « prompt engineer » comme le workflow d'origine |
+| format | 8 ratios via `ResolutionSelector` |
+
+Mesuré : **96,4 s** pour 1 MP à 8 steps, rewrite activé.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
