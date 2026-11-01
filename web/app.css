@@ -674,3 +674,8 @@ dl.vals dd { margin: 0; overflow-wrap: anywhere; }
 .media .typeicon.badge { top: 8px; left: 8px; right: auto; bottom: auto; background: rgba(5, 8, 16, .7);
   border: 1px solid var(--line-2); border-radius: 8px; padding: 3px; color: var(--blue); }
 .model3d canvas { display: block; }
+
+/* a 3D run's card: the model fills the card, drag to orbit, click the chrome to open */
+.rcard-3d { position: relative; aspect-ratio: 4 / 3; }
+.rcard-3d .model3d { height: 100% !important; border: 0; border-radius: 0; }
+.rcard-3d .model3d .faint { display: none; }
