@@ -1,0 +1,95 @@
+{
+  "pack": "3d",
+  "apps": [
+    "image-to-3d"
+  ],
+  "download_gb": 15.2,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "microsoft/TRELLIS.2",
+      "file": "diffusion_models/trellis_2_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.25,
+      "name": "trellis_2_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "image-to-3d"
+      ]
+    },
+    {
+      "repo": "microsoft/TRELLIS.2",
+      "file": "vae/trellis_2_shape_vae_bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.1,
+      "name": "trellis_2_shape_vae_bf16.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "image-to-3d"
+      ]
+    },
+    {
+      "repo": "microsoft/TRELLIS.2",
+      "file": "vae/trellis_2_texture_vae_bf16.safetensors",
+      "dir": "vae",
+      "gb": 0.95,
+      "name": "trellis_2_texture_vae_bf16.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "image-to-3d"
+      ]
+    },
+    {
+      "repo": "facebook/dinov3",
+      "file": "clip_vision/dino_v3_L_naf_fp32.safetensors",
+      "dir": "clip_vision",
+      "gb": 1.22,
+      "name": "dino_v3_L_naf_fp32.safetensors",
+      "gated": false,
+      "license": "DINOv3 License",
+      "used_by": [
+        "image-to-3d"
+      ]
+    },
+    {
+      "repo": "TencentARC/Pixal3D",
+      "file": "diffusion_models/pixal3d_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.58,
+      "name": "pixal3d_int8_convrot.safetensors",
+      "gated": false,
+      "license": "see model card",
+      "used_by": [
+        "image-to-3d"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MoGe",
+      "file": "geometry_estimation/moge_2_vitl_normal_fp16.safetensors",
+      "dir": "geometry_estimation",
+      "gb": 0.66,
+      "name": "moge_2_vitl_normal_fp16.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "image-to-3d"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/BiRefNet",
+      "file": "background_removal/birefnet.safetensors",
+      "dir": "background_removal",
+      "gb": 0.44,
+      "name": "birefnet.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "image-to-3d"
+      ]
+    }
+  ]
+}

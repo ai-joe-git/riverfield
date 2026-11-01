@@ -14,7 +14,7 @@ import type { FileValue, Frame, Values } from "./runner.ts";
 
 export type Status = "starting" | "queued" | "running" | "succeeded" | "failed" | "canceled" | "expired" | "lost";
 const TERMINAL = new Set<Status>(["succeeded", "failed", "canceled", "expired", "lost"]);
-const MEDIA = new Set(["image", "video", "audio"]);
+const MEDIA = new Set(["image", "video", "audio", "file"]);   // file: 3D models (.glb) from Save3DAdvanced
 
 export type Entry = {
   id: string;
@@ -133,11 +133,13 @@ function safeExt(name: string | undefined, type: string | undefined): string {
 
 const VIDEO_EXT = new Set([".mp4", ".webm", ".mov", ".mkv", ".gif"]);
 const AUDIO_EXT = new Set([".mp3", ".wav", ".flac", ".ogg", ".m4a", ".opus"]);
+const MODEL_EXT = new Set([".glb", ".gltf", ".obj", ".fbx", ".stl", ".ply", ".usdz"]);
 
 /** What the file is, by its extension first: core SaveVideo and CreateVideo report their mp4 under
  * `images` (with `animated: true`), so the SDK calls it an image and the web would draw it in an <img>.
  * (First web run of morph, 23 oct: a blank card for a good video.) */
-function mediaKind(ext: string, sdkType: string): "image" | "video" | "audio" {
+function mediaKind(ext: string, sdkType: string): "image" | "video" | "audio" | "model" {
+  if (MODEL_EXT.has(ext)) return "model";
   if (VIDEO_EXT.has(ext)) return "video";
   if (AUDIO_EXT.has(ext)) return "audio";
   return sdkType === "video" || sdkType === "audio" ? sdkType : "image";
@@ -362,7 +364,7 @@ export class History {
             entry.error = { message: `could not download ${out.name}: ${(e as Error).message}` };
           }
         }
-        if (!entry.outputs.length && !entry.error) entry.error = { message: "the job finished without an image, video or audio output" };
+        if (!entry.outputs.length && !entry.error) entry.error = { message: "the job finished without an image, video, audio or 3D output" };
       } else {
         const err = job.error;
         entry.error = {

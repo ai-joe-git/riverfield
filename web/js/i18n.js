@@ -4,7 +4,7 @@
 import { store } from "./util.js";
 
 const en = {
-  "nav.explore": "Explore", "nav.image": "Image", "nav.video": "Video", "nav.audio": "Audio", "nav.apps": "Apps", "nav.library": "Library",
+  "nav.explore": "Explore", "nav.image": "Image", "nav.video": "Video", "nav.audio": "Audio", "nav.3d": "3D", "nav.apps": "Apps", "nav.library": "Library",
   "nav.vram": "VRAM map", "nav.create": "Create", "nav.lang": "Language",
   "menu.features": "Features", "menu.models": "Models", "menu.used": "{n} apps", "menu.used1": "1 app",
   "tag.featured": "Featured", "tag.new": "New", "tag.draft": "Draft", "tag.top": "Top",
@@ -42,6 +42,7 @@ const en = {
   "cat.identity.t": "Face & identity", "cat.identity.d": "Keep a character, swap one in, make it talk.",
   "cat.camera.t": "Camera & motion", "cat.camera.d": "Direct a move, copy one, reshoot from a new angle.",
   "cat.vfx.t": "VFX & editing", "cat.vfx.d": "Change what is in the shot.",
+  "cat.3d.t": "3D", "cat.3d.d": "From a picture to a model you can orbit, texture included.",
   "cat.ads.t": "Ads & products", "cat.ads.d": "Product photography without a studio: packshots, posters, billboards.",
   "cat.portraits.t": "Portraits & looks", "cat.portraits.d": "Headshots, campaigns and outfits from one selfie.",
   "cat.play.t": "Toys & games", "cat.play.d": "Your photo as a plushie, a figure, pixel art, a meme.",
@@ -94,7 +95,7 @@ const en = {
 };
 
 const es = {
-  "nav.explore": "Explorar", "nav.image": "Imagen", "nav.video": "Video", "nav.audio": "Audio", "nav.apps": "Apps", "nav.library": "Biblioteca",
+  "nav.explore": "Explorar", "nav.image": "Imagen", "nav.video": "Video", "nav.audio": "Audio", "nav.3d": "3D", "nav.apps": "Apps", "nav.library": "Biblioteca",
   "nav.vram": "Mapa de VRAM", "nav.create": "Crear", "nav.lang": "Idioma",
   "menu.features": "Funciones", "menu.models": "Modelos", "menu.used": "{n} apps", "menu.used1": "1 app",
   "tag.featured": "Destacado", "tag.new": "Nuevo", "tag.draft": "Borrador", "tag.top": "Top",
@@ -132,6 +133,7 @@ const es = {
   "cat.identity.t": "Rostro e identidad", "cat.identity.d": "Mantén un personaje, pon otro en su lugar, hazlo hablar.",
   "cat.camera.t": "Cámara y movimiento", "cat.camera.d": "Dirige un movimiento, cópialo, vuelve a filmar desde otro ángulo.",
   "cat.vfx.t": "VFX y edición", "cat.vfx.d": "Cambia lo que hay en la toma.",
+  "cat.3d.t": "3D", "cat.3d.d": "De una foto a un modelo que puedes girar, con su textura.",
   "cat.ads.t": "Anuncios y productos", "cat.ads.d": "Fotografía de producto sin estudio: packshots, pósters, espectaculares.",
   "cat.portraits.t": "Retratos y looks", "cat.portraits.d": "Headshots, campañas y outfits desde una selfie.",
   "cat.play.t": "Juguetes y juegos", "cat.play.d": "Tu foto como peluche, figura, pixel art o meme.",

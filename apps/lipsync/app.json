@@ -1,0 +1,282 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "lipsync",
+  "name": "Lipsync",
+  "section": "video",
+  "pack": "video-ltx25",
+  "status": "ready",
+  "higgsfield_feature": "Lipsync",
+  "summary": "A photo speaks a voice track: LTX-2.5 image-and-audio to video, with an optional prompt and prompt rewriting, in any aspect ratio.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "video_ltx2_5_IA2V_lipsync.json (ComfyUI user workflow)",
+    "comfyui": "0.42.0",
+    "notes": "Converted with tools/import_workflow.py. VHS_LoadAudioUpload is replaced by core LoadAudio, so the whole uploaded clip is used instead of a 10 s window at 65 s; the workflow's own switches stay: text-to-video bypasses the photo path, and prompt enhancement swaps the raw prompt for TextGenerateLTX2Prompt (qwen4-e2b over the LTX text encoder). Resolution is the template's ResolutionSelector: an aspect ratio and a megapixel budget, sides rounded to 32."
+  },
+  "inputs": [
+    {
+      "id": "audio",
+      "type": "audio",
+      "label": "Voice",
+      "required": true,
+      "help": "The speech to lipsync to. It is trimmed to the clip's length (see Seconds).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "713",
+          "field": "audio"
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Photo",
+      "help": "The face to animate. Leave empty and turn on \"Text to video\" for a scene made from the prompt alone.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "710",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "text_to_video",
+      "type": "toggle",
+      "label": "Text to video",
+      "default": false,
+      "help": "On: the photo is bypassed and the clip comes from the prompt only. Off: the photo is the first frame.",
+      "bind": [
+        {
+          "node": "398:363",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "default": "She looks at the camera, holds her gaze level and says the line. The camera does a single slow push-in; her hair and the fabric move with the wind.",
+      "help": "What happens in the shot. Spoken words go in quotes; the voice itself comes from the audio.",
+      "bind": [
+        {
+          "node": "398:376",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "enhance",
+      "type": "toggle",
+      "label": "Rewrite the prompt",
+      "default": true,
+      "help": "Sends the prompt through qwen first, as the workflow does: a fuller description, one more model pass.",
+      "bind": [
+        {
+          "node": "398:383",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "negative",
+      "type": "textarea",
+      "label": "Negative",
+      "default": "pc game, console game, video game, cartoon, childish, ugly",
+      "help": "What the shot must not look like.",
+      "bind": [
+        {
+          "node": "398:373",
+          "field": "text"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Format",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "403",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 0.8,
+      "help": "Total pixels of the clip, sides rounded to 32: 0.8 MP is 1152x640 at 16:9. The template's default; higher is sharper and much slower.",
+      "bind": [
+        {
+          "node": "403",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 5,
+      "bind": [
+        {
+          "node": "398:362",
+          "field": "value"
+        },
+        {
+          "node": "398:709",
+          "field": "value"
+        }
+      ],
+      "help": "Length of the clip, and how much of the voice track is used."
+    },
+    {
+      "id": "fps",
+      "type": "slider",
+      "label": "FPS",
+      "min": 12,
+      "max": 30,
+      "step": 1,
+      "default": 24,
+      "bind": [
+        {
+          "node": "398:361",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "398:338",
+          "field": "noise_seed"
+        },
+        {
+          "node": "398:339",
+          "field": "noise_seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "75",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 21.5,
+      "phase": "denoise",
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.37,
+      "phase": "encode",
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Comfy-Org/gemma-4",
+      "file": "text_encoders/gemma4_e2b_it_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 5.2,
+      "phase": "encode",
+      "license": "Gemma Terms of Use"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.47,
+      "phase": "decode",
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "dir": "vae",
+      "gb": 0.36,
+      "phase": "decode",
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 1.0,
+      "phase": "denoise2",
+      "license": "LTX-2.x Community License"
+    }
+  ],
+  "credits": [
+    "LTX-2.5 by Lightricks (LTX-2.x Community License)",
+    "Gemma 4 by Google (Gemma Terms of Use)"
+  ],
+  "notes": "Image-and-audio to video: the photo is the first frame and the audio track is the voice, so the mouth follows the recording. The prompt says what happens around the line (a pushed-in camera, the hair moving); the words themselves come from the audio, not from the prompt. Rewrite sends your prompt through qwen first, as the original workflow does; turn it off to see your own words unchanged. Format and megapixels are the workflow's ResolutionSelector: 0.8 MP by default, sides rounded to 32. The clip length is the workflow's own duration in seconds, not the audio's, so a 30 s recording gives the first 5 s unless you raise it.",
+  "test": {
+    "text_to_video": true,
+    "duration": 3,
+    "megapixels": 0.4
+  }
+}

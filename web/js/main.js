@@ -1,6 +1,6 @@
 // Boot and routing. Each route builds a view ({ node, dispose, active }) into <main>.
 //   #/                 Explore         #/apps      the app store       #/app/<id>  an app's workspace
-//   #/image #/video #/audio            the studios (open the last app used there)
+//   #/image #/video #/audio #/3d       the studios (open the last app used there)
 //   #/library          history and lab examples                       #/vram      the VRAM map
 import { el, closePopover, toast, api } from "./util.js";
 import { t } from "./i18n.js";
@@ -26,7 +26,7 @@ function route() {
     const featured = app && FEATURED.some((f) => f.id === app.id);
     return { ...view, active: app ? (featured ? app.id : studioOf(app)) : "apps" };
   }
-  const studio = /^#\/(image|video|audio)$/.exec(hash);
+  const studio = /^#\/(image|video|audio|3d)$/.exec(hash);
   if (studio) {
     location.replace(`#/app/${lastAppFor(studio[1])}`);
     return null;

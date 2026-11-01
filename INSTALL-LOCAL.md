@@ -191,6 +191,40 @@ accès direct à ComfyUI.
 
 Ports par défaut : app 3000, MCP 3010, gateway 8000, ComfyUI 8189, proxy 8190.
 
+## 3D : Image to 3D (TRELLIS.2 / Pixal3D)
+
+Le studio a un onglet **3D** (`#/3d`) et une app `image-to-3d` bâtie sur
+`3d_pixal3d_trellis2_image_to_model.json`, élaguée à ce qui sert le GLB (les aperçus
+navigateur, l'atlas UV et la variante vertex-paint sont retirés).
+
+| Entrée | |
+|---|---|
+| Photo | obligatoire, un objet seul et bien éclairé |
+| Engine | **TRELLIS.2** (défaut) ou **Pixal3D** — le booléen du workflow bascule conditionnement, UNET et VAE ensemble |
+| Texture | 1024 → 4096 px pour les cartes cuites (couleur, rugosité, AO, normale) |
+| Seed | un seul pour les quatre samplers |
+
+Sortie : un **`.glb`** (38,6 Mo à 1024, 576 s sur gfx1151) avec ses textures cuites. Mesuré ici :
+`image-to-3d` en **9 min 42** à 1024 px.
+
+### Ce qu'il a fallu changer pour le 3D
+
+1. `schema/app.schema.json` : section `3d`, type de sortie `model`.
+2. `server/history.ts` : `.glb/.gltf/.obj/.fbx/.stl/.ply/.usdz` → type `model` (sinon rangés en image).
+3. `server/server.ts` : MIME `model/gltf-binary` etc. pour servir le fichier.
+4. **`comfy-api-proxy` jetait les sorties 3D** : il ne connaît que `images, gifs, audio, text,
+   files, latents`, et `Save3DAdvanced` publie sous la clé `3d`. `local/patch-proxy.py` ajoute
+   `"3d": "file"` (idempotent, appelé par `run-backend.sh`, donc rejoué après toute réinstallation).
+5. UI : `web/js/model3d.js` (three.js vendorisé dans `web/vendor/three`, import map dans
+   `index.html`) affiche le GLB — orbite, zoom, auto-rotation — et `media.js` route le type `model`.
+
+## Vidéo : Lipsync (LTX-2.5 IA2V)
+
+`apps/lipsync` depuis `video_ltx2_5_IA2V_lipsync.json` : **audio obligatoire**, **photo
+optionnelle**, prompt + **rewrite on/off**, négatif, format (8 ratios) et **résolution en
+mégapixels** (0,4 → 1,5, défaut 0,8), durée, fps, seed. `VHS_LoadAudioUpload` est remplacé par
+`LoadAudio` pour utiliser tout l'audio au lieu d'une fenêtre de 10 s.
+
 ## Audio : Text to Speech (Chatterbox)
 
 
