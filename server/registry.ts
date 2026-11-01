@@ -45,7 +45,7 @@ export type ApiWorkflow = Record<string, ApiNode>;
 export type AppManifest = {
   id: string;
   name: string;
-  section: "image" | "video" | "audio" | "utility";
+  section: "image" | "video" | "audio" | "3d" | "utility";
   summary?: string;
   higgsfield_feature?: string;
   /** sibling apps shown as a switch at the top of the form (Cinema Studio: image, video) */
