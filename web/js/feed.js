@@ -4,6 +4,7 @@ import { api, el, icon, fmtSeconds, masonry, toast, live } from "./util.js";
 import { t, ago } from "./i18n.js";
 import { byId, promptInput } from "./catalog.js";
 import { entryItem, thumb, downloadName } from "./media.js";
+import { modelViewer } from "./model3d.js";
 
 const TERMINAL = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 export const isDone = (e) => TERMINAL.has(e.status);
@@ -153,14 +154,17 @@ function failedCard(e) {
 function doneCard(e, list) {
   const app = byId.get(e.app);
   const item = entryItem(e);
-  const media = thumb(item, { play: "visible" });
+  // a 3D run shows the model itself; the photo it came from is its card elsewhere
+  const media = item.type === "model" && item.outputs?.length
+    ? el("div", { class: "rcard-3d" }, modelViewer(item.outputs[0].url, { height: 300 }))
+    : thumb(item, { play: "visible" });
   const prompt = app && promptInput(app) ? String(e.values?.[promptInput(app).id] ?? "") : "";
   const stop = (fn) => (ev) => { ev.stopPropagation(); fn(); };
   const open = () => hooks.open?.(list().map(entryItem), e.id);
   const dl = el("a", { class: "mini", href: item.full, download: downloadName(item, item.full), title: t("act.download"), "aria-label": t("act.download"),
     onclick: (ev) => ev.stopPropagation() }, icon("download"));
   const node = el("div", { class: "rcard", tabindex: "0", role: "button", "aria-label": `${app?.name ?? e.app} · ${ago(e.created)}`,
-    onclick: open, onkeydown: (ev) => { if (ev.key === "Enter") open(); } },
+    onclick: (ev) => { if (!ev.target.closest?.(".model3d")) open(); }, onkeydown: (ev) => { if (ev.key === "Enter") open(); } },
     media,
     el("div", { class: "ov" },
       el("div", { class: "row" }, el("span", { class: "tag dark" }, app?.name ?? e.app),

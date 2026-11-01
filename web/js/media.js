@@ -27,10 +27,14 @@ export function entryItem(e) {
   const app = byId.get(e.app);
   const labels = Object.fromEntries((app?.inputs || []).map((i) => [i.id, i]));
   const first = e.outputs[0];
+  // a 3D run has no still of its own: the picture that went in is its card, the model opens on click
+  const model = first?.type === "model";
+  const inputImage = model ? e.inputs.find((i) => i.type === "image")?.url ?? null : null;
   return {
     kind: "history", key: e.id, id: e.id, app: e.app, status: e.status,
     type: first?.type || app?.outputs?.[0]?.type || "image",
-    card: first?.url || null, poster: null, full: first?.url || null,
+    card: model ? inputImage : first?.url || null, poster: model ? inputImage : null,
+    full: first?.url || null,
     outputs: e.outputs.map((o) => ({ type: o.type, url: o.url, name: o.name })),
     inputs: e.inputs.map((i) => ({ id: i.id, label: labels[i.id]?.label || i.id, type: i.type, thumb: i.type === "image" ? i.url : null, file: i.url,
       play: i.type === "image" ? null : i.url, name: i.name })),
