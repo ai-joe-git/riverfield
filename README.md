@@ -3,8 +3,10 @@
 Open-source Higgsfield on ComfyUI: every app is one folder, every model is open weights.
 
 **RiverField is a fork of [Freefield](https://github.com/neuregex/freefield) by Sammir Femat (neuregex), MIT.**
-It adds turbo variants of the MiniMax H3 apps (taomate 3-step, Ref2V 4-step), YuE2 music and cover apps, and the
-H3 SLA Attention node on ROCm in every H3 workflow. Upstream stays the reference for everything else.
+It adds a **3D studio** (a picture to a textured GLB, TRELLIS.2 or Pixal3D), **Lipsync** (LTX-2.5 image-and-audio to
+video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voice design), turbo variants of the
+MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the **H3 SLA Attention** node on ROCm in every H3
+workflow, and an **MCP server** so an agent can drive the studio. Upstream stays the reference for everything else.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
@@ -44,13 +46,51 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 
 | | |
 |---|---|
-| Apps | 120: 119 *ready* (39 apps with a workflow of their own, the 5 IC-LoRA apps (`genjutsu`, `reframe`, `sdr-hdr`, `mixed-media`, `dub`), `morph`, 72 template apps (a fixed prompt over one of those pipelines, written by `tools/template_apps.py`) and 2 model-free smoke apps) and `moss-image` as a draft. The 118 that use models each have a lab example made on a GPU |
+| Apps | **135, all ready** (upstream's 120, `moss-image` now out of draft, plus 15 of ours: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D** and **Lipsync** — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `e3bee7f` (0.42.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
 | GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
 | End to end | Run from the browser on 23 Oct, web UI → server → gateway on Modal → ComfyUI on an H100: `morph` 160.8 s from the button to the video (128.7 s of it on the GPU), `mixed-media` 149 s, `dub` 72 s. On 24 Oct through the hosted demo (`infra/web_app.py`, the same web app on Modal behind a passcode): `face-swap` 25.2 s on the GPU. The model-free smoke apps cover the same path in CI |
 | LoRA lab | 334 cases with fixed seeds: one showcase per app (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
 | CI | `.github/workflows/validate.yml` on every push: the manifest validator, the tests, the type check, the generated packs and VRAM map, and a CPU-only ComfyUI that accepts every workflow and the prompt of every lab case (about 3 minutes) |
+
+## What RiverField adds
+
+Everything below is on top of upstream Freefield, in the same shape: a folder in `apps/`, a ComfyUI workflow in
+API format, and a manifest the UI, the runner and the MCP all read.
+
+| App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
+|---|---|---|---|
+| `h3-video-turbo`, `h3-photo-turbo`, `extend-video-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA, `euler`, a 0.4–0.8 MP picker and a sampler choice | H3 int8 | 186 s for 2 s, 0.4 MP |
+| `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
+| `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
+| `music-yue2`, `music-yue2-cover` | YuE2 songs and covers, 23-language vocals, from the user's own workflows | YuE2 3B | 22 s / 26 s |
+| `tts`, `tts-clone` | Chatterbox: 23 languages, voice cloning from 5 s | Chatterbox 500M | 4.1 s / 4.6 s |
+| `tts-omni`, `tts-omni-clone` | OmniVoice: voice design from attributes, cloning, 600+ languages | OmniVoice 0.6B | 4.1 s / 4.7 s |
+| `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
+| `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
+| `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
+
+Three things are not an app:
+
+- **H3 SLA Attention (ROCm)** — the `H3SLAAttentionROCM` node sits in every H3 workflow, right after the model
+  chain, with the settings validated on gfx1151 (0.90 sparsity, 64-token blocks, `comfy_kitchen` dense backend);
+  it is what makes H3 usable on this card.
+- **A 3D studio** — `section: "3d"` in the manifest, a `model` output type, `.glb` classified and served as
+  `model/gltf-binary`, a three.js viewer in the web UI (`web/js/model3d.js`, vendored in `web/vendor/three`),
+  and a patch for `comfy-api-proxy`, which drops ComfyUI's `3d` output key (`local/patch-proxy.py`, re-applied by
+  `run-backend.sh`).
+- **An MCP server** (`mcp/server.ts`) — nine tools (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
+  `cancel_job`, `history`, `gpu`, `examples`) over the studio's own API, streamable HTTP on
+  `http://127.0.0.1:3010/mcp` started with the app, or stdio with `./run-mcp.sh --stdio`. Outputs come back as
+  absolute paths, `.glb` included. See [`mcp/README.md`](mcp/README.md).
+
+The palette follows [blackriver-ai.com](https://blackriver-ai.com): #020306 canvas, #0B0F16/#101722 panels, a
+blue `#8DB4FF` accent with cyan and violet supports, and mint `#58E6B1` only for status. All of it lives in the
+`:root` block of `web/app.css`.
+
+`./start.sh` starts the backend (ComfyUI + comfy-api-proxy + gateway), the web app and the MCP; `./stop.sh` stops
+them; `./update.sh` merges upstream and rebuilds the turbo variants. Machines and ports: [`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
 
 ## Apps
 
