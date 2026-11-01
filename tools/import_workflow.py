@@ -413,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("workflow", type=Path)
     ap.add_argument("--id", required=True, help="app id: lowercase words joined by - (the folder name)")
     ap.add_argument("--name", help="name shown in the UI (default: the id in title case)")
-    ap.add_argument("--section", choices=["image", "video", "audio", "utility"], help="default: from the outputs")
+    ap.add_argument("--section", choices=["image", "video", "audio", "3d", "utility"], help="default: from the outputs")
     ap.add_argument("--out", type=Path, help="folder to write (default: apps/<id>)")
     ap.add_argument("--object-info", type=Path, help="GET /object_info of a ComfyUI, for UI workflows and option lists")
     ap.add_argument("--force", action="store_true", help="overwrite the folder when it exists")

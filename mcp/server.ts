@@ -97,7 +97,7 @@ function build(): McpServer {
     title: "List RiverField apps",
     description: "Every app of the studio with its section, status and pack. Filter by section (image, video, audio, utility).",
     inputSchema: {
-      section: z.enum(["image", "video", "audio", "utility"]).optional().describe("only this studio"),
+      section: z.enum(["image", "video", "audio", "3d", "utility"]).optional().describe("only this studio"),
       status: z.enum(["ready", "draft"]).optional().describe("only this status"),
     },
   }, async ({ section, status }) => {
