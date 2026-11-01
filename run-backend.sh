@@ -41,6 +41,8 @@ set +a
 
 [[ -x "$VENV/bin/python" ]] || { echo "ERROR: venv missing: $VENV"; exit 1; }
 [[ -x "$VENV/bin/comfy-api-proxy" ]] || { echo "ERROR: comfy-api-proxy missing in $VENV (pip install comfy-api-proxy==0.1.6)"; exit 1; }
+# le proxy ignore les sorties ComfyUI de type 3d : sans ce patch, les .glb n'arrivent jamais
+"$VENV/bin/python" "$RIVERFIELD_DIR/local/patch-proxy.py" || true
 
 source "$VENV/bin/activate"
 

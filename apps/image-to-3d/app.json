@@ -1,0 +1,141 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "image-to-3d",
+  "name": "Image to 3D",
+  "section": "3d",
+  "pack": "3d",
+  "status": "ready",
+  "higgsfield_feature": "3D",
+  "summary": "Turns one picture into a textured 3D model you can spin, with TRELLIS.2 or Pixal3D inside the same graph: a GLB out, ready for Blender or a game engine.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "3d_pixal3d_trellis2_image_to_model.json (ComfyUI user workflow)",
+    "comfyui": "0.42.0",
+    "notes": "Converted with tools/import_workflow.py, then pruned to what the GLB needs: the browser previews, the UV-atlas render and the vertex-paint variant are removed, the texture bakes stay. The original boolean that swaps the whole pipeline (conditioning, UNET, shape VAE) between TRELLIS.2 (true) and Pixal3D (false) is exposed as the Engine select; one seed drives the four samplers."
+  },
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Picture",
+      "required": true,
+      "help": "One object, well lit, alone on its background: the model is built from what it sees.",
+      "limits": { "max_mb": 30 },
+      "bind": [
+        { "node": "122", "field": "image" }
+      ]
+    },
+    {
+      "id": "engine",
+      "type": "select",
+      "label": "Engine",
+      "default": true,
+      "options": [
+        { "value": true, "label": "TRELLIS.2" },
+        { "value": false, "label": "Pixal3D" }
+      ],
+      "help": "Both build the whole model; TRELLIS.2 is the newer release and the workflow's default, Pixal3D the alternative view of the same picture.",
+      "bind": [
+        { "node": "316", "field": "value" }
+      ]
+    },
+    {
+      "id": "texture",
+      "type": "slider",
+      "label": "Texture size",
+      "min": 1024,
+      "max": 4096,
+      "step": 512,
+      "default": 4096,
+      "help": "Pixel size of the baked colour, roughness and normal maps. 2048 is a good draft, 4096 the printed detail.",
+      "bind": [
+        { "node": "288", "field": "value" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed for the four samplers.",
+      "bind": [
+        { "node": "3", "field": "seed" },
+        { "node": "12", "field": "seed" },
+        { "node": "18", "field": "seed" },
+        { "node": "23", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "322", "type": "model", "label": "Model (.glb)" }
+  ],
+  "models": [
+    {
+      "repo": "microsoft/TRELLIS.2",
+      "file": "diffusion_models/trellis_2_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.25,
+      "phase": "denoise",
+      "license": "MIT"
+    },
+    {
+      "repo": "microsoft/TRELLIS.2",
+      "file": "vae/trellis_2_shape_vae_bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.1,
+      "phase": "decode",
+      "license": "MIT"
+    },
+    {
+      "repo": "microsoft/TRELLIS.2",
+      "file": "vae/trellis_2_texture_vae_bf16.safetensors",
+      "dir": "vae",
+      "gb": 0.95,
+      "phase": "denoise",
+      "license": "MIT"
+    },
+    {
+      "repo": "facebook/dinov3",
+      "file": "clip_vision/dino_v3_L_naf_fp32.safetensors",
+      "dir": "clip_vision",
+      "gb": 1.22,
+      "phase": "encode",
+      "license": "DINOv3 License"
+    },
+    {
+      "repo": "TencentARC/Pixal3D",
+      "file": "diffusion_models/pixal3d_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.58,
+      "phase": "denoise",
+      "license": "see model card"
+    },
+    {
+      "repo": "Comfy-Org/MoGe",
+      "file": "geometry_estimation/moge_2_vitl_normal_fp16.safetensors",
+      "dir": "geometry_estimation",
+      "gb": 0.66,
+      "phase": "encode",
+      "license": "MIT"
+    },
+    {
+      "repo": "Comfy-Org/BiRefNet",
+      "file": "background_removal/birefnet.safetensors",
+      "dir": "background_removal",
+      "gb": 0.44,
+      "phase": "aux",
+      "license": "MIT"
+    }
+  ],
+  "credits": [
+    "TRELLIS.2 by Microsoft Research (MIT)",
+    "Pixal3D (see its model card)",
+    "DINOv3 by Meta (DINOv3 License)",
+    "MoGe and BiRefNet (MIT)"
+  ],
+  "notes": "The picture is cut out (BiRefNet), its camera guessed (MoGe) and its geometry and textures built by the engine you pick: TRELLIS.2 (the workflow's default) or Pixal3D, switched by one boolean that swaps the conditioning, the UNET and the shape VAE together. The result is a GLB with baked colour, roughness, occlusion and normal maps: open it in Blender, Godot, Unity or the viewer here. Texture size drives the bake: 2048 is a quick draft, 4096 the detailed one. One object per picture works best; the seed only matters for the texture and the sparse structure, the silhouette comes from the photo.",
+  "test": {
+    "engine": true,
+    "texture": 2048
+  }
+}

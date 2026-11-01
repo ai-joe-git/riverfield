@@ -1,6 +1,7 @@
 // One shape for everything the UI shows as a result, whether it came from the lab (an example)
 // or from a run started here (a history entry), plus the elements that display them.
 import { el, icon, extOf } from "./util.js";
+import { modelViewer } from "./model3d.js";
 import { byId } from "./catalog.js";
 import { flagButton } from "./flags.js";
 
@@ -76,6 +77,11 @@ export function thumb(item, { play = "visible", useFull = false, cls = "" } = {}
     box.append(v);
     box._video = v;
     if (play === "visible") playWhenVisible(v);
+  } else if (item.type === "model") {
+    box.classList.add("model");
+    if (item.poster || item.card) box.append(el("img", { src: item.poster || item.card, alt: "", loading: "lazy" }));
+    else box.append(el("span", { class: "typeicon" }, icon("box")));
+    box.append(el("span", { class: "typeicon badge" }, icon("box")));
   } else if (item.type === "audio") {
     box.classList.add("audio", "wave");
     if (item.card && extOf(item.card) === "png") box.append(el("img", { src: item.card, alt: "", loading: "lazy" }));
@@ -111,6 +117,7 @@ export function fullMedia(type, src, { poster, autoplay = true } = {}) {
     const v = el("video", { src, poster: poster || null, controls: true, loop: true, playsinline: true, preload: "auto", autoplay: autoplay || null });
     return v;
   }
+  if (type === "model") return modelViewer(src, { height: 520 });
   if (type === "audio") {
     return el("div", { class: "audio-box" }, el("div", { class: "media audio wave", style: { borderRadius: "12px", aspectRatio: "4 / 1" } }, waveform(src)),
       el("audio", { src, controls: true, preload: "metadata", autoplay: autoplay || null }));

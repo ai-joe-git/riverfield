@@ -14,7 +14,7 @@
       "description": "Must match the folder name."
     },
     "name": { "type": "string", "minLength": 1, "maxLength": 40 },
-    "section": { "enum": ["image", "video", "audio", "utility"] },
+    "section": { "enum": ["image", "video", "audio", "3d", "utility"] },
     "summary": { "type": "string", "maxLength": 160 },
     "higgsfield_feature": {
       "type": "string",
@@ -176,7 +176,7 @@
       "required": ["node", "type"],
       "properties": {
         "node": { "type": "string" },
-        "type": { "enum": ["image", "video", "audio"] },
+        "type": { "enum": ["image", "video", "audio", "model"] },
         "label": { "type": "string" }
       }
     },

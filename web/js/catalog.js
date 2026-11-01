@@ -31,6 +31,7 @@ export const CATEGORIES = [
     "asmr-product", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad"] },
   { id: "portraits", apps: ["ai-influencer", "ai-influencer-photo", "photodump", "headshot", "commercial-faces", "style-snap", "skin-enhancer", "outfit-vending", "glitter-sticker", "fashion-factory", "try-on", "outfit-swap", "outfit-shot"] },
   { id: "clips", apps: ["behind-the-scenes", "asmr-whisper", "asmr-host", "roller-coaster", "storm-creature", "cloud-surf", "mukbang", "melting-doodle", "rap-video", "idol"] },
+  { id: "3d", apps: ["image-to-3d"] },
   { id: "play", apps: ["game-styles", "plushie", "render-3d", "figure-3d", "pixel-game", "brick-toy", "sketch-to-real", "paint-app", "mural", "micro-beasts", "meme"] },
   { id: "templates", apps: ["j-magazine", "cafe-60s", "victory-card", "j-poster", "mascot", "burning-sunset", "comic-book", "giallo", "renaissance", "japanese-show", "breakdown", "edit-text", "image-effects", "color-grade"] },
 ];
@@ -120,11 +121,12 @@ export function familyOf(app) {
 export function studioOf(app) {
   if (videoTabOf(app.id) || app.section === "video") return "video";
   if (app.section === "audio") return "audio";
+  if (app.section === "3d") return "3d";
   if (layoutOf(app) === "composer") return "image";
   return "apps";
 }
 
-const DEFAULT_APP = { image: "z-image", video: "video", audio: "music" };
+const DEFAULT_APP = { image: "z-image", video: "video", audio: "music", "3d": "image-to-3d" };
 export function lastAppFor(studio) {
   const id = store.get(`last.${studio}`);
   if (id && byId.has(id)) return id;
@@ -266,7 +268,8 @@ export function tagline(app) {
 export function iconOf(app) {
   const byIdIcon = { relight: "sun", "remove-bg": "scissors", "product-shot": "box", character: "user", speak: "user", talking: "user",
     recast: "user", "motion-transfer": "hand", "camera-moves": "camera", "camera-copy": "camera", reshoot: "camera", music: "audio", sfx: "audio", effects: "spark" };
-  return byIdIcon[app.id] || (app.section === "video" ? "video" : app.section === "audio" ? "audio" : "image");
+  return byIdIcon[app.id] || (app.section === "video" ? "video" : app.section === "audio" ? "audio"
+    : app.section === "3d" ? "box" : "image");
 }
 
 /** The prompt of a set of values: the first required textarea, else the first textarea. */
