@@ -352,13 +352,12 @@ Corrigé en ciblant le problème :
   ComfyUI n'est modifié) ;
 - `run-backend.sh` ne passe plus `--use-split-cross-attention` : tout le reste (H3, LTX, FLUX,
   Wan) garde l'attention PyTorch (AOTriton flash), mémoire linéaire ;
-- ajout de `--reserve-vram 8` (8 Go laissés à l'OS, pour qu'un pic ne fige pas le bureau) et de
-  `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True` (moins de fragmentation) ;
+- ajout de `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True` (moins de fragmentation) ;
 - `--cache-none` est toujours là, et `--dont-upcast-attention` aussi.
 
 Vérifié sans lancer d'inférence : ComfyUI démarre en « pytorch attention », le patch gemma4
 renvoie bien `attention_split`, et la ligne de commande est
-`--dont-upcast-attention --cache-none --reserve-vram 8`.
+`--dont-upcast-attention --cache-none`.
 
 ## Modèles
 

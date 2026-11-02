@@ -79,11 +79,10 @@ echo "== ComfyUI :$COMFY_PORT (ROCm 10.1, gfx1151)"
 # Go et tue la machine (runs "lost" à 0.8 MP / 8 s). Le plantage SDPA de ROCm 10.1 ne concerne
 # que l'encodeur gemma4 de LTX-2.5 : le nœud custom_nodes/riverfield-gemma4-attn le force sur
 # l'attention découpée, et tout le reste (H3, LTX, FLUX, Wan) garde le chemin flash linéaire.
-# --cache-none : aucun cache de nœuds entre deux runs ; --reserve-vram : de la mémoire
-# laissée à l'OS, pour qu'un pic ne fige pas le bureau.
+# --cache-none : aucun cache de nœuds entre deux runs.
 export PYTORCH_HIP_ALLOC_CONF="${PYTORCH_HIP_ALLOC_CONF:-expandable_segments:True}"
 ( cd "$COMFYUI" && exec python main.py --listen 127.0.0.1 --port "$COMFY_PORT" --disable-auto-launch \
-    --dont-upcast-attention --cache-none --reserve-vram "${RESERVE_VRAM:-8}" ) &
+    --dont-upcast-attention --cache-none ) &
 PIDS+=($!)
 wait_http "http://127.0.0.1:$COMFY_PORT/system_stats"
 echo "== comfy-api-proxy :$PROXY_PORT"
