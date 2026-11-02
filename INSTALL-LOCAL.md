@@ -336,6 +336,30 @@ workflow d'origine (`VAEDecodeAudioTiled`) est conservé, avec repli sur `VAEDec
 
 Mesuré : **96,4 s** pour 1 MP à 8 steps, rewrite activé.
 
+### Attention et mémoire (le crash de 8 s)
+
+Les runs `h3-r2v` à **0,8 MP / 8 s** ont tué le backend (« lost »). La cause n'est pas la
+mémoire du GPU mais **le mode d'attention** : on lançait ComfyUI avec
+`--use-split-cross-attention` en global, à cause du plantage SDPA de ROCm 10.1 sur l'encodeur
+**gemma4** de LTX-2.5. Or l'attention découpée de ComfyUI construit la matrice de scores
+complète, en O(tokens²) **par tête** : à 8 s de vidéo H3 (~100 k tokens), cela demande des
+centaines de Go — d'où la machine qui tombe, alors que le DiT tournait très bien en flash.
+
+Corrigé en ciblant le problème :
+
+- `custom_nodes/riverfield-gemma4-attn` force `attention_split` **uniquement** sur l'encodeur
+  gemma4 (patch de `comfy.text_encoders.gemma4.optimized_attention_for_device`, rien de
+  ComfyUI n'est modifié) ;
+- `run-backend.sh` ne passe plus `--use-split-cross-attention` : tout le reste (H3, LTX, FLUX,
+  Wan) garde l'attention PyTorch (AOTriton flash), mémoire linéaire ;
+- ajout de `--reserve-vram 8` (8 Go laissés à l'OS, pour qu'un pic ne fige pas le bureau) et de
+  `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True` (moins de fragmentation) ;
+- `--cache-none` est toujours là, et `--dont-upcast-attention` aussi.
+
+Vérifié sans lancer d'inférence : ComfyUI démarre en « pytorch attention », le patch gemma4
+renvoie bien `attention_split`, et la ligne de commande est
+`--dont-upcast-attention --cache-none --reserve-vram 8`.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
