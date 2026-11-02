@@ -74,10 +74,16 @@ wait_http() {  # url, timeout
 }
 
 echo "== ComfyUI :$COMFY_PORT (ROCm 10.1, gfx1151)"
-# --use-split-cross-attention: le SDPA de ROCm 10.1 plante sur l'encodeur gemma4 de LTX-2.5
-# (hipErrorProfilerNotInitialized, noyau qui trap). L'attention découpée évite ce chemin.
+# Attention : plus de --use-split-cross-attention global. Ce mode calcule la matrice
+# d'attention complète (O(tokens²) par tête) : à 8 s de vidéo H3 il demande des centaines de
+# Go et tue la machine (runs "lost" à 0.8 MP / 8 s). Le plantage SDPA de ROCm 10.1 ne concerne
+# que l'encodeur gemma4 de LTX-2.5 : le nœud custom_nodes/riverfield-gemma4-attn le force sur
+# l'attention découpée, et tout le reste (H3, LTX, FLUX, Wan) garde le chemin flash linéaire.
+# --cache-none : aucun cache de nœuds entre deux runs ; --reserve-vram : de la mémoire
+# laissée à l'OS, pour qu'un pic ne fige pas le bureau.
+export PYTORCH_HIP_ALLOC_CONF="${PYTORCH_HIP_ALLOC_CONF:-expandable_segments:True}"
 ( cd "$COMFYUI" && exec python main.py --listen 127.0.0.1 --port "$COMFY_PORT" --disable-auto-launch \
-    --use-split-cross-attention --dont-upcast-attention --cache-none ) &
+    --dont-upcast-attention --cache-none --reserve-vram "${RESERVE_VRAM:-8}" ) &
 PIDS+=($!)
 wait_http "http://127.0.0.1:$COMFY_PORT/system_stats"
 echo "== comfy-api-proxy :$PROXY_PORT"
