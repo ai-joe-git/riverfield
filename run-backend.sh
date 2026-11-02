@@ -27,8 +27,9 @@ if (echo > "/dev/tcp/127.0.0.1/$GATEWAY_PORT") 2>/dev/null; then
   echo "ERROR: le port $GATEWAY_PORT du gateway est occupé (COMFY_BASE_URL dans .env pointe dessus)"
   exit 1
 fi
-PORT_FILE="${RIVERFIELD_LOG:-/tmp/opencode/riverfield}/ports.env"
-mkdir -p "$(dirname "$PORT_FILE")"
+LOG_DIR="${RIVERFIELD_LOG:-/tmp/opencode/riverfield}"
+PORT_FILE="$LOG_DIR/ports.env"
+mkdir -p "$LOG_DIR"
 printf 'COMFY_PORT=%s\nPROXY_PORT=%s\nGATEWAY_PORT=%s\n' "$COMFY_PORT" "$PROXY_PORT" "$GATEWAY_PORT" > "$PORT_FILE"
 export COMFY_PORT PROXY_PORT GATEWAY_PORT
 [[ "$COMFY_PORT" != "8188" ]] && echo "== 8188 occupé (ton ComfyUI de 15_RUN ?) → RiverField démarre le sien sur :$COMFY_PORT"
@@ -80,9 +81,33 @@ echo "== ComfyUI :$COMFY_PORT (ROCm 10.1, gfx1151)"
 # que l'encodeur gemma4 de LTX-2.5 : le nœud custom_nodes/riverfield-gemma4-attn le force sur
 # l'attention découpée, et tout le reste (H3, LTX, FLUX, Wan) garde le chemin flash linéaire.
 # --cache-none : aucun cache de nœuds entre deux runs.
+#
+# --disable-dynamic-vram : DynamicVRAM / comfy-aimdo (actif par défaut depuis ComfyUI 0.34)
+# est cassé sur les GPU AMD en ROCm : runs qui meurent sans traceback, machine figée, OOM
+# alors que la mémoire est libre. Voir Comfy-Org/ComfyUI#16878 et #15255 (le rapport #15255
+# décrit mot pour mot notre cas : h3_ref2va_int8 + TE qwen3vl_32b nvfp4 + VAE H3 « Staged »).
+# Sur un iGPU Strix Halo c'est pire : aimdo croit avoir 112 Go de VRAM *en plus* des 122 Go
+# de RAM alors que c'est la même mémoire, et il « commit » tout ce qu'il peut.
+# --disable-pinned-memory : la mémoire pinned n'est pas swappable, et sur un iGPU elle ne
+# sert à rien (aucun transfert PCIe) : elle empêche juste le noyau de récupérer la mémoire.
 export PYTORCH_HIP_ALLOC_CONF="${PYTORCH_HIP_ALLOC_CONF:-expandable_segments:True}"
 ( cd "$COMFYUI" && exec python main.py --listen 127.0.0.1 --port "$COMFY_PORT" --disable-auto-launch \
-    --dont-upcast-attention --cache-none ) &
+    --dont-upcast-attention --cache-none --disable-dynamic-vram --disable-pinned-memory ) &
+COMFY_PID=$!
+PIDS+=($COMFY_PID)
+
+# Échantillonneur mémoire : si ça retombe, on saura qui consomme quoi (RAM dispo, RSS du
+# backend, GTT utilisé par le GPU). Écrit toutes les 5 s dans $LOG_DIR/mem.log.
+(
+  GTT=/sys/class/drm/card1/device/mem_info_gtt_used
+  while sleep 5; do
+    ts=$(date +%H:%M:%S)
+    ram=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
+    rss=$(awk '/VmRSS/{print int($2/1024)}' "/proc/$COMFY_PID/status" 2>/dev/null || echo 0)
+    gtt=$(awk '{print int($1/1048576)}' "$GTT" 2>/dev/null || echo 0)
+    printf '%s ram_dispo=%sMB comfy_rss=%sMB gtt=%sMB\n' "$ts" "$ram" "$rss" "${gtt:-0}"
+  done
+) >> "$LOG_DIR/mem.log" &
 PIDS+=($!)
 wait_http "http://127.0.0.1:$COMFY_PORT/system_stats"
 echo "== comfy-api-proxy :$PROXY_PORT"
