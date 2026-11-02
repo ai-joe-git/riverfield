@@ -24,6 +24,8 @@ export type Input = {
   multiple?: { max?: number; join?: string; prefix?: string; suffix?: string; ordered?: boolean };
   /** image inputs: the image input this one is painted over in the web UI (a white-on-black mask) */
   paint?: string;
+  /** edges to drop when this optional input is empty (an unused reference slot must not run its loader) */
+  unlink?: { node: string; field: string }[];
   limits?: { max_mb?: number; seconds?: [number, number] };
   bind?: Bind[];
 };
@@ -151,6 +153,7 @@ function checkGraph(app: App, problems: Problem[], severity: Problem["severity"]
     }
   }
   for (const p of app.presets ?? []) for (const s of p.sets) has(s.node, s.field, `preset "${p.id}"`);
+  for (const input of app.inputs) for (const u of input.unlink ?? []) has(u.node, u.field, `input "${input.id}" unlink`);
   for (const input of app.inputs) {
     for (const o of input.options ?? []) for (const s of o.sets ?? []) has(s.node, s.field, `input "${input.id}" option "${o.label}"`);
   }

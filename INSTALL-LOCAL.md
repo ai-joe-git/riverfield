@@ -225,6 +225,36 @@ optionnelle**, prompt + **rewrite on/off**, négatif, format (8 ratios) et **ré
 mégapixels** (0,4 → 1,5, défaut 0,8), durée, fps, seed. `VHS_LoadAudioUpload` est remplacé par
 `LoadAudio` pour utiliser tout l'audio au lieu d'une fenêtre de 10 s.
 
+### H3 Reference to Video (`h3-r2v`)
+
+L'app la plus complète du studio, depuis `video_minimax_h3_r2v.json` : tout le pipeline de
+références MiniMax H3 dans un seul graphe.
+
+| Entrées | |
+|---|---|
+| `image1..9` | jusqu'à 9 photos, appelées `<Picture 1>` … dans le prompt |
+| `video1..3` | jusqu'à 3 clips ; leurs frames deviennent `<Video N>` **et leur propre bande son** alimente le slot audio apparié (`GetVideoComponents`) |
+| `audio1..3` | jusqu'à 3 audios seuls (`<Audio N>`) |
+| prompt | références par nom, paroles entre guillemets |
+| format + MP | 8 ratios, 0,4 → 1,5 MP |
+| secondes | 1 → 15 (frames calculées par la formule du workflow : 24 fps, multiple de 17) |
+| sampler | euler (défaut) ou res_multistep |
+| turbo | le LoRA ref2v 4-step du workflow, ou le modèle complet |
+| steps | 4 avec turbo, 20 sans (écrit dans les deux branches du switch) |
+| seed | -1 aléatoire |
+
+**Tous les slots sont optionnels.** Trois mécanismes ont été ajoutés pour ça :
+
+1. `required: false` sur une entrée fichier → le runner ne la réclame plus (les fichiers restent
+   requis par défaut, donc rien ne change pour les autres apps) ;
+2. `unlink: [{node, field}]` sur l'entrée → quand elle est vide, l'arête vers le nœud 136 est coupée ;
+3. `pruneGraph()` dans le runner → après application, tout nœud que les sorties ne peuvent plus
+   atteindre est retiré du prompt (sinon le `LoadImage` orphelin restait validé par ComfyUI avec
+   son nom de fichier factice et faisait échouer tout le prompt).
+
+Mesuré ici : **264 s** pour 2 s en 4 steps sans aucune référence (0,4 MP), et le run à références
+ci-dessus.
+
 ## Audio : Text to Speech (Chatterbox)
 
 

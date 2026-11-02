@@ -8,7 +8,11 @@ export type FileValue = { bytes: Uint8Array; name: string; type?: string };
 export type Values = Record<string, unknown>;
 
 /** Anything with setInput, so tests can pass a fake instead of the SDK's Workflow. */
-export type Settable = { setInput(node: string, field: string, value: unknown): unknown };
+export type Settable = {
+  setInput(node: string, field: string, value: unknown): unknown;
+  /** the raw API graph, when the caller has one (the SDK workflow does) */
+  json?: Record<string, unknown>;
+};
 
 export class InputError extends Error {}
 
@@ -88,7 +92,11 @@ export function resolveValues(app: App, values: Values): Values {
       v = Math.floor(Math.random() * 2 ** 48);
     }
     if (v === undefined) {
-      if (input.required || isFileInput(input)) throw new InputError(`${input.id}: required`);
+      // a file input is required unless the manifest says otherwise ("required": false):
+      // reference slots are optional, a photo to animate is not
+      if (input.required || (isFileInput(input) && input.required !== false)) {
+        throw new InputError(`${input.id}: required`);
+      }
       continue;
     }
     if (isFileInput(input)) {
@@ -132,7 +140,14 @@ export function applyInputs(
   values = textValues(app, values);
   for (const input of app.inputs) {
     const v = values[input.id];
-    if (v === undefined) continue;
+    if (v === undefined) {
+      // an optional reference slot left empty: cut its edge so its loader never runs
+      for (const u of input.unlink ?? []) {
+        const node = wf.json?.[u.node] as { inputs?: Record<string, unknown> } | undefined;
+        if (node?.inputs) delete node.inputs[u.field];
+      }
+      continue;
+    }
     for (const b of input.bind ?? []) {
       if (b.template) wf.setInput(b.node, b.field, renderTemplate(b.template, values));
       else wf.setInput(b.node, b.field, isFileValue(v) ? asset(v) : v);
@@ -146,6 +161,28 @@ export function applyInputs(
     if (!preset) throw new InputError(`preset "${presetId}" does not exist in ${app.id}`);
     for (const s of preset.sets) wf.setInput(s.node, s.field, setValue(s.value, values));
   }
+  pruneGraph(wf, app.outputs.map((o) => o.node));
+}
+
+/**
+ * Drop every node the app's outputs cannot reach. An optional reference slot that was left empty
+ * keeps its loader in the graph otherwise, and ComfyUI validates that loader too (a LoadImage with
+ * a placeholder filename fails the whole prompt). Only runs when the caller exposes the raw graph.
+ */
+export function pruneGraph(wf: Settable, outputs: string[]): void {
+  if (!wf.json) return;
+  const graph = wf.json as Record<string, { inputs?: Record<string, unknown> }>;
+  const seen = new Set<string>();
+  const walk = (id: string) => {
+    if (seen.has(id) || !graph[id]) return;
+    seen.add(id);
+    for (const v of Object.values(graph[id].inputs ?? {})) {
+      if (Array.isArray(v) && typeof v[0] === "string") walk(v[0] as string);
+    }
+  };
+  for (const id of outputs) walk(id);
+  for (const id of Object.keys(graph)) if (!seen.has(id)) delete graph[id];
+  if (outputs.some((id) => !graph[id])) throw new InputError(`the workflow lost its output node ${outputs.join(", ")}`);
 }
 
 type NodeError = { type?: string; message?: string; details?: string; extra_info?: { input_name?: string; received_value?: unknown } };
