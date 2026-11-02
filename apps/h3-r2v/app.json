@@ -1,0 +1,572 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-r2v",
+  "name": "H3 Reference to Video",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "higgsfield_feature": "Reference to Video",
+  "summary": "The complete MiniMax H3 reference pipeline: nine pictures, three clips with their own sound and three audio clips, optional, in one shot with its soundtrack.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "video_minimax_h3_r2v.json (ComfyUI user workflow)",
+    "comfyui": "0.42.0",
+    "notes": "Converted with tools/import_workflow.py, then rebuilt around the node's autogrow slots: nine ref_images, three ref_videos with their paired ref_video_audios (from GetVideoComponents), three ref_audios. Every slot is optional; the runner cuts the edge and prunes the loader when a slot is empty (input.unlink + runner.pruneGraph), so an unused slot never runs a LoadImage on a placeholder. Steps, sampler and the turbo LoRA keep the workflow's own switches."
+  },
+  "inputs": [
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img0",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img1",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img2",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img3",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_3"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img4",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_4"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img5",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_5"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img6",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_6"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img7",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_7"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img8",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_8"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid0",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_0"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid1",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_1"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid2",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_2"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud0",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud1",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud2",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "A street cook in Mexico City flips tacos on a hot griddle, steam and sizzling sound. He looks up and says: \"Two more coming right up!\" The camera pushes in slowly.",
+      "help": "Reference the slots by name: <Picture 1>, <Video 1>, <Audio 1>. Spoken words go in quotes.",
+      "bind": [
+        {
+          "node": "138",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Format",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "115",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 0.4,
+      "help": "Total pixels of the clip, sides rounded to 32. 0.4 MP is 832x480 at 16:9; higher is sharper and much slower.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 5,
+      "help": "Up to 15. The frame count is the workflow's own formula: 24 fps, rounded up to a multiple of 17.",
+      "bind": [
+        {
+          "node": "132",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        }
+      ],
+      "help": "euler is the workflow's default and what the turbo LoRA expects; res_multistep is smoother at 20 steps.",
+      "bind": [
+        {
+          "node": "123",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "turbo",
+      "type": "toggle",
+      "label": "Turbo (4-step LoRA)",
+      "default": false,
+      "help": "On: the ref2v turbo LoRA is patched in and the sampler runs the fast branch. Set Steps to about 4.",
+      "bind": [
+        {
+          "node": "146",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 2,
+      "max": 40,
+      "step": 1,
+      "default": 20,
+      "help": "4 with Turbo on, 20 with it off. Written to both branches of the workflow's own switch.",
+      "bind": [
+        {
+          "node": "143",
+          "field": "value"
+        },
+        {
+          "node": "144",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "129",
+          "field": "noise_seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "92",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "credits": [
+    "MiniMax H3 (MiniMax H3 Community License)",
+    "ref2v turbo LoRA 4-step (community, local file)"
+  ],
+  "notes": "Reference to video: the model keeps the people, places and voices you give it. Nine pictures, three videos and three audio clips can be mixed freely, all optional; the prompt refers to them as <Picture 1>, <Video 1>, <Audio 1>. A reference video brings its own frames and its own soundtrack, so give it a clip with sound. Turbo patches the workflow's own 4-step LoRA in place of the full model branch; set Steps to 4 with it, 20 without. Resolution is the template's ResolutionSelector (aspect + megapixels), and the frame count comes from Seconds through the workflow's own formula. The LoRA is a local file, not in the video-h3 pack.",
+  "test": {
+    "prompt": "A red bicycle on a white background, product shot",
+    "duration": 2,
+    "megapixels": 0.4
+  }
+}

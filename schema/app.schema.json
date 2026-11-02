@@ -153,6 +153,16 @@
             "seconds": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
           }
         },
+        "unlink": {
+          "type": "array",
+          "description": "Edges to remove from the graph when this (optional) input has no value: an unused reference slot must not stay wired to a loader that will then run.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["node", "field"],
+            "properties": { "node": { "type": "string" }, "field": { "type": "string" } }
+          }
+        },
         "bind": {
           "type": "array",
           "items": { "$ref": "#/$defs/bind" },

@@ -4966,6 +4966,57 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "local-20261101"
+    },
+    "h3-r2v": {
+      "case": "h3-r2v-refs",
+      "type": "video",
+      "card": "examples/h3-r2v/card.mp4",
+      "poster": "examples/h3-r2v/poster.jpg",
+      "full": "examples/h3-r2v/full.mp4",
+      "inputs": [
+        {
+          "id": "image1",
+          "label": "Picture 1",
+          "type": "image",
+          "src": "examples/moss-turbo/full.jpg",
+          "full": "examples/moss-turbo/full.jpg"
+        },
+        {
+          "id": "image2",
+          "label": "Picture 2",
+          "type": "image",
+          "src": "examples/h3-photo/input-image.jpg",
+          "full": "examples/h3-photo/input-image.jpg"
+        },
+        {
+          "id": "video1",
+          "label": "Video 1",
+          "type": "video",
+          "src": "examples/lipsync/full.mp4",
+          "full": "examples/lipsync/full.mp4"
+        },
+        {
+          "id": "audio1",
+          "label": "Audio 1",
+          "type": "audio",
+          "src": "examples/lipsync/input-audio.flac",
+          "full": "examples/lipsync/input-audio.flac"
+        }
+      ],
+      "values": {
+        "prompt": "The man from <Picture 2> stands beside the red bicycle of <Picture 1>, while the woman from <Video 1> walks past in the desert and says: \"The old gods are silent.\" Use the voice of <Audio 1>.",
+        "duration": 3,
+        "turbo": true,
+        "steps": 4,
+        "megapixels": 0.4,
+        "aspect": "1:1 (Square)",
+        "sampler": "euler"
+      },
+      "seed": -1,
+      "seconds": 1082.1,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261102"
     }
   },
   "updated_from": "20261026-041209-l40s"
