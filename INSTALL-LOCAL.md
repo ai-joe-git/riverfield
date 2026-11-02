@@ -359,6 +359,31 @@ Vérifié sans lancer d'inférence : ComfyUI démarre en « pytorch attention »
 renvoie bien `attention_split`, et la ligne de commande est
 `--dont-upcast-attention --cache-none`.
 
+### DynamicVRAM / comfy-aimdo désactivé (la vraie cause du crash des runs longs)
+
+ComfyUI 0.34+ active par défaut **DynamicVRAM** (comfy-aimdo) : les poids sont « staged » puis
+streamés vers le GPU. Sur GPU AMD en ROCm c'est un **bug connu, toujours ouvert** : runs qui
+meurent sans traceback, machine figée, OOM alors que la mémoire est libre
+([Comfy-Org/ComfyUI#16878](https://github.com/Comfy-Org/ComfyUI/issues/16878),
+[#15255](https://github.com/Comfy-Org/ComfyUI/issues/15255)). Le rapport #15255 décrit
+exactement notre cas : `h3_ref2va_pruned_int8_convrot` + TE `qwen3vl_32b_minimax_h3_nvfp4_awq`
++ VAE H3, tous les trois « Staged » (19995 + 14956 + 4965 MB).
+
+Sur un iGPU c'est aggravé : comfy-aimdo annonce « VRAM: 114688 MB » alors que cette mémoire
+**est** la RAM système (122 Go au total). Il croit donc disposer de 112 Go de VRAM *plus*
+122 Go de RAM, et commit tout ce qu'il peut. La mémoire pinned (non swappable) empêche le
+noyau de récupérer, et le run meurt d'un OOM noyau — sans traceback Python.
+
+D'où les deux flags de `run-backend.sh` :
+
+- `--disable-dynamic-vram` : retour au chargement classique (estimation, `loaded
+  partially/completely`). C'est le workaround officiel du bug ;
+- `--disable-pinned-memory` : inutile sur iGPU (aucun transfert PCIe) et non swappable.
+
+`--cache-none` et `--dont-upcast-attention` restent. Un échantillonneur mémoire écrit
+`ram_dispo`, `comfy_rss` et `gtt` toutes les 5 s dans `/tmp/opencode/riverfield/mem.log`
+pour documenter le prochain essai.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
