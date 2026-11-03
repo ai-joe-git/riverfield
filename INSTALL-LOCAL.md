@@ -498,6 +498,34 @@ Si la qualité baisse, baisser `sparsity_ratio` (0.85) ou passer `tail=True` dan
 
 Reste à optimiser ensuite : le **VAE decode** (~15 min des 52 min), indépendant de l'attention.
 
+### Qualité de l'attention creuse : tail=True, token_aug, slider de détail
+
+Premier retour d'usage : à `topk_ratio=0.1` avec `tail=False`, les visages sont flous et le
+mouvement part en vrille. C'est le comportement attendu de `tail=False` : le softmax est
+normalisé sur les **seuls blocs routés** (10 % de la séquence), donc le modèle perd tout le
+contexte global.
+
+Mesures sur tenseurs synthétiques (T=32 768, H=56, D=128, fp16), erreur moyenne vs SDPA dense :
+
+| réglage | temps | erreur |
+| --- | --- | --- |
+| `topk_ratio=0.1, tail=False` | 378 ms | 0.0212 |
+| `topk_ratio=0.1, tail=True` | 397 ms | **0.0056** |
+| `topk_ratio=0.1, tail=True, token_aug=128` | 426 ms | 0.0056 |
+| `topk_ratio=0.2, tail=True, token_aug=128` | 616 ms | 0.0054 |
+| `topk_ratio=0.3, tail=True, token_aug=256` | 858 ms | 0.0050 |
+
+`tail=True` divise l'erreur par **3,8 pour +5 % de temps** : c'est le réglage décisif. Le
+patch l'active, plus `token_aug=128` (128 tokens exacts par bloc de requêtes, pour le détail
+fin des visages).
+
+Le reste du réglage est exposé dans l'app `h3-r2v` : curseur **« Sparse attention: detail »**
+(0,9 = 90 % de blocs ignorés, le plus rapide ; 0,8 / 0,7 = plus de blocs exacts, plus de
+détail, plus lent). Il est lié à `sparsity_ratio` des deux nœuds.
+
+Ordre de réglage si la qualité manque encore : 0,85 puis 0,80 (≈ +30 % de temps par palier),
+et seulement ensuite envisager `token_aug=256`.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.

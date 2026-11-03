@@ -522,6 +522,26 @@
       ]
     },
     {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.9,
+      "help": "0.9 = 90% des blocs ignorés (le plus rapide). Descends vers 0.8 / 0.7 pour plus de détail (visages, mouvement) au prix de la vitesse.",
+      "bind": [
+        {
+          "node": "159",
+          "field": "sparsity_ratio"
+        },
+        {
+          "node": "160",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",
