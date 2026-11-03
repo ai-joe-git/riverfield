@@ -14,6 +14,21 @@
   },
   "inputs": [
     {
+      "id": "segment_windows",
+      "type": "text",
+      "label": "Timeline (panel)",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_windows"
+        }
+      ]
+    },
+    {
       "id": "image1",
       "type": "image",
       "label": "Picture 1",
@@ -27,7 +42,8 @@
           "node": "rfplan",
           "field": "image1"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image2",
@@ -43,7 +59,8 @@
           "node": "rfplan",
           "field": "image2"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image3",
@@ -59,7 +76,8 @@
           "node": "rfplan",
           "field": "image3"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image4",
@@ -75,7 +93,8 @@
           "node": "rfplan",
           "field": "image4"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image5",
@@ -91,7 +110,8 @@
           "node": "rfplan",
           "field": "image5"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image6",
@@ -107,7 +127,8 @@
           "node": "rfplan",
           "field": "image6"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image7",
@@ -123,7 +144,8 @@
           "node": "rfplan",
           "field": "image7"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image8",
@@ -139,7 +161,8 @@
           "node": "rfplan",
           "field": "image8"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "image9",
@@ -155,7 +178,8 @@
           "node": "rfplan",
           "field": "image9"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "video1",
@@ -171,7 +195,8 @@
           "node": "rfplan",
           "field": "video1"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "video2",
@@ -187,7 +212,8 @@
           "node": "rfplan",
           "field": "video2"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "video3",
@@ -203,7 +229,8 @@
           "node": "rfplan",
           "field": "video3"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "audio1",
@@ -219,7 +246,8 @@
           "node": "rfplan",
           "field": "audio1"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "audio2",
@@ -235,7 +263,8 @@
           "node": "rfplan",
           "field": "audio2"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "audio3",
@@ -251,7 +280,8 @@
           "node": "rfplan",
           "field": "audio3"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "audio_mode",
@@ -274,7 +304,8 @@
           "node": "rfplan",
           "field": "audio_mode"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "video_audio",
@@ -287,7 +318,8 @@
           "node": "rfplan",
           "field": "video_audio"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "global_prompt",
@@ -301,7 +333,8 @@
           "node": "rfplan",
           "field": "global_prompt"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "duration",
@@ -321,7 +354,8 @@
           "node": "11",
           "field": "generation_seconds"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "segment_count",
@@ -337,7 +371,8 @@
           "node": "rfplan",
           "field": "segment_count"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "segment_prompts",
@@ -351,7 +386,8 @@
           "node": "rfplan",
           "field": "segment_prompts"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "start_seconds",
@@ -367,7 +403,8 @@
           "node": "rfplan",
           "field": "start_seconds"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "two_stage",
@@ -380,7 +417,8 @@
           "node": "rfplan",
           "field": "two_stage"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "upscaler",
@@ -407,7 +445,8 @@
           "node": "rfplan",
           "field": "upscaler"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "high_steps",
@@ -423,7 +462,8 @@
           "node": "rfplan",
           "field": "high_steps"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "advanced_timeline_json",
@@ -437,7 +477,8 @@
           "node": "rfplan",
           "field": "advanced_timeline_json"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "aspect",

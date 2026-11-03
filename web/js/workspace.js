@@ -2,6 +2,7 @@
 //   composer: prompt-first apps (image, audio): results fill the page, a floating prompt bar sits at the bottom
 //   sidebar:  upload-first apps (video, tools): controls in a left column, results and examples on the right
 import { el, icon, store, toast, popover, closePopover, fmtSeconds, fmtShort, isMedia, extOf, masonry } from "./util.js";
+import { directorView } from "./director.js";
 import { t } from "./i18n.js";
 import {
   byId, layoutOf, familyOf, VIDEO_TABS, videoTabOf, tagline, iconOf, promptInput, estimate, fitOf, rememberApp, categoryOf, CATEGORIES, apps,
@@ -727,6 +728,7 @@ function sidebarPanel(app, rerenderSide) {
 
   const main = [], adv = [];
   for (const inp of app.inputs) {
+    if (inp.hidden) continue;
     if (isMedia(inp.type)) main.push(dropzone(app, inp, rerenderSide));
     else (isAdvanced(inp) ? adv : main).push(sideField(app, inp, f, ui));
   }
@@ -898,14 +900,19 @@ function mainArea(app, layout, disposers) {
   const tabs = el("div", { class: "tabs", role: "tablist" });
   const denseBtn = el("button", { class: "icon-btn", type: "button", title: t("ws.dense"), "aria-label": t("ws.dense"), "aria-pressed": String(dense) });
   let disposeBody = null;
+  const director = layout === "director";
   const draw = () => {
-    tabs.replaceChildren(...[["history", "clock"], ["library", "film"], ["how", "info"]].map(([id, ic]) => el("button", { type: "button", role: "tab",
+    const defs = director
+      ? [["director", "film"], ["history", "clock"], ["how", "info"]]
+      : [["history", "clock"], ["library", "film"], ["how", "info"]];
+    tabs.replaceChildren(...defs.map(([id, ic]) => el("button", { type: "button", role: "tab",
       "aria-selected": String(wsTab === id), onclick: () => { wsTab = id; draw(); } }, icon(ic), t(`ws.${id}`))));
     denseBtn.replaceChildren(icon(dense ? "rows" : "grid"));
     denseBtn.hidden = wsTab !== "history";
     disposeBody?.();
     disposeBody = null;
-    if (wsTab === "history") disposeBody = feedView(body, { app: app.id, empty: () => emptyFor(app, layout), dense });
+    if (director && wsTab === "director") body.replaceChildren(directorView(app, formFor(app), { onSubmit: () => { void submit(app, {}); } }));
+    else if (wsTab === "history") disposeBody = feedView(body, { app: app.id, empty: () => emptyFor(app, layout), dense });
     else body.replaceChildren(wsTab === "library" ? libraryTab(app) : howTab(app));
   };
   denseBtn.onclick = () => { dense = !dense; store.set("dense", dense); denseBtn.setAttribute("aria-pressed", String(dense)); draw(); };
@@ -922,6 +929,7 @@ export function workspaceView(appId) {
   const vt = videoTabOf(app.id);
   if (vt) store.set(`last.vtab.${vt}`, app.id);
   const layout = layoutOf(app);
+  if (layout === "director") wsTab = "director";
   const disposers = [];
   const root = el("div", { class: `ws l-${layout}` });
 

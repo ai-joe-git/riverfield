@@ -583,6 +583,35 @@ Vérifications faites sans inférence :
 À refaire après réinstallation de ComfyUI : copier
 `local/custom_nodes/riverfield-h3-planner` dans `ComfyUI/custom_nodes/`.
 
+### Studio Director : le panneau Material Planner (interface)
+
+La page de l'app `studio-director` n'est plus un formulaire : elle ouvre un **panneau de
+metteur en scène** (`web/js/director.js` + styles `.dir-*` dans `web/app.css`), à droite, avec
+la colonne des réglages techniques à gauche.
+
+Le panneau :
+- **bin média** : Pictures (9), Videos (3), Audios (3), dépôt ou clic, vignettes, retrait,
+  assignation à un segment d'un clic (images/audios) ;
+- **timeline** frame-accurate : règle en secondes, zoom, fenêtres **GEN** déplaçables et
+  redimensionnables (poignées), clips vidéo/audio déplaçables, tête de lecture, aimantation
+  sur la géométrie H3 (`5 + 17n`, couture de 39 frames, pas de trou) ;
+- **éditeur de segment** : prompt du segment, chronologie, ajout/suppression, chips de médias ;
+- **pied** : prompt global + bouton Generate ;
+- en-tête : Two-stage, compteur segments/durée/frames.
+
+Ce que le panneau écrit, et que le runner envoie :
+- `f.files[imageN|videoN|audioN]` pour les médias (même mécanisme que les dropzones normaux) ;
+- `f.values.segment_windows` : `{windows:[{start,end,prompt,images:[i],audios:[i]}], videos:[…],
+  audios:[…]}` en frames, lu par le nœud `RiverFieldH3Planner` ;
+- `duration` (durée du premier segment) et `segment_count`, pour le planner.
+
+Les champs correspondants sont marqués `"hidden": true` dans `app.json` : le formulaire
+générique ne les rend plus (propriété ajoutée au schéma), seul le panneau les pilote.
+
+Vérifié : capture Chromium headless (panneau complet rendu, aucune erreur console), et test
+synthétique de bout en bout (fenêtres 0–192 / 153–345, prompts avec guillemets, médias par
+segment : segment 1 → image 1, segment 2 → images 1+2, plan `MINIMAX_H3_TIMELINE_PLAN`).
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.

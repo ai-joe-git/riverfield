@@ -220,7 +220,8 @@
       "audio3": "",
       "video1": "",
       "video2": "",
-      "video3": ""
+      "video3": "",
+      "segment_windows": ""
     }
   }
 }
