@@ -331,8 +331,9 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   }
 
   function clipNode(type, m, item) {
+    const narrow = item.duration * zoom < 96;
     const node = el("div", {
-      class: `dir-clip ${type}`, style: { left: `${item.start * zoom}px`, width: `${Math.max(26, item.duration * zoom)}px` },
+      class: `dir-clip ${type}${narrow ? " narrow" : ""}`, style: { left: `${item.start * zoom}px`, width: `${Math.max(26, item.duration * zoom)}px` },
       title: `${m.name} · start ${fmt(item.start)}s · ${fmt(item.duration)}s${item.trimStart ? ` · trim ${fmt(item.trimStart)}s` : ""}`,
     },
       el("span", { class: "dir-clip-name" }, m.name),

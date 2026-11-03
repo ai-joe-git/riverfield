@@ -608,6 +608,10 @@ Le panneau :
 - **vidéos** : durée et dimensions lues à l'import (durée du clip bornée au fichier), rognage
   (`trimStart`), mode de référence **guide / edit / boundary** par clip, et liste « Videos here »
   dans l'éditeur de segment (les vidéos sont des clips de timeline, recoupés par fenêtre) ;
+- **cartes matériau** (remplace les pastilles ovales) : coins 10 px, vignette carrée 26 px,
+  badge `<Picture N>` / `<Audio N>` / `LOCK`, nom tronqué, actions (◀ ▶ ×) séparées par un
+  filet — même langage pour les puces d'ajout (bordure pointillée), le fantôme de drag et les
+  toggles ; les clips trop étroits n'affichent plus que leur durée ;
 - **éditeur de segment** : prompt du segment, chronologie, ajout/suppression, et références
   **ordonnées** du segment — `<Picture 1..n>` / `<Audio 1..n>` (ou `LOCK` en mode Keep original),
   réordonnables par glisser-déposer ou par les flèches ◀ ▶, retirables, exactement l'ordre que le
