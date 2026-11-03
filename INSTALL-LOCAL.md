@@ -526,6 +526,28 @@ détail, plus lent). Il est lié à `sparsity_ratio` des deux nœuds.
 Ordre de réglage si la qualité manque encore : 0,85 puis 0,80 (≈ +30 % de temps par palier),
 et seulement ensuite envisager `token_aug=256`.
 
+### App « H3 Pika Flex » (template officiel, autre LoRA)
+
+`video_pika_h3_flex_ref2va.json` (le template ComfyUI livré avec le modèle) n'utilise **pas**
+la même recette que `h3-r2v` :
+
+| | h3-r2v (turbo) | h3-r2v-flex (Pika) |
+| --- | --- | --- |
+| LoRA | `minimax_h3_ref2v_turbo_4step_v0.1` | `pika_h3_flex_ref2va_v1_bf16` |
+| sampler | euler + BasicScheduler simple | **lcm** |
+| steps | 4 (LoRA turbo) | **6** via `ManualSigmas` 1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0 |
+
+C'est une piste sérieuse pour la qualité : une bonne part du rendu « dégueu » peut venir du
+LoRA 4-step, pas de l'attention creuse.
+
+App créée avec `tools/import_workflow.py` sous `apps/h3-r2v-flex` (section video), entrées :
+image de référence, prompt, résolution (0,4–1,5 MP, défaut 0,8), durée (1–15 s, défaut 8),
+curseur de détail de l'attention creuse, seed. Le nœud SLA est branché sur Sol-Attn (patch
+`local/patch-h3-sla-solattn.py`) avec repli dense sur `comfy_kitchen`.
+
+Note : le template ne câble qu'un seul emplacement d'image de référence ; `h3-r2v` garde ses
+9 images / 3 vidéos / 3 audios.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
