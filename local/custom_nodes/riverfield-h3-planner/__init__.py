@@ -174,8 +174,20 @@ def build_timeline(
             if not isinstance(item, dict): continue
             i = item.get("index")
             if isinstance(i, int) and 0 <= i < len(video_assets):
-                video_assets[i]["start"] = max(0.0, float(item.get("start", 0) or 0))
-                video_assets[i]["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
+                clip = video_assets[i]
+                clip["start"] = max(0.0, float(item.get("start", 0) or 0))
+                clip["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
+                clip["trimStart"] = max(0.0, float(item.get("trimStart", 0) or 0))
+                if item.get("sourceDuration"):
+                    clip["sourceDuration"] = max(0.0, float(item["sourceDuration"]))
+                if item.get("width"):
+                    clip["referenceWidth"] = max(0, int(item["width"]))
+                if item.get("height"):
+                    clip["referenceHeight"] = max(0, int(item["height"]))
+                if "hasAudio" in item:
+                    clip["hasAudio"] = bool(item["hasAudio"])
+                mode = str(item.get("referenceMode") or "guide")
+                clip["referenceMode"] = mode if mode in {"guide", "edit", "boundary"} else "guide"
         for item in (spec.get("audios") or []):
             if not isinstance(item, dict): continue
             i = item.get("index")

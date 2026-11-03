@@ -795,3 +795,11 @@ dl.vals dd { margin: 0; overflow-wrap: anywhere; }
 .dir-mv.x { background: transparent; color: var(--faint); }
 .dir-mv.x:hover { background: rgba(255, 107, 107, .15); color: var(--bad); }
 .dir-mv:disabled { opacity: .3; cursor: default; background: transparent; }
+.dir-seg-fields { display: flex; gap: 12px; align-items: center; margin-left: 6px; }
+.dir-seg-fields label { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .07em; }
+.dir-num.wide { width: 78px; }
+.dir-seg-fields .unit { color: var(--faint); font-size: 10.5px; }
+.dir-clip-dur { margin-left: auto; font-size: 10px; opacity: .72; }
+.dir-clip .dir-handle { width: 12px; }
+.dir-chip.ghost { cursor: default; opacity: .9; }
+.dir-win .dir-handle { width: 14px; }
