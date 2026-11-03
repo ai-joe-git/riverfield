@@ -220,6 +220,11 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       if (e.button !== 0) return;
       const edge = e.target?.dataset?.edge || null;
       drag = { kind: "win", i, edge, x0: e.clientX, snap: JSON.parse(JSON.stringify(st.windows)) };
+      if (selected !== i) {
+        selected = i;
+        winNodes.forEach((n, k) => n.classList.toggle("on", k === i));
+        drawSegment();
+      }
       node.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
@@ -357,11 +362,58 @@ export function directorView(app, f, { onSubmit, onDirty }) {
 
     const imgs = mediaOf(app, f, "image");
     const auds = mediaOf(app, f, "audio");
+
+    const move = (list, from, to) => {
+      if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+      const [x] = list.splice(from, 1);
+      list.splice(to, 0, x);
+    };
+
+    // one chip per assigned material, in assignment order: that order is what the planner turns
+    // into <Picture 1..n> / <Audio 1..n> for this segment.
+    const assignedChip = (type, index, pos, total) => {
+      const key = type === "image" ? "images" : "audios";
+      const m = (type === "image" ? imgs : auds).find((x) => x.index === index);
+      if (!m) return null;
+      const ordinal = type === "image"
+        ? pos + 1
+        : w.audios.slice(0, pos + 1).filter((i) => {
+          const a = auds.find((x) => x.index === i);
+          return a && (f.values.audio_mode || "reference") !== "locked";
+        }).length;
+      const locked = type === "audio" && (f.values.audio_mode || "reference") === "locked";
+      const label = type === "image" ? `<Picture ${ordinal}>` : locked ? "LOCK" : `<Audio ${ordinal}>`;
+      const chip = el("div", {
+        class: `dir-chip on ordered${locked ? " locked" : ""}`, draggable: "true", title: `${m.name} — drag to reorder, ◀ ▶ to move`,
+      },
+        type === "image" ? el("img", { src: m.url, alt: m.name }) : icon("audio"),
+        el("b", { class: "dir-chip-ord" }, label),
+        el("span", {}, m.name),
+        el("span", { class: "dir-chip-move" },
+          el("button", { type: "button", class: "dir-mv", title: "Move earlier", disabled: pos === 0 ? "true" : undefined,
+            onclick: (e) => { e.stopPropagation(); move(w[key], pos, pos - 1); changed(); } }, "◀"),
+          el("button", { type: "button", class: "dir-mv", title: "Move later", disabled: pos === total - 1 ? "true" : undefined,
+            onclick: (e) => { e.stopPropagation(); move(w[key], pos, pos + 1); changed(); } }, "▶")),
+        el("button", { type: "button", class: "dir-mv x", title: "Remove from this segment",
+          onclick: (e) => { e.stopPropagation(); w[key] = w[key].filter((i) => i !== index); changed(); } }, "×"));
+      chip.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", `${type}:${pos}`); e.dataTransfer.effectAllowed = "move"; });
+      chip.addEventListener("dragover", (e) => { e.preventDefault(); chip.classList.add("drop"); });
+      chip.addEventListener("dragleave", () => chip.classList.remove("drop"));
+      chip.addEventListener("drop", (e) => {
+        e.preventDefault(); chip.classList.remove("drop");
+        const [t2, from] = String(e.dataTransfer.getData("text/plain") || "").split(":");
+        if (t2 !== type) return;
+        move(w[key], Number(from), pos);
+        changed();
+      });
+      return chip;
+    };
+
     const chip = (type, m) => {
       const key = type === "image" ? "images" : "audios";
       const on = w[key].includes(m.index);
       return el("button", {
-        type: "button", class: `dir-chip${on ? " on" : ""}`, title: m.name,
+        type: "button", class: `dir-chip${on ? " on" : ""}`, title: on ? "Remove from this segment" : "Add to this segment",
         onclick: () => {
           w[key] = on ? w[key].filter((i) => i !== m.index) : [...w[key], m.index];
           changed();
@@ -391,10 +443,23 @@ export function directorView(app, f, { onSubmit, onDirty }) {
           } }, "Remove"))),
       prompt,
       el("div", { class: "dir-assign" },
-        el("span", { class: "dir-assign-lbl" }, "Pictures"),
-        imgs.length ? el("div", { class: "dir-chips" }, ...imgs.map((m) => chip("image", m))) : el("span", { class: "dim" }, "none — drop pictures in the bin"),
-        el("span", { class: "dir-assign-lbl" }, "Audio"),
-        auds.length ? el("div", { class: "dir-chips" }, ...auds.map((m) => chip("audio", m))) : el("span", { class: "dim" }, "none")));
+        el("span", { class: "dir-assign-lbl" }, "In this segment"),
+        el("div", { class: "dir-chips" },
+          ...(w.images.map((idx, pos) => assignedChip("image", idx, pos, w.images.length)).filter(Boolean)),
+          ...(w.audios.map((idx, pos) => assignedChip("audio", idx, pos, w.audios.length)).filter(Boolean)),
+          !w.images.length && !w.audios.length ? el("span", { class: "dim" }, "nothing yet — add pictures or audio below") : null),
+        el("span", { class: "dir-assign-lbl" }, "Add picture"),
+        imgs.length
+          ? (imgs.some((m) => !w.images.includes(m.index))
+            ? el("div", { class: "dir-chips" }, ...imgs.filter((m) => !w.images.includes(m.index)).map((m) => chip("image", m)))
+            : el("span", { class: "dim" }, "all pictures assigned"))
+          : el("span", { class: "dim" }, "none — drop pictures in the bin"),
+        el("span", { class: "dir-assign-lbl" }, "Add audio"),
+        auds.length
+          ? (auds.some((m) => !w.audios.includes(m.index))
+            ? el("div", { class: "dir-chips" }, ...auds.filter((m) => !w.audios.includes(m.index)).map((m) => chip("audio", m)))
+            : el("span", { class: "dim" }, "all audio assigned"))
+          : el("span", { class: "dim" }, "none")));
   }
 
   function drawHead() {
@@ -415,9 +480,15 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     }
     const zoomOut = el("button", { type: "button", class: "dir-zoom", title: "Zoom out", onclick: () => { zoom = Math.max(18, zoom - 14); draw(); } }, "−");
     const zoomIn = el("button", { type: "button", class: "dir-zoom", title: "Zoom in", onclick: () => { zoom = Math.min(300, zoom + 14); draw(); } }, "+");
+    const ws = root.closest(".ws");
+    const collapsed = () => ws?.classList.contains("collapsed");
+    const settings = el("button", {
+      type: "button", class: `dir-toggle${collapsed() ? "" : " on"}`, title: "Show or hide the technical settings",
+      onclick: () => { ws?.classList.toggle("collapsed"); draw(); },
+    }, icon("sliders"), collapsed() ? "Settings" : "Hide settings");
     headEl.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"), el("span", {}, "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
-      el("div", { class: "dir-head-right" }, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)));
+      el("div", { class: "dir-head-right" }, settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)));
   }
 
   function drawFoot() {
