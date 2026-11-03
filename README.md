@@ -76,7 +76,10 @@ Three things are not an app:
 
 - **H3 SLA Attention (ROCm)** — the `H3SLAAttentionROCM` node sits in every H3 workflow, right after the model
   chain, with the settings validated on gfx1151 (0.90 sparsity, 64-token blocks, `comfy_kitchen` dense backend);
-  it is what makes H3 usable on this card.
+  it is what makes H3 usable on this card. It is **optional**: every H3 app has a *Sparse attention* toggle, and
+  the node is **bypassed automatically when the backend does not ship its class** — the runner asks
+  `/object_info/<class>`, rewires the model chain to the previous node and drops it. CUDA or Intel XPU users
+  therefore run the same apps, on the backend's own attention.
 - **A 3D studio** — `section: "3d"` in the manifest, a `model` output type, `.glb` classified and served as
   `model/gltf-binary`, a three.js viewer in the web UI (`web/js/model3d.js`, vendored in `web/vendor/three`),
   and a patch for `comfy-api-proxy`, which drops ComfyUI's `3d` output key (`local/patch-proxy.py`, re-applied by

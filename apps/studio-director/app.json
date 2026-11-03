@@ -1888,11 +1888,17 @@
       "type": "toggle",
       "label": "Sparse attention (Sol-Attn)",
       "default": true,
-      "help": "Off: dense attention (much slower) for A/B tests.",
+      "help": "The ROCm SLA node. Off (or a backend without the class): the node is bypassed and the model goes straight to the sampler — use it on CUDA/XPU.",
       "bind": [
         {
           "node": "42",
           "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "42",
+          "field": "model"
         }
       ]
     },

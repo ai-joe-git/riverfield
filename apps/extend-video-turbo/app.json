@@ -98,6 +98,25 @@
       ]
     },
     {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm SLA node. Turn it off on CUDA/XPU, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler. It is also bypassed automatically when the backend lacks the class.",
+      "bind": [
+        {
+          "node": "105:125",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "105:125",
+          "field": "model"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",

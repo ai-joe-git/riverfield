@@ -509,7 +509,7 @@
       "type": "toggle",
       "label": "Sparse attention (Sol-Attn)",
       "default": true,
-      "help": "ON: attention creuse 90% via le kernel HIP natif de comfy-kitchen (rapide). OFF: attention dense (très lent, ~50 min pour 8 s à 0.8 MP).",
+      "help": "The ROCm SLA node. Off (or a backend without the class): the node is bypassed and the model goes straight to the sampler — use it on CUDA/XPU.",
       "bind": [
         {
           "node": "159",
@@ -518,6 +518,16 @@
         {
           "node": "160",
           "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "159",
+          "field": "model"
+        },
+        {
+          "node": "160",
+          "field": "model"
         }
       ]
     },

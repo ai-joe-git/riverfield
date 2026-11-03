@@ -365,6 +365,26 @@
         "hidden": {
           "type": "boolean",
           "description": "Managed by a custom panel (Studio Director): the generic form does not render it."
+        },
+        "bypass": {
+          "type": "array",
+          "description": "Pass-through nodes to remove when the toggle is off or when the backend does not ship their class (eg. the ROCm SLA node on CUDA/XPU). Consumers are rewired to the named input.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "node",
+              "field"
+            ],
+            "properties": {
+              "node": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

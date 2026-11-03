@@ -26,6 +26,8 @@ export type Input = {
   paint?: string;
   /** edges to drop when this optional input is empty (an unused reference slot must not run its loader) */
   unlink?: { node: string; field: string }[];
+  /** pass-through nodes removed when this input is off or when the backend lacks their class */
+  bypass?: { node: string; field: string }[];
   limits?: { max_mb?: number; seconds?: [number, number] };
   bind?: Bind[];
 };

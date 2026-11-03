@@ -136,25 +136,57 @@ export function applyInputs(
   wf: Settable,
   asset: (f: FileValue) => unknown,
   presetId?: string,
+  missingClasses?: ReadonlySet<string>,
 ): void {
   values = textValues(app, values);
+  const dropped = new Set<string>();
+  const graph = wf.json as Record<string, any> | undefined;
+
+  // Optional pass-through nodes (the ROCm SLA attention node, for instance) are removed when the
+  // backend does not ship their class — a CUDA or XPU machine — or when their toggle is off. The
+  // consumers of the node are rewired to the input it was forwarding, then the node is deleted.
+  for (const input of app.inputs) {
+    if (!input.bypass?.length) continue;
+    const v = values[input.id];
+    const off = v === false || v === "false" || v === 0 || v === "0" || v === "" || v === undefined || v === null;
+    for (const b of input.bypass) {
+      const node = graph?.[b.node];
+      if (!node) continue;
+      const missing = missingClasses?.has(String(node.class_type)) ?? false;
+      if (!missing && !off) continue;
+      const src = node.inputs?.[b.field];
+      if (!Array.isArray(src)) continue;
+      for (const other of Object.values(graph ?? {}) as any[]) {
+        const ins = other?.inputs;
+        if (!ins) continue;
+        for (const [k, val] of Object.entries(ins)) {
+          if (Array.isArray(val) && val[0] === b.node) ins[k] = src;
+        }
+      }
+      delete graph![b.node];
+      dropped.add(b.node);
+    }
+  }
+
   for (const input of app.inputs) {
     const v = values[input.id];
     if (v === undefined) {
       // an optional reference slot left empty: cut its edge so its loader never runs
       for (const u of input.unlink ?? []) {
+        if (dropped.has(u.node)) continue;
         const node = wf.json?.[u.node] as { inputs?: Record<string, unknown> } | undefined;
         if (node?.inputs) delete node.inputs[u.field];
       }
       continue;
     }
     for (const b of input.bind ?? []) {
+      if (dropped.has(b.node)) continue;
       if (b.template) wf.setInput(b.node, b.field, renderTemplate(b.template, values));
       else wf.setInput(b.node, b.field, isFileValue(v) ? asset(v) : v);
     }
     // a select option can carry extra fields (the LoRA that goes with a style, an effect's prompt)
     const chosen = input.type === "select" ? input.options?.find((o) => o.value === v) : undefined;
-    for (const s of chosen?.sets ?? []) wf.setInput(s.node, s.field, setValue(s.value, values));
+    for (const s of chosen?.sets ?? []) { if (!dropped.has(s.node)) wf.setInput(s.node, s.field, setValue(s.value, values)); }
   }
   if (presetId) {
     const preset = (app.presets ?? []).find((p) => p.id === presetId);
@@ -236,6 +268,7 @@ export class Runner {
   readonly allowDrafts: boolean;
   private comfy: Comfy;
   private doFetch: typeof fetch;
+  private classCache = new Map<string, boolean>();
 
   constructor(opts: RunnerOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? process.env.COMFY_BASE_URL ?? "").replace(/\/$/, "");
@@ -267,6 +300,24 @@ export class Runner {
     return (await res.json()) as { freed: boolean };
   }
 
+  /** Does the backend ship this node class? Asked once per class, cached for the process. */
+  private async hasClass(cls: string): Promise<boolean> {
+    const known = this.classCache.get(cls);
+    if (known !== undefined) return known;
+    try {
+      const res = await this.doFetch(`${this.baseUrl}/object_info/${encodeURIComponent(cls)}`, {
+        headers: this.token ? { authorization: `Bearer ${this.token}` } : {},
+      });
+      if (!res.ok) return true; // cannot tell: keep the node, submit will explain
+      const body = (await res.json()) as Record<string, unknown>;
+      const has = Boolean(body && typeof body === "object" && body[cls]);
+      this.classCache.set(cls, has);
+      return has;
+    } catch {
+      return true;
+    }
+  }
+
   async submit(app: App, rawValues: Values, presetId?: string) {
     if (!app.workflowPath) throw new InputError(`${app.id} has no workflow yet`);
     if (app.status !== "ready" && !this.allowDrafts) {
@@ -275,12 +326,21 @@ export class Runner {
     const values = resolveValues(app, rawValues);
     await this.prepare(app);
     const wf = await this.comfy.workflows.fromFile(app.workflowPath);
+    const missing = new Set<string>();
+    for (const input of app.inputs) {
+      for (const b of input.bypass ?? []) {
+        const node = (wf.json as Record<string, any> | undefined)?.[b.node];
+        const cls = node ? String(node.class_type) : "";
+        if (cls && !missing.has(cls) && !(await this.hasClass(cls))) missing.add(cls);
+      }
+    }
     applyInputs(
       app,
       values,
       wf,
       (f) => this.comfy.assets.fromBytes(f.bytes, { filename: f.name, contentType: f.type || undefined }),
       presetId,
+      missing,
     );
     return this.comfy.submit(wf);
   }
