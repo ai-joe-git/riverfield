@@ -95,7 +95,7 @@ function build(): McpServer {
 
   server.registerTool("list_apps", {
     title: "List RiverField apps",
-    description: "Every app of the studio with its section, status and pack. Filter by section (image, video, audio, utility).",
+    description: "Every app of the studio with its section, status and pack. Filter by section (image, video, audio, 3d, utility).",
     inputSchema: {
       section: z.enum(["image", "video", "audio", "3d", "utility"]).optional().describe("only this studio"),
       status: z.enum(["ready", "draft"]).optional().describe("only this status"),
@@ -123,9 +123,14 @@ function build(): McpServer {
           id: i.id, type: i.type, label: i.label, required: Boolean(i.required),
           default: i.default, min: i.min, max: i.max, step: i.step,
           options: (i.options ?? []).map((o: Any) => o.value), multiple: i.multiple ?? null, help: i.help ?? null,
+          // type image/video/audio: pass an absolute path in run_app.files, not in values
+          file: ["image", "video", "audio"].includes(i.type),
+          // managed by a custom panel in the web UI; still settable from here (e.g. segment_windows)
+          panel: Boolean(i.hidden),
         })),
         presets: (a.presets ?? []).map((p: Any) => ({ id: p.id, label: p.label })),
-        outputs: a.outputs, models: (a.models ?? []).map((m: Any) => m.name), notes: a.notes ?? null,
+        outputs: a.outputs, models: (a.models ?? []).map((m: Any) => m.name),
+        notes: a.notes ?? a.source?.notes ?? null, source: a.source ?? null,
         example: a.example ? { values: a.example.values, inputs: a.example.inputs } : null,
       });
     } catch (e) { return fail(e); }
@@ -133,7 +138,7 @@ function build(): McpServer {
 
   server.registerTool("run_app", {
     title: "Run an app",
-    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects); `files` maps an input id to an absolute path on this machine.",
+    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine.",
     inputSchema: {
       app: z.string().describe("app id"),
       values: z.record(z.string(), z.any()).optional().describe("input values, by input id"),
@@ -213,7 +218,8 @@ function build(): McpServer {
     try {
       const q = new URLSearchParams();
       if (app) q.set("app", app);
-      const list = (await api(`/api/history${q.size ? `?${q}` : ""}`)) as Any[];
+      const raw = await api(`/api/history${q.size ? `?${q}` : ""}`);
+      const list = (Array.isArray(raw) ? raw : (raw?.entries ?? [])) as Any[];
       const out = list.slice(0, limit ?? 20).map((e) => {
         const v = local(e);
         return { id: v.id, app: v.app, status: v.status, created: v.created, seconds: v.seconds ?? null,
