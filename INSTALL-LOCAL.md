@@ -465,6 +465,39 @@ Diagnostic après un essai : `journalctl -k | grep -E "svm_range|ring gfx"`. Si 
 timeout revient sans SVM, le suspect suivant est le kernel Triton du nœud SLA (interrupteur
 « Sparse attention (SLA) » dans l'app `h3-r2v`).
 
+### Attention creuse : Sol-Attn (HIP) à la place du kernel Triton du nœud SLA
+
+Le nœud H3 SLA fournit un kernel **Triton** maison. Sur gfx1151 il ne rend jamais la main
+dès que la séquence packée dépasse ~50k tokens (`topk >~ 90`) : le GPU se bloque, `ring
+gfx_0.0.0 timeout`, reset, session tuée. C'est ce qui arrivait à chaque essai 8 s / 0.6-0.8 MP,
+et le test « SLA off » a confirmé la cause en allant au bout — en 52 minutes, parce que
+l'attention dense au même format coûte ~2.6e16 FLOP par step.
+
+comfy-kitchen expose la **même sélection creuse** (`topk_ratio` = « SLA-style top-k ») en
+kernel **HIP natif** :
+
+```python
+comfy_kitchen.sol_attn(q, k, v, topk_ratio=0.1, tail=False, sink_blocks=[0, n_prefix_blocks])
+```
+
+Mesures sur cette machine (T=32 768, H=56, D=128) :
+
+| variante | temps |
+| --- | --- |
+| SDPA dense (bf16) | 7 082 ms |
+| **sol_attn topk_ratio=0.1, tail=False** (fp16) | **346 ms** |
+
+Soit **~20x** sur l'attention. `local/patch-h3-sla-solattn.py` remplace le point d'appel du
+kernel Triton par `sol_attn` dans `sla/patch.py` (idempotent, sauvegarde
+`sla/patch.py.orig-riverfield`). Le nœud garde tout le reste : garde `min_seq_len`, protection
+audio en `sink_blocks`, repli dense automatique si le kernel refuse (donc en cas de problème
+on retombe sur le chemin lent, jamais sur un crash).
+
+À refaire après une réinstallation du nœud : `python local/patch-h3-sla-solattn.py`.
+Si la qualité baisse, baisser `sparsity_ratio` (0.85) ou passer `tail=True` dans le patch.
+
+Reste à optimiser ensuite : le **VAE decode** (~15 min des 52 min), indépendant de l'attention.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.

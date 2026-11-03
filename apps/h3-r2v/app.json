@@ -505,6 +505,23 @@
       ]
     },
     {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (Sol-Attn)",
+      "default": true,
+      "help": "ON: attention creuse 90% via le kernel HIP natif de comfy-kitchen (rapide). OFF: attention dense (très lent, ~50 min pour 8 s à 0.8 MP).",
+      "bind": [
+        {
+          "node": "159",
+          "field": "enabled"
+        },
+        {
+          "node": "160",
+          "field": "enabled"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",
