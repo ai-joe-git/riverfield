@@ -721,5 +721,6 @@
       "license": "MiniMax H3 Community License"
     }
   ],
-  "workflow": "workflow.api.json"
+  "workflow": "workflow.api.json",
+  "layout": "director"
 }
