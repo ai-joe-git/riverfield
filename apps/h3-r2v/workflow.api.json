@@ -426,7 +426,7 @@
         "145",
         0
       ],
-      "sparsity_ratio": 0.9,
+      "sparsity_ratio": 0.7,
       "block_size": "64",
       "min_seq_len": 8192,
       "dense_last_steps": 0,
@@ -450,7 +450,7 @@
         "127",
         0
       ],
-      "sparsity_ratio": 0.9,
+      "sparsity_ratio": 0.7,
       "block_size": "64",
       "min_seq_len": 8192,
       "dense_last_steps": 0,

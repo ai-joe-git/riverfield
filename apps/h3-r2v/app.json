@@ -528,8 +528,8 @@
       "min": 0.5,
       "max": 0.9,
       "step": 0.05,
-      "default": 0.9,
-      "help": "0.9 = 90% des blocs ignorés (le plus rapide). Descends vers 0.8 / 0.7 pour plus de détail (visages, mouvement) au prix de la vitesse.",
+      "default": 0.7,
+      "help": "0.9 = 90% des blocs ignorés (le plus rapide, 19 min pour 8 s à 0.8 MP). 0.7 = 30% de blocs exacts (~24 min, bien meilleur sur le mouvement). 0.5 = 50% (~30 min). 0.0 = dense (52 min).",
       "bind": [
         {
           "node": "159",
