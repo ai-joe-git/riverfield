@@ -86,6 +86,40 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   const totalFrames = () => Math.max(...st.windows.map((w) => w.end), 1);
   const totalSeconds = () => totalFrames() / FPS;
 
+  let playheadFrame = 0;
+  let snapLine = null;
+  const SNAP_PX = 9;
+  const snapTol = () => Math.max(1, Math.round((SNAP_PX / zoom) * FPS));
+
+  function snapCandidates(exceptWindow = -1, exceptClip = null) {
+    const out = [0, playheadFrame];
+    st.windows.forEach((w, k) => { if (k !== exceptWindow) out.push(w.start, w.end); });
+    for (const c of [...st.videos, ...st.audios]) {
+      if (exceptClip && c.type === exceptClip.type && c.index === exceptClip.index) continue;
+      out.push(Math.round(c.start * FPS), Math.round((c.start + c.duration) * FPS));
+    }
+    return out;
+  }
+
+  function snap(frame, exceptWindow = -1, exceptClip = null) {
+    const tol = snapTol();
+    let best = null;
+    for (const c of snapCandidates(exceptWindow, exceptClip)) {
+      const d = Math.abs(frame - c);
+      if (d <= tol && (best === null || d < best.d)) best = { d, frame: c };
+    }
+    if (!best) { showSnap(null); return frame; }
+    showSnap(best.frame);
+    return best.frame;
+  }
+
+  function showSnap(frame) {
+    if (!snapLine) return;
+    if (frame === null || frame === undefined) { snapLine.style.display = "none"; return; }
+    snapLine.style.display = "block";
+    snapLine.style.left = `${56 + px(frame)}px`;
+  }
+
   function changed() {
     persistState(app, f, st);
     onDirty?.();
@@ -220,11 +254,13 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     },
       el("span", { class: "dir-clip-name" }, m.name),
       el("span", { class: "dir-clip-dur" }, `${fmt(item.duration)}s`),
+      el("button", { class: "dir-clip-x", type: "button", title: "Remove this clip",
+        onclick: (e) => { e.stopPropagation(); removeSlot(m.slot); changed(); } }, "×"),
       el("span", { class: "dir-handle l", "data-edge": "l" }),
       el("span", { class: "dir-handle r", "data-edge": "r" }));
 
     node.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || e.target.closest(".dir-clip-x")) return;
       drag = { kind: "clip", type, index: m.index, edge: e.target?.dataset?.edge || null, x0: e.clientX,
                start: item.start, duration: item.duration, trimStart: item.trimStart || 0, sourceDuration: item.sourceDuration || item.duration + (item.trimStart || 0) };
       node.setPointerCapture(e.pointerId);
@@ -236,14 +272,17 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       const min = MIN_LEN / FPS;
       if (drag.edge === "r") {
         const max = Math.max(min, (drag.sourceDuration || Infinity) - drag.trimStart);
-        item.duration = clamp(drag.duration + d, min, max);
+        const candidate = drag.duration + d;
+        const snapped = snap(Math.round((drag.start + candidate) * FPS), -1, { type, index: m.index }) / FPS - drag.start;
+        item.duration = clamp(Math.abs(snapped - candidate) < 0.2 ? snapped : candidate, min, max);
       } else if (drag.edge === "l") {
         const dTrim = clamp(d, -drag.trimStart, drag.duration - min);
         item.trimStart = drag.trimStart + dTrim;
         item.duration = drag.duration - dTrim;
         item.start = Math.max(0, drag.start + dTrim);
       } else {
-        item.start = Math.max(0, drag.start + d);
+        const raw = Math.max(0, drag.start + d);
+        item.start = Math.max(0, snap(Math.round(raw * FPS), -1, { type, index: m.index }) / FPS);
       }
       node.style.left = `${item.start * zoom}px`;
       node.style.width = `${Math.max(26, item.duration * zoom)}px`;
@@ -287,13 +326,17 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       const cur = st.windows[i];
       if (drag.edge === "l") {
         const minStart = i === 0 ? 0 : Math.max(0, st.windows[i - 1].end - Math.min(SEAM, cur.end - cur.start - 1));
-        cur.start = clamp(Math.round(cur.start + delta), minStart, cur.end - MIN_LEN);
+        cur.start = clamp(snap(Math.round(cur.start + delta), i), minStart, cur.end - MIN_LEN);
       } else if (drag.edge === "r") {
-        cur.end = Math.max(cur.start + MIN_LEN, cur.end + delta);
+        cur.end = Math.max(cur.start + MIN_LEN, snap(Math.round(cur.end + delta), i));
       } else {
         const len = cur.end - cur.start;
-        cur.start = Math.max(0, cur.start + delta);
-        cur.end = cur.start + len;
+        const start = Math.max(0, cur.start + delta);
+        const snappedStart = snap(Math.round(start), i);
+        const snappedEnd = snap(Math.round(start + len), i);
+        if (snappedStart !== Math.round(start)) { cur.start = snappedStart; cur.end = snappedStart + len; }
+        else if (snappedEnd !== Math.round(start + len)) { cur.end = snappedEnd; cur.start = snappedEnd - len; }
+        else { cur.start = start; cur.end = start + len; }
       }
       for (let k = i + 1; k < st.windows.length; k++) {
         const prev = st.windows[k - 1];
@@ -351,18 +394,20 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     for (const m of mediaOf(app, f, "audio")) auds.append(clipNode("audio", m, clipFor("audio", m.index)));
 
     const playhead = el("div", { class: "dir-playhead", style: { left: "0px" } });
+    snapLine = el("div", { class: "dir-snap", style: { display: "none" } });
     const wrap = el("div", { class: "dir-scroll" },
       el("div", { class: "dir-canvas", style: { width: `${width}px` } },
         drawRuler(width),
         el("div", { class: "dir-track-lbl", style: { top: "34px" } }, "GEN"), gen,
         el("div", { class: "dir-track-lbl", style: { top: "108px" } }, "VID"), vids,
         el("div", { class: "dir-track-lbl", style: { top: "158px" } }, "AUD"), auds,
-        playhead));
+        playhead, snapLine));
 
     wrap.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".dir-win, .dir-clip")) return;
       const x = e.clientX - wrap.getBoundingClientRect().left + wrap.scrollLeft - 56;
-      playhead.style.left = `${56 + Math.max(0, x)}px`;
+      playheadFrame = Math.max(0, Math.round((x / zoom) * FPS));
+      playhead.style.left = `${56 + px(playheadFrame)}px`;
     });
     stage.replaceChildren(wrap);
   }
