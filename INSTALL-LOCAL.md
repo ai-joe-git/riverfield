@@ -548,6 +548,41 @@ curseur de détail de l'attention creuse, seed. Le nœud SLA est branché sur So
 Note : le template ne câble qu'un seul emplacement d'image de référence ; `h3-r2v` garde ses
 9 images / 3 vidéos / 3 audios.
 
+### RiverField Studio Director (Material Planner)
+
+App `studio-director` : le workflow `RiverField_Director_studio.json` avec **60 entrées**, soit
+100 % des réglages de chacun des 12 nœuds — modèles, dtype, encodeur, VAE vidéo/audio, LoRA et
+force, sampler, scheduler, steps, denoise, seed, résolution (format / MP / multiple), les 12
+options du nœud SLA, les 3 options du sampler de segments, et les 3 options d'encodage vidéo.
+
+**Le Material Planner est reconstruit côté app.** Le plugin garde tout son état dans le widget
+`timeline_data` (JSON v10 : bin média, prompt global, fenêtres et prompts par segment, two-stage).
+Un widget ne peut pas être rempli par un formulaire, donc
+`custom_nodes/riverfield-h3-planner` (copie dans `local/custom_nodes/`) construit ce document à
+partir des champs de l'app (`json.dumps`, donc guillemets et retours à la ligne sûrs) et le
+branche sur `MiniMaxH3TimelinePlanner.timeline_data`.
+
+Champs couverts, à l'identique du planner : 9 images, 3 vidéos, 3 audios, mode audio
+(`reference` / `locked`), son des vidéos, prompt global, durée de segment, nombre de segments,
+prompts par segment, début sur la timeline, two-stage + upscaler + steps haute résolution.
+Les fenêtres suivent la géométrie du plugin (`js/segment_windows.mjs`) : longueurs H3
+`5 + 17n`, chevauchement de 39 frames (le plus proche autorisé).
+
+Ce qui n'est **pas** dans le formulaire : l'édition au canevas (glisser/rogner les clips) et
+l'affectation média par segment. Pour ça, `Advanced: raw timeline JSON` reçoit le document
+complet et il est passé tel quel au planner.
+
+Vérifications faites sans inférence :
+- le nœud + le planner exécutés seuls dans ComfyUI (`PreviewAny` en sortie) : plan
+  `MINIMAX_H3_TIMELINE_PLAN` correct, prompt avec guillemets et saut de ligne intact ;
+- le workflow complet construit par `applyInputs` du runner : tous les binds atterrissent
+  (durée sur le builder **et** le planner, fichiers sur les champs du builder, SLA, SaveVideo) ;
+- validation statique du graphe : classes, entrées (y compris les combos dynamiques de
+  `SaveVideo`), liens et types.
+
+À refaire après réinstallation de ComfyUI : copier
+`local/custom_nodes/riverfield-h3-planner` dans `ComfyUI/custom_nodes/`.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
