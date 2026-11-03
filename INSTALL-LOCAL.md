@@ -597,7 +597,10 @@ Le panneau :
   sur la géométrie H3 (`5 + 17n`, couture de 39 frames, pas de trou) ;
 - **éditeur de segment** : prompt du segment, chronologie, ajout/suppression, chips de médias ;
 - **pied** : prompt global + bouton Generate ;
-- en-tête : Two-stage, compteur segments/durée/frames.
+- en-tête : Two-stage (avec sélecteur d'upscaler et steps haute résolution quand il est actif),
+  compteur segments/durée/frames, zoom ;
+- sections Vidéos/Audios : interrupteur « sound » (son des vidéos) et mode audio
+  « Reference / Keep original ».
 
 Ce que le panneau écrit, et que le runner envoie :
 - `f.files[imageN|videoN|audioN]` pour les médias (même mécanisme que les dropzones normaux) ;
