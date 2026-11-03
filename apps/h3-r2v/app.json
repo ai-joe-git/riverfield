@@ -505,6 +505,23 @@
       ]
     },
     {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (SLA)",
+      "default": true,
+      "help": "On: the H3 sparse-attention node (fast, but a custom Triton kernel). Off: dense attention only — slower, but it removes the custom GPU kernel if a run ever wedges the GPU.",
+      "bind": [
+        {
+          "node": "159",
+          "field": "enabled"
+        },
+        {
+          "node": "160",
+          "field": "enabled"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",

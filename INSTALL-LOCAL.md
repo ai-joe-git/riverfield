@@ -384,6 +384,45 @@ D'où les deux flags de `run-backend.sh` :
 `ram_dispo`, `comfy_rss` et `gtt` toutes les 5 s dans `/tmp/opencode/riverfield/mem.log`
 pour documenter le prochain essai.
 
+### Le crash des runs 8 s : le GPU tombe (ring timeout), pas la mémoire
+
+Le journal noyau est sans ambiguïté — à chaque essai H3 :
+
+```
+amdgpu 0000:c3:00.0: ring gfx_0.0.0 timeout, signaled seq=..., emitted seq=...
+amdgpu 0000:c3:00.0: Starting gfx_0.0.0 ring reset
+amdgpu 0000:c3:00.0: [drm] device wedged, but recovered through reset
+```
+
+Quatre crashes (23:28:44, 23:38:59, 23:49:42, 23:57:34), quatre fois la même signature. Le
+shader ne rend jamais la main ; au bout de 10 s le noyau réinitialise le ring gfx, ce qui tue
+la session graphique (gnome-shell, Xwayland, navigateur) — d'où l'impression que « la machine
+plante ».
+
+Ce n'est **pas** un manque de mémoire : au dernier relevé de `mem.log` avant le crash,
+`ram_dispo=67 938 MB`, `comfy_rss=24 980 MB`, `gtt=29 560 MB`.
+
+Les seuls noyaux GPU non standard de la boucle de sampling H3 sont :
+
+- le nœud **H3 SLA** (kernel Triton, validé par son auteur sur RDNA2 et gfx1151 mais via un
+  banc d'essai, pas une pipeline complète) ;
+- le backend dense utilisé par ce nœud quand il délègue (séquences courtes, masques,
+  protection audio) : `comfy_kitchen` (kernel HIP de comfy-kitchen) ou `auto` (= l'attention
+  PyTorch, donc AOTriton — la même famille de code qui plantait sur l'encodeur gemma4 de
+  LTX-2.5 avec `hipErrorProfilerNotInitialized`).
+
+Indice décisif : `h3-video-turbo` à 5 s **réussit** avec `dense_backend=comfy_kitchen`, alors
+que `h3-r2v` plantait avec `dense_backend=auto`. Les deux nœuds SLA de `h3-r2v` sont donc
+passés à `comfy_kitchen`, comme toutes les autres apps H3.
+
+En plus, l'app `h3-r2v` expose un interrupteur **« Sparse attention (SLA) »** : OFF, le nœud
+rend le modèle inchangé et il ne reste plus aucun kernel Triton maison dans la boucle. C'est
+le test de repli si un run devait encore figer le GPU (plus lent, mais minimal en risque).
+
+À surveiller dans `/tmp/opencode/riverfield/mem.log` (RAM dispo, RSS du backend, GTT toutes
+les 5 s) et dans `journalctl -k | grep "ring gfx"` : si un run fige encore, ces deux sources
+disent tout de suite si c'est mémoire ou GPU.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
