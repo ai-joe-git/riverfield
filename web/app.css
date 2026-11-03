@@ -832,3 +832,4 @@ dl.vals dd { margin: 0; overflow-wrap: anywhere; }
 .selrow > svg, .selrow > .i-chev { flex: none; }
 /* a grid field sizes to max-content by default, so a long model name widened the whole card */
 .field { grid-template-columns: minmax(0, 1fr); }
+.dir-track.over { border-color: var(--accent); background: rgba(141,180,255,.08); }

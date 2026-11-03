@@ -393,6 +393,54 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const auds = el("div", { class: "dir-track aud", style: { width: `${width}px` } });
     for (const m of mediaOf(app, f, "audio")) auds.append(clipNode("audio", m, clipFor("audio", m.index)));
 
+    // drop a bin item on a track: videos/audios land where the mouse is, pictures assign to the
+    // GEN window under the cursor
+    const dropOn = (track, type) => {
+      track.addEventListener("dragover", (e) => {
+        if ([...(e.dataTransfer?.types || [])].includes("text/riverfield-media") || [...(e.dataTransfer?.types || [])].includes("Files")) {
+          e.preventDefault(); track.classList.add("over");
+        }
+      });
+      track.addEventListener("dragleave", () => track.classList.remove("over"));
+      track.addEventListener("drop", (e) => {
+        track.classList.remove("over");
+        e.preventDefault();
+        const raw = e.dataTransfer?.getData("text/riverfield-media");
+        if (!raw) return;
+        let payload;
+        try { payload = JSON.parse(raw); } catch { return; }
+        if (payload.type !== type) return;
+        const x = e.clientX - track.getBoundingClientRect().left;
+        const frame = Math.max(0, snap(Math.round((x / zoom) * FPS)));
+        if (type === "video" || type === "audio") {
+          const item = clipFor(type, payload.index);
+          item.start = Math.max(0, (frame - Math.round(item.duration * FPS / 2)) / FPS);
+          changed();
+        }
+      });
+    };
+    dropOn(vids, "video");
+    dropOn(auds, "audio");
+    gen.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("text/riverfield-media")) { e.preventDefault(); gen.classList.add("over"); } });
+    gen.addEventListener("dragleave", () => gen.classList.remove("over"));
+    gen.addEventListener("drop", (e) => {
+      gen.classList.remove("over");
+      e.preventDefault();
+      const raw = e.dataTransfer?.getData("text/riverfield-media");
+      if (!raw) return;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { return; }
+      if (payload.type !== "image") return;
+      const x = e.clientX - gen.getBoundingClientRect().left;
+      const frame = Math.max(0, Math.round((x / zoom) * FPS));
+      const index = st.windows.findIndex((w) => frame >= w.start && frame < w.end);
+      if (index < 0) return;
+      selected = index;
+      const w = st.windows[index];
+      if (!w.images.includes(payload.index)) w.images = [...w.images, payload.index];
+      changed();
+    });
+
     const playhead = el("div", { class: "dir-playhead", style: { left: "0px" } });
     snapLine = el("div", { class: "dir-snap", style: { display: "none" } });
     const wrap = el("div", { class: "dir-scroll" },
