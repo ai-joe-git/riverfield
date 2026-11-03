@@ -14,16 +14,346 @@
   },
   "inputs": [
     {
-      "id": "image",
+      "id": "image1",
       "type": "image",
-      "label": "Reference picture",
-      "required": true,
+      "label": "Picture 1",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
       "bind": [
         {
           "node": "149",
           "field": "image"
         }
-      ]
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img1",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img2",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img3",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_3"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img4",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_4"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img5",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_5"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img6",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_6"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img7",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_7"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img8",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_8"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid0",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_0"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid1",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_1"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid2",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_2"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud0",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud1",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud2",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_2"
+        }
+      ],
+      "required": false
     },
     {
       "id": "prompt",
