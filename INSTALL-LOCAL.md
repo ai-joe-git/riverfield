@@ -641,6 +641,18 @@ Vérifié : capture Chromium headless (panneau complet rendu, aucune erreur cons
 synthétique de bout en bout (fenêtres 0–192 / 153–345, prompts avec guillemets, médias par
 segment : segment 1 → image 1, segment 2 → images 1+2, plan `MINIMAX_H3_TIMELINE_PLAN`).
 
+### Deux apps Director : libre et verrouillée Pika
+
+- **`studio-director` — RiverField Studio Director** : tout est exposé (modèles, VAE, LoRA, sampler,
+  sigmas, options SLA). C'est la version pour expérimenter ; un mauvais preset peut dégrader le
+  rendu (c'est ce qui est arrivé au premier test : `euler` + `BasicScheduler(simple)` au lieu de
+  `lcm` + les sigmas Pika).
+- **`pika-studio-director` — Pika Studio Director** : même graphe, **recette Pika figée** —
+  `lcm` + `ManualSigmas` 1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0,
+  `pika_h3_flex_ref2va_v1_bf16` à 1.0, `minimax_h3_ref2va` int8, encodeur nvfp4, VAE lynnreal,
+  SLA Sol-Attn. Seules les options créatives sont exposées (médias, prompts, segments, résolution,
+  détail 0.8–0.95, two-stage, seed, sortie) : impossible de casser la recette.
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
