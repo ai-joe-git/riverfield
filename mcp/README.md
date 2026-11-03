@@ -27,7 +27,8 @@ directly.
 
 `get_app` marks each input: `file: true` means it takes an entry in `run_app.files` (absolute
 path), `panel: true` means the web UI drives it from a custom panel but the API accepts it like
-any other input. Complex structures travel as **JSON strings** in `values` — the app's `notes`
+any other input. Optional pass-through nodes (the ROCm `H3SLAAttentionROCM`) are bypassed by the
+runner when the backend does not ship their class, so the same app runs on CUDA or Intel XPU. Complex structures travel as **JSON strings** in `values` — the app's `notes`
 field documents them (that is how the Studio Director's Material Planner is driven).
 
 ## From opencode

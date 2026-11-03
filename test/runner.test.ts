@@ -225,3 +225,43 @@ test("drafts run only when allowed", async () => {
   await assert.rejects(open.submit(draft, values), (e: unknown) => !(e instanceof InputError));
   assert.ok(seen[0]?.endsWith("/riverfield/prepare"), "got past the draft gate and asked the gateway");
 });
+
+test("an optional pass-through node is bypassed when its toggle is off or the backend lacks its class", () => {
+  const app = {
+    id: "bypass-test", name: "Bypass", section: "video", pack: "core", status: "ready",
+    inputs: [{
+      id: "sla", type: "toggle", label: "SLA", default: true,
+      bind: [{ node: "42", field: "enabled" }],
+      bypass: [{ node: "42", field: "model" }],
+    }],
+    outputs: [{ node: "30", type: "video" }], models: [],
+  } as any;
+
+  const graph = () => ({
+    json: {
+      "1": { class_type: "UNETLoader", inputs: {} },
+      "40": { class_type: "LoraLoaderModelOnly", inputs: { model: ["1", 0] } },
+      "42": { class_type: "H3SLAAttentionROCM", inputs: { model: ["40", 0], enabled: true } },
+      "30": { class_type: "Sampler", inputs: { model: ["42", 0] } },
+    } as Record<string, any>,
+    setInput(node: string, field: string, value: unknown) {
+      const n = (this.json[node] ??= { class_type: "?", inputs: {} });
+      n.inputs[field] = value;
+    },
+  });
+
+  const off = graph();
+  applyInputs(app, { sla: false }, off as any, () => null);
+  assert.equal(off.json["42"], undefined, "toggle off removes the node");
+  assert.deepEqual(off.json["30"].inputs.model, ["40", 0], "its consumer now reads the LoRA directly");
+
+  const missing = graph();
+  applyInputs(app, { sla: true }, missing as any, () => null, undefined, new Set(["H3SLAAttentionROCM"]));
+  assert.equal(missing.json["42"], undefined, "a backend without the class removes it even when the toggle is on");
+  assert.deepEqual(missing.json["30"].inputs.model, ["40", 0]);
+
+  const kept = graph();
+  applyInputs(app, { sla: true }, kept as any, () => null, undefined, new Set());
+  assert.ok(kept.json["42"], "the node stays when the backend ships it and the toggle is on");
+  assert.deepEqual(kept.json["30"].inputs.model, ["42", 0]);
+});
