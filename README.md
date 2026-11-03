@@ -83,8 +83,10 @@ Three things are not an app:
   `run-backend.sh`).
 - **An MCP server** (`mcp/server.ts`) — nine tools (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
   `cancel_job`, `history`, `gpu`, `examples`) over the studio's own API, streamable HTTP on
-  `http://127.0.0.1:3010/mcp` started with the app, or stdio with `./run-mcp.sh --stdio`. Outputs come back as
-  absolute paths, `.glb` included. See [`mcp/README.md`](mcp/README.md).
+  `http://127.0.0.1:3010/mcp` started with the app, or stdio with `./run-mcp.sh --stdio`. `get_app` flags
+  file inputs and panel-driven inputs, and JSON-string inputs (the Studio Director's Material Planner) are
+  documented in each app's notes. Outputs come back as absolute paths, `.glb` included. See
+  [`mcp/README.md`](mcp/README.md).
 
 The palette follows [blackriver-ai.com](https://blackriver-ai.com): #020306 canvas, #0B0F16/#101722 panels, a
 blue `#8DB4FF` accent with cyan and violet supports, and mint `#58E6B1` only for status. All of it lives in the

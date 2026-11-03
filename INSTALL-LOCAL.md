@@ -187,7 +187,11 @@ accès direct à ComfyUI.
 - **stdio** : `./run-mcp.sh --stdio`, pour les clients qui spawnent leur serveur.
 - Branché dans `~/.config/opencode/opencode.jsonc` (`mcp.riverfield`, stdio) : mes propres outils
   `riverfield.*` l'ont validé (`run_app` → `wait_job` → `out/history/<id>/out-01.png`).
-- Détails et exemples curl : `mcp/README.md`.
+- `get_app` marque chaque entrée `file: true` (chemin absolu dans `run_app.files`) et
+  `panel: true` (pilotée par un panneau web, mais acceptée par l'API), et renvoie les `notes`
+  de l'app — c'est là que le format JSON du Material Planner de `studio-director` est décrit ;
+- tous les nouveaux apps (`studio-director`, `h3-r2v-flex`) sont exposés automatiquement ;
+- Détails, exemples curl et exemple « Studio Director » : `mcp/README.md`.
 
 Ports par défaut : app 3000, MCP 3010, gateway 8000, ComfyUI 8189, proxy 8190.
 
