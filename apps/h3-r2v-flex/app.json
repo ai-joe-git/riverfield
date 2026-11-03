@@ -1,0 +1,200 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-r2v-flex",
+  "name": "H3 Pika Flex — Reference to Video",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "summary": "The official ComfyUI Pika H3 Flex template: reference image(s) to video with the Pika Flex LoRA, lcm sampler and its own 6-step sigma schedule, plus sound.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "video_pika_h3_flex_ref2va.json (ComfyUI workflows folder)",
+    "comfyui": "0.43.0",
+    "notes": "Imported with tools/import_workflow.py. LoRA pika_h3_flex_ref2va_v1_bf16, sampler lcm, ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0 (6 steps). The H3 SLA node runs on comfy-kitchen Sol-Attn through local/patch-h3-sla-solattn.py."
+  },
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Reference picture",
+      "required": true,
+      "bind": [
+        {
+          "node": "149",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "default": "A 1990s American multi-camera sitcom scene exactly like Image 1: bright, flat studio lighting on a living-room set, slight videotape softness, the same woman in red. A live studio audience laughs throughout. Hard cuts between different camera angles.\n[Shot 1] 0-3 s: wide shot. She carries a pretty birthday cake into the living room and sets it on the coffee table; a small dog in a party hat sits by the sofa, staring at the cake. (Audience: \"Aww.\")\n[Shot 2] 3-5 s: medium shot. A sudden knock at the door. She points at the dog: \"Wait here. Don't touch it.\" and walks out of frame to answer the door.\n[Shot 3] 5-9 s: close-up, locked on the coffee table: the dog jumps up and wolfs down the cake, cream flying, party hat askew, tail wagging wildly. (Audience bursts out laughing.)\n[Shot 4] 9-12 s: wide shot. She comes back and freezes: only a small piece of cake is left, the dog has cream all over its face and sits back down as if nothing happened, licking its lips. She throws her hands up, baffled: \"…What happened?!\"\n[Shot 5] 12-15 s: close-up. The dog lets out a creamy little burp and tilts its head at her. She looks at the camera and sighs. (Big laugh and applause, sitcom transition music.)\nSound: studio audience laughter and applause, a knock, the dog gobbling and a tiny burp, an upbeat 90s sitcom theme. Only these two lines. No subtitles or other text.",
+      "required": true,
+      "bind": [
+        {
+          "node": "138",
+          "field": "value"
+        }
+      ],
+      "help": "Describe the shot. The template's prompt uses 'Image 1' to point at the reference."
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 0.8,
+      "help": "0.8 MP is 1184x672 at 16:9. The template ships 0.98.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9 (Widescreen)"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16 (Portrait Widescreen)"
+        },
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1 (Square)"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3 (Standard)"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4 (Portrait Standard)"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2 (Photo)"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3 (Portrait Photo)"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9 (Ultrawide)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "115",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration",
+      "min": 1,
+      "max": 15,
+      "step": 0.5,
+      "default": 8,
+      "bind": [
+        {
+          "node": "132",
+          "field": "value"
+        }
+      ],
+      "help": "Seconds. Frames are rounded to 24 fps and padded to a multiple of 17."
+    },
+    {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.9,
+      "help": "0.9 = 90% of blocks skipped (the template's value, fastest). Lower it (0.8/0.7) for more exact attention if motion or faces suffer.",
+      "bind": [
+        {
+          "node": "151",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "129",
+          "field": "noise_seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "92",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 14.61,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "higgsfield_feature": "Reference to Video"
+}
