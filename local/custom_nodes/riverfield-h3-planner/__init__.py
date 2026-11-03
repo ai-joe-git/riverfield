@@ -85,12 +85,20 @@ def build_timeline(
     two_stage: bool = False,
     upscaler: str = "",
     high_steps: int = 2,
+    segment_windows: str = "",
 ) -> str:
     fps = int(fps) or FPS
     seconds = max(5.0 / fps, float(generation_seconds))
     start = max(0.0, float(start_seconds))
     count = max(1, int(segment_count))
     frames = aligned_length(round(seconds * fps))
+
+    spec = None
+    if segment_windows and segment_windows.strip():
+        try:
+            spec = json.loads(segment_windows)
+        except Exception:
+            spec = None
 
     image_files = [f for f in (images or []) if f][:MAX_IMAGES]
     audio_files = [f for f in (audios or []) if f][:MAX_AUDIOS]
@@ -130,14 +138,50 @@ def build_timeline(
         for i, f in enumerate(video_files)
     ]
 
-    prompts = _lines(segment_prompts, 4096)
-    windows = create_windows(count, frames)
     image_ids = [a["id"] for a in image_assets]
     audio_ids = [a["id"] for a in audio_assets]
-    for i, window in enumerate(windows):
-        window["prompt"] = prompts[i] if i < len(prompts) else ""
-        window["images"] = list(image_ids)
-        window["audios"] = list(audio_ids)
+
+    spec_windows = None
+    if isinstance(spec, dict) and isinstance(spec.get("windows"), list) and spec["windows"]:
+        spec_windows = []
+        for index, raw in enumerate(spec["windows"]):
+            if not isinstance(raw, dict):
+                continue
+            start = max(0, int(round(float(raw.get("start", 0) or 0))))
+            end = max(start + MIN_LENGTH, int(round(float(raw.get("end", start + frames) or 0))))
+            spec_windows.append({
+                "startFrame": start,
+                "endFrame": end,
+                "prompt": str(raw.get("prompt") or ""),
+                "images": [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and 0 <= i < len(image_ids)],
+                "audios": [audio_ids[i] for i in (raw.get("audios") or []) if isinstance(i, int) and 0 <= i < len(audio_ids)],
+            })
+    if spec_windows:
+        windows = spec_windows
+        count = len(windows)
+        seconds = (windows[0]["endFrame"] - windows[0]["startFrame"]) / fps
+    else:
+        prompts = _lines(segment_prompts, 4096)
+        windows = create_windows(count, frames)
+        for i, window in enumerate(windows):
+            window["prompt"] = prompts[i] if i < len(prompts) else ""
+            window["images"] = list(image_ids)
+            window["audios"] = list(audio_ids)
+
+    # timing des clips vidéo/audio venant du panneau
+    if isinstance(spec, dict):
+        for item in (spec.get("videos") or []):
+            if not isinstance(item, dict): continue
+            i = item.get("index")
+            if isinstance(i, int) and 0 <= i < len(video_assets):
+                video_assets[i]["start"] = max(0.0, float(item.get("start", 0) or 0))
+                video_assets[i]["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
+        for item in (spec.get("audios") or []):
+            if not isinstance(item, dict): continue
+            i = item.get("index")
+            if isinstance(i, int) and 0 <= i < len(audio_assets):
+                audio_assets[i]["trimStart"] = max(0.0, float(item.get("trimStart", 0) or 0))
+                audio_assets[i]["duration"] = max(5.0 / fps, float(item.get("duration", seconds) or seconds))
 
     document = {
         "version": 10,
@@ -196,6 +240,8 @@ class RiverFieldH3Planner:
                 "two_stage": ("BOOLEAN", {"default": False}),
                 "upscaler": (upscalers, {"default": ""}),
                 "high_steps": ("INT", {"default": 2, "min": 0, "max": 100}),
+                "segment_windows": ("STRING", {"default": "", "multiline": True,
+                    "tooltip": "JSON from the Studio Director panel: windows, per-segment prompts and media assignment."}),
             },
             "optional": {
                 **{f"image{i}": ("STRING", {"default": "", "tooltip": f"Input-relative file for reference picture {i}."})
@@ -210,7 +256,7 @@ class RiverFieldH3Planner:
     def build(self, advanced_timeline_json="", global_prompt="", generation_seconds=5.0,
               start_seconds=0.0, fps=FPS, segment_count=1, segment_prompts="",
               audio_mode="reference", video_audio=True, two_stage=False, upscaler="",
-              high_steps=2, **media):
+              high_steps=2, segment_windows="", **media):
         if advanced_timeline_json and advanced_timeline_json.strip():
             return (advanced_timeline_json.strip(),)
         pick = lambda prefix, n: [str(media.get(f"{prefix}{i}") or "").strip() for i in range(1, n + 1)]
@@ -229,6 +275,7 @@ class RiverFieldH3Planner:
             two_stage=two_stage,
             upscaler=upscaler,
             high_steps=high_steps,
+            segment_windows=segment_windows,
         ),)
 
 
