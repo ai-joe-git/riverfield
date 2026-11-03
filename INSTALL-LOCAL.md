@@ -591,7 +591,9 @@ la colonne des réglages techniques à gauche.
 
 Le panneau :
 - **bin média** : Pictures (9), Videos (3), Audios (3), dépôt ou clic, vignettes, retrait,
-  assignation à un segment d'un clic (images/audios) ;
+  assignation à un segment d'un clic (images/audios), et **glisser-déposer sur la timeline**
+  (une vidéo/audio se pose où on la lâche, une image lâchée sur la piste GEN rejoint le segment
+  sous le curseur) ;
 - **aimantation** type table de montage : fenêtres et clips se collent aux bords voisins, au
   zéro et à la tête de lecture (seuil 9 px) avec une ligne guide verte ; les clips vidéo/audio
   ont aussi une croix pour les retirer de la timeline ;
