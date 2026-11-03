@@ -38,21 +38,6 @@
       "title": "Load VAE"
     }
   },
-  "9": {
-    "class_type": "BasicScheduler",
-    "inputs": {
-      "model": [
-        "42",
-        0
-      ],
-      "scheduler": "simple",
-      "steps": 6,
-      "denoise": 1
-    },
-    "_meta": {
-      "title": "BasicScheduler"
-    }
-  },
   "11": {
     "class_type": "MiniMaxH3TimelinePlanner",
     "inputs": {
@@ -77,7 +62,7 @@
   "13": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "euler"
+      "sampler_name": "lcm"
     },
     "_meta": {
       "title": "KSamplerSelect"
@@ -128,7 +113,7 @@
         0
       ],
       "sigmas": [
-        "9",
+        "50",
         0
       ],
       "seed": 42,
@@ -222,6 +207,15 @@
       "video2": "",
       "video3": "",
       "segment_windows": ""
+    }
+  },
+  "50": {
+    "class_type": "ManualSigmas",
+    "_meta": {
+      "title": "Pika 6-step sigmas"
+    },
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
     }
   }
 }

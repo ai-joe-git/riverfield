@@ -5,12 +5,12 @@
   "section": "video",
   "pack": "video-h3",
   "status": "ready",
-  "summary": "Material Planner driven H3 director: media bin, per-segment prompts and windows, two-stage sampling, finite segment rendering with sound.",
+  "summary": "Free-form H3 director: Material Planner segments, references, two-stage, and every model, sampler and sigma exposed. Locked Pika recipe: pika-studio-director.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "RiverField_Director_studio.json",
     "comfyui": "0.43.0",
-    "notes": "MiniMaxH3TimelinePlanner fed by the RiverField H3 Material Planner node (custom_nodes/riverfield-h3-planner): its timeline_data document is built from the app fields, so every planner option is a normal input. H3 SLA runs on comfy-kitchen Sol-Attn (local/patch-h3-sla-solattn.py)."
+    "notes": "MiniMaxH3TimelinePlanner fed by the RiverField H3 Material Planner node (custom_nodes/riverfield-h3-planner): its timeline_data document is built from the app fields, so every planner option is a normal input. H3 SLA runs on comfy-kitchen Sol-Attn (local/patch-h3-sla-solattn.py). Uses the Pika Flex recipe: lcm sampler + ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0. Advanced variant: models, sampler and sigmas are exposed, so a wrong preset can degrade the render. pika-studio-director is the same graph with the Pika recipe locked."
   },
   "inputs": [
     {
@@ -549,7 +549,7 @@
       "min": 8,
       "max": 128,
       "step": 4,
-      "default": 8,
+      "default": 32,
       "bind": [
         {
           "node": "41",
@@ -1556,7 +1556,7 @@
       "id": "sampler_name",
       "type": "select",
       "label": "Sampler",
-      "default": "euler",
+      "default": "lcm",
       "options": [
         {
           "value": "euler",
@@ -1747,82 +1747,15 @@
       ]
     },
     {
-      "id": "scheduler",
-      "type": "select",
-      "label": "Scheduler",
-      "default": "simple",
-      "options": [
-        {
-          "value": "simple",
-          "label": "simple"
-        },
-        {
-          "value": "sgm_uniform",
-          "label": "sgm_uniform"
-        },
-        {
-          "value": "karras",
-          "label": "karras"
-        },
-        {
-          "value": "exponential",
-          "label": "exponential"
-        },
-        {
-          "value": "ddim_uniform",
-          "label": "ddim_uniform"
-        },
-        {
-          "value": "beta",
-          "label": "beta"
-        },
-        {
-          "value": "normal",
-          "label": "normal"
-        },
-        {
-          "value": "linear_quadratic",
-          "label": "linear_quadratic"
-        },
-        {
-          "value": "kl_optimal",
-          "label": "kl_optimal"
-        }
-      ],
+      "id": "sigmas",
+      "type": "text",
+      "label": "Sigma schedule",
+      "default": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0",
+      "help": "The Pika Flex 6-step ladder (7 values → 6 steps). Keep lcm as the sampler: the LoRA is distilled for this schedule.",
       "bind": [
         {
-          "node": "9",
-          "field": "scheduler"
-        }
-      ]
-    },
-    {
-      "id": "steps",
-      "type": "slider",
-      "label": "Steps",
-      "min": 1,
-      "max": 60,
-      "step": 1,
-      "default": 6,
-      "bind": [
-        {
-          "node": "9",
-          "field": "steps"
-        }
-      ]
-    },
-    {
-      "id": "denoise",
-      "type": "slider",
-      "label": "Denoise",
-      "min": 0,
-      "max": 1,
-      "step": 0.01,
-      "default": 1,
-      "bind": [
-        {
-          "node": "9",
-          "field": "denoise"
+          "node": "50",
+          "field": "sigmas"
         }
       ]
     },

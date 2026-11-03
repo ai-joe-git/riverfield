@@ -1,0 +1,725 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "pika-studio-director",
+  "name": "Pika Studio Director",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "summary": "The Pika Flex recipe, locked: lcm + its 6-step sigma ladder, Material Planner segments, ordered references and sound. The safe way to direct long H3 clips.",
+  "higgsfield_feature": "AI Director",
+  "source": {
+    "template": "RiverField_Director_studio.json (Pika-locked variant)",
+    "comfyui": "0.43.0",
+    "notes": "Same graph as studio-director, with the recipe the Pika Flex LoRA is distilled for: sampler lcm, ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0, pika_h3_flex_ref2va_v1_bf16 at 1.0, minimax_h3_ref2va int8 + qwen3vl nvfp4 encoder + lynnreal light VAE, SLA on Sol-Attn. Model, sampler and sigma choices are not exposed: this app cannot be broken by a wrong preset. Use studio-director when you want to experiment with other models or schedules."
+  },
+  "inputs": [
+    {
+      "id": "segment_windows",
+      "type": "text",
+      "label": "Timeline (panel)",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_windows"
+        }
+      ]
+    },
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image1"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image2"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image3"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image4"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image5"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image6"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image7"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image8"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image9"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video1"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video2"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video3"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio1"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio2"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio3"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio_mode",
+      "type": "select",
+      "label": "Audio mode",
+      "default": "reference",
+      "options": [
+        {
+          "value": "reference",
+          "label": "Reference — H3 may regenerate it"
+        },
+        {
+          "value": "locked",
+          "label": "Keep original — injected unchanged"
+        }
+      ],
+      "help": "Applies to every reference audio in the bin.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio_mode"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video_audio",
+      "type": "toggle",
+      "label": "Use the videos' own sound",
+      "default": true,
+      "help": "When on, each reference video's soundtrack is carried into its paired audio slot.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video_audio"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "global_prompt",
+      "type": "textarea",
+      "label": "Global prompt",
+      "required": false,
+      "default": "",
+      "help": "Used for the current generation window and reused by every segment whose own prompt is empty.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "global_prompt"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Segment duration (s)",
+      "min": 0.5,
+      "max": 60,
+      "step": 0.1,
+      "default": 7.3,
+      "help": "Generation duration of one segment, rounded to an H3-legal 5+17n frame count. Total ≈ segments × duration − seams.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "generation_seconds"
+        },
+        {
+          "node": "11",
+          "field": "generation_seconds"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "segment_count",
+      "type": "slider",
+      "label": "Segments",
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "default": 1,
+      "help": "Material segments: each gets its own window and its own line in the segment prompts.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_count"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "segment_prompts",
+      "type": "textarea",
+      "label": "Segment prompts",
+      "required": false,
+      "default": "",
+      "help": "One prompt per segment, one per line. Empty lines fall back to the global prompt.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_prompts"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "start_seconds",
+      "type": "slider",
+      "label": "Timeline start (s)",
+      "min": 0,
+      "max": 3600,
+      "step": 0.5,
+      "default": 0,
+      "help": "Where the generation window starts on the material timeline.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "start_seconds"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "two_stage",
+      "type": "toggle",
+      "label": "Two-stage sampling (SelfLift)",
+      "default": false,
+      "help": "Low-res pass, latent lift, then a few high-res steps.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "two_stage"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "upscaler",
+      "type": "select",
+      "label": "Latent upscaler",
+      "default": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "options": [
+        {
+          "value": "",
+          "label": "None"
+        },
+        {
+          "value": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+          "label": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
+        },
+        {
+          "value": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+          "label": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors"
+        }
+      ],
+      "help": "H3 latent upscaler used by the two-stage pass.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "upscaler"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "high_steps",
+      "type": "slider",
+      "label": "High-res steps",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 2,
+      "help": "Steps spent at high resolution; must stay below the scheduler's step count.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "high_steps"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "advanced_timeline_json",
+      "type": "textarea",
+      "label": "Advanced: raw timeline JSON",
+      "required": false,
+      "default": "",
+      "help": "Non-empty: replaces every planner field above and is passed to the Material Planner unchanged.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "advanced_timeline_json"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1 (Square)"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3 (Portrait Photo)"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2 (Photo)"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4 (Portrait Standard)"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3 (Standard)"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16 (Portrait Widescreen)"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9 (Widescreen)"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9 (Ultrawide)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "41",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.8,
+      "help": "0.8 MP ≈ 1184×672 at 16:9. The Pika template ships 0.98.",
+      "bind": [
+        {
+          "node": "41",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "slider",
+      "label": "Dimension multiple",
+      "min": 8,
+      "max": 128,
+      "step": 4,
+      "default": 32,
+      "bind": [
+        {
+          "node": "41",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "30",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.8,
+      "max": 0.95,
+      "step": 0.05,
+      "default": 0.9,
+      "help": "Sparsity (higher = faster). 0.9 is what the Pika template uses; 0.85 keeps more exact blocks.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "File name prefix",
+      "default": "riverfield/studio-director",
+      "bind": [
+        {
+          "node": "29",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "mp4"
+        },
+        {
+          "value": "mkv",
+          "label": "mkv"
+        },
+        {
+          "value": "webm",
+          "label": "webm"
+        },
+        {
+          "value": "mov",
+          "label": "mov"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "29",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "h264"
+        },
+        {
+          "value": "av1",
+          "label": "av1"
+        },
+        {
+          "value": "prores",
+          "label": "prores"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "help": "h264/av1 need mp4 or mkv; prores needs mov or mkv. Encoding mode stays automatic.",
+      "bind": [
+        {
+          "node": "29",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "29",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 14.61,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 1.99,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 0.64,
+      "phase": "aux",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "workflow": "workflow.api.json"
+}
