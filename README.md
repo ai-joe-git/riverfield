@@ -5,8 +5,10 @@ Open-source Higgsfield on ComfyUI: every app is one folder, every model is open 
 **RiverField is a fork of [Freefield](https://github.com/neuregex/freefield) by Sammir Femat (neuregex), MIT.**
 It adds a **3D studio** (a picture to a textured GLB, TRELLIS.2 or Pixal3D), **Lipsync** (LTX-2.5 image-and-audio to
 video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voice design), turbo variants of the
-MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the **H3 SLA Attention** node on ROCm in every H3
-workflow, and an **MCP server** so an agent can drive the studio. Upstream stays the reference for everything else.
+MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniMax H3 reference pipeline**, a
+**Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
+attention** node now running on comfy-kitchen's Sol-Attn (and bypassed on CUDA/XPU), and an **MCP server** so an
+agent can drive the studio. Upstream stays the reference for everything else.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
@@ -46,7 +48,7 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 
 | | |
 |---|---|
-| Apps | **135, all ready** (upstream's 120, `moss-image` now out of draft, plus 15 of ours: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D** and **Lipsync** — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **139, all ready** (upstream's 120, `moss-image` now out of draft, plus 19 of ours: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex** and the two **Studio Director** apps — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `e3bee7f` (0.42.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
 | GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
@@ -71,19 +73,29 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
 | `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
 | `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional | MiniMax H3 | 264 s for 2 s, 4 steps |
+| `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
+| `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
+| `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, Pika Flex LoRA, imposed models): a wrong preset cannot degrade it | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
 
-Three things are not an app:
+Four things are not an app:
 
 - **H3 SLA Attention (ROCm)** — the `H3SLAAttentionROCM` node sits in every H3 workflow, right after the model
-  chain, with the settings validated on gfx1151 (0.90 sparsity, 64-token blocks, `comfy_kitchen` dense backend);
-  it is what makes H3 usable on this card. It is **optional**: every H3 app has a *Sparse attention* toggle, and
-  the node is **bypassed automatically when the backend does not ship its class** — the runner asks
-  `/object_info/<class>`, rewires the model chain to the previous node and drops it. CUDA or Intel XPU users
-  therefore run the same apps, on the backend's own attention.
+  chain. Its own Triton kernel wedges gfx1151 past ~50k tokens, so `local/patch-h3-sla-solattn.py` re-points it
+  at **comfy-kitchen's Sol-Attn** (`sol_attn(topk_ratio=…, tail=True, token_aug=256)`, the SLA-style top-k the
+  LoRAs are distilled against, on the HIP backend) — measured 22× faster than dense SDPA. It is **optional**:
+  every H3 app has a *Sparse attention* toggle, and the node is **bypassed automatically when the backend does
+  not ship its class** — the runner asks `/object_info/<class>`, rewires the model chain to the previous node and
+  drops it. CUDA or Intel XPU users therefore run the same apps, on the backend's own attention.
 - **A 3D studio** — `section: "3d"` in the manifest, a `model` output type, `.glb` classified and served as
   `model/gltf-binary`, a three.js viewer in the web UI (`web/js/model3d.js`, vendored in `web/vendor/three`),
   and a patch for `comfy-api-proxy`, which drops ComfyUI's `3d` output key (`local/patch-proxy.py`, re-applied by
   `run-backend.sh`).
+- **A Material Planner panel** — `web/js/director.js` + the `.dir-*` styles draw a real editing surface for the
+  two director apps: media bin with thumbnails and drop targets, a frame-accurate timeline (draggable GEN windows
+  snapped to `5+17n`, trimmable video/audio clips, edit-style snapping), per-segment prompts and ordered
+  `<Picture N>` / `<Audio N>` references, and a global prompt. It writes `segment_windows`, a JSON document the
+  `RiverFieldH3Planner` node (`custom_nodes/riverfield-h3-planner`, copied in `local/custom_nodes/`) turns into the
+  planner's `timeline_data`.
 - **An MCP server** (`mcp/server.ts`) — nine tools (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
   `cancel_job`, `history`, `gpu`, `examples`) over the studio's own API, streamable HTTP on
   `http://127.0.0.1:3010/mcp` started with the app, or stdio with `./run-mcp.sh --stdio`. `get_app` flags
@@ -334,6 +346,12 @@ same workflows as on Modal.
   how long the lab example took on the GPU.
 - **Video** (and the upload-first tools): controls in a left column (*Create video*, *Edit video*, *Motion control*),
   results on the right.
+- **Director** apps (`studio-director`, `pika-studio-director`) open a **Material Planner** on the right: a media bin
+  with thumbnails and drop targets, a frame-accurate timeline whose GEN windows snap to `5+17n` frames, trimmable
+  video/audio clips with edit-style snapping (neighbours, zero, playhead) and a live drop preview, per-segment prompts,
+  ordered `<Picture N>` / `<Audio N>` references, a global prompt and the Generate button. The technical column on the
+  left keeps the model/sampler controls, or only the safe ones in the locked Pika app. `layout: "director"` in
+  `app.json` is what selects this layout; the panel is `web/js/director.js`.
 - Every app has **History** (what you generated with it), **Library** (the lab example, *Load this example*) and
   **How it works** (models and licenses, VRAM by phase, the download and terminal commands, and *Download the
   workflow*: drop it on ComfyUI's canvas to open the app as nodes and chain it with others).
@@ -455,7 +473,10 @@ python tools/comfy_validate.py --comfy-dir /path/to/ComfyUI --placeholders --lab
    (extra node fields written when it is chosen, like the LoRA file that goes with a style); a string in `sets` may
    use `{input_id}` placeholders like a bind template (each effect writes its LoRA's prompt, with its trigger words, around
    your `{subject}`). `presets` change several fields at once (the 4-step mode of `camera-moves`), and a select marked
-   `"gallery": true` is shown as cards with one lab example per option.
+   `"gallery": true` is shown as cards with one lab example per option. `"bypass"` names pass-through nodes to remove
+   (and rewire) when their toggle is off or when the backend does not ship their class — that is how the ROCm SLA
+   node stays optional on CUDA/XPU; `"hidden"` keeps an input out of the generic form (a custom panel owns it) and
+   `"layout": "director"` opens the Material Planner panel.
 3. Check it:
    ```sh
    npm run validate                                # schema, bindings, declared models vs. loaders
