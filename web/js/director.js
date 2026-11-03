@@ -80,6 +80,42 @@ export function directorView(app, f, { onSubmit, onDirty }) {
 
   const meta = mediaMeta();
   const root = el("div", { class: "dir" });
+  let ghostEl = null;
+
+  /** Premium pointer drag: a floating ghost, live preview and highlighted targets. */
+  function pointerDrag(e, { build, move, end, click }) {
+    if (e.button !== 0) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    let active = false;
+    const onMove = (ev) => {
+      if (!active) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+        active = true;
+        ghostEl = el("div", { class: "dir-ghost" }, build());
+        document.body.append(ghostEl);
+        document.body.classList.add("dir-dragging");
+      }
+      ghostEl.style.transform = `translate3d(${ev.clientX + 14}px, ${ev.clientY + 12}px, 0)`;
+      move?.(ev);
+    };
+    const onUp = (ev) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.classList.remove("dir-dragging");
+      ghostEl?.remove();
+      ghostEl = null;
+      if (!active) click?.(ev);
+      else end?.(ev);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function clearDropHints() {
+    document.querySelectorAll(".dir-track.over").forEach((n) => n.classList.remove("over"));
+    document.querySelectorAll(".dir-win.hover").forEach((n) => n.classList.remove("hover"));
+    document.querySelectorAll(".dir-drop-preview").forEach((n) => n.remove());
+  }
   let stage, binEl, segEl, headEl, footEl;
   let pendingMeta = 0;
 
@@ -174,10 +210,57 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       }, el("div", { class: "dir-media-thumb" }, thumb),
          el("div", { class: "dir-media-txt" }, el("span", { class: "dir-media-name" }, m.name), sub ? el("small", {}, sub) : null),
          el("button", { class: "dir-x", type: "button", title: "Remove", onclick: (e) => { e.stopPropagation(); removeSlot(m.slot); changed(); } }, "×"));
-      if (type !== "image") {
-        node.draggable = true;
-        node.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/riverfield-media", JSON.stringify({ type, index: m.index })); e.dataTransfer.effectAllowed = "copy"; });
-      }
+      node.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest(".dir-x")) return;
+        let drop = null;
+        pointerDrag(e, {
+          build: () => [
+            type === "image" ? el("img", { src: m.url, alt: "" }) : el("span", { class: "gh-icon" }, icon(type === "video" ? "film" : "audio")),
+            el("span", {}, m.name),
+            type !== "image" ? el("small", {}, `${fmt(meta.get(m.slot)?.duration || 0)}s`) : null,
+          ],
+          move: (ev) => {
+            clearDropHints();
+            const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+            if (type === "image") {
+              const win = hit?.closest(".dir-win");
+              win?.classList.add("hover");
+              drop = win ? winNodes.indexOf(win) : null;
+              return;
+            }
+            const track = hit?.closest(type === "video" ? ".dir-track.vid" : ".dir-track.aud");
+            if (!track) { drop = null; return; }
+            track.classList.add("over");
+            const info = meta.get(m.slot);
+            const dur = Math.max(MIN_LEN / FPS, info?.duration || 5);
+            const rect = track.getBoundingClientRect();
+            const start = Math.max(0, snap(Math.round((((ev.clientX - rect.left) - (dur * zoom) / 2) / zoom) * FPS)));
+            track.append(el("div", { class: "dir-drop-preview", style: { left: `${px(start)}px`, width: `${Math.max(24, dur * zoom)}px` } }));
+            drop = start / FPS;
+          },
+          end: () => {
+            clearDropHints();
+            if (drop === null || drop === undefined) return;
+            if (type === "image") {
+              const w = st.windows[drop];
+              if (w && !w.images.includes(m.index)) { selected = drop; w.images = [...w.images, m.index]; changed(); }
+              return;
+            }
+            const item = clipFor(type, m.index);
+            item.start = drop;
+            changed();
+          },
+          click: () => {
+            if (type === "video") return;
+            const w = st.windows[selected];
+            if (!w) return;
+            const key = type === "image" ? "images" : "audios";
+            w[key] = w[key].includes(m.index) ? w[key].filter((i) => i !== m.index) : [...w[key], m.index];
+            changed();
+          },
+        });
+      });
       return node;
     });
 
@@ -393,53 +476,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const auds = el("div", { class: "dir-track aud", style: { width: `${width}px` } });
     for (const m of mediaOf(app, f, "audio")) auds.append(clipNode("audio", m, clipFor("audio", m.index)));
 
-    // drop a bin item on a track: videos/audios land where the mouse is, pictures assign to the
-    // GEN window under the cursor
-    const dropOn = (track, type) => {
-      track.addEventListener("dragover", (e) => {
-        if ([...(e.dataTransfer?.types || [])].includes("text/riverfield-media") || [...(e.dataTransfer?.types || [])].includes("Files")) {
-          e.preventDefault(); track.classList.add("over");
-        }
-      });
-      track.addEventListener("dragleave", () => track.classList.remove("over"));
-      track.addEventListener("drop", (e) => {
-        track.classList.remove("over");
-        e.preventDefault();
-        const raw = e.dataTransfer?.getData("text/riverfield-media");
-        if (!raw) return;
-        let payload;
-        try { payload = JSON.parse(raw); } catch { return; }
-        if (payload.type !== type) return;
-        const x = e.clientX - track.getBoundingClientRect().left;
-        const frame = Math.max(0, snap(Math.round((x / zoom) * FPS)));
-        if (type === "video" || type === "audio") {
-          const item = clipFor(type, payload.index);
-          item.start = Math.max(0, (frame - Math.round(item.duration * FPS / 2)) / FPS);
-          changed();
-        }
-      });
-    };
-    dropOn(vids, "video");
-    dropOn(auds, "audio");
-    gen.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("text/riverfield-media")) { e.preventDefault(); gen.classList.add("over"); } });
-    gen.addEventListener("dragleave", () => gen.classList.remove("over"));
-    gen.addEventListener("drop", (e) => {
-      gen.classList.remove("over");
-      e.preventDefault();
-      const raw = e.dataTransfer?.getData("text/riverfield-media");
-      if (!raw) return;
-      let payload;
-      try { payload = JSON.parse(raw); } catch { return; }
-      if (payload.type !== "image") return;
-      const x = e.clientX - gen.getBoundingClientRect().left;
-      const frame = Math.max(0, Math.round((x / zoom) * FPS));
-      const index = st.windows.findIndex((w) => frame >= w.start && frame < w.end);
-      if (index < 0) return;
-      selected = index;
-      const w = st.windows[index];
-      if (!w.images.includes(payload.index)) w.images = [...w.images, payload.index];
-      changed();
-    });
+
 
     const playhead = el("div", { class: "dir-playhead", style: { left: "0px" } });
     snapLine = el("div", { class: "dir-snap", style: { display: "none" } });
@@ -511,15 +548,32 @@ export function directorView(app, f, { onSubmit, onDirty }) {
           el("button", { type: "button", class: "dir-mv", title: "Move earlier", disabled: pos === 0 ? "true" : undefined, onclick: (e) => { e.stopPropagation(); move(w[key], pos, pos - 1); changed(); } }, "◀"),
           el("button", { type: "button", class: "dir-mv", title: "Move later", disabled: pos === total - 1 ? "true" : undefined, onclick: (e) => { e.stopPropagation(); move(w[key], pos, pos + 1); changed(); } }, "▶")),
         el("button", { type: "button", class: "dir-mv x", title: "Remove from this segment", onclick: (e) => { e.stopPropagation(); w[key] = w[key].filter((i) => i !== index); changed(); } }, "×"));
-      chip.addEventListener("dragstart", (e) => { e.dataTransfer.setData("text/plain", `${type}:${pos}`); e.dataTransfer.effectAllowed = "move"; });
-      chip.addEventListener("dragover", (e) => { e.preventDefault(); chip.classList.add("drop"); });
-      chip.addEventListener("dragleave", () => chip.classList.remove("drop"));
-      chip.addEventListener("drop", (e) => {
-        e.preventDefault(); chip.classList.remove("drop");
-        const [t2, from] = String(e.dataTransfer.getData("text/plain") || "").split(":");
-        if (t2 !== type) return;
-        move(w[key], Number(from), pos); changed();
+      chip.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0 || e.target.closest("button")) return;
+        let to = pos;
+        pointerDrag(e, {
+          build: () => [type === "image" ? el("img", { src: m.url, alt: "" }) : icon("audio"), el("b", {}, label), el("span", {}, m.name)],
+          move: (ev) => {
+            document.querySelectorAll(".dir-chip.drop-before, .dir-chip.drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after"));
+            const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".dir-chip.ordered");
+            if (!over || over === chip) return;
+            const rect = over.getBoundingClientRect();
+            const after = ev.clientX > rect.left + rect.width / 2;
+            over.classList.add(after ? "drop-after" : "drop-before");
+            const target = Number(over.dataset.pos);
+            to = after ? target + 1 : target;
+          },
+          end: () => {
+            document.querySelectorAll(".dir-chip.drop-before, .dir-chip.drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after"));
+            if (to === pos) return;
+            const list = w[key];
+            const [x] = list.splice(pos, 1);
+            list.splice(to > pos ? to - 1 : to, 0, x);
+            changed();
+          },
+        });
       });
+      chip.dataset.pos = String(pos);
       return chip;
     };
 
