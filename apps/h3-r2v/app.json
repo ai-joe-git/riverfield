@@ -508,8 +508,8 @@
       "id": "sla",
       "type": "toggle",
       "label": "Sparse attention (SLA)",
-      "default": true,
-      "help": "On: the H3 sparse-attention node (fast, but a custom Triton kernel). Off: dense attention only — slower, but it removes the custom GPU kernel if a run ever wedges the GPU.",
+      "default": false,
+      "help": "ON: nœud d'attention creuse H3 (kernel Triton maison, validé jusqu'à ~53k tokens seulement) — rapide. OFF (défaut): attention dense, plus lente mais sans kernel custom — à garder tant que les rendus longs font tomber le GPU (ring timeout).",
       "bind": [
         {
           "node": "159",
