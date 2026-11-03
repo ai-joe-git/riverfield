@@ -159,6 +159,14 @@
     },
     "notes": {
       "type": "string"
+    },
+    "layout": {
+      "enum": [
+        "composer",
+        "sidebar",
+        "director"
+      ],
+      "description": "UI layout. director: the app renders a custom editing panel (Studio Director). Default: composer for image/audio with a prompt, sidebar otherwise."
     }
   },
   "$defs": {
