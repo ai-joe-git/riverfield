@@ -237,7 +237,75 @@
         "131",
         1
       ],
-      "ref_image_size": "match"
+      "ref_image_size": "match",
+      "ref_images.ref_image_1": [
+        "img1",
+        0
+      ],
+      "ref_images.ref_image_2": [
+        "img2",
+        0
+      ],
+      "ref_images.ref_image_3": [
+        "img3",
+        0
+      ],
+      "ref_images.ref_image_4": [
+        "img4",
+        0
+      ],
+      "ref_images.ref_image_5": [
+        "img5",
+        0
+      ],
+      "ref_images.ref_image_6": [
+        "img6",
+        0
+      ],
+      "ref_images.ref_image_7": [
+        "img7",
+        0
+      ],
+      "ref_images.ref_image_8": [
+        "img8",
+        0
+      ],
+      "ref_videos.ref_video_0": [
+        "vidc0",
+        0
+      ],
+      "ref_video_audios.ref_video_audio_0": [
+        "vidc0",
+        1
+      ],
+      "ref_audios.ref_audio_0": [
+        "aud0",
+        0
+      ],
+      "ref_videos.ref_video_1": [
+        "vidc1",
+        0
+      ],
+      "ref_video_audios.ref_video_audio_1": [
+        "vidc1",
+        1
+      ],
+      "ref_audios.ref_audio_1": [
+        "aud1",
+        0
+      ],
+      "ref_videos.ref_video_2": [
+        "vidc2",
+        0
+      ],
+      "ref_video_audios.ref_video_audio_2": [
+        "vidc2",
+        1
+      ],
+      "ref_audios.ref_audio_2": [
+        "aud2",
+        0
+      ]
     },
     "_meta": {
       "title": "MiniMax H3 Reference to Video"
@@ -306,6 +374,168 @@
     },
     "_meta": {
       "title": "H3 SLA Attention - ROCM"
+    }
+  },
+  "img1": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 2"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img2": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 3"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img3": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 4"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img4": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 5"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img5": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 6"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img6": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 7"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img7": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 8"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "img8": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Reference picture 9"
+    },
+    "inputs": {
+      "image": "reference.png"
+    }
+  },
+  "vid0": {
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Reference video 1"
+    },
+    "inputs": {
+      "file": "reference.mp4"
+    }
+  },
+  "vidc0": {
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Reference video 1 — frames and sound"
+    },
+    "inputs": {
+      "video": [
+        "vid0",
+        0
+      ]
+    }
+  },
+  "vid1": {
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Reference video 2"
+    },
+    "inputs": {
+      "file": "reference.mp4"
+    }
+  },
+  "vidc1": {
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Reference video 2 — frames and sound"
+    },
+    "inputs": {
+      "video": [
+        "vid1",
+        0
+      ]
+    }
+  },
+  "vid2": {
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "Reference video 3"
+    },
+    "inputs": {
+      "file": "reference.mp4"
+    }
+  },
+  "vidc2": {
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "Reference video 3 — frames and sound"
+    },
+    "inputs": {
+      "video": [
+        "vid2",
+        0
+      ]
+    }
+  },
+  "aud0": {
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Reference audio 1"
+    },
+    "inputs": {
+      "audio": "reference.wav"
+    }
+  },
+  "aud1": {
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Reference audio 2"
+    },
+    "inputs": {
+      "audio": "reference.wav"
+    }
+  },
+  "aud2": {
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Reference audio 3"
+    },
+    "inputs": {
+      "audio": "reference.wav"
     }
   }
 }
