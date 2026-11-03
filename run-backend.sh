@@ -56,7 +56,14 @@ unset TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL 2>/dev/null || true
 unset COMFY_KITCHEN_DISABLE_HIP 2>/dev/null || true
 unset COMFY_KITCHEN_DISABLE_TRITON 2>/dev/null || true
 unset PYTORCH_TUNABLEOP_ENABLED 2>/dev/null || true
-unset HSA_USE_SVM 2>/dev/null || true
+# SVM : sur gfx1151 (Strix Halo, mémoire unifiée) le gestionnaire SVM du noyau part en
+# livelock (kworker svm_range_restore_work à 100 %, visible dans journalctl) et le GPU finit
+# en "ring gfx_0.0.0 timeout" + reset, ce qui tue la session graphique.
+# Correctif documenté par ROCm : HSA_USE_SVM=0 (ROCm/TheRock#2684, "3x speedup on Hunyuan
+# Video ... HSA_USE_SVM=0 fix" : même enchaînement svm_range_restore_work -> ring timeout ->
+# reset). HSA_ENABLE_SDMA=0 évite les hang de copies SDMA.
+export HSA_USE_SVM=0
+export HSA_ENABLE_SDMA=0
 
 PIDS=()
 cleanup() {

@@ -423,6 +423,48 @@ le test de repli si un run devait encore figer le GPU (plus lent, mais minimal e
 les 5 s) et dans `journalctl -k | grep "ring gfx"` : si un run fige encore, ces deux sources
 disent tout de suite si c'est mémoire ou GPU.
 
+### SVM : le déclencheur du ring timeout (ROCm/TheRock#2684)
+
+Le message `svm_range_restore_work [amdgpu] hogged CPU for >10000us ... fois` qui précède
+chaque timeout est la signature d'un livelock **SVM** propre à gfx1151 : sur une APU à mémoire
+unifiée, le gestionnaire SVM du noyau se bat avec le reclaim, le GPU n'obtient jamais ses
+pages, et le ring gfx part en timeout — le reset tue ensuite la session graphique.
+
+C'est documenté par ROCm, sur le même matériel et avec la même enchaînement de logs :
+[ROCm/TheRock#2684](https://github.com/ROCm/TheRock/discussions/2684) — « Strix Halo (gfx1151)
+- 3x speedup on Hunyuan Video with 7.10 + HSA_USE_SVM=0 fix » :
+
+```
+svm_range_restore_work hogged CPU... 4099 times
+ring gfx_0.0.0 timeout
+VRAM is lost due to GPU reset!
+```
+
+Correctif donné par AMD/ROCm, et appliqué dans `run-backend.sh` :
+
+```bash
+export HSA_USE_SVM=0        # désactive la gestion SVM (la source du livelock)
+export HSA_ENABLE_SDMA=0    # évite les hangs de copies SDMA
+```
+
+Le script faisait l'inverse : il **unset** `HSA_USE_SVM` (reprise de l'hygiène de
+`15_RUN_COMFYUI_ROCM101.sh`), donc le SVM restait actif. Vérification :
+
+```bash
+pid=$(pgrep -f "main.py --listen 127.0.0.1 --port 8189" | head -1)
+tr '\0' '\n' < /proc/$pid/environ | grep HSA
+# HSA_ENABLE_SDMA=0
+# HSA_USE_SVM=0
+```
+
+Le même correctif vaut pour ton ComfyUI perso (`15_RUN_COMFYUI_ROCM101.sh`) si tu y lances
+aussi des vidéos longues.
+
+Diagnostic après un essai : `journalctl -k | grep -E "svm_range|ring gfx"`. Si les lignes
+`svm_range_restore_work` ont disparu et que plus rien ne tombe, c'était bien ça ; si le ring
+timeout revient sans SVM, le suspect suivant est le kernel Triton du nœud SLA (interrupteur
+« Sparse attention (SLA) » dans l'app `h3-r2v`).
+
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
