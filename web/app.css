@@ -903,3 +903,8 @@ body.dir-dragging * { cursor: grabbing !important; }
 .dir-clip.narrow .dir-clip-name { display: none; }
 .dir-clip.narrow { justify-content: center; }
 .dir-clip.narrow .dir-clip-dur { margin: 0; }
+/* drag feedback: the source dims, the ghost glides, the preview stays steady (no flicker) */
+.dir-media.dragging, .dir-chip.dragging { opacity: .35; filter: saturate(.55); border-style: dashed !important; }
+.dir-ghost { transition: transform 60ms linear; }
+.dir-drop-preview { animation: none; background: linear-gradient(140deg, rgba(141, 180, 255, .24), rgba(141, 241, 255, .12));
+  box-shadow: inset 0 0 0 1px rgba(141, 180, 255, .18), 0 0 18px rgba(141, 180, 255, .10); }

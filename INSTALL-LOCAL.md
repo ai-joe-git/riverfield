@@ -594,9 +594,11 @@ Le panneau :
   assignation à un segment d'un clic (images/audios), et **glisser-déposer sur la timeline**
   (une vidéo/audio se pose où on la lâche, une image lâchée sur la piste GEN rejoint le segment
   sous le curseur) ;
-- **glisser-déposer maison** (pas le DnD HTML du navigateur) : un fantôme flottant suit le
-  curseur, la piste compatible s'allume, un aperçu en pointillés montre où le clip se posera,
-  et les références de segment se réordonnent avec un marqueur d'insertion ;
+- **glisser-déposer maison** (pas le DnD HTML du navigateur) : la source s'estompe, un fantôme
+  flottant suit le curseur (rAF), la piste compatible s'allume, un aperçu en pointillés — créé
+  une seule fois, donc sans clignotement — montre où le clip se posera, et **Échap / perte de
+  focus annulent proprement** ; les références de segment se réordonnent avec un marqueur
+  d'insertion ;
 - **aimantation** type table de montage : fenêtres et clips se collent aux bords voisins, au
   zéro et à la tête de lecture (seuil 9 px) avec une ligne guide verte ; les clips vidéo/audio
   ont aussi une croix pour les retirer de la timeline ;
