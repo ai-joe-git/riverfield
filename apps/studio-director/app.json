@@ -1,0 +1,2175 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "studio-director",
+  "name": "RiverField Studio Director",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "summary": "Material Planner driven H3 director: media bin, per-segment prompts and windows, two-stage sampling, finite segment rendering with sound.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "RiverField_Director_studio.json",
+    "comfyui": "0.43.0",
+    "notes": "MiniMaxH3TimelinePlanner fed by the RiverField H3 Material Planner node (custom_nodes/riverfield-h3-planner): its timeline_data document is built from the app fields, so every planner option is a normal input. H3 SLA runs on comfy-kitchen Sol-Attn (local/patch-h3-sla-solattn.py)."
+  },
+  "inputs": [
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image1"
+        }
+      ]
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image2"
+        }
+      ]
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image3"
+        }
+      ]
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image4"
+        }
+      ]
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image5"
+        }
+      ]
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image6"
+        }
+      ]
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image7"
+        }
+      ]
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image8"
+        }
+      ]
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image9"
+        }
+      ]
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video1"
+        }
+      ]
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video2"
+        }
+      ]
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video3"
+        }
+      ]
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio1"
+        }
+      ]
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio2"
+        }
+      ]
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio3"
+        }
+      ]
+    },
+    {
+      "id": "audio_mode",
+      "type": "select",
+      "label": "Audio mode",
+      "default": "reference",
+      "options": [
+        {
+          "value": "reference",
+          "label": "Reference — H3 may regenerate it"
+        },
+        {
+          "value": "locked",
+          "label": "Keep original — injected unchanged"
+        }
+      ],
+      "help": "Applies to every reference audio in the bin.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio_mode"
+        }
+      ]
+    },
+    {
+      "id": "video_audio",
+      "type": "toggle",
+      "label": "Use the videos' own sound",
+      "default": true,
+      "help": "When on, each reference video's soundtrack is carried into its paired audio slot.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video_audio"
+        }
+      ]
+    },
+    {
+      "id": "global_prompt",
+      "type": "textarea",
+      "label": "Global prompt",
+      "required": false,
+      "default": "",
+      "help": "Used for the current generation window and reused by every segment whose own prompt is empty.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "global_prompt"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Segment duration (s)",
+      "min": 0.5,
+      "max": 60,
+      "step": 0.1,
+      "default": 7.3,
+      "help": "Generation duration of one segment, rounded to an H3-legal 5+17n frame count. Total ≈ segments × duration − seams.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "generation_seconds"
+        },
+        {
+          "node": "11",
+          "field": "generation_seconds"
+        }
+      ]
+    },
+    {
+      "id": "segment_count",
+      "type": "slider",
+      "label": "Segments",
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "default": 1,
+      "help": "Material segments: each gets its own window and its own line in the segment prompts.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_count"
+        }
+      ]
+    },
+    {
+      "id": "segment_prompts",
+      "type": "textarea",
+      "label": "Segment prompts",
+      "required": false,
+      "default": "",
+      "help": "One prompt per segment, one per line. Empty lines fall back to the global prompt.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_prompts"
+        }
+      ]
+    },
+    {
+      "id": "start_seconds",
+      "type": "slider",
+      "label": "Timeline start (s)",
+      "min": 0,
+      "max": 3600,
+      "step": 0.5,
+      "default": 0,
+      "help": "Where the generation window starts on the material timeline.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "start_seconds"
+        }
+      ]
+    },
+    {
+      "id": "two_stage",
+      "type": "toggle",
+      "label": "Two-stage sampling (SelfLift)",
+      "default": false,
+      "help": "Low-res pass, latent lift, then a few high-res steps.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "two_stage"
+        }
+      ]
+    },
+    {
+      "id": "upscaler",
+      "type": "select",
+      "label": "Latent upscaler",
+      "default": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "options": [
+        {
+          "value": "",
+          "label": "None"
+        },
+        {
+          "value": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+          "label": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
+        },
+        {
+          "value": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+          "label": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors"
+        }
+      ],
+      "help": "H3 latent upscaler used by the two-stage pass.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "upscaler"
+        }
+      ]
+    },
+    {
+      "id": "high_steps",
+      "type": "slider",
+      "label": "High-res steps",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 2,
+      "help": "Steps spent at high resolution; must stay below the scheduler's step count.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "high_steps"
+        }
+      ]
+    },
+    {
+      "id": "advanced_timeline_json",
+      "type": "textarea",
+      "label": "Advanced: raw timeline JSON",
+      "required": false,
+      "default": "",
+      "help": "Non-empty: replaces every planner field above and is passed to the Material Planner unchanged.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "advanced_timeline_json"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1 (Square)"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3 (Portrait Photo)"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2 (Photo)"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4 (Portrait Standard)"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3 (Standard)"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16 (Portrait Widescreen)"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9 (Widescreen)"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9 (Ultrawide)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "41",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.8,
+      "help": "Rounded to the dimension multiple below.",
+      "bind": [
+        {
+          "node": "41",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "slider",
+      "label": "Dimension multiple",
+      "min": 8,
+      "max": 128,
+      "step": 4,
+      "default": 8,
+      "bind": [
+        {
+          "node": "41",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+          "label": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors"
+        },
+        {
+          "value": "fasth3_omniref_8step_pruned_int8_convrot.safetensors",
+          "label": "fasth3_omniref_8step_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors",
+          "label": "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "flux3-image-klein-int8-convrot.safetensors",
+          "label": "flux3-image-klein-int8-convrot.safetensors"
+        },
+        {
+          "value": "flux3_image_klein_int8_convrot.safetensors",
+          "label": "flux3_image_klein_int8_convrot.safetensors"
+        },
+        {
+          "value": "flux3_image_klein_sd_int8_convrot.safetensors",
+          "label": "flux3_image_klein_sd_int8_convrot.safetensors"
+        },
+        {
+          "value": "krea2_turbo_int8_convrot.safetensors",
+          "label": "krea2_turbo_int8_convrot.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+          "label": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors"
+        },
+        {
+          "value": "ming_image_0.1_design_int8_convrot.safetensors",
+          "label": "ming_image_0.1_design_int8_convrot.safetensors"
+        },
+        {
+          "value": "ming_image_0.1_design_layer_int8_convrot.safetensors",
+          "label": "ming_image_0.1_design_layer_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "label": "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "label": "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_music3_dit_fp16.safetensors",
+          "label": "minimax_music3_dit_fp16.safetensors"
+        },
+        {
+          "value": "minimax_music3_dit_int8_convrot.safetensors",
+          "label": "minimax_music3_dit_int8_convrot.safetensors"
+        },
+        {
+          "value": "moss_image_sft_int8_convrot.safetensors",
+          "label": "moss_image_sft_int8_convrot.safetensors"
+        },
+        {
+          "value": "pixal3d_int8_convrot.safetensors",
+          "label": "pixal3d_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_turbo_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+          "label": "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+        },
+        {
+          "value": "seedvr2_3b_int8_convrot.safetensors",
+          "label": "seedvr2_3b_int8_convrot.safetensors"
+        },
+        {
+          "value": "trellis_2_int8_convrot.safetensors",
+          "label": "trellis_2_int8_convrot.safetensors"
+        },
+        {
+          "value": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
+          "label": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors"
+        },
+        {
+          "value": "wan2.1_i2v_480p_14B_fp8_scaled.safetensors",
+          "label": "wan2.1_i2v_480p_14B_fp8_scaled.safetensors"
+        },
+        {
+          "value": "wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors",
+          "label": "wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors"
+        },
+        {
+          "value": "wan2.2_fun_camera_low_noise_14B_fp8_scaled.safetensors",
+          "label": "wan2.2_fun_camera_low_noise_14B_fp8_scaled.safetensors"
+        },
+        {
+          "value": "wan_animate_2_distill_int8_convrot.safetensors",
+          "label": "wan_animate_2_distill_int8_convrot.safetensors"
+        },
+        {
+          "value": "z_image_turbo_int8_convrot.safetensors",
+          "label": "z_image_turbo_int8_convrot.safetensors"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "weight_dtype",
+      "type": "select",
+      "label": "Weight dtype",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "default"
+        },
+        {
+          "value": "fp8_e4m3fn",
+          "label": "fp8_e4m3fn"
+        },
+        {
+          "value": "fp8_e4m3fn_fast",
+          "label": "fp8_e4m3fn_fast"
+        },
+        {
+          "value": "fp8_e5m2",
+          "label": "fp8_e5m2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "weight_dtype"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "options": [
+        {
+          "value": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+          "label": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors"
+        },
+        {
+          "value": "gemma4_e2b_it_int8_convrot.safetensors",
+          "label": "gemma4_e2b_it_int8_convrot.safetensors"
+        },
+        {
+          "value": "ming_image_0.1_ling_mini_2.0_layer_int8_convrot.safetensors",
+          "label": "ming_image_0.1_ling_mini_2.0_layer_int8_convrot.safetensors"
+        },
+        {
+          "value": "ming_image_0.1_ling_mini_2.0_w4a8.safetensors",
+          "label": "ming_image_0.1_ling_mini_2.0_w4a8.safetensors"
+        },
+        {
+          "value": "minimax_music3_text_encoder_pruned_int8_convrot.safetensors",
+          "label": "minimax_music3_text_encoder_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "mistral_3_small_flux2_fp4_mixed.safetensors",
+          "label": "mistral_3_small_flux2_fp4_mixed.safetensors"
+        },
+        {
+          "value": "qwen3.5_2b_bf16.safetensors",
+          "label": "qwen3.5_2b_bf16.safetensors"
+        },
+        {
+          "value": "qwen3.5_9b_flux3_prompt_upsampler_int8_convrot.safetensors",
+          "label": "qwen3.5_9b_flux3_prompt_upsampler_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors",
+          "label": "qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors"
+        },
+        {
+          "value": "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors",
+          "label": "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors",
+          "label": "qwen3.5_9b_qwen_image_2.1_pe_t2i.int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3.5_9b_w4a8_gptq.safetensors",
+          "label": "qwen3.5_9b_w4a8_gptq.safetensors"
+        },
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "qwen3.8_27b_w4a8.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3vl_4b_fp8_scaled.safetensors",
+          "label": "qwen3vl_4b_fp8_scaled.safetensors"
+        },
+        {
+          "value": "qwen3vl_4b_int8_convrot.safetensors",
+          "label": "qwen3vl_4b_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3vl_8b_int8_convrot.safetensors",
+          "label": "qwen3vl_8b_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+          "label": "qwen_2.5_vl_7b_fp8_scaled.safetensors"
+        },
+        {
+          "value": "qwen_3_4b_fp8_mixed.safetensors",
+          "label": "qwen_3_4b_fp8_mixed.safetensors"
+        },
+        {
+          "value": "qwen_3_8b_fp8mixed.safetensors",
+          "label": "qwen_3_8b_fp8mixed.safetensors"
+        },
+        {
+          "value": "t5gemma_b_b_ul2.safetensors",
+          "label": "t5gemma_b_b_ul2.safetensors"
+        },
+        {
+          "value": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+          "label": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "clip_type",
+      "type": "select",
+      "label": "Text encoder type",
+      "default": "minimax",
+      "options": [
+        {
+          "value": "stable_diffusion",
+          "label": "stable_diffusion"
+        },
+        {
+          "value": "stable_cascade",
+          "label": "stable_cascade"
+        },
+        {
+          "value": "sd3",
+          "label": "sd3"
+        },
+        {
+          "value": "stable_audio",
+          "label": "stable_audio"
+        },
+        {
+          "value": "mochi",
+          "label": "mochi"
+        },
+        {
+          "value": "ltxv",
+          "label": "ltxv"
+        },
+        {
+          "value": "pixart",
+          "label": "pixart"
+        },
+        {
+          "value": "cosmos",
+          "label": "cosmos"
+        },
+        {
+          "value": "lumina2",
+          "label": "lumina2"
+        },
+        {
+          "value": "wan",
+          "label": "wan"
+        },
+        {
+          "value": "hidream",
+          "label": "hidream"
+        },
+        {
+          "value": "chroma",
+          "label": "chroma"
+        },
+        {
+          "value": "ace",
+          "label": "ace"
+        },
+        {
+          "value": "omnigen2",
+          "label": "omnigen2"
+        },
+        {
+          "value": "qwen_image",
+          "label": "qwen_image"
+        },
+        {
+          "value": "hunyuan_image",
+          "label": "hunyuan_image"
+        },
+        {
+          "value": "flux2",
+          "label": "flux2"
+        },
+        {
+          "value": "ovis",
+          "label": "ovis"
+        },
+        {
+          "value": "longcat_image",
+          "label": "longcat_image"
+        },
+        {
+          "value": "cogvideox",
+          "label": "cogvideox"
+        },
+        {
+          "value": "lens",
+          "label": "lens"
+        },
+        {
+          "value": "pixeldit",
+          "label": "pixeldit"
+        },
+        {
+          "value": "ideogram4",
+          "label": "ideogram4"
+        },
+        {
+          "value": "boogu",
+          "label": "boogu"
+        },
+        {
+          "value": "krea2",
+          "label": "krea2"
+        },
+        {
+          "value": "joyimage",
+          "label": "joyimage"
+        },
+        {
+          "value": "mage",
+          "label": "mage"
+        },
+        {
+          "value": "minimax",
+          "label": "minimax"
+        },
+        {
+          "value": "yue2",
+          "label": "yue2"
+        },
+        {
+          "value": "flux3",
+          "label": "flux3"
+        },
+        {
+          "value": "moss_image",
+          "label": "moss_image"
+        },
+        {
+          "value": "fibo2",
+          "label": "fibo2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "type"
+        }
+      ]
+    },
+    {
+      "id": "clip_device",
+      "type": "select",
+      "label": "Text encoder device",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "default"
+        },
+        {
+          "value": "cpu",
+          "label": "cpu"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "device"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "Wan2_1_VAE_bf16.safetensors",
+          "label": "Wan2_1_VAE_bf16.safetensors"
+        },
+        {
+          "value": "ae.safetensors",
+          "label": "ae.safetensors"
+        },
+        {
+          "value": "flux2-vae.safetensors",
+          "label": "flux2-vae.safetensors"
+        },
+        {
+          "value": "flux2-vae_small.safetensors",
+          "label": "flux2-vae_small.safetensors"
+        },
+        {
+          "value": "full_encoder_small_decoder.safetensors",
+          "label": "full_encoder_small_decoder.safetensors"
+        },
+        {
+          "value": "ltx-2.5-audio-vae-bf16.safetensors",
+          "label": "ltx-2.5-audio-vae-bf16.safetensors"
+        },
+        {
+          "value": "ltx-2.5-video-vae-bf16.safetensors",
+          "label": "ltx-2.5-video-vae-bf16.safetensors"
+        },
+        {
+          "value": "ming_image_vae_bf16.safetensors",
+          "label": "ming_image_vae_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_audio_vae_fp32.safetensors",
+          "label": "minimax_h3_audio_vae_fp32.safetensors"
+        },
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "minimax_h3_video_vae_fp16.safetensors"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "minimax_h3_video_vae_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_music3_dav.safetensors",
+          "label": "minimax_music3_dav.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_vae_bf16.safetensors",
+          "label": "qwen_image_2.1_vae_bf16.safetensors"
+        },
+        {
+          "value": "qwen_image_vae.safetensors",
+          "label": "qwen_image_vae.safetensors"
+        },
+        {
+          "value": "seedvr2_ema_vae_fp16.safetensors",
+          "label": "seedvr2_ema_vae_fp16.safetensors"
+        },
+        {
+          "value": "trellis_2_shape_vae_bf16.safetensors",
+          "label": "trellis_2_shape_vae_bf16.safetensors"
+        },
+        {
+          "value": "trellis_2_texture_vae_bf16.safetensors",
+          "label": "trellis_2_texture_vae_bf16.safetensors"
+        },
+        {
+          "value": "wan_2.1_vae.safetensors",
+          "label": "wan_2.1_vae.safetensors"
+        },
+        {
+          "value": "taeh3.safetensors",
+          "label": "taeh3.safetensors"
+        },
+        {
+          "value": "pixel_space",
+          "label": "pixel_space"
+        }
+      ],
+      "bind": [
+        {
+          "node": "3",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "audio_vae_name",
+      "type": "select",
+      "label": "Audio VAE",
+      "default": "minimax_h3_audio_vae_fp32.safetensors",
+      "options": [
+        {
+          "value": "Wan2_1_VAE_bf16.safetensors",
+          "label": "Wan2_1_VAE_bf16.safetensors"
+        },
+        {
+          "value": "ae.safetensors",
+          "label": "ae.safetensors"
+        },
+        {
+          "value": "flux2-vae.safetensors",
+          "label": "flux2-vae.safetensors"
+        },
+        {
+          "value": "flux2-vae_small.safetensors",
+          "label": "flux2-vae_small.safetensors"
+        },
+        {
+          "value": "full_encoder_small_decoder.safetensors",
+          "label": "full_encoder_small_decoder.safetensors"
+        },
+        {
+          "value": "ltx-2.5-audio-vae-bf16.safetensors",
+          "label": "ltx-2.5-audio-vae-bf16.safetensors"
+        },
+        {
+          "value": "ltx-2.5-video-vae-bf16.safetensors",
+          "label": "ltx-2.5-video-vae-bf16.safetensors"
+        },
+        {
+          "value": "ming_image_vae_bf16.safetensors",
+          "label": "ming_image_vae_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_audio_vae_fp32.safetensors",
+          "label": "minimax_h3_audio_vae_fp32.safetensors"
+        },
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "minimax_h3_video_vae_fp16.safetensors"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "minimax_h3_video_vae_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_music3_dav.safetensors",
+          "label": "minimax_music3_dav.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_vae_bf16.safetensors",
+          "label": "qwen_image_2.1_vae_bf16.safetensors"
+        },
+        {
+          "value": "qwen_image_vae.safetensors",
+          "label": "qwen_image_vae.safetensors"
+        },
+        {
+          "value": "seedvr2_ema_vae_fp16.safetensors",
+          "label": "seedvr2_ema_vae_fp16.safetensors"
+        },
+        {
+          "value": "trellis_2_shape_vae_bf16.safetensors",
+          "label": "trellis_2_shape_vae_bf16.safetensors"
+        },
+        {
+          "value": "trellis_2_texture_vae_bf16.safetensors",
+          "label": "trellis_2_texture_vae_bf16.safetensors"
+        },
+        {
+          "value": "wan_2.1_vae.safetensors",
+          "label": "wan_2.1_vae.safetensors"
+        },
+        {
+          "value": "taeh3.safetensors",
+          "label": "taeh3.safetensors"
+        },
+        {
+          "value": "pixel_space",
+          "label": "pixel_space"
+        }
+      ],
+      "bind": [
+        {
+          "node": "8",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_name",
+      "type": "select",
+      "label": "LoRA",
+      "default": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "options": [
+        {
+          "value": "360_Orbit.safetensors",
+          "label": "360_Orbit.safetensors"
+        },
+        {
+          "value": "Arc_shot.safetensors",
+          "label": "Arc_shot.safetensors"
+        },
+        {
+          "value": "FastH3_6step_REF2VA.safetensors",
+          "label": "FastH3_6step_REF2VA.safetensors"
+        },
+        {
+          "value": "H3_Slop_Twerk_LoRa_V0.2_epoch_6.safetensors",
+          "label": "H3_Slop_Twerk_LoRa_V0.2_epoch_6.safetensors"
+        },
+        {
+          "value": "H3_VBVR_Pro_attn_only.safetensors",
+          "label": "H3_VBVR_Pro_attn_only.safetensors"
+        },
+        {
+          "value": "HMBreastsV2.safetensors",
+          "label": "HMBreastsV2.safetensors"
+        },
+        {
+          "value": "HMNSFW-AIO-V2.5.safetensors",
+          "label": "HMNSFW-AIO-V2.5.safetensors"
+        },
+        {
+          "value": "Hero_run.safetensors",
+          "label": "Hero_run.safetensors"
+        },
+        {
+          "value": "IcyTwerkPROmaxV2.safetensors",
+          "label": "IcyTwerkPROmaxV2.safetensors"
+        },
+        {
+          "value": "JIGGLES.safetensors",
+          "label": "JIGGLES.safetensors"
+        },
+        {
+          "value": "LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors",
+          "label": "LTX-2.3-22b-AV-LoRA-talking-head-v1.safetensors"
+        },
+        {
+          "value": "LTX2.3-22B_IC-LoRA-Cameraman_v2_14000.safetensors",
+          "label": "LTX2.3-22B_IC-LoRA-Cameraman_v2_14000.safetensors"
+        },
+        {
+          "value": "MM-H3 - Double Slit Dress v1.1.safetensors",
+          "label": "MM-H3 - Double Slit Dress v1.1.safetensors"
+        },
+        {
+          "value": "MOSS_8_STEPS_lora_latest.safetensors",
+          "label": "MOSS_8_STEPS_lora_latest.safetensors"
+        },
+        {
+          "value": "MiniMax-H3_Ref2VA-LoRA-CrossView-Warp_v1_3500.safetensors",
+          "label": "MiniMax-H3_Ref2VA-LoRA-CrossView-Warp_v1_3500.safetensors"
+        },
+        {
+          "value": "MysticXXX_MMH3-V4.safetensors",
+          "label": "MysticXXX_MMH3-V4.safetensors"
+        },
+        {
+          "value": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+          "label": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors"
+        },
+        {
+          "value": "Qwen-Image-Edit-2509-Relight.safetensors",
+          "label": "Qwen-Image-Edit-2509-Relight.safetensors"
+        },
+        {
+          "value": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+          "label": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors"
+        },
+        {
+          "value": "SexGod_NaughtyTimes_v3_rank64_unpruned.safetensors",
+          "label": "SexGod_NaughtyTimes_v3_rank64_unpruned.safetensors"
+        },
+        {
+          "value": "Wan21_I2V_rotation_000003750.safetensors",
+          "label": "Wan21_I2V_rotation_000003750.safetensors"
+        },
+        {
+          "value": "angry_face_5_epochs.safetensors",
+          "label": "angry_face_5_epochs.safetensors"
+        },
+        {
+          "value": "bfs_body_swap_v1.0_qwen_2.1.safetensors",
+          "label": "bfs_body_swap_v1.0_qwen_2.1.safetensors"
+        },
+        {
+          "value": "cakeify_16_epochs.safetensors",
+          "label": "cakeify_16_epochs.safetensors"
+        },
+        {
+          "value": "car_chase.safetensors",
+          "label": "car_chase.safetensors"
+        },
+        {
+          "value": "crane_down.safetensors",
+          "label": "crane_down.safetensors"
+        },
+        {
+          "value": "crane_overhead.safetensors",
+          "label": "crane_overhead.safetensors"
+        },
+        {
+          "value": "crane_up.safetensors",
+          "label": "crane_up.safetensors"
+        },
+        {
+          "value": "crash_zoom_in.safetensors",
+          "label": "crash_zoom_in.safetensors"
+        },
+        {
+          "value": "crush_20_epochs.safetensors",
+          "label": "crush_20_epochs.safetensors"
+        },
+        {
+          "value": "crying_20_epochs.safetensors",
+          "label": "crying_20_epochs.safetensors"
+        },
+        {
+          "value": "deflate_20_epochs.safetensors",
+          "label": "deflate_20_epochs.safetensors"
+        },
+        {
+          "value": "electrify_50_epochs.safetensors",
+          "label": "electrify_50_epochs.safetensors"
+        },
+        {
+          "value": "explode_30_epochs.safetensors",
+          "label": "explode_30_epochs.safetensors"
+        },
+        {
+          "value": "h3_character_swap_pro4500_1000.safetensors",
+          "label": "h3_character_swap_pro4500_1000.safetensors"
+        },
+        {
+          "value": "inflate_20_epochs.safetensors",
+          "label": "inflate_20_epochs.safetensors"
+        },
+        {
+          "value": "krea2_darkbrush.safetensors",
+          "label": "krea2_darkbrush.safetensors"
+        },
+        {
+          "value": "krea2_dotmatrix.safetensors",
+          "label": "krea2_dotmatrix.safetensors"
+        },
+        {
+          "value": "krea2_kidsdrawing.safetensors",
+          "label": "krea2_kidsdrawing.safetensors"
+        },
+        {
+          "value": "krea2_neondrip.safetensors",
+          "label": "krea2_neondrip.safetensors"
+        },
+        {
+          "value": "krea2_rainywindow.safetensors",
+          "label": "krea2_rainywindow.safetensors"
+        },
+        {
+          "value": "krea2_retroanime.safetensors",
+          "label": "krea2_retroanime.safetensors"
+        },
+        {
+          "value": "krea2_softwatercolor.safetensors",
+          "label": "krea2_softwatercolor.safetensors"
+        },
+        {
+          "value": "krea2_style_reference.safetensors",
+          "label": "krea2_style_reference.safetensors"
+        },
+        {
+          "value": "krea2_sunsetblur.safetensors",
+          "label": "krea2_sunsetblur.safetensors"
+        },
+        {
+          "value": "krea2_vintagetarot.safetensors",
+          "label": "krea2_vintagetarot.safetensors"
+        },
+        {
+          "value": "laughing_15_epochs.safetensors",
+          "label": "laughing_15_epochs.safetensors"
+        },
+        {
+          "value": "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+          "label": "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors"
+        },
+        {
+          "value": "ltx-2.3-22b-ic-lora-dubit-0.9.safetensors",
+          "label": "ltx-2.3-22b-ic-lora-dubit-0.9.safetensors"
+        },
+        {
+          "value": "ltx-2.3-22b-ic-lora-in-outpainting-0.9.safetensors",
+          "label": "ltx-2.3-22b-ic-lora-in-outpainting-0.9.safetensors"
+        },
+        {
+          "value": "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+          "label": "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-clean-plate-1.0.safetensors",
+          "label": "ltx-2.5-22b-ic-lora-clean-plate-1.0.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-day-to-night-0.9.safetensors",
+          "label": "ltx-2.5-22b-ic-lora-day-to-night-0.9.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+          "label": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-sdr-to-hdr-1.0.safetensors",
+          "label": "ltx-2.5-22b-ic-lora-sdr-to-hdr-1.0.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-water-simulation-0.9.safetensors",
+          "label": "ltx-2.5-22b-ic-lora-water-simulation-0.9.safetensors"
+        },
+        {
+          "value": "ltx2.3-transition.safetensors",
+          "label": "ltx2.3-transition.safetensors"
+        },
+        {
+          "value": "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+          "label": "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+          "label": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+          "label": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_pdmd_2step_lora_avg_rank_38_bf16.safetensors",
+          "label": "minimax_h3_pdmd_2step_lora_avg_rank_38_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_pdmd_4step_lora_avg_rank_57_bf16.safetensors",
+          "label": "minimax_h3_pdmd_4step_lora_avg_rank_57_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+          "label": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+          "label": "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
+        },
+        {
+          "value": "minimax_h3_turbo_v4_step600_ema_DasiwaREF2VAHybridV1_0_curveproj1025_compat_v001.safetensors",
+          "label": "minimax_h3_turbo_v4_step600_ema_DasiwaREF2VAHybridV1_0_curveproj1025_compat_v001.safetensors"
+        },
+        {
+          "value": "minimax_h3_turbo_v4_step600_ema_comfyui.safetensors",
+          "label": "minimax_h3_turbo_v4_step600_ema_comfyui.safetensors"
+        },
+        {
+          "value": "minimax_music3_turbo_lora_8step.safetensors",
+          "label": "minimax_music3_turbo_lora_8step.safetensors"
+        },
+        {
+          "value": "money_000003000.safetensors",
+          "label": "money_000003000.safetensors"
+        },
+        {
+          "value": "moss_image_color_depth_control.safetensors",
+          "label": "moss_image_color_depth_control.safetensors"
+        },
+        {
+          "value": "moss_image_edit_lora_rank_64_bf16.safetensors",
+          "label": "moss_image_edit_lora_rank_64_bf16.safetensors"
+        },
+        {
+          "value": "next-scene_lora-v2-3000.safetensors",
+          "label": "next-scene_lora-v2-3000.safetensors"
+        },
+        {
+          "value": "p_qwen_image_2.1_8step_v0.1.safetensors",
+          "label": "p_qwen_image_2.1_8step_v0.1.safetensors"
+        },
+        {
+          "value": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+          "label": "pika_h3_flex_fl2va_v1_bf16.safetensors"
+        },
+        {
+          "value": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+          "label": "pika_h3_flex_ref2va_v1_bf16.safetensors"
+        },
+        {
+          "value": "puppy_50_epochs.safetensors",
+          "label": "puppy_50_epochs.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors",
+          "label": "qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors"
+        },
+        {
+          "value": "rotate_20_epochs.safetensors",
+          "label": "rotate_20_epochs.safetensors"
+        },
+        {
+          "value": "squish_18.safetensors",
+          "label": "squish_18.safetensors"
+        },
+        {
+          "value": "taomate_h3_3step_comfy.safetensors",
+          "label": "taomate_h3_3step_comfy.safetensors"
+        },
+        {
+          "value": "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+          "label": "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors"
+        },
+        {
+          "value": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+          "label": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+        },
+        {
+          "value": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+          "label": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+        },
+        {
+          "value": "wan21_penqi_000003500.safetensors",
+          "label": "wan21_penqi_000003500.safetensors"
+        },
+        {
+          "value": "wan_21_i2v_dolly_zoom.safetensors",
+          "label": "wan_21_i2v_dolly_zoom.safetensors"
+        },
+        {
+          "value": "zeroGravity101_v1.safetensors",
+          "label": "zeroGravity101_v1.safetensors"
+        },
+        {
+          "value": "镜头转换.safetensors",
+          "label": "镜头转换.safetensors"
+        }
+      ],
+      "bind": [
+        {
+          "node": "40",
+          "field": "lora_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_strength",
+      "type": "slider",
+      "label": "LoRA strength",
+      "min": -2,
+      "max": 2,
+      "step": 0.01,
+      "default": 1,
+      "bind": [
+        {
+          "node": "40",
+          "field": "strength_model"
+        }
+      ]
+    },
+    {
+      "id": "sampler_name",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "euler_cfg_pp",
+          "label": "euler_cfg_pp"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "euler_ancestral"
+        },
+        {
+          "value": "euler_ancestral_cfg_pp",
+          "label": "euler_ancestral_cfg_pp"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "heunpp2",
+          "label": "heunpp2"
+        },
+        {
+          "value": "exp_heun_2_x0",
+          "label": "exp_heun_2_x0"
+        },
+        {
+          "value": "exp_heun_2_x0_sde",
+          "label": "exp_heun_2_x0_sde"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        },
+        {
+          "value": "dpm_fast",
+          "label": "dpm_fast"
+        },
+        {
+          "value": "dpm_adaptive",
+          "label": "dpm_adaptive"
+        },
+        {
+          "value": "dpmpp_2s_ancestral",
+          "label": "dpmpp_2s_ancestral"
+        },
+        {
+          "value": "dpmpp_2s_ancestral_cfg_pp",
+          "label": "dpmpp_2s_ancestral_cfg_pp"
+        },
+        {
+          "value": "dpmpp_sde",
+          "label": "dpmpp_sde"
+        },
+        {
+          "value": "dpmpp_sde_gpu",
+          "label": "dpmpp_sde_gpu"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_cfg_pp",
+          "label": "dpmpp_2m_cfg_pp"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_2m_sde_gpu",
+          "label": "dpmpp_2m_sde_gpu"
+        },
+        {
+          "value": "dpmpp_2m_sde_heun",
+          "label": "dpmpp_2m_sde_heun"
+        },
+        {
+          "value": "dpmpp_2m_sde_heun_gpu",
+          "label": "dpmpp_2m_sde_heun_gpu"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde_gpu",
+          "label": "dpmpp_3m_sde_gpu"
+        },
+        {
+          "value": "ddpm",
+          "label": "ddpm"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "ipndm",
+          "label": "ipndm"
+        },
+        {
+          "value": "ipndm_v",
+          "label": "ipndm_v"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "cfgpp_ud10_ab",
+          "label": "cfgpp_ud10_ab"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "res_multistep_cfg_pp",
+          "label": "res_multistep_cfg_pp"
+        },
+        {
+          "value": "res_multistep_ancestral",
+          "label": "res_multistep_ancestral"
+        },
+        {
+          "value": "res_multistep_ancestral_cfg_pp",
+          "label": "res_multistep_ancestral_cfg_pp"
+        },
+        {
+          "value": "gradient_estimation",
+          "label": "gradient_estimation"
+        },
+        {
+          "value": "gradient_estimation_cfg_pp",
+          "label": "gradient_estimation_cfg_pp"
+        },
+        {
+          "value": "er_sde",
+          "label": "er_sde"
+        },
+        {
+          "value": "seeds_2",
+          "label": "seeds_2"
+        },
+        {
+          "value": "seeds_3",
+          "label": "seeds_3"
+        },
+        {
+          "value": "sa_solver",
+          "label": "sa_solver"
+        },
+        {
+          "value": "sa_solver_pece",
+          "label": "sa_solver_pece"
+        },
+        {
+          "value": "ddim",
+          "label": "ddim"
+        },
+        {
+          "value": "uni_pc",
+          "label": "uni_pc"
+        },
+        {
+          "value": "uni_pc_bh2",
+          "label": "uni_pc_bh2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "13",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "select",
+      "label": "Scheduler",
+      "default": "simple",
+      "options": [
+        {
+          "value": "simple",
+          "label": "simple"
+        },
+        {
+          "value": "sgm_uniform",
+          "label": "sgm_uniform"
+        },
+        {
+          "value": "karras",
+          "label": "karras"
+        },
+        {
+          "value": "exponential",
+          "label": "exponential"
+        },
+        {
+          "value": "ddim_uniform",
+          "label": "ddim_uniform"
+        },
+        {
+          "value": "beta",
+          "label": "beta"
+        },
+        {
+          "value": "normal",
+          "label": "normal"
+        },
+        {
+          "value": "linear_quadratic",
+          "label": "linear_quadratic"
+        },
+        {
+          "value": "kl_optimal",
+          "label": "kl_optimal"
+        }
+      ],
+      "bind": [
+        {
+          "node": "9",
+          "field": "scheduler"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "default": 6,
+      "bind": [
+        {
+          "node": "9",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "denoise",
+      "type": "slider",
+      "label": "Denoise",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "default": 1,
+      "bind": [
+        {
+          "node": "9",
+          "field": "denoise"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "30",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "continue_audio_latent",
+      "type": "toggle",
+      "label": "Continue audio latent across segments",
+      "default": true,
+      "bind": [
+        {
+          "node": "30",
+          "field": "continue_audio_latent"
+        }
+      ]
+    },
+    {
+      "id": "ref_image_size",
+      "type": "select",
+      "label": "Reference image size",
+      "default": "match",
+      "options": [
+        {
+          "value": "match",
+          "label": "Match the output"
+        },
+        {
+          "value": "max",
+          "label": "Native maximum"
+        }
+      ],
+      "bind": [
+        {
+          "node": "30",
+          "field": "ref_image_size"
+        }
+      ]
+    },
+    {
+      "id": "sla_enabled",
+      "type": "toggle",
+      "label": "Sparse attention (Sol-Attn)",
+      "default": true,
+      "help": "Off: dense attention (much slower) for A/B tests.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "enabled"
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.0,
+      "max": 0.95,
+      "step": 0.05,
+      "default": 0.9,
+      "help": "Fraction of key blocks skipped. Lower = more exact blocks = better detail, slower.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "block_size",
+      "type": "select",
+      "label": "Sparse block size",
+      "default": "64",
+      "options": [
+        {
+          "value": "32",
+          "label": "32"
+        },
+        {
+          "value": "64",
+          "label": "64"
+        },
+        {
+          "value": "128",
+          "label": "128"
+        }
+      ],
+      "bind": [
+        {
+          "node": "42",
+          "field": "block_size"
+        }
+      ]
+    },
+    {
+      "id": "min_seq_len",
+      "type": "slider",
+      "label": "Sparse from (tokens)",
+      "min": 0,
+      "max": 65536,
+      "step": 1024,
+      "default": 8192,
+      "bind": [
+        {
+          "node": "42",
+          "field": "min_seq_len"
+        }
+      ]
+    },
+    {
+      "id": "dense_last_steps",
+      "type": "slider",
+      "label": "Dense last steps",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 0,
+      "bind": [
+        {
+          "node": "42",
+          "field": "dense_last_steps"
+        }
+      ]
+    },
+    {
+      "id": "dense_steps",
+      "type": "text",
+      "label": "Extra dense step indices",
+      "default": "",
+      "help": "Comma-separated step numbers that must run dense, e.g. 0,3.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "dense_steps"
+        }
+      ]
+    },
+    {
+      "id": "protect_audio",
+      "type": "toggle",
+      "label": "Protect audio and text prefix",
+      "default": true,
+      "bind": [
+        {
+          "node": "42",
+          "field": "protect_audio"
+        }
+      ]
+    },
+    {
+      "id": "dense_backend",
+      "type": "select",
+      "label": "Dense fallback backend",
+      "default": "comfy_kitchen",
+      "options": [
+        {
+          "value": "pytorch",
+          "label": "pytorch"
+        },
+        {
+          "value": "comfy_kitchen",
+          "label": "comfy_kitchen"
+        },
+        {
+          "value": "sage:auto",
+          "label": "sage:auto"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_cuda",
+          "label": "sage:qk_int8_pv_fp16_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_triton",
+          "label": "sage:qk_int8_pv_fp16_triton"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda",
+          "label": "sage:qk_int8_pv_fp8_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda++",
+          "label": "sage:qk_int8_pv_fp8_cuda++"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "42",
+          "field": "dense_backend"
+        }
+      ]
+    },
+    {
+      "id": "disable_fp16_accum",
+      "type": "toggle",
+      "label": "Disable fp16 accumulation",
+      "default": true,
+      "bind": [
+        {
+          "node": "42",
+          "field": "disable_fp16_accum"
+        }
+      ]
+    },
+    {
+      "id": "stabilize_motion",
+      "type": "toggle",
+      "label": "Stabilize motion across steps",
+      "default": false,
+      "bind": [
+        {
+          "node": "42",
+          "field": "stabilize_motion"
+        }
+      ]
+    },
+    {
+      "id": "h3_cache",
+      "type": "toggle",
+      "label": "H3 residual cache",
+      "default": false,
+      "bind": [
+        {
+          "node": "42",
+          "field": "h3_cache"
+        }
+      ]
+    },
+    {
+      "id": "reference_protection",
+      "type": "toggle",
+      "label": "Reference protection",
+      "default": false,
+      "bind": [
+        {
+          "node": "42",
+          "field": "reference_protection"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "File name prefix",
+      "default": "riverfield/studio-director",
+      "bind": [
+        {
+          "node": "29",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "mp4"
+        },
+        {
+          "value": "mkv",
+          "label": "mkv"
+        },
+        {
+          "value": "webm",
+          "label": "webm"
+        },
+        {
+          "value": "mov",
+          "label": "mov"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "29",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "h264"
+        },
+        {
+          "value": "av1",
+          "label": "av1"
+        },
+        {
+          "value": "prores",
+          "label": "prores"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "help": "h264/av1 need mp4 or mkv; prores needs mov or mkv. Encoding mode stays automatic.",
+      "bind": [
+        {
+          "node": "29",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "29",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 14.61,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 1.99,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 0.64,
+      "phase": "aux",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "higgsfield_feature": "AI Director"
+}
