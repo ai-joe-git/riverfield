@@ -62,7 +62,7 @@
   "13": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "lcm"
+      "sampler_name": "euler"
     },
     "_meta": {
       "title": "KSamplerSelect"
@@ -113,7 +113,7 @@
         0
       ],
       "sigmas": [
-        "50",
+        "9",
         0
       ],
       "seed": 42,
@@ -153,7 +153,7 @@
     "class_type": "H3SLAAttentionROCM",
     "inputs": {
       "model": [
-        "40",
+        "60",
         0
       ],
       "sparsity_ratio": 0.9,
@@ -209,13 +209,44 @@
       "segment_windows": ""
     }
   },
-  "50": {
-    "class_type": "ManualSigmas",
+  "9": {
+    "class_type": "BasicScheduler",
     "_meta": {
-      "title": "Pika 6-step sigmas"
+      "title": "Steps"
     },
     "inputs": {
-      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+      "scheduler": "simple",
+      "steps": 6,
+      "denoise": 1
+    }
+  },
+  "61": {
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "Turbo / LoRA on-off"
+    },
+    "inputs": {
+      "value": true
+    }
+  },
+  "60": {
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "Apply the LoRA or not"
+    },
+    "inputs": {
+      "switch": [
+        "61",
+        0
+      ],
+      "on_true": [
+        "40",
+        0
+      ],
+      "on_false": [
+        "1",
+        0
+      ]
     }
   }
 }
