@@ -176,8 +176,24 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       if (any) changed();
     });
 
+    let extra = null;
+    if (type === "audio") {
+      const mode = el("select", { class: "dir-mini", title: "Audio mode for every reference audio" },
+        el("option", { value: "reference" }, "Reference"),
+        el("option", { value: "locked" }, "Keep original"));
+      mode.value = f.values.audio_mode || "reference";
+      mode.onchange = () => { f.values.audio_mode = mode.value; onDirty?.(); };
+      extra = mode;
+    } else if (type === "video") {
+      const on = f.values.video_audio !== false;
+      const b = el("button", { type: "button", class: `dir-mini-btn${on ? " on" : ""}`, title: "Use the videos' own sound" },
+        icon(on ? "volume" : "mute"), on ? "sound" : "muted");
+      b.onclick = () => { f.values.video_audio = !(f.values.video_audio !== false); changed(); };
+      extra = b;
+    }
+
     return el("section", { class: "dir-bin-sec" },
-      el("h4", {}, icon(MEDIA[type].icon), MEDIA[type].label, el("span", { class: "dir-count" }, `${list.length}/${MEDIA[type].slots}`)),
+      el("h4", {}, icon(MEDIA[type].icon), MEDIA[type].label, extra, el("span", { class: "dir-count" }, `${list.length}/${MEDIA[type].slots}`)),
       el("div", { class: "dir-media-list" }, ...items),
       drop, input);
   }
@@ -386,11 +402,22 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       type: "button", class: `dir-toggle${f.values.two_stage ? " on" : ""}`,
       onclick: () => { f.values.two_stage = !f.values.two_stage; onDirty?.(); draw(); },
     }, icon("spark"), "Two-stage");
+    let upscaler = null;
+    if (f.values.two_stage) {
+      const options = (app.inputs.find((i) => i.id === "upscaler")?.options || []).filter((o) => o.value);
+      const sel = el("select", { class: "dir-sel", title: "Latent upscaler" },
+        ...options.map((o) => el("option", { value: o.value }, o.label || o.value)));
+      sel.value = f.values.upscaler || (options[0]?.value ?? "");
+      sel.onchange = () => { f.values.upscaler = sel.value; onDirty?.(); };
+      const steps = el("input", { class: "dir-num", type: "number", min: "0", max: "20", step: "1", value: String(f.values.high_steps ?? 2), title: "High-resolution steps" });
+      steps.onchange = () => { f.values.high_steps = Math.max(0, Math.min(20, Number(steps.value) || 0)); onDirty?.(); };
+      upscaler = el("div", { class: "dir-two" }, sel, el("span", {}, "hi-steps"), steps);
+    }
     const zoomOut = el("button", { type: "button", class: "dir-zoom", title: "Zoom out", onclick: () => { zoom = Math.max(18, zoom - 14); draw(); } }, "−");
     const zoomIn = el("button", { type: "button", class: "dir-zoom", title: "Zoom in", onclick: () => { zoom = Math.min(300, zoom + 14); draw(); } }, "+");
     headEl.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"), el("span", {}, "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
-      el("div", { class: "dir-head-right" }, two, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)));
+      el("div", { class: "dir-head-right" }, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)));
   }
 
   function drawFoot() {
