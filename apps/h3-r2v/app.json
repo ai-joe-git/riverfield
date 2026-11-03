@@ -505,23 +505,6 @@
       ]
     },
     {
-      "id": "sla",
-      "type": "toggle",
-      "label": "Sparse attention (SLA)",
-      "default": false,
-      "help": "ON: nœud d'attention creuse H3 (kernel Triton maison, validé jusqu'à ~53k tokens seulement) — rapide. OFF (défaut): attention dense, plus lente mais sans kernel custom — à garder tant que les rendus longs font tomber le GPU (ring timeout).",
-      "bind": [
-        {
-          "node": "159",
-          "field": "enabled"
-        },
-        {
-          "node": "160",
-          "field": "enabled"
-        }
-      ]
-    },
-    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",
