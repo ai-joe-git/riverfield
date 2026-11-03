@@ -173,7 +173,7 @@
       "fps": 24,
       "bit_depth": 8,
       "color_space": "sRGB",
-      "chroma_subsampling": "none",
+      "chroma_subsampling": "auto",
       "codec": "none"
     },
     "_meta": {
