@@ -592,6 +592,9 @@ la colonne des réglages techniques à gauche.
 Le panneau :
 - **bin média** : Pictures (9), Videos (3), Audios (3), dépôt ou clic, vignettes, retrait,
   assignation à un segment d'un clic (images/audios) ;
+- **aimantation** type table de montage : fenêtres et clips se collent aux bords voisins, au
+  zéro et à la tête de lecture (seuil 9 px) avec une ligne guide verte ; les clips vidéo/audio
+  ont aussi une croix pour les retirer de la timeline ;
 - **timeline** frame-accurate : règle en secondes, zoom, fenêtres **GEN** déplaçables et
   redimensionnables à la frame, longueur aimantée en `5 + 17n` au relâchement (bouton **H3**
   pour aligner à la demande), champs **START / LENGTH** en secondes (pas de 1/24) pour la

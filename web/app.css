@@ -803,3 +803,32 @@ dl.vals dd { margin: 0; overflow-wrap: anywhere; }
 .dir-clip .dir-handle { width: 12px; }
 .dir-chip.ghost { cursor: default; opacity: .9; }
 .dir-win .dir-handle { width: 14px; }
+/* polish: no overflow in the bin, clips or segment header */
+.side-scroll { overflow-x: hidden; }
+.field select { width: 100%; min-width: 0; max-width: 100%; background: #0b0f16; border: 1px solid #26313f; color: var(--ink);
+  border-radius: 10px; padding: 9px 10px; font: inherit; text-overflow: ellipsis; }
+.field { min-width: 0; }
+.dir-media { min-width: 0; }
+.dir-media-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; flex: 1; overflow: hidden; }
+.dir-media-name { display: block; min-width: 0; }
+.dir-media-txt small { color: var(--faint); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dir-media .dir-x { flex: none; }
+.dir-clip { gap: 6px; }
+.dir-clip-name { flex: 1 1 auto; min-width: 0; }
+.dir-clip-dur { flex: none; }
+.dir-clip-x { flex: none; border: 0; background: transparent; color: rgba(240,244,250,.55); cursor: pointer; font-size: 14px; line-height: 1;
+  padding: 1px 3px; border-radius: 5px; }
+.dir-clip-x:hover { color: var(--bad); background: rgba(255,107,107,.16); }
+.dir-seg-head { flex-wrap: wrap; row-gap: 8px; }
+.dir-seg-title { flex: none; }
+.dir-seg-fields { flex: 0 1 auto; flex-wrap: wrap; row-gap: 6px; }
+.dir-seg-time { flex: 1 1 180px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir-seg-actions { margin-left: auto; flex: none; }
+.dir-chip { max-width: 260px; }
+.dir-chip span { min-width: 0; }
+.dir-snap { position: absolute; top: 26px; bottom: 0; width: 1px; background: var(--mint); box-shadow: 0 0 8px rgba(88,230,177,.7); pointer-events: none; }
+/* long model names must ellipsize inside the selector card, not spill over the chevron */
+.selrow .v { min-width: 0; flex: 1 1 auto; }
+.selrow > svg, .selrow > .i-chev { flex: none; }
+/* a grid field sizes to max-content by default, so a long model name widened the whole card */
+.field { grid-template-columns: minmax(0, 1fr); }
