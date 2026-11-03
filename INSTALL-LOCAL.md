@@ -595,7 +595,10 @@ Le panneau :
 - **timeline** frame-accurate : règle en secondes, zoom, fenêtres **GEN** déplaçables et
   redimensionnables (poignées), clips vidéo/audio déplaçables, tête de lecture, aimantation
   sur la géométrie H3 (`5 + 17n`, couture de 39 frames, pas de trou) ;
-- **éditeur de segment** : prompt du segment, chronologie, ajout/suppression, chips de médias ;
+- **éditeur de segment** : prompt du segment, chronologie, ajout/suppression, et références
+  **ordonnées** du segment — `<Picture 1..n>` / `<Audio 1..n>` (ou `LOCK` en mode Keep original),
+  réordonnables par glisser-déposer ou par les flèches ◀ ▶, retirables, exactement l'ordre que le
+  planner traduit en libellés dans le prompt ;
 - **pied** : prompt global + bouton Generate ;
 - en-tête : Two-stage (avec sélecteur d'upscaler et steps haute résolution quand il est actif),
   compteur segments/durée/frames, zoom ;
