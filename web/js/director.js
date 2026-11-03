@@ -82,33 +82,54 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   const root = el("div", { class: "dir" });
   let ghostEl = null;
 
-  /** Premium pointer drag: a floating ghost, live preview and highlighted targets. */
-  function pointerDrag(e, { build, move, end, click }) {
+  /** Premium pointer drag: rAF ghost, persistent preview, cancel on Escape/blur. */
+  function pointerDrag(e, { build, move, end, click, source }) {
     if (e.button !== 0) return;
     const x0 = e.clientX, y0 = e.clientY;
-    let active = false;
+    let active = false, raf = 0, last = null;
+
+    const cleanup = (fire) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("blur", onCancel);
+      window.removeEventListener("keydown", onKey);
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      document.body.classList.remove("dir-dragging");
+      source?.classList.remove("dragging");
+      ghostEl?.remove();
+      ghostEl = null;
+      if (fire) end?.();
+    };
     const onMove = (ev) => {
       if (!active) {
         if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
         active = true;
+        source?.classList.add("dragging");
         ghostEl = el("div", { class: "dir-ghost" }, build());
         document.body.append(ghostEl);
         document.body.classList.add("dir-dragging");
       }
-      ghostEl.style.transform = `translate3d(${ev.clientX + 14}px, ${ev.clientY + 12}px, 0)`;
+      last = ev;
+      if (!raf) raf = requestAnimationFrame(() => {
+        raf = 0;
+        if (ghostEl && last) ghostEl.style.transform = `translate3d(${last.clientX + 14}px, ${last.clientY + 12}px, 0)`;
+      });
       move?.(ev);
     };
     const onUp = (ev) => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      document.body.classList.remove("dir-dragging");
-      ghostEl?.remove();
-      ghostEl = null;
-      if (!active) click?.(ev);
-      else end?.(ev);
+      const was = active;
+      cleanup(false);
+      if (was) end?.(ev); else click?.(ev);
     };
+    const onCancel = () => cleanup(true);
+    const onKey = (ev) => { if (ev.key === "Escape") cleanup(true); };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("blur", onCancel);
+    window.addEventListener("keydown", onKey);
   }
 
   function clearDropHints() {
@@ -213,42 +234,56 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       node.addEventListener("pointerdown", (e) => {
         if (e.button !== 0) return;
         if (e.target.closest(".dir-x")) return;
-        let drop = null;
+        let previewEl = null, overTrack = null, overWin = null, drop = null;
+        const clear = () => {
+          previewEl?.remove(); previewEl = null;
+          overTrack?.classList.remove("over"); overTrack = null;
+          overWin?.classList.remove("hover"); overWin = null;
+        };
         pointerDrag(e, {
+          source: node,
           build: () => [
             type === "image" ? el("img", { src: m.url, alt: "" }) : el("span", { class: "gh-icon" }, icon(type === "video" ? "film" : "audio")),
             el("span", {}, m.name),
             type !== "image" ? el("small", {}, `${fmt(meta.get(m.slot)?.duration || 0)}s`) : null,
           ],
           move: (ev) => {
-            clearDropHints();
             const hit = document.elementFromPoint(ev.clientX, ev.clientY);
             if (type === "image") {
-              const win = hit?.closest(".dir-win");
-              win?.classList.add("hover");
+              const win = hit?.closest(".dir-win") || null;
+              if (win !== overWin) { overWin?.classList.remove("hover"); overWin = win; overWin?.classList.add("hover"); }
               drop = win ? winNodes.indexOf(win) : null;
               return;
             }
-            const track = hit?.closest(type === "video" ? ".dir-track.vid" : ".dir-track.aud");
+            const track = hit?.closest(type === "video" ? ".dir-track.vid" : ".dir-track.aud") || null;
+            if (track !== overTrack) {
+              overTrack?.classList.remove("over");
+              overTrack = track;
+              overTrack?.classList.add("over");
+              if (previewEl) { previewEl.remove(); previewEl = null; }
+            }
             if (!track) { drop = null; return; }
-            track.classList.add("over");
             const info = meta.get(m.slot);
             const dur = Math.max(MIN_LEN / FPS, info?.duration || 5);
             const rect = track.getBoundingClientRect();
             const start = Math.max(0, snap(Math.round((((ev.clientX - rect.left) - (dur * zoom) / 2) / zoom) * FPS)));
-            track.append(el("div", { class: "dir-drop-preview", style: { left: `${px(start)}px`, width: `${Math.max(24, dur * zoom)}px` } }));
+            if (!previewEl) previewEl = el("div", { class: "dir-drop-preview" });
+            previewEl.style.left = `${px(start)}px`;
+            previewEl.style.width = `${Math.max(24, dur * zoom)}px`;
+            if (previewEl.parentElement !== track) track.append(previewEl);
             drop = start / FPS;
           },
           end: () => {
-            clearDropHints();
-            if (drop === null || drop === undefined) return;
+            const where = drop;
+            clear();
+            if (where === null || where === undefined) return;
             if (type === "image") {
-              const w = st.windows[drop];
-              if (w && !w.images.includes(m.index)) { selected = drop; w.images = [...w.images, m.index]; changed(); }
+              const w = st.windows[where];
+              if (w && !w.images.includes(m.index)) { selected = where; w.images = [...w.images, m.index]; changed(); }
               return;
             }
             const item = clipFor(type, m.index);
-            item.start = drop;
+            item.start = where;
             changed();
           },
           click: () => {
@@ -552,20 +587,24 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       chip.addEventListener("pointerdown", (e) => {
         if (e.button !== 0 || e.target.closest("button")) return;
         let to = pos;
+        const clear = () => document.querySelectorAll(".dir-chip.drop-before, .dir-chip.drop-after")
+          .forEach((n) => n.classList.remove("drop-before", "drop-after"));
         pointerDrag(e, {
-          build: () => [type === "image" ? el("img", { src: m.url, alt: "" }) : icon("audio"), el("b", {}, label), el("span", {}, m.name)],
+          source: chip,
+          build: () => [type === "image" ? el("img", { src: m.url, alt: "" }) : el("span", { class: "gh-icon" }, icon("audio")), el("b", {}, label), el("span", {}, m.name)],
           move: (ev) => {
-            document.querySelectorAll(".dir-chip.drop-before, .dir-chip.drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after"));
             const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".dir-chip.ordered");
-            if (!over || over === chip) return;
+            if (!over) { clear(); return; }
+            if (over === chip) { clear(); return; }
             const rect = over.getBoundingClientRect();
             const after = ev.clientX > rect.left + rect.width / 2;
+            clear();
             over.classList.add(after ? "drop-after" : "drop-before");
             const target = Number(over.dataset.pos);
             to = after ? target + 1 : target;
           },
           end: () => {
-            document.querySelectorAll(".dir-chip.drop-before, .dir-chip.drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after"));
+            clear();
             if (to === pos) return;
             const list = w[key];
             const [x] = list.splice(pos, 1);
