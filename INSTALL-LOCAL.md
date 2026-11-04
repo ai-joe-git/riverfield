@@ -57,6 +57,19 @@ npm run app -- video --file image=photo.jpg --set duration=5
    - deps installées en `--no-deps` : `colour-science`, `openimageio`, `ninja`
      (torch / transformers / diffusers intacts)
 
+**Après une mise à jour via ComfyUI-Manager** : Manager ne touche ni RiverField ni
+`models/`, mais il fait un `git pull` dans `LTX-2.5-Director` et
+`comfyui-h3-sla-attention-rocm`, ce qui écrase leurs patchs locaux (ou bloque la mise à
+jour). Une réinstallation de `custom_nodes` supprime aussi les nœuds `riverfield-*`.
+Tout remettre d'un coup :
+
+    ./local/restore-comfy.sh
+    ./stop.sh && ./start.sh
+
+Le script recopie `local/custom_nodes/*` et réapplique les deux patchs (idempotents, avec
+sauvegarde `.orig-riverfield`). Le patch du proxy, lui, est déjà réappliqué à chaque
+démarrage par `run-backend.sh`.
+
 ## Apps turbo MiniMax H3 (locales, survivent aux `git pull`)
 
 Quatre clones des apps H3, avec un LoRA turbo et les réglages qui vont avec ; les apps

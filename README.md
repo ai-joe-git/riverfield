@@ -110,7 +110,10 @@ blue `#8DB4FF` accent with cyan and violet supports, and mint `#58E6B1` only for
 `:root` block of `web/app.css`.
 
 `./start.sh` starts the backend (ComfyUI + comfy-api-proxy + gateway), the web app and the MCP; `./stop.sh` stops
-them; `./update.sh` merges upstream and rebuilds the turbo variants. Machines and ports: [`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
+them; `./update.sh` merges upstream, rebuilds the turbo variants and re-syncs the ComfyUI-side nodes.
+After a **ComfyUI-Manager** update, run `./local/restore-comfy.sh` (it recopies the `riverfield-*` nodes and
+re-applies the two patches inside the third-party packs), then `./stop.sh && ./start.sh`. Machines and ports:
+[`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
 
 ## Apps
 
