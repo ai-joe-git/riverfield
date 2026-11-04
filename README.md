@@ -48,7 +48,7 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 
 | | |
 |---|---|
-| Apps | **139, all ready** (upstream's 120, `moss-image` now out of draft, plus 19 of ours: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex** and the two **Studio Director** apps — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **140 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus 21 of ours: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `e3bee7f` (0.42.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
 | GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
@@ -83,7 +83,7 @@ Four things are not an app:
 
 - **H3 SLA Attention (ROCm)** — the `H3SLAAttentionROCM` node sits in every H3 workflow, right after the model
   chain. Its own Triton kernel wedges gfx1151 past ~50k tokens, so `local/patch-h3-sla-solattn.py` re-points it
-  at **comfy-kitchen's Sol-Attn** (`sol_attn(topk_ratio=…, tail=True, token_aug=256)`, the SLA-style top-k the
+  at **comfy-kitchen's Sol-Attn** (`sol_attn(topk_ratio=…, tail=False, token_aug=256)`, the SLA-style top-k the
   LoRAs are distilled against, on the HIP backend) — measured 22× faster than dense SDPA. It is **optional**:
   every H3 app has a *Sparse attention* toggle, and the node is **bypassed automatically when the backend does
   not ship its class** — the runner asks `/object_info/<class>`, rewires the model chain to the previous node and
