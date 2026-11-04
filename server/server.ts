@@ -90,6 +90,8 @@ function publicApp(a: App) {
   return {
     id: a.id, name: a.name, section: a.section, summary: a.summary ?? "", status: a.status, pack: a.pack,
     runnable: runnable(a),
+    layout: a.layout ?? null,
+    panel_title: a.panel_title ?? null,
     higgsfield_feature: a.higgsfield_feature ?? null,
     modes: a.modes ?? null,
     mode_label: a.mode_label ?? null,
