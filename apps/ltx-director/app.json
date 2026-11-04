@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-ltx",
   "status": "ready",
-  "summary": "LTX 2.5 distilled director: several shots in one pass, native audio, optional reference sheet (Ingredients IC-LoRA), 8-step quality or 3-step draft.",
+  "summary": "LTX 2.5 director: shots with their own prompts, native audio, keyframes, motion guides and custom audio, optional reference sheet, 8-step or 3-step draft.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "LTX_2_5_Director_CS.json (CGlide/LTX-2.5-Director) + LTX_Director_2_Workflow_Distilled.json (WhatDreamsCost)",
@@ -110,7 +110,7 @@
       "limits": {
         "max_mb": 30
       },
-      "help": "Optional. One image holding the characters, props and sets side by side, described by position in the prompt. Held on every frame through the LTX 2.5 Ingredients IC-LoRA; empty means pure text-to-video.",
+      "help": "Optional. A sheet of characters, props and sets laid side by side, held on every frame through the Ingredients IC-LoRA: a global identity for the whole clip. Pictures dropped on the timeline are different: they are keyframes at a precise frame.",
       "bind": [
         {
           "node": "rfplan",
@@ -143,13 +143,187 @@
         {
           "value": "ltx-2.5-22b-ic-lora-water-simulation-0.9.safetensors",
           "label": "LTX 2.5 Water Simulation 0.9"
+        },
+        {
+          "value": "LTX2.3-22B_IC-LoRA-Cameraman_v2_14000.safetensors",
+          "label": "Cameraman v2 (2.3, for motion clips)"
         }
       ],
-      "help": "Only used when a reference sheet is set. The Ingredients LoRA is the reference-image one.",
+      "help": "One IC-LoRA for the whole graph: Ingredients for a reference sheet, Cameraman for motion clips. Set when a sheet or a motion clip is used.",
       "bind": [
         {
           "node": "rfplan",
           "field": "reference_lora"
+        }
+      ]
+    },
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Keyframe picture: placed at the start of the shot it is assigned to (panel chips).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image1"
+        }
+      ]
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Keyframe picture: placed at the start of the shot it is assigned to (panel chips).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image2"
+        }
+      ]
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Keyframe picture: placed at the start of the shot it is assigned to (panel chips).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image3"
+        }
+      ]
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Keyframe picture: placed at the start of the shot it is assigned to (panel chips).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image4"
+        }
+      ]
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 300
+      },
+      "help": "Motion guide clip on the timeline: IC-LoRA video guidance (same LoRA as the reference sheet).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video1"
+        }
+      ]
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 300
+      },
+      "help": "Motion guide clip on the timeline: IC-LoRA video guidance (same LoRA as the reference sheet).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video2"
+        }
+      ]
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 300
+      },
+      "help": "Motion guide clip on the timeline: IC-LoRA video guidance (same LoRA as the reference sheet).",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video3"
+        }
+      ]
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 100
+      },
+      "help": "Custom audio clip on the timeline (dialogue, music); inpainting decides what is kept or regenerated.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio1"
+        }
+      ]
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 100
+      },
+      "help": "Custom audio clip on the timeline (dialogue, music); inpainting decides what is kept or regenerated.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio2"
+        }
+      ]
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "required": false,
+      "hidden": true,
+      "limits": {
+        "max_mb": 100
+      },
+      "help": "Custom audio clip on the timeline (dialogue, music); inpainting decides what is kept or regenerated.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio3"
         }
       ]
     },

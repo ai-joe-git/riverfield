@@ -616,7 +616,17 @@
       "duration": 5.0,
       "fps": 25.0,
       "reference_sheet": "",
-      "reference_lora": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors"
+      "reference_lora": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+      "image1": "",
+      "image2": "",
+      "image3": "",
+      "image4": "",
+      "video1": "",
+      "video2": "",
+      "video3": "",
+      "audio1": "",
+      "audio2": "",
+      "audio3": ""
     },
     "_meta": {
       "title": "RiverField LTX Planner"
