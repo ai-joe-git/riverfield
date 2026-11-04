@@ -58,6 +58,10 @@ export type AppManifest = {
   pack: string;
   status: "draft" | "ready";
   workflow?: string;
+  /** UI layout: "director" mounts the timeline panel (studio-director, ltx-director) */
+  layout?: "composer" | "sidebar" | "director";
+  /** heading of the director panel, when it is not the default "Material Planner" */
+  panel_title?: string;
   inputs: Input[];
   presets?: Preset[];
   outputs: Output[];
