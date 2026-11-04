@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-const [mode, idArg, minutesArg] = process.argv.slice(2);
+const [mode, a1, a2, a3] = process.argv.slice(2);
 const client = new Client({ name: "riverfield-run", version: "1.0.0" });
 await client.connect(new StreamableHTTPClientTransport(new URL("http://127.0.0.1:3010/mcp")));
 const call = async (name: string, args: Record<string, unknown> = {}) => {
@@ -10,18 +10,19 @@ const call = async (name: string, args: Record<string, unknown> = {}) => {
   try { return JSON.parse(t); } catch { return t; }
 };
 if (mode === "submit") {
-  const payload = JSON.parse(readFileSync("/tmp/opencode/director/payload.json", "utf8"));
-  console.log(JSON.stringify(await call("run_app", { app: "studio-director", values: payload.values, files: payload.files })));
+  const app = a1 || "studio-director";
+  const payload = JSON.parse(readFileSync(a2 || "/tmp/opencode/director/payload.json", "utf8"));
+  console.log(JSON.stringify(await call("run_app", { app, values: payload.values, files: payload.files })));
 } else if (mode === "poll") {
-  const deadline = Date.now() + Number(minutesArg || 90) * 60_000;
+  const deadline = Date.now() + Number(a2 || 120) * 60_000;
   while (Date.now() < deadline) {
-    const j: any = await call("job", { id: idArg });
+    const j: any = await call("job", { id: a1 });
     console.log(`${new Date().toISOString().slice(11, 19)} ${j.status} ${j.progress ? Math.round((j.progress.value ?? j.progress) * 100) + "%" : ""}`);
     if (["succeeded", "failed", "canceled", "expired", "lost"].includes(j.status)) {
       console.log(JSON.stringify({ status: j.status, error: j.error, outputs: j.outputs }, null, 1));
       process.exit(j.status === "succeeded" ? 0 : 1);
     }
-    await new Promise((r) => setTimeout(r, 15000));
+    await new Promise((r) => setTimeout(r, 20000));
   }
   process.exit(2);
 }
