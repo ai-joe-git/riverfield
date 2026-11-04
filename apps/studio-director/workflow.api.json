@@ -217,7 +217,11 @@
     "inputs": {
       "scheduler": "simple",
       "steps": 6,
-      "denoise": 1
+      "denoise": 1,
+      "model": [
+        "60",
+        0
+      ]
     }
   },
   "61": {

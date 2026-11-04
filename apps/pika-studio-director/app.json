@@ -5,12 +5,12 @@
   "section": "video",
   "pack": "video-h3",
   "status": "ready",
-  "summary": "The Pika Flex recipe, locked: lcm + its 6-step sigma ladder, Material Planner segments, ordered references and sound. The safe way to direct long H3 clips.",
+  "summary": "Pika Flex locked: lcm + its 6-step sigmas, Material Planner segments, ordered references, sound. Two-stage needs Euler and breaks the LoRA: use studio-director.",
   "higgsfield_feature": "AI Director",
   "source": {
     "template": "RiverField_Director_studio.json (Pika-locked variant)",
     "comfyui": "0.43.0",
-    "notes": "Same graph as studio-director, with the recipe the Pika Flex LoRA is distilled for: sampler lcm, ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0, pika_h3_flex_ref2va_v1_bf16 at 1.0, minimax_h3_ref2va int8 + qwen3vl nvfp4 encoder + lynnreal light VAE, SLA on Sol-Attn. Model, sampler and sigma choices are not exposed: this app cannot be broken by a wrong preset. Use studio-director when you want to experiment with other models or schedules."
+    "notes": "Same graph as studio-director, with the recipe the Pika Flex LoRA is distilled for: sampler lcm, ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0, pika_h3_flex_ref2va_v1_bf16 at 1.0, minimax_h3_ref2va int8 + qwen3vl nvfp4 encoder + lynnreal light VAE, SLA on Sol-Attn. Model, sampler and sigma choices are not exposed: this app cannot be broken by a wrong preset. Use studio-director when you want to experiment with other models or schedules. SelfLift two-stage requires the Euler sampler; the Pika LoRA is lcm-distilled and collapses with euler (measured), so two-stage is not offered here. Use studio-director with a non-LCM model for two-stage."
   },
   "inputs": [
     {
@@ -402,65 +402,6 @@
         {
           "node": "rfplan",
           "field": "start_seconds"
-        }
-      ],
-      "hidden": true
-    },
-    {
-      "id": "two_stage",
-      "type": "toggle",
-      "label": "Two-stage sampling (SelfLift)",
-      "default": false,
-      "help": "Low-res pass, latent lift, then a few high-res steps.",
-      "bind": [
-        {
-          "node": "rfplan",
-          "field": "two_stage"
-        }
-      ],
-      "hidden": true
-    },
-    {
-      "id": "upscaler",
-      "type": "select",
-      "label": "Latent upscaler",
-      "default": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
-      "options": [
-        {
-          "value": "",
-          "label": "None"
-        },
-        {
-          "value": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
-          "label": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
-        },
-        {
-          "value": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
-          "label": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors"
-        }
-      ],
-      "help": "H3 latent upscaler used by the two-stage pass.",
-      "bind": [
-        {
-          "node": "rfplan",
-          "field": "upscaler"
-        }
-      ],
-      "hidden": true
-    },
-    {
-      "id": "high_steps",
-      "type": "slider",
-      "label": "High-res steps",
-      "min": 0,
-      "max": 20,
-      "step": 1,
-      "default": 2,
-      "help": "Steps spent at high resolution; must stay below the scheduler's step count.",
-      "bind": [
-        {
-          "node": "rfplan",
-          "field": "high_steps"
         }
       ],
       "hidden": true
