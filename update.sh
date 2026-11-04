@@ -24,6 +24,7 @@ fi
 
 # les workflows H3 de base ont peut-être bougé : on réaligne les clones turbo
 python3 local/make-turbo-apps.py
+./local/restore-comfy.sh || true
 npm run validate
 
 echo
