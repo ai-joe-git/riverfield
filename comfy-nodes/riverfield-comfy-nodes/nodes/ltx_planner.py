@@ -237,6 +237,7 @@ def build_timeline(
     images: tuple[str, ...] = (),
     videos: tuple[str, ...] = (),
     audios: tuple[str, ...] = (),
+    window: int = -1,
 ) -> tuple[str, str, str, int, float, float, int, int, str]:
     fps = float(fps) or 25.0
     spec = parse_spec(segment_windows)
@@ -271,6 +272,16 @@ def build_timeline(
     if guide or motion_segments:
         ic_lora_name = (reference_lora or DEFAULT_REFERENCE_LORA).strip()
 
+    # A window index restricts the outputs to one shot while keeping the full timeline
+    # document: the four-chain graph gives each chain its own window and prompt.
+    start_out, length_out = 0, duration_frames
+    if 0 <= int(window) < len(windows):
+        shot = windows[int(window)]
+        start_out = int(round(shot["start"] * fps))
+        length_out = max(1, int(round((shot["end"] - shot["start"]) * fps)))
+        local_prompts = shot["prompt"]
+        segment_lengths = str(length_out)
+
     document = dict(TIMELINE_DEFAULTS)
     document.update({
         "global_prompt": (global_prompt or "").strip(),
@@ -285,11 +296,11 @@ def build_timeline(
         json.dumps(document, ensure_ascii=False),
         local_prompts,
         segment_lengths,
-        duration_frames,
-        round(duration_frames / fps, 6),
+        length_out,
+        round(length_out / fps, 6),
         fps,
-        0,
-        duration_frames,
+        start_out,
+        start_out + length_out,
         ic_lora_name,
     )
 
@@ -327,6 +338,10 @@ class RiverFieldLTXPlanner:
                 }),
             },
             "optional": {
+                "window": ("INT", {
+                    "default": -1, "min": -1, "max": 15, "step": 1,
+                    "tooltip": "Render only this window (-1: the whole timeline). The four-chain graph uses 0..3.",
+                }),
                 **{
                     f"image{i + 1}": ("STRING", {
                         "default": "",
@@ -358,7 +373,7 @@ class RiverFieldLTXPlanner:
     def build(self, segment_windows: str = "", global_prompt: str = "",
               duration: float = 5.0, fps: float = 25.0,
               reference_sheet: str = "", reference_lora: str = DEFAULT_REFERENCE_LORA,
-              **media):
+              window: int = -1, **media):
         images = tuple(media.get(f"image{i + 1}", "") for i in range(MAX_IMAGES))
         videos = tuple(media.get(f"video{i + 1}", "") for i in range(MAX_VIDEOS))
         audios = tuple(media.get(f"audio{i + 1}", "") for i in range(MAX_AUDIOS))
@@ -366,7 +381,7 @@ class RiverFieldLTXPlanner:
                               global_prompt=global_prompt,
                               duration=duration, fps=fps,
                               reference_sheet=reference_sheet,
-                              reference_lora=reference_lora,
+                              reference_lora=reference_lora, window=window,
                               images=images, videos=videos, audios=audios)
 
 

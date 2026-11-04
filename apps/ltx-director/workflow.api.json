@@ -119,7 +119,7 @@
     }
   },
   "15": {
-    "class_type": "VAEDecode",
+    "class_type": "VAEDecodeTiled",
     "inputs": {
       "samples": [
         "207",
@@ -128,7 +128,11 @@
       "vae": [
         "3",
         0
-      ]
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 16
     },
     "_meta": {
       "title": "VAE Decode"
@@ -626,7 +630,8 @@
       "video3": "",
       "audio1": "",
       "audio2": "",
-      "audio3": ""
+      "audio3": "",
+      "window": -1
     },
     "_meta": {
       "title": "RiverField LTX Planner"

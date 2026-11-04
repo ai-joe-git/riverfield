@@ -1,0 +1,2244 @@
+{
+  "3": {
+    "class_type": "VAELoaderKJ",
+    "inputs": {
+      "vae_name": "ltx-2.5-video-vae-bf16.safetensors",
+      "device": "main_device",
+      "weight_dtype": "bf16"
+    },
+    "_meta": {
+      "title": "Video VAELoader"
+    }
+  },
+  "4": {
+    "class_type": "VAELoaderKJ",
+    "inputs": {
+      "vae_name": "ltx-2.5-audio-vae-bf16.safetensors",
+      "device": "main_device",
+      "weight_dtype": "bf16"
+    },
+    "_meta": {
+      "title": "Audio VAELoader"
+    }
+  },
+  "29": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "53": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "57": {
+    "class_type": "LatentUpscaleModelLoader",
+    "inputs": {
+      "model_name": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors"
+    },
+    "_meta": {
+      "title": "Load Latent Upscale Model"
+    }
+  },
+  "94": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "100": {
+    "class_type": "LTXVChunkFeedForward",
+    "inputs": {
+      "model": [
+        "94",
+        0
+      ],
+      "chunks": 2,
+      "dim_threshold": 4096
+    },
+    "_meta": {
+      "title": "LTXV Chunk FeedForward"
+    }
+  },
+  "104": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "0.85, 0.7250, 0.4219, 0.0"
+    },
+    "_meta": {
+      "title": "ManualSigmas"
+    }
+  },
+  "226": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "type": "ltxv",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "230": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
+    },
+    "_meta": {
+      "title": "Sigmas stage 1 (8 steps)"
+    }
+  },
+  "rfres": {
+    "class_type": "ResolutionSelector",
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 0.9,
+      "multiple": 32
+    },
+    "_meta": {
+      "title": "Resolution Selector"
+    }
+  },
+  "231": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "0.85, 0.7250, 0.4219, 0.0"
+    },
+    "_meta": {
+      "title": "Sigmas draft (3 steps)"
+    }
+  },
+  "232": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "230",
+        0
+      ],
+      "on_true": [
+        "231",
+        0
+      ],
+      "switch": [
+        "233",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Steps"
+    }
+  },
+  "233": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Fast draft"
+    }
+  },
+  "c1_220": {
+    "class_type": "LTXDirectorCS25",
+    "inputs": {
+      "model": [
+        "100",
+        0
+      ],
+      "clip": [
+        "226",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "start_second": 0,
+      "end_second": 0,
+      "duration_seconds": [
+        "rfplan1",
+        4
+      ],
+      "start_frame": [
+        "rfplan1",
+        6
+      ],
+      "end_frame": [
+        "rfplan1",
+        7
+      ],
+      "duration_frames": [
+        "rfplan1",
+        3
+      ],
+      "timeline_data": [
+        "rfplan1",
+        0
+      ],
+      "local_prompts": "",
+      "segment_lengths": "",
+      "epsilon": 0.001,
+      "guide_strength": "1.00,1.00",
+      "use_custom_audio": true,
+      "use_custom_motion": true,
+      "inpaint_audio": true,
+      "frame_rate": [
+        "rfplan1",
+        5
+      ],
+      "display_mode": "seconds",
+      "custom_width": [
+        "rfres",
+        0
+      ],
+      "custom_height": [
+        "rfres",
+        1
+      ],
+      "resize_method": "stretch to fit",
+      "divisible_by": 32,
+      "img_compression": 18,
+      "override_audio": false,
+      "reference_strength": 1,
+      "global_prompt": [
+        "rfplan1",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director CS (2.5)"
+    }
+  },
+  "c1_5": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": [
+        "c1_220",
+        1
+      ],
+      "negative": [
+        "c1_228",
+        0
+      ],
+      "frame_rate": [
+        "c1_220",
+        7
+      ]
+    },
+    "_meta": {
+      "title": "LTXVConditioning"
+    }
+  },
+  "c1_228": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "c1_220",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Conditioning Zero Out"
+    }
+  },
+  "c1_206": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c1_5",
+        0
+      ],
+      "negative": [
+        "c1_5",
+        1
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c1_220",
+        3
+      ],
+      "guide_data": [
+        "c1_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c1_220",
+        6
+      ],
+      "model": [
+        "c1_220",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 0.5,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan1",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c1_9": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c1_206",
+        3
+      ],
+      "positive": [
+        "c1_206",
+        0
+      ],
+      "negative": [
+        "c1_206",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c1_7": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c1_206",
+        2
+      ],
+      "audio_latent": [
+        "c1_220",
+        4
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c1_10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn1",
+        0
+      ],
+      "guider": [
+        "c1_9",
+        0
+      ],
+      "sampler": [
+        "29",
+        0
+      ],
+      "sigmas": [
+        "232",
+        0
+      ],
+      "latent_image": [
+        "c1_7",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c1_13": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c1_10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c1_208": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c1_206",
+        0
+      ],
+      "negative": [
+        "c1_206",
+        1
+      ],
+      "latent": [
+        "c1_13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c1_52": {
+    "class_type": "LTXVLatentUpsampler",
+    "inputs": {
+      "samples": [
+        "c1_208",
+        2
+      ],
+      "upscale_model": [
+        "57",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXVLatentUpsampler"
+    }
+  },
+  "c1_205": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c1_220",
+        1
+      ],
+      "negative": [
+        "c1_220",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c1_52",
+        0
+      ],
+      "guide_data": [
+        "c1_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c1_220",
+        6
+      ],
+      "model": [
+        "100",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 1,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan1",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c1_49": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c1_205",
+        3
+      ],
+      "positive": [
+        "c1_205",
+        0
+      ],
+      "negative": [
+        "c1_205",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c1_50": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c1_205",
+        2
+      ],
+      "audio_latent": [
+        "c1_13",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c1_47": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn1",
+        0
+      ],
+      "guider": [
+        "c1_49",
+        0
+      ],
+      "sampler": [
+        "53",
+        0
+      ],
+      "sigmas": [
+        "104",
+        0
+      ],
+      "latent_image": [
+        "c1_50",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c1_48": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c1_47",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c1_207": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c1_205",
+        0
+      ],
+      "negative": [
+        "c1_205",
+        1
+      ],
+      "latent": [
+        "c1_48",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c1_15": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "c1_207",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 16
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "c1_16": {
+    "class_type": "LTXVAudioVAEDecode",
+    "inputs": {
+      "samples": [
+        "c1_13",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXV Audio VAE Decode"
+    }
+  },
+  "rfplan1": {
+    "class_type": "RiverFieldLTXPlanner",
+    "inputs": {
+      "segment_windows": "",
+      "global_prompt": "",
+      "duration": 5.0,
+      "fps": 25.0,
+      "reference_sheet": "",
+      "reference_lora": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+      "image1": "",
+      "image2": "",
+      "image3": "",
+      "image4": "",
+      "video1": "",
+      "video2": "",
+      "video3": "",
+      "audio1": "",
+      "audio2": "",
+      "audio3": "",
+      "window": 0
+    },
+    "_meta": {
+      "title": "RiverField LTX Planner"
+    }
+  },
+  "rn1": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 424242
+    },
+    "_meta": {
+      "title": "Seed 1"
+    }
+  },
+  "c2_220": {
+    "class_type": "LTXDirectorCS25",
+    "inputs": {
+      "model": [
+        "100",
+        0
+      ],
+      "clip": [
+        "226",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "start_second": 0,
+      "end_second": 0,
+      "duration_seconds": [
+        "rfplan2",
+        4
+      ],
+      "start_frame": [
+        "rfplan2",
+        6
+      ],
+      "end_frame": [
+        "rfplan2",
+        7
+      ],
+      "duration_frames": [
+        "rfplan2",
+        3
+      ],
+      "timeline_data": [
+        "rfplan2",
+        0
+      ],
+      "local_prompts": "",
+      "segment_lengths": "",
+      "epsilon": 0.001,
+      "guide_strength": "1.00,1.00",
+      "use_custom_audio": true,
+      "use_custom_motion": true,
+      "inpaint_audio": true,
+      "frame_rate": [
+        "rfplan2",
+        5
+      ],
+      "display_mode": "seconds",
+      "custom_width": [
+        "rfres",
+        0
+      ],
+      "custom_height": [
+        "rfres",
+        1
+      ],
+      "resize_method": "stretch to fit",
+      "divisible_by": 32,
+      "img_compression": 18,
+      "override_audio": false,
+      "reference_strength": 1,
+      "global_prompt": [
+        "rfplan2",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director CS (2.5)"
+    }
+  },
+  "c2_5": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": [
+        "c2_220",
+        1
+      ],
+      "negative": [
+        "c2_228",
+        0
+      ],
+      "frame_rate": [
+        "c2_220",
+        7
+      ]
+    },
+    "_meta": {
+      "title": "LTXVConditioning"
+    }
+  },
+  "c2_228": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "c2_220",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Conditioning Zero Out"
+    }
+  },
+  "c2_206": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c2_5",
+        0
+      ],
+      "negative": [
+        "c2_5",
+        1
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c2_220",
+        3
+      ],
+      "guide_data": [
+        "c2_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c2_220",
+        6
+      ],
+      "model": [
+        "c2_220",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 0.5,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan2",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c2_9": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c2_206",
+        3
+      ],
+      "positive": [
+        "c2_206",
+        0
+      ],
+      "negative": [
+        "c2_206",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c2_7": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c2_206",
+        2
+      ],
+      "audio_latent": [
+        "c2_220",
+        4
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c2_10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn2",
+        0
+      ],
+      "guider": [
+        "c2_9",
+        0
+      ],
+      "sampler": [
+        "29",
+        0
+      ],
+      "sigmas": [
+        "232",
+        0
+      ],
+      "latent_image": [
+        "c2_7",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c2_13": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c2_10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c2_208": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c2_206",
+        0
+      ],
+      "negative": [
+        "c2_206",
+        1
+      ],
+      "latent": [
+        "c2_13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c2_52": {
+    "class_type": "LTXVLatentUpsampler",
+    "inputs": {
+      "samples": [
+        "c2_208",
+        2
+      ],
+      "upscale_model": [
+        "57",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXVLatentUpsampler"
+    }
+  },
+  "c2_205": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c2_220",
+        1
+      ],
+      "negative": [
+        "c2_220",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c2_52",
+        0
+      ],
+      "guide_data": [
+        "c2_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c2_220",
+        6
+      ],
+      "model": [
+        "100",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 1,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan2",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c2_49": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c2_205",
+        3
+      ],
+      "positive": [
+        "c2_205",
+        0
+      ],
+      "negative": [
+        "c2_205",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c2_50": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c2_205",
+        2
+      ],
+      "audio_latent": [
+        "c2_13",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c2_47": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn2",
+        0
+      ],
+      "guider": [
+        "c2_49",
+        0
+      ],
+      "sampler": [
+        "53",
+        0
+      ],
+      "sigmas": [
+        "104",
+        0
+      ],
+      "latent_image": [
+        "c2_50",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c2_48": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c2_47",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c2_207": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c2_205",
+        0
+      ],
+      "negative": [
+        "c2_205",
+        1
+      ],
+      "latent": [
+        "c2_48",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c2_15": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "c2_207",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 16
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "c2_16": {
+    "class_type": "LTXVAudioVAEDecode",
+    "inputs": {
+      "samples": [
+        "c2_13",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXV Audio VAE Decode"
+    }
+  },
+  "rfplan2": {
+    "class_type": "RiverFieldLTXPlanner",
+    "inputs": {
+      "segment_windows": "",
+      "global_prompt": "",
+      "duration": 5.0,
+      "fps": 25.0,
+      "reference_sheet": "",
+      "reference_lora": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+      "image1": "",
+      "image2": "",
+      "image3": "",
+      "image4": "",
+      "video1": "",
+      "video2": "",
+      "video3": "",
+      "audio1": "",
+      "audio2": "",
+      "audio3": "",
+      "window": 1
+    },
+    "_meta": {
+      "title": "RiverField LTX Planner"
+    }
+  },
+  "rn2": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 424242
+    },
+    "_meta": {
+      "title": "Seed 2"
+    }
+  },
+  "c3_220": {
+    "class_type": "LTXDirectorCS25",
+    "inputs": {
+      "model": [
+        "100",
+        0
+      ],
+      "clip": [
+        "226",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "start_second": 0,
+      "end_second": 0,
+      "duration_seconds": [
+        "rfplan3",
+        4
+      ],
+      "start_frame": [
+        "rfplan3",
+        6
+      ],
+      "end_frame": [
+        "rfplan3",
+        7
+      ],
+      "duration_frames": [
+        "rfplan3",
+        3
+      ],
+      "timeline_data": [
+        "rfplan3",
+        0
+      ],
+      "local_prompts": "",
+      "segment_lengths": "",
+      "epsilon": 0.001,
+      "guide_strength": "1.00,1.00",
+      "use_custom_audio": true,
+      "use_custom_motion": true,
+      "inpaint_audio": true,
+      "frame_rate": [
+        "rfplan3",
+        5
+      ],
+      "display_mode": "seconds",
+      "custom_width": [
+        "rfres",
+        0
+      ],
+      "custom_height": [
+        "rfres",
+        1
+      ],
+      "resize_method": "stretch to fit",
+      "divisible_by": 32,
+      "img_compression": 18,
+      "override_audio": false,
+      "reference_strength": 1,
+      "global_prompt": [
+        "rfplan3",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director CS (2.5)"
+    }
+  },
+  "c3_5": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": [
+        "c3_220",
+        1
+      ],
+      "negative": [
+        "c3_228",
+        0
+      ],
+      "frame_rate": [
+        "c3_220",
+        7
+      ]
+    },
+    "_meta": {
+      "title": "LTXVConditioning"
+    }
+  },
+  "c3_228": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "c3_220",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Conditioning Zero Out"
+    }
+  },
+  "c3_206": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c3_5",
+        0
+      ],
+      "negative": [
+        "c3_5",
+        1
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c3_220",
+        3
+      ],
+      "guide_data": [
+        "c3_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c3_220",
+        6
+      ],
+      "model": [
+        "c3_220",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 0.5,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan3",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c3_9": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c3_206",
+        3
+      ],
+      "positive": [
+        "c3_206",
+        0
+      ],
+      "negative": [
+        "c3_206",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c3_7": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c3_206",
+        2
+      ],
+      "audio_latent": [
+        "c3_220",
+        4
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c3_10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn3",
+        0
+      ],
+      "guider": [
+        "c3_9",
+        0
+      ],
+      "sampler": [
+        "29",
+        0
+      ],
+      "sigmas": [
+        "232",
+        0
+      ],
+      "latent_image": [
+        "c3_7",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c3_13": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c3_10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c3_208": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c3_206",
+        0
+      ],
+      "negative": [
+        "c3_206",
+        1
+      ],
+      "latent": [
+        "c3_13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c3_52": {
+    "class_type": "LTXVLatentUpsampler",
+    "inputs": {
+      "samples": [
+        "c3_208",
+        2
+      ],
+      "upscale_model": [
+        "57",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXVLatentUpsampler"
+    }
+  },
+  "c3_205": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c3_220",
+        1
+      ],
+      "negative": [
+        "c3_220",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c3_52",
+        0
+      ],
+      "guide_data": [
+        "c3_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c3_220",
+        6
+      ],
+      "model": [
+        "100",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 1,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan3",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c3_49": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c3_205",
+        3
+      ],
+      "positive": [
+        "c3_205",
+        0
+      ],
+      "negative": [
+        "c3_205",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c3_50": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c3_205",
+        2
+      ],
+      "audio_latent": [
+        "c3_13",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c3_47": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn3",
+        0
+      ],
+      "guider": [
+        "c3_49",
+        0
+      ],
+      "sampler": [
+        "53",
+        0
+      ],
+      "sigmas": [
+        "104",
+        0
+      ],
+      "latent_image": [
+        "c3_50",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c3_48": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c3_47",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c3_207": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c3_205",
+        0
+      ],
+      "negative": [
+        "c3_205",
+        1
+      ],
+      "latent": [
+        "c3_48",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c3_15": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "c3_207",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 16
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "c3_16": {
+    "class_type": "LTXVAudioVAEDecode",
+    "inputs": {
+      "samples": [
+        "c3_13",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXV Audio VAE Decode"
+    }
+  },
+  "rfplan3": {
+    "class_type": "RiverFieldLTXPlanner",
+    "inputs": {
+      "segment_windows": "",
+      "global_prompt": "",
+      "duration": 5.0,
+      "fps": 25.0,
+      "reference_sheet": "",
+      "reference_lora": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+      "image1": "",
+      "image2": "",
+      "image3": "",
+      "image4": "",
+      "video1": "",
+      "video2": "",
+      "video3": "",
+      "audio1": "",
+      "audio2": "",
+      "audio3": "",
+      "window": 2
+    },
+    "_meta": {
+      "title": "RiverField LTX Planner"
+    }
+  },
+  "rn3": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 424242
+    },
+    "_meta": {
+      "title": "Seed 3"
+    }
+  },
+  "c4_220": {
+    "class_type": "LTXDirectorCS25",
+    "inputs": {
+      "model": [
+        "100",
+        0
+      ],
+      "clip": [
+        "226",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "start_second": 0,
+      "end_second": 0,
+      "duration_seconds": [
+        "rfplan4",
+        4
+      ],
+      "start_frame": [
+        "rfplan4",
+        6
+      ],
+      "end_frame": [
+        "rfplan4",
+        7
+      ],
+      "duration_frames": [
+        "rfplan4",
+        3
+      ],
+      "timeline_data": [
+        "rfplan4",
+        0
+      ],
+      "local_prompts": "",
+      "segment_lengths": "",
+      "epsilon": 0.001,
+      "guide_strength": "1.00,1.00",
+      "use_custom_audio": true,
+      "use_custom_motion": true,
+      "inpaint_audio": true,
+      "frame_rate": [
+        "rfplan4",
+        5
+      ],
+      "display_mode": "seconds",
+      "custom_width": [
+        "rfres",
+        0
+      ],
+      "custom_height": [
+        "rfres",
+        1
+      ],
+      "resize_method": "stretch to fit",
+      "divisible_by": 32,
+      "img_compression": 18,
+      "override_audio": false,
+      "reference_strength": 1,
+      "global_prompt": [
+        "rfplan4",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director CS (2.5)"
+    }
+  },
+  "c4_5": {
+    "class_type": "LTXVConditioning",
+    "inputs": {
+      "positive": [
+        "c4_220",
+        1
+      ],
+      "negative": [
+        "c4_228",
+        0
+      ],
+      "frame_rate": [
+        "c4_220",
+        7
+      ]
+    },
+    "_meta": {
+      "title": "LTXVConditioning"
+    }
+  },
+  "c4_228": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "c4_220",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Conditioning Zero Out"
+    }
+  },
+  "c4_206": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c4_5",
+        0
+      ],
+      "negative": [
+        "c4_5",
+        1
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c4_220",
+        3
+      ],
+      "guide_data": [
+        "c4_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c4_220",
+        6
+      ],
+      "model": [
+        "c4_220",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 0.5,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan4",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c4_9": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c4_206",
+        3
+      ],
+      "positive": [
+        "c4_206",
+        0
+      ],
+      "negative": [
+        "c4_206",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c4_7": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c4_206",
+        2
+      ],
+      "audio_latent": [
+        "c4_220",
+        4
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c4_10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn4",
+        0
+      ],
+      "guider": [
+        "c4_9",
+        0
+      ],
+      "sampler": [
+        "29",
+        0
+      ],
+      "sigmas": [
+        "232",
+        0
+      ],
+      "latent_image": [
+        "c4_7",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c4_13": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c4_10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c4_208": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c4_206",
+        0
+      ],
+      "negative": [
+        "c4_206",
+        1
+      ],
+      "latent": [
+        "c4_13",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c4_52": {
+    "class_type": "LTXVLatentUpsampler",
+    "inputs": {
+      "samples": [
+        "c4_208",
+        2
+      ],
+      "upscale_model": [
+        "57",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXVLatentUpsampler"
+    }
+  },
+  "c4_205": {
+    "class_type": "LTXDirectorGuideCS25",
+    "inputs": {
+      "positive": [
+        "c4_220",
+        1
+      ],
+      "negative": [
+        "c4_220",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "c4_52",
+        0
+      ],
+      "guide_data": [
+        "c4_220",
+        5
+      ],
+      "motion_guide_data": [
+        "c4_220",
+        6
+      ],
+      "model": [
+        "100",
+        0
+      ],
+      "ic_lora_name": "None",
+      "ic_lora_strength": 1,
+      "scale_by": 1,
+      "upscale_method": "bicubic",
+      "image_attention_strength": 1,
+      "crop": "center",
+      "auto_snap_ic_grid": true,
+      "use_tiled_encode": false,
+      "tile_size": 256,
+      "tile_overlap": 64,
+      "retake_mode": false,
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan4",
+        8
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Guide CS (2.5)"
+    }
+  },
+  "c4_49": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "c4_205",
+        3
+      ],
+      "positive": [
+        "c4_205",
+        0
+      ],
+      "negative": [
+        "c4_205",
+        1
+      ],
+      "cfg": 1
+    },
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "c4_50": {
+    "class_type": "LTXVConcatAVLatent",
+    "inputs": {
+      "video_latent": [
+        "c4_205",
+        2
+      ],
+      "audio_latent": [
+        "c4_13",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Concat AV Latent"
+    }
+  },
+  "c4_47": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "rn4",
+        0
+      ],
+      "guider": [
+        "c4_49",
+        0
+      ],
+      "sampler": [
+        "53",
+        0
+      ],
+      "sigmas": [
+        "104",
+        0
+      ],
+      "latent_image": [
+        "c4_50",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "c4_48": {
+    "class_type": "LTXVSeparateAVLatent",
+    "inputs": {
+      "av_latent": [
+        "c4_47",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Separate AV Latent"
+    }
+  },
+  "c4_207": {
+    "class_type": "LTXDirectorCropGuidesCS25",
+    "inputs": {
+      "positive": [
+        "c4_205",
+        0
+      ],
+      "negative": [
+        "c4_205",
+        1
+      ],
+      "latent": [
+        "c4_48",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX Director Crop Guides CS (2.5)"
+    }
+  },
+  "c4_15": {
+    "class_type": "VAEDecodeTiled",
+    "inputs": {
+      "samples": [
+        "c4_207",
+        2
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 16
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "c4_16": {
+    "class_type": "LTXVAudioVAEDecode",
+    "inputs": {
+      "samples": [
+        "c4_13",
+        1
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTXV Audio VAE Decode"
+    }
+  },
+  "rfplan4": {
+    "class_type": "RiverFieldLTXPlanner",
+    "inputs": {
+      "segment_windows": "",
+      "global_prompt": "",
+      "duration": 5.0,
+      "fps": 25.0,
+      "reference_sheet": "",
+      "reference_lora": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+      "image1": "",
+      "image2": "",
+      "image3": "",
+      "image4": "",
+      "video1": "",
+      "video2": "",
+      "video3": "",
+      "audio1": "",
+      "audio2": "",
+      "audio3": "",
+      "window": 3
+    },
+    "_meta": {
+      "title": "RiverField LTX Planner"
+    }
+  },
+  "rn4": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 424242
+    },
+    "_meta": {
+      "title": "Seed 4"
+    }
+  },
+  "ib1": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "c1_15",
+        0
+      ],
+      "image2": [
+        "c2_15",
+        0
+      ]
+    }
+  },
+  "ib2": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "ib1",
+        0
+      ],
+      "image2": [
+        "c3_15",
+        0
+      ]
+    }
+  },
+  "ib3": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "ib2",
+        0
+      ],
+      "image2": [
+        "c4_15",
+        0
+      ]
+    }
+  },
+  "au1": {
+    "class_type": "AudioConcat",
+    "inputs": {
+      "audio1": [
+        "c1_16",
+        0
+      ],
+      "audio2": [
+        "c2_16",
+        0
+      ],
+      "direction": "after"
+    }
+  },
+  "au2": {
+    "class_type": "AudioConcat",
+    "inputs": {
+      "audio1": [
+        "c3_16",
+        0
+      ],
+      "audio2": [
+        "c4_16",
+        0
+      ],
+      "direction": "after"
+    }
+  },
+  "au3": {
+    "class_type": "AudioConcat",
+    "inputs": {
+      "audio1": [
+        "au1",
+        0
+      ],
+      "audio2": [
+        "au2",
+        0
+      ],
+      "direction": "after"
+    }
+  },
+  "cv": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "ib3",
+        0
+      ],
+      "audio": [
+        "au3",
+        0
+      ],
+      "fps": [
+        "rfplan1",
+        5
+      ],
+      "bit_depth": 8
+    }
+  },
+  "sv": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "cv",
+        0
+      ],
+      "filename_prefix": "riverfield/ltx-director-4seg",
+      "format": "auto",
+      "format.codec": "auto"
+    }
+  }
+}
