@@ -657,7 +657,13 @@ export function directorView(app, f, { onSubmit, onDirty }) {
           } }, icon("plus"), "Segment"),
           el("button", { type: "button", class: "btn small ghost", disabled: st.windows.length <= 1 ? "true" : undefined, onclick: () => {
             if (st.windows.length <= 1) return;
-            st.windows.splice(selected, 1);
+            const [removed] = st.windows.splice(selected, 1);
+            const gap = Math.max(0, removed.end - removed.start);
+            for (let i = selected; i < st.windows.length; i++) {
+              const w = st.windows[i];
+              w.start = Math.max(0, w.start - gap);
+              w.end = Math.max(w.start + MIN_LEN, w.end - gap);
+            }
             selected = Math.max(0, selected - 1);
             if (st.windows[0]) st.windows[0].start = 0;
             changed();
@@ -777,8 +783,15 @@ function parseState(f) {
 }
 
 function stateFor(app, f) {
-  if (!stateCache.has(app.id)) stateCache.set(app.id, parseState(f));
-  return stateCache.get(app.id);
+  // The state is derived from values.segment_windows; keying only by app.id kept the
+  // old timeline after Load this example (or any external value change). Compare the
+  // raw string and re-parse when it moved.
+  const raw = typeof f.values.segment_windows === "string" ? f.values.segment_windows : "";
+  const hit = stateCache.get(app.id);
+  if (hit && hit.raw === raw) return hit.state;
+  const state = parseState(f);
+  stateCache.set(app.id, { raw, state });
+  return state;
 }
 
 function persistState(app, f, st) {
