@@ -49,8 +49,8 @@ npm run app -- video --file image=photo.jpg --set duration=5
 3. **Noeuds custom ajoutés** à `ComfyUI/custom_nodes` :
    - `ComfyUI-LTXVideo` @ 44c8a36 (Lightricks) — apps vidéo LTX/VFX
    - `ComfyUI-CrossViewWarp` @ fbb1e93 — app `reshoot`
-   - `LTX-2.5-Director` @ 17aa8bc3 (CGlide, build 2.5 du LTX Director de WhatDreamsCost) —
-     apps `ltx-director` et `ltx-director-ref`
+   - `LTX-2.5-Director` @ 17aa8bc3 (CGlide, build 2.5 du LTX Director de WhatDreamsCost),
+     patché par `local/patch-ltx-director-iclora.py` — app `ltx-director`
    - `riverfield-ltx-planner` (copie de `local/custom_nodes/`) — construit `timeline_data`,
      `local_prompts` et `segment_lengths` pour le Director LTX
    - `riverfield-h3-planner` (copie de `local/custom_nodes/`) — document `timeline_data` H3
@@ -592,7 +592,7 @@ Vérifications faites sans inférence :
 À refaire après réinstallation de ComfyUI : copier
 `local/custom_nodes/riverfield-h3-planner` dans `ComfyUI/custom_nodes/`.
 
-### LTX Director 2.5 (apps `ltx-director` et `ltx-director-ref`)
+### LTX Director 2.5 (app `ltx-director`)
 
 Le Director LTX n'est pas un nœud maison : c'est le pack
 `CGlide/LTX-2.5-Director` (build 2.5 du LTX Director de WhatDreamsCost), cloné dans
@@ -617,20 +617,26 @@ du panneau (frames 24 fps, longueurs H3 `5+17n`) en `timeline_data`, `local_prom
 `segment_lengths` et géométrie `duration_frames` (snap `8n+1`), puis les branche sur
 `LTXDirectorCS25` et `ResolutionSelector`.
 
-**Références** : l'app `ltx-director-ref` câble en dur
-`ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors` dans les deux `LTXDirectorGuideCS25` et
-exige une feuille de références. ComfyUI refuse un lien STRING vers le combo `ic_lora_name`,
-d'où le littéral et l'app séparée (même découpage que `studio-director` /
-`pika-studio-director`). Le planner transforme la feuille en clip fixe
-(`ffmpeg -loop 1`, résolution stage 1) déposé dans `ComfyUI/input`, parce que la piste motion
-du Director ne lit que des fichiers vidéo, et le guide applique le LoRA lui-même.
+**Références** : le combo `ic_lora_name` de `LTXDirectorGuideCS25` refuse un lien STRING
+(« Return type mismatch »), donc une app ne peut pas choisir le LoRA à l'exécution. Le patch
+`local/patch-ltx-director-iclora.py` ajoute au guide une entrée socket optionnelle
+`ic_lora_override` qui gagne sur le combo, sans toucher au menu déroulant côté ComfyUI. Le
+planner y branche `"None"` ou le LoRA choisi : feuille vide = texte pur, feuille fournie =
+Ingredients IC-LoRA.
+
+Le planner transforme la feuille en clip fixe (`ffmpeg -loop 1`, résolution stage 1) déposé
+dans `ComfyUI/input`, parce que la piste motion du Director ne lit que des fichiers vidéo, et
+le guide applique le LoRA lui-même. Le patch est idempotent et laisse une sauvegarde
+`ltx_director_guide.py.orig-riverfield`.
 
 Mesures (gfx1151, `--cache-none`, sans reserve-vram) :
-- `ltx-director` : 2 plans, 5,16 s, 1280x704, 8 steps = **495 s** ;
-- `ltx-director-ref` : 2,28 s, 896x512, 3 steps = **197 s** ;
-- mêmes réglages depuis l'app (planner + runner) : 2,28 s, 896x512, 3 steps = **197 s**.
+- 2 plans, 5,16 s, 1280x704, 8 steps = **495 s** ;
+- feuille de références, 2,28 s, 896x512, 3 steps = **192 s** (via l'app, upload compris) ;
+- texte sans feuille, 1 s, 896x512, 3 steps = **96 s** ; le log du guide dit
+  `ic_lora_name: None`, le LoRA n'est pas chargé.
 
-À refaire après réinstallation de ComfyUI : cloner `LTX-2.5-Director` et copier
+À refaire après réinstallation de ComfyUI : cloner `LTX-2.5-Director`, lancer
+`python local/patch-ltx-director-iclora.py`, puis copier
 `local/custom_nodes/riverfield-ltx-planner` dans `ComfyUI/custom_nodes/`.
 
 ### Studio Director : le panneau Material Planner (interface)

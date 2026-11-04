@@ -72,8 +72,8 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
 | `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
 | `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
-| `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP |
-| `ltx-director-ref` | The same director with a **reference sheet**: the Ingredients IC-LoRA holds characters, props and sets on every frame across the shots | LTX 2.5 22B distilled + Ingredients | 197 s for 2.28 s at 0.4 MP |
+| `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, optional **reference sheet** (Ingredients IC-LoRA held on every frame), 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP; 192 s for 2.28 s with a sheet |
+
 | `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional | MiniMax H3 | 264 s for 2 s, 4 steps |
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
@@ -348,7 +348,7 @@ same workflows as on Modal.
   how long the lab example took on the GPU.
 - **Video** (and the upload-first tools): controls in a left column (*Create video*, *Edit video*, *Motion control*),
   results on the right.
-- **Director** apps (`studio-director`, `pika-studio-director`, `ltx-director`, `ltx-director-ref`) open a **Material Planner** on the right: a media bin
+- **Director** apps (`studio-director`, `pika-studio-director`, `ltx-director`) open a **Material Planner** on the right: a media bin
   with thumbnails and drop targets, a frame-accurate timeline whose GEN windows snap to `5+17n` frames, trimmable
   video/audio clips with edit-style snapping (neighbours, zero, playhead) and a live drop preview, per-segment prompts,
   ordered `<Picture N>` / `<Audio N>` references, a global prompt and the Generate button. The technical column on the
