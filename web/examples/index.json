@@ -4931,41 +4931,43 @@
       "run": "local-20261101"
     },
     "lipsync": {
-      "case": "lipsync-egypt",
+      "case": "riverfield-lipsync-latest",
       "type": "video",
       "card": "examples/lipsync/card.mp4",
       "poster": "examples/lipsync/poster.jpg",
       "full": "examples/lipsync/full.mp4",
       "inputs": [
         {
+          "id": "image",
+          "label": "Your photo",
+          "type": "image",
+          "src": "examples/lipsync/input-image.png",
+          "full": "examples/lipsync/input-image.png"
+        },
+        {
           "id": "audio",
-          "label": "Voice",
+          "label": "Voice track",
           "type": "audio",
           "src": "examples/lipsync/input-audio.flac",
           "full": "examples/lipsync/input-audio.flac"
-        },
-        {
-          "id": "image",
-          "label": "Photo",
-          "type": "image",
-          "src": "examples/lipsync/input-image.jpg",
-          "full": "examples/lipsync/input-image.jpg"
         }
       ],
       "values": {
-        "prompt": "Egyptian royal in blue-and-gold headdress and high collar, white dress with golden embroidery and armbands, desert, robot soldiers in formation left and right. She walks steadily forward, head held level and gaze fixed ahead—no dipping or lowering of the head. The camera performs a single, smooth push-in only: starting in a wider shot of her, the robots, and the desert, it moves steadily forward until she is in a medium or medium-close frame, then holds. She stops, posture and head still upright, and says: “The old gods are silent. I am not.” Robot soldiers shift or march in place; sand and fabric move with the wind. No pull-back; the only camera move is the continuous push-in.",
-        "enhance": true,
         "text_to_video": false,
-        "aspect": "1:1 (Square)",
+        "prompt": "the girl speak to the camera saying with perfect lipsynch: \"hey my name is Margarita i am from Austin Texas\" ",
+        "enhance": false,
+        "negative": "pc game, console game, video game, cartoon, childish, ugly",
+        "aspect": "16:9 (Widescreen)",
         "megapixels": 0.8,
-        "duration": 5,
-        "fps": 24
+        "duration": 3,
+        "fps": 24,
+        "seed": 275750909036834
       },
-      "seed": -1,
-      "seconds": null,
+      "seed": 275750909036834,
+      "seconds": 221.3,
       "peak_vram_gb": null,
-      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
-      "run": "local-20261101"
+      "gpu": "AMD Radeon 8060S (gfx1151)",
+      "run": "20261104-185508548-a9cc"
     },
     "h3-r2v": {
       "case": "riverfield-pika-4seg-04mp",
