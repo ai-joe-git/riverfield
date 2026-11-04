@@ -167,6 +167,10 @@
         "director"
       ],
       "description": "UI layout. director: the app renders a custom editing panel (Studio Director). Default: composer for image/audio with a prompt, sidebar otherwise."
+    },
+    "panel_title": {
+      "type": "string",
+      "description": "Heading of the director panel for this app. Default: Material Planner."
     }
   },
   "$defs": {

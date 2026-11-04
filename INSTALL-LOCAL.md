@@ -49,6 +49,11 @@ npm run app -- video --file image=photo.jpg --set duration=5
 3. **Noeuds custom ajoutés** à `ComfyUI/custom_nodes` :
    - `ComfyUI-LTXVideo` @ 44c8a36 (Lightricks) — apps vidéo LTX/VFX
    - `ComfyUI-CrossViewWarp` @ fbb1e93 — app `reshoot`
+   - `LTX-2.5-Director` @ 17aa8bc3 (CGlide, build 2.5 du LTX Director de WhatDreamsCost) —
+     apps `ltx-director` et `ltx-director-ref`
+   - `riverfield-ltx-planner` (copie de `local/custom_nodes/`) — construit `timeline_data`,
+     `local_prompts` et `segment_lengths` pour le Director LTX
+   - `riverfield-h3-planner` (copie de `local/custom_nodes/`) — document `timeline_data` H3
    - deps installées en `--no-deps` : `colour-science`, `openimageio`, `ninja`
      (torch / transformers / diffusers intacts)
 
@@ -586,6 +591,47 @@ Vérifications faites sans inférence :
 
 À refaire après réinstallation de ComfyUI : copier
 `local/custom_nodes/riverfield-h3-planner` dans `ComfyUI/custom_nodes/`.
+
+### LTX Director 2.5 (apps `ltx-director` et `ltx-director-ref`)
+
+Le Director LTX n'est pas un nœud maison : c'est le pack
+`CGlide/LTX-2.5-Director` (build 2.5 du LTX Director de WhatDreamsCost), cloné dans
+`ComfyUI/custom_nodes/LTX-2.5-Director`. Ses nœuds sont `LTXDirectorCS25`,
+`LTXDirectorGuideCS25` et `LTXDirectorCropGuidesCS25` ; ils portent des noms `CS25` et
+cohabitent donc avec le pack 2.3, contrairement à ce que dit le README du pack.
+
+Le workflow des deux apps vient de `example_workflows/LTX_2_5_Director_CS.json`, converti
+avec `tools/ui2api.py` puis adapté :
+
+- **sans** les patches SageAttention / Triton de l'exemple (`PathchSageAttentionKJ`,
+  `LTX2MemoryEfficientSageAttentionPatch`, `LTX2AttentionTunerPatch`) : mêmes kernels que
+  le SLA H3, ils coincent gfx1151. `LTXVChunkFeedForward` (pur PyTorch) est gardé ;
+- UNet `ltx-2.5-22b-distilled-transformer-comfy-int8-convrot` directement (le LoRA
+  `distilled-lora-450` de l'exemple est inutile avec le vrai distilled, et absent en local) ;
+- VAE `ltx-2.5-video-vae-bf16` (le `conv` n'est pas installé) + `ltx-2.5-audio-vae-bf16` ;
+- stage 1 = sigmas officiels **8 steps** du 2.5, stage 2 = 3 steps après l'upscale latent x2 ;
+- sortie `CreateVideo` + `SaveVideo` (Core), pas VHS/nvenc.
+
+`custom_nodes/riverfield-ltx-planner` (copie de `local/custom_nodes/`) traduit les fenêtres
+du panneau (frames 24 fps, longueurs H3 `5+17n`) en `timeline_data`, `local_prompts`,
+`segment_lengths` et géométrie `duration_frames` (snap `8n+1`), puis les branche sur
+`LTXDirectorCS25` et `ResolutionSelector`.
+
+**Références** : l'app `ltx-director-ref` câble en dur
+`ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors` dans les deux `LTXDirectorGuideCS25` et
+exige une feuille de références. ComfyUI refuse un lien STRING vers le combo `ic_lora_name`,
+d'où le littéral et l'app séparée (même découpage que `studio-director` /
+`pika-studio-director`). Le planner transforme la feuille en clip fixe
+(`ffmpeg -loop 1`, résolution stage 1) déposé dans `ComfyUI/input`, parce que la piste motion
+du Director ne lit que des fichiers vidéo, et le guide applique le LoRA lui-même.
+
+Mesures (gfx1151, `--cache-none`, sans reserve-vram) :
+- `ltx-director` : 2 plans, 5,16 s, 1280x704, 8 steps = **495 s** ;
+- `ltx-director-ref` : 2,28 s, 896x512, 3 steps = **197 s** ;
+- mêmes réglages depuis l'app (planner + runner) : 2,28 s, 896x512, 3 steps = **197 s**.
+
+À refaire après réinstallation de ComfyUI : cloner `LTX-2.5-Director` et copier
+`local/custom_nodes/riverfield-ltx-planner` dans `ComfyUI/custom_nodes/`.
 
 ### Studio Director : le panneau Material Planner (interface)
 

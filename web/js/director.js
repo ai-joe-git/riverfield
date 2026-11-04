@@ -686,10 +686,11 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   }
 
   function drawHead() {
-    const two = el("button", {
+    const hasTwoStage = app.inputs.some((i) => i.id === "two_stage");
+    const two = hasTwoStage ? el("button", {
       type: "button", class: `dir-toggle${f.values.two_stage ? " on" : ""}`,
       onclick: () => { f.values.two_stage = !f.values.two_stage; onDirty?.(); draw(); },
-    }, icon("spark"), "Two-stage");
+    }, icon("spark"), "Two-stage") : null;
     let upscaler = null;
     if (f.values.two_stage) {
       const options = (app.inputs.find((i) => i.id === "upscaler")?.options || []).filter((o) => o.value);
@@ -707,8 +708,8 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const zoomOut = el("button", { type: "button", class: "dir-zoom", title: "Zoom out", onclick: () => { zoom = Math.max(18, zoom - 14); store.set("dir.zoom", zoom); draw(); } }, "−");
     const zoomIn = el("button", { type: "button", class: "dir-zoom", title: "Zoom in", onclick: () => { zoom = Math.min(300, zoom + 14); store.set("dir.zoom", zoom); draw(); } }, "+");
     headEl.replaceChildren(
-      el("div", { class: "dir-brand" }, icon("film"), el("span", {}, "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
-      el("div", { class: "dir-head-right" }, settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)));
+      el("div", { class: "dir-brand" }, icon("film"), el("span", {}, app.panel_title || "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
+      el("div", { class: "dir-head-right" }, ...[settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)].filter(Boolean)));
   }
 
   function drawFoot() {
