@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-h3",
   "status": "ready",
-  "summary": "Pika Flex locked: lcm + its 6-step sigmas, Material Planner segments, ordered references, sound. Two-stage needs Euler and breaks the LoRA: use studio-director.",
+  "summary": "Pika Flex locked: lcm + 6-step sigmas, Material Planner segments, ordered refs, sound. Text encoder selectable (int8 native vs nvfp4 emulated).",
   "higgsfield_feature": "AI Director",
   "source": {
     "template": "RiverField_Director_studio.json (Pika-locked variant)",
@@ -527,6 +527,33 @@
         {
           "node": "30",
           "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors"
+        }
+      ],
+      "help": "int8 runs natively on gfx1151; nvfp4 is emulated here (dequant per layer) and encodes slower.",
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
         }
       ]
     },

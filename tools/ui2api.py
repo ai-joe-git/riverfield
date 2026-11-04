@@ -56,6 +56,74 @@ def _links_of(raw_links: list) -> dict[int, tuple[int, int, int, int]]:
     return out
 
 
+def _resolve_set_get(graph: dict) -> None:
+    """Inline KJNodes' SetNode/GetNode before flattening.
+
+    They are wireless reroutes handled by the frontend: a GetNode reads whatever feeds the
+    SetNode with the same name. They never reach the server, so the API export has to
+    replace every GetNode output with the real upstream link and drop both kinds of node.
+    """
+    nodes = graph.get("nodes") or []
+    setters: dict[str, dict] = {}
+    getters: dict[int, dict] = {}
+    for node in nodes:
+        kind = node.get("type")
+        if kind == "SetNode":
+            name = (node.get("widgets_values") or [None])[0]
+            if name is not None:
+                setters[str(name)] = node
+        elif kind == "GetNode":
+            getters[int(node["id"])] = node
+    if not setters and not getters:
+        return
+
+    raw_links = graph.get("links") or []
+    links = _links_of(raw_links)
+    setter_ids = {int(node["id"]) for node in setters.values()}
+
+    def setter_source(setter: dict, seen: set[int]) -> tuple[int, int] | None:
+        for origin, origin_slot, target, _ in links.values():
+            if target == int(setter["id"]):
+                if origin in getters:
+                    return getter_source(getters[origin], seen)
+                return origin, origin_slot
+        return None
+
+    def getter_source(getter: dict, seen: set[int] | None = None) -> tuple[int, int] | None:
+        seen = seen if seen is not None else set()
+        gid = int(getter["id"])
+        if gid in seen:
+            return None
+        seen.add(gid)
+        setter = setters.get(str((getter.get("widgets_values") or [None])[0]))
+        return setter_source(setter, seen) if setter is not None else None
+
+    kept: list[Any] = []
+    for link in raw_links:
+        if isinstance(link, dict):
+            lid = int(link["id"])
+            origin, origin_slot = int(link["origin_id"]), int(link["origin_slot"])
+            target, target_slot = int(link["target_id"]), int(link["target_slot"])
+            ltype = link.get("type")
+        else:
+            lid, origin, origin_slot, target, target_slot = (int(link[i]) for i in range(5))
+            ltype = link[5] if len(link) > 5 else None
+        if origin in getters:
+            source = getter_source(getters[origin])
+            if source is None:
+                continue
+            origin, origin_slot = source
+        if target in getters or target in setter_ids:
+            continue
+        if isinstance(link, dict):
+            kept.append({**link, "id": lid, "origin_id": origin, "origin_slot": origin_slot,
+                         "target_id": target, "target_slot": target_slot})
+        else:
+            kept.append([lid, origin, origin_slot, target, target_slot, ltype])
+    graph["links"] = kept
+    graph["nodes"] = [node for node in nodes if node.get("type") not in ("SetNode", "GetNode")]
+
+
 def _is_widget(spec: list) -> bool:
     if not spec:
         return False
@@ -263,6 +331,9 @@ class Converter:
 
 
 def convert(workflow: dict, object_info: dict) -> tuple[dict, list[str]]:
+    _resolve_set_get(workflow)
+    for subgraph in (workflow.get("definitions") or {}).get("subgraphs", []):
+        _resolve_set_get(subgraph)
     c = Converter(workflow, object_info)
     api = c.run()
     return api, c.warnings
