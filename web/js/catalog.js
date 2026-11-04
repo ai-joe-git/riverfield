@@ -14,7 +14,7 @@ export async function loadCatalog() {
   const d = await api("/api/apps");
   draftsAllowed = Boolean(d.drafts);
   hosted = Boolean(d.hosted);
-  apps = d.apps.filter((a) => DEV || !a.id.startsWith("smoke"));
+  apps = d.apps.filter((a) => DEV || (!a.id.startsWith("smoke") && a.status !== "draft"));
   byId.clear();
   for (const a of apps) byId.set(a.id, a);
   return apps;

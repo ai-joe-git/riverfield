@@ -26,9 +26,8 @@ const usedBy = (n) => t(n === 1 ? "menu.used1" : "menu.used", { n });
 
 function appItem(app) {
   const model = modelOf(app);
-  const tip = [model?.name, app.higgsfield_feature ? `${t("how.equiv")}: ${app.higgsfield_feature}` : null].filter(Boolean).join(" · ");
   const line = tagline(app);
-  return el("a", { class: "mm-item", href: `#/app/${app.id}`, role: "menuitem", title: tip || null },
+  return el("a", { class: "mm-item", href: `#/app/${app.id}`, role: "menuitem" },
     thumbOf(app),
     el("span", { class: "mm-txt" }, el("b", {}, el("span", { class: "nm" }, app.name), tagOf(app)),
       el("small", {}, line !== app.name ? line : model?.name ?? "")));
