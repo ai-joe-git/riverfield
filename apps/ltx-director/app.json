@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-ltx",
   "status": "ready",
-  "summary": "LTX 2.5 distilled director: several shots in one pass, native audio, 8-step quality (3-step draft), latent x2 upscale. Panel windows drive each shot.",
+  "summary": "LTX 2.5 distilled director: several shots in one pass, native audio, optional reference sheet (Ingredients IC-LoRA), 8-step quality or 3-step draft.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "LTX_2_5_Director_CS.json (CGlide/LTX-2.5-Director) + LTX_Director_2_Workflow_Distilled.json (WhatDreamsCost)",
@@ -68,7 +68,7 @@
       "commit": "17aa8bc3e6dcebb8ebcd7265a04f3750c12ee1d7"
     }
   ],
-  "notes": "Two installs are required on top of this repo: the timeline pack custom_nodes/LTX-2.5-Director (CGlide, the 2.5 build of WhatDreamsCost's LTX Director, nodes LTXDirectorCS25 / LTXDirectorGuideCS25) and custom_nodes/riverfield-ltx-planner (copied from local/custom_nodes/). The pack registers its own CS25 node names, so it can coexist with the 2.3 WhatDreamsCost pack. The panel writes segment_windows; the planner turns them into timeline_data, local_prompts and segment_lengths. Empty per-shot prompts fall back to the global prompt inside the Director. Audio is generated in the same pass as the video (LTXVConcatAVLatent). For reference sheets, use ltx-director-ref: ComfyUI refuses to link a STRING into the guide's ic_lora_name combo, so that app wires the Ingredients LoRA as a literal.",
+  "notes": "Two installs are required on top of this repo: the timeline pack custom_nodes/LTX-2.5-Director (CGlide, the 2.5 build of WhatDreamsCost's LTX Director, nodes LTXDirectorCS25 / LTXDirectorGuideCS25) patched with local/patch-ltx-director-iclora.py, and custom_nodes/riverfield-ltx-planner (copied from local/custom_nodes/). The patch adds an optional STRING socket (ic_lora_override) that wins over the ic_lora_name combo: ComfyUI refuses to link a STRING into a combo, so without it a reference mode needs a second app. The planner wires 'None' or the chosen reference LoRA there. A reference sheet is turned into a still clip held on every frame (the motion track only reads video files) and put on the motion track; the guide node applies the LoRA itself. Empty per-shot prompts fall back to the global prompt inside the Director. Audio is generated in the same pass as the video (LTXVConcatAVLatent).",
   "layout": "director",
   "panel_title": "LTX Director",
   "inputs": [
@@ -99,6 +99,57 @@
         {
           "node": "rfplan",
           "field": "global_prompt"
+        }
+      ]
+    },
+    {
+      "id": "reference_sheet",
+      "type": "image",
+      "label": "Reference sheet (IC-LoRA)",
+      "required": false,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Optional. One image holding the characters, props and sets side by side, described by position in the prompt. Held on every frame through the LTX 2.5 Ingredients IC-LoRA; empty means pure text-to-video.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "reference_sheet"
+        }
+      ]
+    },
+    {
+      "id": "reference_lora",
+      "type": "select",
+      "label": "Reference IC-LoRA",
+      "default": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-22b-ic-lora-ingredients-0.9.safetensors",
+          "label": "LTX 2.5 Ingredients 0.9"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-clean-plate-1.0.safetensors",
+          "label": "LTX 2.5 Clean Plate 1.0"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-day-to-night-0.9.safetensors",
+          "label": "LTX 2.5 Day to Night 0.9"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-sdr-to-hdr-1.0.safetensors",
+          "label": "LTX 2.5 SDR to HDR 1.0"
+        },
+        {
+          "value": "ltx-2.5-22b-ic-lora-water-simulation-0.9.safetensors",
+          "label": "LTX 2.5 Water Simulation 0.9"
+        }
+      ],
+      "help": "Only used when a reference sheet is set. The Ingredients LoRA is the reference-image one.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "reference_lora"
         }
       ]
     },

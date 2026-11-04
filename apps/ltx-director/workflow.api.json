@@ -358,7 +358,11 @@
       "tile_size": 256,
       "tile_overlap": 64,
       "retake_mode": false,
-      "msr_strength": 0
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan",
+        8
+      ]
     },
     "_meta": {
       "title": "LTX Director Guide CS (2.5)"
@@ -406,7 +410,11 @@
       "tile_size": 256,
       "tile_overlap": 64,
       "retake_mode": false,
-      "msr_strength": 0
+      "msr_strength": 0,
+      "ic_lora_override": [
+        "rfplan",
+        8
+      ]
     },
     "_meta": {
       "title": "LTX Director Guide CS (2.5)"
