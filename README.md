@@ -96,7 +96,7 @@ Four things are not an app:
   two director apps: media bin with thumbnails and drop targets, a frame-accurate timeline (draggable GEN windows
   snapped to `5+17n`, trimmable video/audio clips, edit-style snapping), per-segment prompts and ordered
   `<Picture N>` / `<Audio N>` references, and a global prompt. It writes `segment_windows`, a JSON document the
-  `RiverFieldH3Planner` node (`custom_nodes/riverfield-h3-planner`, copied in `local/custom_nodes/`) turns into the
+  `RiverFieldH3Planner` node (the `riverfield-comfy-nodes` pack, source in `comfy-nodes/`) turns into the
   planner's `timeline_data`.
 - **An MCP server** (`mcp/server.ts`) — nine tools (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
   `cancel_job`, `history`, `gpu`, `examples`) over the studio's own API, streamable HTTP on

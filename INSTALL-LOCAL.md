@@ -51,9 +51,8 @@ npm run app -- video --file image=photo.jpg --set duration=5
    - `ComfyUI-CrossViewWarp` @ fbb1e93 — app `reshoot`
    - `LTX-2.5-Director` @ 17aa8bc3 (CGlide, build 2.5 du LTX Director de WhatDreamsCost),
      patché par `local/patch-ltx-director-iclora.py` — app `ltx-director`
-   - `riverfield-ltx-planner` (copie de `local/custom_nodes/`) — construit `timeline_data`,
-     `local_prompts` et `segment_lengths` pour le Director LTX
-   - `riverfield-h3-planner` (copie de `local/custom_nodes/`) — document `timeline_data` H3
+   - `riverfield-comfy-nodes` (source `comfy-nodes/riverfield-comfy-nodes`, aussi publié sur
+     le registry) — planners H3 et LTX, plus le correctif d'attention Gemma 4
    - deps installées en `--no-deps` : `colour-science`, `openimageio`, `ninja`
      (torch / transformers / diffusers intacts)
 
@@ -66,7 +65,7 @@ Tout remettre d'un coup :
     ./local/restore-comfy.sh
     ./stop.sh && ./start.sh
 
-Le script recopie `local/custom_nodes/*` et réapplique les deux patchs (idempotents, avec
+Le script recopie `comfy-nodes/riverfield-comfy-nodes` et réapplique les deux patchs (idempotents, avec
 sauvegarde `.orig-riverfield`). Le patch du proxy, lui, est déjà réappliqué à chaque
 démarrage par `run-backend.sh`.
 
@@ -369,7 +368,7 @@ centaines de Go — d'où la machine qui tombe, alors que le DiT tournait très 
 
 Corrigé en ciblant le problème :
 
-- `custom_nodes/riverfield-gemma4-attn` force `attention_split` **uniquement** sur l'encodeur
+- `custom_nodes/riverfield-comfy-nodes` force `attention_split` **uniquement** sur l'encodeur
   gemma4 (patch de `comfy.text_encoders.gemma4.optimized_attention_for_device`, rien de
   ComfyUI n'est modifié) ;
 - `run-backend.sh` ne passe plus `--use-split-cross-attention` : tout le reste (H3, LTX, FLUX,
@@ -580,7 +579,7 @@ options du nœud SLA, les 3 options du sampler de segments, et les 3 options d'e
 **Le Material Planner est reconstruit côté app.** Le plugin garde tout son état dans le widget
 `timeline_data` (JSON v10 : bin média, prompt global, fenêtres et prompts par segment, two-stage).
 Un widget ne peut pas être rempli par un formulaire, donc
-`custom_nodes/riverfield-h3-planner` (copie dans `local/custom_nodes/`) construit ce document à
+`custom_nodes/riverfield-comfy-nodes` (node `RiverFieldH3Planner`) construit ce document à
 partir des champs de l'app (`json.dumps`, donc guillemets et retours à la ligne sûrs) et le
 branche sur `MiniMaxH3TimelinePlanner.timeline_data`.
 
@@ -602,8 +601,7 @@ Vérifications faites sans inférence :
 - validation statique du graphe : classes, entrées (y compris les combos dynamiques de
   `SaveVideo`), liens et types.
 
-À refaire après réinstallation de ComfyUI : copier
-`local/custom_nodes/riverfield-h3-planner` dans `ComfyUI/custom_nodes/`.
+À refaire après réinstallation de ComfyUI : `./local/restore-comfy.sh`.
 
 ### LTX Director 2.5 (app `ltx-director`)
 
@@ -625,7 +623,7 @@ avec `tools/ui2api.py` puis adapté :
 - stage 1 = sigmas officiels **8 steps** du 2.5, stage 2 = 3 steps après l'upscale latent x2 ;
 - sortie `CreateVideo` + `SaveVideo` (Core), pas VHS/nvenc.
 
-`custom_nodes/riverfield-ltx-planner` (copie de `local/custom_nodes/`) traduit les fenêtres
+`custom_nodes/riverfield-comfy-nodes` (node `RiverFieldLTXPlanner`) traduit les fenêtres
 du panneau (frames 24 fps, longueurs H3 `5+17n`) en `timeline_data`, `local_prompts`,
 `segment_lengths` et géométrie `duration_frames` (snap `8n+1`), puis les branche sur
 `LTXDirectorCS25` et `ResolutionSelector`.
@@ -648,9 +646,8 @@ Mesures (gfx1151, `--cache-none`, sans reserve-vram) :
 - texte sans feuille, 1 s, 896x512, 3 steps = **96 s** ; le log du guide dit
   `ic_lora_name: None`, le LoRA n'est pas chargé.
 
-À refaire après réinstallation de ComfyUI : cloner `LTX-2.5-Director`, lancer
-`python local/patch-ltx-director-iclora.py`, puis copier
-`local/custom_nodes/riverfield-ltx-planner` dans `ComfyUI/custom_nodes/`.
+À refaire après réinstallation de ComfyUI : `./local/restore-comfy.sh` (il clone le pack
+RiverField depuis ce dépôt, pas le registry, et réapplique `local/patch-ltx-director-iclora.py`).
 
 ### Studio Director : le panneau Material Planner (interface)
 
