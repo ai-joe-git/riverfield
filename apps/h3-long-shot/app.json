@@ -98,7 +98,7 @@
       "min": 5,
       "max": 40,
       "step": 1,
-      "default": 10,
+      "default": 40,
       "help": "Snapped to the H3 5+17n frame grid.",
       "bind": [
         {
@@ -148,7 +148,7 @@
       "min": 0.4,
       "max": 1.0,
       "step": 0.01,
-      "default": 0.98,
+      "default": 0.4,
       "bind": [
         {
           "node": "32",
