@@ -326,7 +326,13 @@ export class History {
 
     let waitError: unknown = null;
     try {
-      await waitPatiently(job, 6 * 3600 * 1000, 10 * 60 * 1000, (msg) => console.warn(`[history] ${entry.id}: ${msg}`));
+      // Long productions (32 segments at 0.98 MP) run for 15-20 h; the SDK wait used to give up
+      // after 6 h and the entry was marked lost while ComfyUI kept sampling. 48 h by default,
+      // override with RIVERFIELD_JOB_TIMEOUT_MS.
+      const jobTimeoutMs = Number(process.env.RIVERFIELD_JOB_TIMEOUT_MS) > 0
+        ? Number(process.env.RIVERFIELD_JOB_TIMEOUT_MS)
+        : 48 * 3600 * 1000;
+      await waitPatiently(job, jobTimeoutMs, 10 * 60 * 1000, (msg) => console.warn(`[history] ${entry.id}: ${msg}`));
       this.onContact();
     } catch (e) {
       waitError = e;
