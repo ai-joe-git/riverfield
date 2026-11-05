@@ -35,8 +35,12 @@ export function formFor(app) {
   const values = {};
   for (const inp of app.inputs) {
     if (isMedia(inp.type)) continue;
-    const fallback = inp.type === "textarea" || inp.type === "text" ? "" : inp.type === "seed" ? -1 : inp.multiple ? [...(inp.default ?? [])] : inp.default ?? "";
-    values[inp.id] = validValue(inp, asPicks(inp, saved[inp.id])) ? asPicks(inp, saved[inp.id]) : fallback;
+    const isText = inp.type === "textarea" || inp.type === "text";
+    const prefill = isText && inp.prefill && typeof inp.default === "string" ? inp.default : "";
+    const fallback = isText ? prefill : inp.type === "seed" ? -1 : inp.multiple ? [...(inp.default ?? [])] : inp.default ?? "";
+    const chosen = asPicks(inp, saved[inp.id]);
+    const useSaved = validValue(inp, chosen) && !(inp.prefill && isText && chosen === "");
+    values[inp.id] = useSaved ? chosen : fallback;
   }
   f = { values, files: {}, preset: (app.presets || []).some((p) => p.id === saved.__preset) ? saved.__preset : "", count: 1 };
   forms.set(app.id, f);

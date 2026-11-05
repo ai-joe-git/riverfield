@@ -389,6 +389,10 @@
               }
             }
           }
+        },
+        "prefill": {
+          "type": "boolean",
+          "description": "Text inputs: start with the default written in the field, not as a grey example."
         }
       }
     },

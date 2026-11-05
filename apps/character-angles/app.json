@@ -74,7 +74,8 @@
           "node": "900",
           "field": "prompts"
         }
-      ]
+      ],
+      "prefill": true
     },
     {
       "id": "prepend",
