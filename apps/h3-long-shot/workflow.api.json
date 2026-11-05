@@ -1,0 +1,282 @@
+{
+  "2": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "H3 model (start frame to video + audio)"
+    }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "H3 text encoder"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+    },
+    "_meta": {
+      "title": "H3 video VAE"
+    }
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "H3 audio VAE"
+    }
+  },
+  "7": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "sy-pool-start.png"
+    },
+    "_meta": {
+      "title": "Load start picture"
+    }
+  },
+  "8": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": "A static, locked-off medium close-up, like a phone propped on the pool edge. A 23-year-old woman, an adult, with long wavy light-brown hair, a natural tan and light natural make-up, wears a simple white bikini top. She stands chest-deep in the clear blue water of a sunny villa pool and rests her forearms on the tiled edge. Palm trees and a white wall behind her, bright late-morning sun, soft water reflections. She talks to the camera in a bright, friendly influencer way, smiles often and moves one hand a little while she explains. [ENGLISH] She says, in a light, warm, cheerful voice: \"Good morning from the pool! You asked about my morning routine, so here it is !\" After the last word, she smiles, waves once and says nothing more. Sound: soft pool water and light birdsong under the voice. One continuous shot, no cuts, the camera does not move. No subtitles, no captions, no on-screen text, no watermark."
+    },
+    "_meta": {
+      "title": "Prompt"
+    }
+  },
+  "12": {
+    "class_type": "MiniMaxH3ImageToVideo",
+    "inputs": {
+      "clip": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ],
+      "first_frame": [
+        "7",
+        0
+      ],
+      "prompt": [
+        "8",
+        0
+      ],
+      "width": [
+        "32",
+        0
+      ],
+      "height": [
+        "32",
+        1
+      ],
+      "length": [
+        "34",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Pika H3 I2V (resolution multiple of 32)"
+    }
+  },
+  "13": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 4242
+    },
+    "_meta": {
+      "title": "Seed"
+    }
+  },
+  "14": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "lcm"
+    },
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "16": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "31",
+        0
+      ],
+      "conditioning": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "17": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "13",
+        0
+      ],
+      "guider": [
+        "16",
+        0
+      ],
+      "sampler": [
+        "14",
+        0
+      ],
+      "sigmas": [
+        "28",
+        0
+      ],
+      "latent_image": [
+        "12",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "Make the take"
+    }
+  },
+  "18": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "17",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode picture"
+    }
+  },
+  "19": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "17",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Decode sound"
+    }
+  },
+  "20": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "18",
+        0
+      ],
+      "audio": [
+        "19",
+        0
+      ],
+      "fps": 24,
+      "bit_depth": 8,
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none"
+    },
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "21": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "20",
+        0
+      ],
+      "filename_prefix": "Pika-H3-longshot/take",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto"
+    },
+    "_meta": {
+      "title": "Save the take (native H3 resolution)"
+    }
+  },
+  "28": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+    },
+    "_meta": {
+      "title": "ManualSigmas"
+    }
+  },
+  "31": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "lora_name": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "strength_model": 1
+    },
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "32": {
+    "class_type": "ResolutionSelector",
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 0.98,
+      "multiple": 32
+    },
+    "_meta": {
+      "title": "Resolution Selector"
+    }
+  },
+  "33": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 5
+    },
+    "_meta": {
+      "title": "Float (duration)"
+    }
+  },
+  "34": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "values.a": [
+        "33",
+        0
+      ],
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17"
+    },
+    "_meta": {
+      "title": "Math Expression"
+    }
+  }
+}

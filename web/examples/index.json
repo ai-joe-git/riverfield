@@ -5214,6 +5214,52 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151)",
       "run": "20261104-015456705-2ee2"
+    },
+    "flux2-character-angles": {
+      "case": "flux2-klein-angles",
+      "type": "image",
+      "card": "examples/flux2-character-angles/card.webp",
+      "poster": "examples/flux2-character-angles/poster.jpg",
+      "full": "examples/flux2-character-angles/full.webp",
+      "inputs": [],
+      "values": {
+        "prompts": "Turn the camera to a close-up.\nTurn the camera to a wide-angle lens.\nRotate the camera 45 degrees to the right.\nRotate the camera 90 degrees to the right.\nTurn the camera to an aerial view.\nTurn the camera to a low-angle view.\nRotate the camera 45 degrees to the left.\nRotate the camera 90 degrees to the left.",
+        "megapixels": 1.0,
+        "steps": 4
+      },
+      "seed": 424242,
+      "seconds": null,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151)",
+      "run": "workflow-example"
+    },
+    "h3-long-shot": {
+      "case": "stableyogi-h3-longshot",
+      "type": "image",
+      "card": "examples/h3-long-shot/input-sy-pool.png",
+      "poster": "examples/h3-long-shot/poster.jpg",
+      "full": "examples/h3-long-shot/full.png",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Start frame",
+          "type": "image",
+          "src": "examples/h3-long-shot/input-sy-pool.png",
+          "full": "examples/h3-long-shot/input-sy-pool.png"
+        }
+      ],
+      "values": {
+        "prompt": "A static, locked-off medium close-up, like a phone propped on the pool edge. A 23-year-old woman, an adult, with long wavy light-brown hair, a natural tan and light natural make-up, wears a simple white bikini top. She stands chest-deep in the clear blue water of a sunny villa pool and rests her forearms on the tiled edge. Palm trees and a white wall behind her, bright late-morning sun, soft water reflections. She talks to the camera in a bright, friendly influencer way, smiles often and moves one hand a little while she explains. [ENGLISH] She says, in a light, warm, cheerful voice: \"Good morning from the pool! You asked about my morning routine, so here it is. I wake up at seven and drink a big glass of water. Then a short swim, ten minutes, nothing crazy. It wakes me up better than coffee. After that, sun cream, always, even on cloudy days. People think the glow is a filter. It is not. It is sleep, water and sun cream. Breakfast is simple: fruit, yoghurt and a little honey. Then I plan my day right here by the water. Tell me your routine in the comments. See you tomorrow, bye!\" After the last word, she smiles, waves once and says nothing more. Sound: soft pool water and light birdsong under the voice. One continuous shot, no cuts, the camera does not move. No subtitles, no captions, no on-screen text, no watermark.",
+        "duration": 40,
+        "aspect": "16:9 (Widescreen)",
+        "megapixels": 0.98,
+        "seed": 4242
+      },
+      "seed": 4242,
+      "seconds": null,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151)",
+      "run": "workflow-example"
     }
   },
   "updated_from": "20261026-041209-l40s"
