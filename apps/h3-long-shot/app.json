@@ -1,0 +1,277 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-long-shot",
+  "name": "H3 Long Shot",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "summary": "One picture and one prompt make a single unbroken H3 take, with voice and sound, up to 40 seconds.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "PikaRiver-H3-Long-Shot-FIXED.json (StableYogi H3 Long Shot)",
+    "comfyui": "0.43.0",
+    "notes": "MiniMaxH3ImageToVideo + lcm 6-step sigmas; the length is snapped to 5+17n frames by a ComfyMathExpression from the duration in seconds. The optional SeedVR2 upscale group of the original is not included."
+  },
+  "outputs": [
+    {
+      "node": "21",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.0,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.0,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.4,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "notes": "The duration slider is snapped to an H3-legal 5+17n frame count (5 s = 124, 10 s = 243, 20 s = 481, 30 s = 719, 40 s ~ 974). Speech is about 2.5 words a second, so a 40 s take needs about 100 words. The lcm sampler and its 6-step sigma ladder are part of the recipe.",
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Start frame",
+      "required": true,
+      "limits": {
+        "max_mb": 60
+      },
+      "bind": [
+        {
+          "node": "7",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "A static, locked-off medium close-up, like a phone propped on the pool edge. A 23-year-old woman, an adult, with long wavy light-brown hair, a natural tan and light natural make-up, wears a simple white bikini top. She stands chest-deep in the clear blue water of a sunny villa pool and rests her forearms on the tiled edge. Palm trees and a white wall behind her, bright late-morning sun, soft water reflections. She talks to the camera in a bright, friendly influencer way, smiles often and moves one hand a little while she explains. [ENGLISH] She says, in a light, warm, cheerful voice: \"Good morning from the pool! You asked about my morning routine, so here it is. I wake up at seven and drink a big glass of water. Then a short swim, ten minutes, nothing crazy. It wakes me up better than coffee. After that, sun cream, always, even on cloudy days. People think the glow is a filter. It is not. It is sleep, water and sun cream. Breakfast is simple: fruit, yoghurt and a little honey. Then I plan my day right here by the water. Tell me your routine in the comments. See you tomorrow, bye!\" After the last word, she smiles, waves once and says nothing more. Sound: soft pool water and light birdsong under the voice. One continuous shot, no cuts, the camera does not move. No subtitles, no captions, no on-screen text, no watermark.",
+      "bind": [
+        {
+          "node": "8",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration (s)",
+      "min": 5,
+      "max": 40,
+      "step": 1,
+      "default": 10,
+      "help": "Snapped to the H3 5+17n frame grid.",
+      "bind": [
+        {
+          "node": "33",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1 (Square)"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4 (Portrait Standard)"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16 (Portrait Widescreen)"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9 (Widescreen)"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9 (Ultrawide)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "32",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.0,
+      "step": 0.01,
+      "default": 0.98,
+      "bind": [
+        {
+          "node": "32",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 4242,
+      "bind": [
+        {
+          "node": "13",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "label": "minimax_h3_fl2va_pruned_int8_convrot"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_nvfp4_awq"
+        }
+      ],
+      "bind": [
+        {
+          "node": "3",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "minimax_h3_lynnreal_light_vae_int8_convrot"
+        }
+      ],
+      "bind": [
+        {
+          "node": "4",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "audio_vae_name",
+      "type": "select",
+      "label": "Audio VAE",
+      "default": "minimax_h3_audio_vae_fp32.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_audio_vae_fp32.safetensors",
+          "label": "minimax_h3_audio_vae_fp32"
+        }
+      ],
+      "bind": [
+        {
+          "node": "5",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_name",
+      "type": "select",
+      "label": "Pika Flex LoRA",
+      "default": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "options": [
+        {
+          "value": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+          "label": "pika_h3_flex_fl2va_v1_bf16"
+        }
+      ],
+      "bind": [
+        {
+          "node": "31",
+          "field": "lora_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_strength",
+      "type": "slider",
+      "label": "LoRA strength",
+      "min": 0.0,
+      "max": 2.0,
+      "step": 0.05,
+      "default": 1.0,
+      "bind": [
+        {
+          "node": "31",
+          "field": "strength_model"
+        }
+      ]
+    }
+  ]
+}
