@@ -5302,15 +5302,14 @@
           "id": "image",
           "label": "Character image",
           "type": "image",
-          "src": "examples/character-angles/input-character.png",
-          "full": "examples/character-angles/input-character.png"
+          "src": "examples/character-angles/input-character.jpg",
+          "full": "examples/character-angles/input-character.jpg"
         }
       ],
       "values": {
         "prompt": "Edit <image1>: create a clean 2x4 contact sheet of the same character, with the exact same face, hair, clothing and lighting in every panel, showing eight camera angles: close-up, wide shot, 45 degrees to the right, 90 degrees to the right, aerial view, low angle, 45 degrees to the left, 90 degrees to the left. Neutral studio background, no text, no borders, no captions.",
         "resolution": 1024,
         "steps": 4,
-        "turbo": false,
         "seed": 99,
         "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors"
       },

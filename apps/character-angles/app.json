@@ -5,7 +5,7 @@
   "section": "image",
   "pack": "qwen",
   "status": "ready",
-  "summary": "One character photo, a sheet of camera angles: Qwen Image 2.1 Turbo, four steps, no LoRA.",
+  "summary": "One character photo, a sheet of camera angles: Qwen Image 2.1 Turbo, four steps, no LoRA, no patch.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "qwen21-1024-image-edit-full.gui.json",
@@ -45,7 +45,7 @@
       "license": "Apache-2.0"
     }
   ],
-  "notes": "The default is the 2.1 turbo UNET: it is already distilled, so it needs about four steps and no LoRA; CiruTurboPrediction is off by default (turn it on only with the non-turbo model, which then needs ~30 steps). The prompt refers to the source as <image1>; ask for a 2x4 contact sheet to get eight angles in one image, or describe one camera move for a single angle.",
+  "notes": "Qwen Image 2.1 Turbo only: the distill needs about four steps; QwenImage21Cache and CiruTurboPrediction are not in this graph. The prompt refers to the source as <image1>; ask for a 2x4 contact sheet for eight angles, or describe one camera move for a single angle.",
   "inputs": [
     {
       "id": "image",
@@ -130,42 +130,11 @@
       ]
     },
     {
-      "id": "turbo",
-      "type": "toggle",
-      "label": "Turbo prediction",
-      "default": false,
-      "bind": [
-        {
-          "node": "471",
-          "field": "enabled"
-        }
-      ]
-    },
-    {
-      "id": "full_evaluations",
-      "type": "slider",
-      "label": "Full evaluations",
-      "min": 4,
-      "max": 40,
-      "step": 1,
-      "default": 30,
-      "bind": [
-        {
-          "node": "471",
-          "field": "full_evaluations"
-        }
-      ]
-    },
-    {
       "id": "unet_name",
       "type": "select",
       "label": "Model",
       "default": "qwen_image_2.1_turbo_int8_convrot.safetensors",
       "options": [
-        {
-          "value": "qwen_image_2.1_int8_convrot.safetensors",
-          "label": "qwen_image_2.1_int8"
-        },
         {
           "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
           "label": "qwen_image_2.1_turbo_int8"

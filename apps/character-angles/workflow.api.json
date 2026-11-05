@@ -72,7 +72,7 @@
     "class_type": "KSampler",
     "inputs": {
       "model": [
-        "471",
+        "451",
         0
       ],
       "positive": [
@@ -96,36 +96,6 @@
     },
     "_meta": {
       "title": "KSampler"
-    }
-  },
-  "470": {
-    "class_type": "QwenImage21Cache",
-    "inputs": {
-      "model": [
-        "451",
-        0
-      ],
-      "device": "gpu",
-      "dtype": "default"
-    },
-    "_meta": {
-      "title": "Qwen Image 2.1 Cache"
-    }
-  },
-  "471": {
-    "class_type": "CiruTurboPrediction",
-    "inputs": {
-      "model": [
-        "470",
-        0
-      ],
-      "enabled": true,
-      "full_evaluations": 30,
-      "attention": "auto",
-      "allow_edit_prediction": false
-    },
-    "_meta": {
-      "title": "Ciru AMD Halo Qwen 2.1 Turbo"
     }
   },
   "472": {
