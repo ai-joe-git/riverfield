@@ -5,7 +5,7 @@
   "section": "image",
   "pack": "qwen",
   "status": "ready",
-  "summary": "One character photo, a sheet of camera angles: Qwen Image 2.1 edit with the turbo prediction patch.",
+  "summary": "One character photo, a sheet of camera angles: Qwen Image 2.1 Turbo, four steps, no LoRA.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "qwen21-1024-image-edit-full.gui.json",
@@ -45,7 +45,7 @@
       "license": "Apache-2.0"
     }
   ],
-  "notes": "The prompt must refer to the source as <image1>. Ask for a 2x4 contact sheet to get the eight angles in one image, or describe a single camera move to get one angle. CiruTurboPrediction is on by default; turn it off (and raise steps) for the slow, full-quality pass. The 2.1 turbo UNET is installed too and can be selected, but it is already distilled.",
+  "notes": "The default is the 2.1 turbo UNET: it is already distilled, so it needs about four steps and no LoRA; CiruTurboPrediction is off by default (turn it on only with the non-turbo model, which then needs ~30 steps). The prompt refers to the source as <image1>; ask for a 2x4 contact sheet to get eight angles in one image, or describe one camera move for a single angle.",
   "inputs": [
     {
       "id": "image",
@@ -106,10 +106,10 @@
       "id": "steps",
       "type": "slider",
       "label": "Steps",
-      "min": 4,
-      "max": 40,
+      "min": 1,
+      "max": 20,
       "step": 1,
-      "default": 30,
+      "default": 4,
       "bind": [
         {
           "node": "458",
@@ -133,7 +133,7 @@
       "id": "turbo",
       "type": "toggle",
       "label": "Turbo prediction",
-      "default": true,
+      "default": false,
       "bind": [
         {
           "node": "471",
@@ -160,7 +160,7 @@
       "id": "unet_name",
       "type": "select",
       "label": "Model",
-      "default": "qwen_image_2.1_int8_convrot.safetensors",
+      "default": "qwen_image_2.1_turbo_int8_convrot.safetensors",
       "options": [
         {
           "value": "qwen_image_2.1_int8_convrot.safetensors",
