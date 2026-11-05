@@ -5,7 +5,7 @@
   "section": "image",
   "pack": "qwen",
   "status": "ready",
-  "summary": "One character photo, a sheet of camera angles: Qwen Image 2.1 Turbo, four steps, no LoRA, no patch.",
+  "summary": "One character photo, eight camera angles: eight separate images, one per line, with Qwen Image 2.1 edit.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "qwen21-1024-image-edit-full.gui.json",
@@ -45,7 +45,7 @@
       "license": "Apache-2.0"
     }
   ],
-  "notes": "Qwen Image 2.1 Turbo only: the distill needs about four steps; QwenImage21Cache and CiruTurboPrediction are not in this graph. The prompt refers to the source as <image1>; ask for a 2x4 contact sheet for eight angles, or describe one camera move for a single angle.",
+  "notes": "SimplePromptBatcher (one prompt per line) drives TextEncodeQwenImage21, so the graph runs once per line and SaveImage writes one image per angle: eight files, not a contact sheet. The graph is the original qwen21-1024-image-edit-full one: QwenImage21Cache + CiruTurboPrediction, base model, 30 steps. The turbo UNET is selectable too (then turn Turbo prediction off and lower the steps).",
   "inputs": [
     {
       "id": "image",
@@ -63,15 +63,40 @@
       ]
     },
     {
-      "id": "prompt",
+      "id": "prompts",
       "type": "textarea",
-      "label": "Edit instruction",
+      "label": "Angle prompts (one per line)",
       "required": true,
-      "default": "Edit <image1>: create a clean 2x4 contact sheet of the same character, with the exact same face, hair, clothing and lighting in every panel, showing eight camera angles: close-up, wide shot, 45 degrees to the right, 90 degrees to the right, aerial view, low angle, 45 degrees to the left, 90 degrees to the left. Neutral studio background, no text, no borders, no captions.",
+      "default": "Turn the camera to a close-up.\nTurn the camera to a wide-angle lens.\nRotate the camera 45 degrees to the right.\nRotate the camera 90 degrees to the right.\nTurn the camera to an aerial view.\nTurn the camera to a low-angle view.\nRotate the camera 45 degrees to the left.\nRotate the camera 90 degrees to the left.",
+      "help": "One camera move per line. SimplePromptBatcher runs the edit once per line and returns one image per angle.",
       "bind": [
         {
-          "node": "452",
-          "field": "prompt"
+          "node": "900",
+          "field": "prompts"
+        }
+      ]
+    },
+    {
+      "id": "prepend",
+      "type": "text",
+      "label": "Prepend",
+      "default": "",
+      "bind": [
+        {
+          "node": "900",
+          "field": "prepend"
+        }
+      ]
+    },
+    {
+      "id": "append",
+      "type": "text",
+      "label": "Append",
+      "default": "",
+      "bind": [
+        {
+          "node": "900",
+          "field": "append"
         }
       ]
     },
@@ -106,10 +131,10 @@
       "id": "steps",
       "type": "slider",
       "label": "Steps",
-      "min": 1,
-      "max": 20,
+      "min": 4,
+      "max": 40,
       "step": 1,
-      "default": 4,
+      "default": 30,
       "bind": [
         {
           "node": "458",
@@ -133,8 +158,12 @@
       "id": "unet_name",
       "type": "select",
       "label": "Model",
-      "default": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "default": "qwen_image_2.1_int8_convrot.safetensors",
       "options": [
+        {
+          "value": "qwen_image_2.1_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_int8"
+        },
         {
           "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
           "label": "qwen_image_2.1_turbo_int8"
@@ -180,6 +209,19 @@
         {
           "node": "454",
           "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "turbo",
+      "type": "toggle",
+      "label": "Turbo prediction",
+      "default": true,
+      "help": "CiruTurboPrediction, as in the original workflow. Off for a full-quality pass with more steps.",
+      "bind": [
+        {
+          "node": "471",
+          "field": "enabled"
         }
       ]
     }
