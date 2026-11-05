@@ -5260,6 +5260,54 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151)",
       "run": "workflow-example"
+    },
+    "upscale-fast": {
+      "type": "image",
+      "card": "examples/upscale-fast/card.jpg",
+      "poster": "examples/upscale-fast/poster.jpg",
+      "full": "examples/upscale-fast/full.jpg",
+      "seconds": 50.8,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151)",
+      "run": "20261105-165816055-8cf5",
+      "case": "riverfield-upscale-4xlsdir",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Image",
+          "type": "image",
+          "src": "examples/upscale-fast/input.png",
+          "full": "examples/upscale-fast/input.png"
+        }
+      ],
+      "values": {
+        "upscale_model": "4xLSDIR.pth",
+        "scale_by": 1.0
+      },
+      "seed": null
+    },
+    "upscale-fast-video": {
+      "type": "image",
+      "card": "examples/upscale-fast/card.jpg",
+      "poster": "examples/upscale-fast/poster.jpg",
+      "full": "examples/upscale-fast/full.jpg",
+      "seconds": 50.8,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151)",
+      "run": "20261105-165816055-8cf5",
+      "case": "riverfield-upscale-video-4xlsdir",
+      "inputs": [],
+      "values": {
+        "upscale_model": "4xLSDIR.pth",
+        "scale_by": 1.0,
+        "chunk_seconds": 20,
+        "crf": 18,
+        "encoder_preset": "veryfast",
+        "keep_audio": true,
+        "keep_chunks": false,
+        "tile": 512
+      },
+      "seed": null
     }
   },
   "updated_from": "20261026-041209-l40s"
