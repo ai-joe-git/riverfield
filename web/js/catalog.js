@@ -104,6 +104,8 @@ const DIRECTOR_APPS = new Set(["studio-director", "pika-studio-director"]);
 
 export function layoutOf(app) {
   if (app.layout === "director" || DIRECTOR_APPS.has(app.id)) return "director";   // the Material Planner panel owns the page
+  if (app.layout === "sidebar") return "sidebar";   // explicit: controls in the left column
+  if (app.layout === "composer") return "composer";
   if (app.inputs.some((i) => i.paint)) return "sidebar";   // painting a mask needs the photo in a dropzone
   const hasText = app.inputs.some((i) => i.type === "textarea");
   return (app.section === "image" || app.section === "audio") && hasText ? "composer" : "sidebar";
