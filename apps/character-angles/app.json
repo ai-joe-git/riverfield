@@ -1,0 +1,218 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "character-angles",
+  "name": "Character Angles",
+  "section": "image",
+  "pack": "qwen",
+  "status": "ready",
+  "summary": "One character photo, a sheet of camera angles: Qwen Image 2.1 edit with the turbo prediction patch.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "qwen21-1024-image-edit-full.gui.json",
+    "comfyui": "0.43.0",
+    "notes": "QwenImage21Cache + CiruTurboPrediction patch the base model; TextEncodeQwenImage21 encodes the source image and the edit instruction (refer to it as <image1>) and returns positive, negative and the latent in one node."
+  },
+  "outputs": [
+    {
+      "node": "472",
+      "type": "image",
+      "label": "Image"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/Qwen-Image",
+      "file": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.0,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/Qwen-Image",
+      "file": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 8.0,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/Qwen-Image",
+      "file": "vae/qwen_image_2.1_vae_bf16.safetensors",
+      "dir": "vae",
+      "gb": 0.3,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    }
+  ],
+  "notes": "The prompt must refer to the source as <image1>. Ask for a 2x4 contact sheet to get the eight angles in one image, or describe a single camera move to get one angle. CiruTurboPrediction is on by default; turn it off (and raise steps) for the slow, full-quality pass. The 2.1 turbo UNET is installed too and can be selected, but it is already distilled.",
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Character image",
+      "required": true,
+      "limits": {
+        "max_mb": 60
+      },
+      "bind": [
+        {
+          "node": "473",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Edit instruction",
+      "required": true,
+      "default": "Edit <image1>: create a clean 2x4 contact sheet of the same character, with the exact same face, hair, clothing and lighting in every panel, showing eight camera angles: close-up, wide shot, 45 degrees to the right, 90 degrees to the right, aerial view, low angle, 45 degrees to the left, 90 degrees to the left. Neutral studio background, no text, no borders, no captions.",
+      "bind": [
+        {
+          "node": "452",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "negative_prompt",
+      "type": "text",
+      "label": "Negative prompt",
+      "default": "",
+      "bind": [
+        {
+          "node": "452",
+          "field": "negative_prompt"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution",
+      "min": 512,
+      "max": 1536,
+      "step": 64,
+      "default": 1024,
+      "bind": [
+        {
+          "node": "452",
+          "field": "resolution"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 4,
+      "max": 40,
+      "step": 1,
+      "default": 30,
+      "bind": [
+        {
+          "node": "458",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 99,
+      "bind": [
+        {
+          "node": "458",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "turbo",
+      "type": "toggle",
+      "label": "Turbo prediction",
+      "default": true,
+      "bind": [
+        {
+          "node": "471",
+          "field": "enabled"
+        }
+      ]
+    },
+    {
+      "id": "full_evaluations",
+      "type": "slider",
+      "label": "Full evaluations",
+      "min": 4,
+      "max": 40,
+      "step": 1,
+      "default": 30,
+      "bind": [
+        {
+          "node": "471",
+          "field": "full_evaluations"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Model",
+      "default": "qwen_image_2.1_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen_image_2.1_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_int8"
+        },
+        {
+          "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_turbo_int8"
+        }
+      ],
+      "bind": [
+        {
+          "node": "451",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_8b_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_8b_int8_convrot.safetensors",
+          "label": "qwen3vl_8b_int8"
+        }
+      ],
+      "bind": [
+        {
+          "node": "453",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "VAE",
+      "default": "qwen_image_2.1_vae_bf16.safetensors",
+      "options": [
+        {
+          "value": "qwen_image_2.1_vae_bf16.safetensors",
+          "label": "qwen_image_2.1_vae_bf16"
+        }
+      ],
+      "bind": [
+        {
+          "node": "454",
+          "field": "vae_name"
+        }
+      ]
+    }
+  ]
+}
