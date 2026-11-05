@@ -5215,24 +5215,6 @@
       "gpu": "AMD Radeon 8060S (gfx1151)",
       "run": "20261104-015456705-2ee2"
     },
-    "flux2-character-angles": {
-      "case": "flux2-klein-angles",
-      "type": "image",
-      "card": "examples/flux2-character-angles/card.webp",
-      "poster": "examples/flux2-character-angles/poster.jpg",
-      "full": "examples/flux2-character-angles/full.webp",
-      "inputs": [],
-      "values": {
-        "prompts": "Turn the camera to a close-up.\nTurn the camera to a wide-angle lens.\nRotate the camera 45 degrees to the right.\nRotate the camera 90 degrees to the right.\nTurn the camera to an aerial view.\nTurn the camera to a low-angle view.\nRotate the camera 45 degrees to the left.\nRotate the camera 90 degrees to the left.",
-        "megapixels": 1.0,
-        "steps": 4
-      },
-      "seed": 424242,
-      "seconds": null,
-      "peak_vram_gb": null,
-      "gpu": "AMD Radeon 8060S (gfx1151)",
-      "run": "workflow-example"
-    },
     "h3-long-shot": {
       "case": "stableyogi-h3-longshot",
       "type": "image",
@@ -5308,6 +5290,33 @@
         "tile": 512
       },
       "seed": null
+    },
+    "character-angles": {
+      "case": "qwen21-character-angles",
+      "type": "image",
+      "card": "examples/character-angles/card.webp",
+      "poster": "examples/character-angles/poster.jpg",
+      "full": "examples/character-angles/full.webp",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Character image",
+          "type": "image",
+          "src": "examples/character-angles/input-character.png",
+          "full": "examples/character-angles/input-character.png"
+        }
+      ],
+      "values": {
+        "prompt": "Edit <image1>: create a clean 2x4 contact sheet of the same character, with the exact same face, hair, clothing and lighting in every panel, showing eight camera angles: close-up, wide shot, 45 degrees to the right, 90 degrees to the right, aerial view, low angle, 45 degrees to the left, 90 degrees to the left. Neutral studio background, no text, no borders, no captions.",
+        "resolution": 1024,
+        "steps": 30,
+        "seed": 99
+      },
+      "seed": 99,
+      "seconds": null,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151)",
+      "run": "workflow-example"
     }
   },
   "updated_from": "20261026-041209-l40s"

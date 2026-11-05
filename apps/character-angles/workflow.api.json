@@ -1,0 +1,153 @@
+{
+  "451": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "452": {
+    "class_type": "TextEncodeQwenImage21",
+    "inputs": {
+      "clip": [
+        "453",
+        0
+      ],
+      "images.image_1": [
+        "473",
+        0
+      ],
+      "vae": [
+        "454",
+        0
+      ],
+      "prompt": "Edit <image1>: change the background to a richly detailed moonlit fantasy garden. Keep the original subject, pose, clothing, facial features, and overall composition.",
+      "negative_prompt": "",
+      "resolution": 1024
+    },
+    "_meta": {
+      "title": "Text Encode Qwen Image 2.1"
+    }
+  },
+  "453": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "454": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "457": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "458",
+        0
+      ],
+      "vae": [
+        "454",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "458": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "471",
+        0
+      ],
+      "positive": [
+        "452",
+        0
+      ],
+      "negative": [
+        "452",
+        1
+      ],
+      "latent_image": [
+        "452",
+        2
+      ],
+      "seed": 99,
+      "steps": 30,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "470": {
+    "class_type": "QwenImage21Cache",
+    "inputs": {
+      "model": [
+        "451",
+        0
+      ],
+      "device": "gpu",
+      "dtype": "default"
+    },
+    "_meta": {
+      "title": "Qwen Image 2.1 Cache"
+    }
+  },
+  "471": {
+    "class_type": "CiruTurboPrediction",
+    "inputs": {
+      "model": [
+        "470",
+        0
+      ],
+      "enabled": true,
+      "full_evaluations": 30,
+      "attention": "auto",
+      "allow_edit_prediction": false
+    },
+    "_meta": {
+      "title": "Ciru AMD Halo Qwen 2.1 Turbo"
+    }
+  },
+  "472": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "457",
+        0
+      ],
+      "filename_prefix": "riverfield/character-angles"
+    },
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "473": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "elephant-1024-full.png"
+    },
+    "_meta": {
+      "title": "Load Image"
+    }
+  }
+}
