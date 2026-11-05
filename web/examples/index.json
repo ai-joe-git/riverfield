@@ -5307,11 +5307,12 @@
         }
       ],
       "values": {
-        "prompt": "Edit <image1>: create a clean 2x4 contact sheet of the same character, with the exact same face, hair, clothing and lighting in every panel, showing eight camera angles: close-up, wide shot, 45 degrees to the right, 90 degrees to the right, aerial view, low angle, 45 degrees to the left, 90 degrees to the left. Neutral studio background, no text, no borders, no captions.",
+        "prompts": "Turn the camera to a close-up.\nTurn the camera to a wide-angle lens.\nRotate the camera 45 degrees to the right.\nRotate the camera 90 degrees to the right.\nTurn the camera to an aerial view.\nTurn the camera to a low-angle view.\nRotate the camera 45 degrees to the left.\nRotate the camera 90 degrees to the left.",
         "resolution": 1024,
-        "steps": 4,
+        "steps": 30,
+        "turbo": true,
         "seed": 99,
-        "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors"
+        "unet_name": "qwen_image_2.1_int8_convrot.safetensors"
       },
       "seed": 99,
       "seconds": null,

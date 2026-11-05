@@ -24,7 +24,10 @@
         "454",
         0
       ],
-      "prompt": "Edit <image1>: change the background to a richly detailed moonlit fantasy garden. Keep the original subject, pose, clothing, facial features, and overall composition.",
+      "prompt": [
+        "900",
+        0
+      ],
       "negative_prompt": "",
       "resolution": 1024
     },
@@ -72,7 +75,7 @@
     "class_type": "KSampler",
     "inputs": {
       "model": [
-        "451",
+        "471",
         0
       ],
       "positive": [
@@ -98,6 +101,36 @@
       "title": "KSampler"
     }
   },
+  "470": {
+    "class_type": "QwenImage21Cache",
+    "inputs": {
+      "model": [
+        "451",
+        0
+      ],
+      "device": "gpu",
+      "dtype": "default"
+    },
+    "_meta": {
+      "title": "Qwen Image 2.1 Cache"
+    }
+  },
+  "471": {
+    "class_type": "CiruTurboPrediction",
+    "inputs": {
+      "model": [
+        "470",
+        0
+      ],
+      "enabled": true,
+      "full_evaluations": 30,
+      "attention": "auto",
+      "allow_edit_prediction": false
+    },
+    "_meta": {
+      "title": "Ciru AMD Halo Qwen 2.1 Turbo"
+    }
+  },
   "472": {
     "class_type": "SaveImage",
     "inputs": {
@@ -118,6 +151,17 @@
     },
     "_meta": {
       "title": "Load Image"
+    }
+  },
+  "900": {
+    "class_type": "SimplePromptBatcher",
+    "inputs": {
+      "prepend": "",
+      "prompts": "Turn the camera to a close-up.\nTurn the camera to a wide-angle lens.\nRotate the camera 45 degrees to the right.\nRotate the camera 90 degrees to the right.\nTurn the camera to an aerial view.\nTurn the camera to a low-angle view.\nRotate the camera 45 degrees to the left.\nRotate the camera 90 degrees to the left.",
+      "append": ""
+    },
+    "_meta": {
+      "title": "Angle prompts"
     }
   }
 }
