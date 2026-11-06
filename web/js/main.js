@@ -1,5 +1,6 @@
 // Boot and routing. Each route builds a view ({ node, dispose, active }) into <main>.
 //   #/                 Explore         #/apps      the app store       #/app/<id>  an app's workspace
+//   #/app/<id>/<tab>   the same workspace on one tab: history (default), library, how, director
 //   #/image #/video #/audio #/3d       the studios (open the last app used there)
 //   #/library          history and lab examples                       #/vram      the VRAM map
 import { el, closePopover, toast, api } from "./util.js";
@@ -7,7 +8,7 @@ import { t } from "./i18n.js";
 import { loadCatalog, byId, lastAppFor, studioOf, FEATURED, hosted } from "./catalog.js";
 import { topbar, gpuState, pollGpu } from "./nav.js";
 import { exploreView, appsView, libraryView, vramView } from "./views.js";
-import { workspaceView, recreate, useIn } from "./workspace.js";
+import { workspaceView, recreate, useIn, setTab } from "./workspace.js";
 import { hooks, feed } from "./feed.js";
 import { openViewer } from "./viewer.js";
 import { openCompare } from "./compare.js";
@@ -19,8 +20,9 @@ let current = null;
 
 function route() {
   const hash = location.hash || "#/";
-  const m = /^#\/app\/([\w-]+)/.exec(hash);
+  const m = /^#\/app\/([\w-]+)(?:\/(history|library|how|director))?/.exec(hash);
   if (m) {
+    if (m[2]) setTab(m[2]);   // deep link straight to one tab of the workspace
     const view = workspaceView(m[1]);
     const app = view.app;
     const featured = app && FEATURED.some((f) => f.id === app.id);

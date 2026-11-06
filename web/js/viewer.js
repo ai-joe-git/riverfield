@@ -3,7 +3,7 @@
 import { el, icon, fmtSeconds, toast } from "./util.js";
 import { t, ago } from "./i18n.js";
 import { byId, promptInput } from "./catalog.js";
-import { fullMedia, thumb, downloadName } from "./media.js";
+import { fullMedia, thumb, downloadName, inputTile } from "./media.js";
 import { hooks, feed, deleteButton } from "./feed.js";
 import { flags, flagButton } from "./flags.js";
 
@@ -73,9 +73,7 @@ export function openViewer(items, startKey) {
           el("dd", {}, labels[k].type === "select" ? optionLabel(labels[k], v) : labels[k].type === "toggle" ? (v === true || v === "true" ? "✓" : "—") : String(v))]))) : null,
       item.inputs.length ? el("div", { style: { display: "grid", gap: "8px" } }, el("small", { class: "dim" }, t("view.inputs")),
         el("div", { class: "ins-row" }, ...item.inputs.map((x) => el("figure", {},
-          el("a", { class: "media", href: x.file, target: "_blank", rel: "noopener", title: x.label },
-            x.thumb ? el("img", { src: x.thumb, alt: x.label }) : el("span", { class: "typeicon", style: { position: "static", margin: "33px auto" } }, icon(x.type || "image"))),
-          el("figcaption", {}, x.label))))) : null,
+          inputTile(x, { href: x.file }), el("figcaption", {}, x.label))))) : null,
       el("div", { class: "acts" },
         app ? el("button", { class: "btn lime", type: "button", onclick: () => { close(); hooks.recreate?.(item); } }, icon("redo"), t("act.recreate")) : null,
         url ? el("a", { class: "btn ghost", href: url, download: downloadName(item, url) }, icon("download"), t("act.download")) : null,

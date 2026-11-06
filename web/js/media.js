@@ -1,6 +1,6 @@
 // One shape for everything the UI shows as a result, whether it came from the lab (an example)
 // or from a run started here (a history entry), plus the elements that display them.
-import { el, icon, extOf } from "./util.js";
+import { el, icon, extOf, isImageSrc } from "./util.js";
 import { modelViewer } from "./model3d.js";
 import { byId } from "./catalog.js";
 import { flagButton } from "./flags.js";
@@ -15,7 +15,8 @@ export function exampleItem(app) {
     outputs: [{ type: ex.type, url: ex.full, poster: ex.poster }],
     inputs: (ex.inputs || []).filter((i) => i.src || i.full).map((i) => ({
       id: i.id, label: labels[i.id]?.label || i.label || i.id, type: i.type || labels[i.id]?.type,
-      thumb: i.src || null, file: i.full || i.src, play: i.type === "video" || i.type === "audio" ? i.full : null,
+      // only a real picture can be a thumbnail: a lab example often gives the sound itself as its src
+      thumb: isImageSrc(i.src) ? i.src : null, file: i.full || i.src, play: i.type === "video" || i.type === "audio" ? i.full : null,
     })),
     values: ex.values || {}, seed: ex.seed ?? null, seconds: ex.seconds ?? null, total: null, gpu: ex.gpu || null,
     peak: ex.peak_vram_gb ?? null, created: null, status: "succeeded",
@@ -65,6 +66,21 @@ function loopVideo(src, poster, preload = "none") {
   const v = el("video", { src, poster: poster || null, loop: true, playsinline: true, preload, muted: true, disablepictureinpicture: true });
   v.muted = true;
   return v;
+}
+
+/**
+ * One input of an example or a run, as a small square tile: its still when it has one, a centred
+ * type icon when it is a sound or a clip with no picture of its own.
+ * href: wrap it in a link (the viewer opens the file in a tab).
+ */
+export function inputTile(i, { href = null } = {}) {
+  const box = el(href ? "a" : "div", {
+    class: "media in-tile", href: href || null, target: href ? "_blank" : null, rel: href ? "noopener" : null,
+    title: i.label, "aria-label": i.label,
+  });
+  const name = i.type === "audio" ? "audio" : i.type === "video" ? "video" : i.type === "model" ? "box" : "image";
+  box.append(i.thumb ? el("img", { src: i.thumb, alt: i.label, loading: "lazy" }) : el("span", { class: "typeicon" }, icon(name)));
+  return box;
 }
 
 /**

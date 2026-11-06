@@ -152,6 +152,8 @@ export function fmtShort(s) {
 export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 export const isMedia = (type) => type === "image" || type === "video" || type === "audio";
 export const extOf = (url) => (/\.([a-z0-9]+)(?:\?|#|$)/i.exec(url || "")?.[1] || "").toLowerCase();
+/** Whether a URL can go in an <img>: a sound file in an <img> is a broken box. */
+export const isImageSrc = (url) => ["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp"].includes(extOf(url));
 
 /** A short-lived message at the bottom of the screen. */
 export function toast(message, { error = false, ms = 4200 } = {}) {
