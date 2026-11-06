@@ -89,10 +89,10 @@
       "type": "slider",
       "label": "Turntable frames",
       "min": 25,
-      "max": 250,
+      "max": 200,
       "step": 25,
       "default": 75,
-      "help": "The orbit clip runs at 25 fps: 75 frames is 3 seconds, 250 is 10.",
+      "help": "The orbit clip runs at 25 fps: 75 frames is 3 seconds, 200 is 8.",
       "bind": [
         { "node": "75", "field": "frames" }
       ]
