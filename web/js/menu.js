@@ -13,7 +13,7 @@ function thumbOf(app) {
   const src = ex?.poster || (ex && ex.type !== "video" ? ex.card : null);
   return el("span", { class: "mm-thumb" }, src
     ? el("img", { src, alt: "", loading: "lazy", decoding: "async" })
-    : icon(app.section === "video" ? "video" : app.section === "audio" ? "audio" : "image"));
+    : icon(app.section === "video" ? "video" : app.section === "audio" ? "audio" : app.section === "3d" ? "box" : "image"));
 }
 
 function tagOf(app) {
@@ -53,8 +53,8 @@ function panelFor(studio) {
     el("h4", {}, t("menu.features"), el("span", { class: "n" }, t("explore.apps", { n: menuApps.length }))),
     el("div", { class: `mm-cols${groups.length === 1 ? " one" : ""}` }, ...groups.map((g) => el("div", { class: "mm-group", role: "group", "aria-label": g.key ? t(g.key) : null },
       g.key ? el("h5", {}, t(g.key)) : null, ...g.apps.map(appItem)))));
-  const mods = el("section", { class: "mm-models" }, el("h4", {}, t("menu.models")), ...models.map(({ m }) => modelItem(m, menuApps, studio)));
-  return el("div", { class: `mm-inner mm-${studio}` }, feats, mods);
+  const mods = models.length ? el("section", { class: "mm-models" }, el("h4", {}, t("menu.models")), ...models.map(({ m }) => modelItem(m, menuApps, studio))) : null;
+  return el("div", { class: `mm-inner mm-${studio}${models.length ? "" : " no-models"}` }, feats, mods);
 }
 
 /** Wire the menus onto the studio links of a freshly built top bar. */
@@ -89,7 +89,7 @@ export function attachMenus(bar, links) {
   };
   const later = () => { clearTimeout(openTimer); clearTimeout(closeTimer); closeTimer = setTimeout(close, CLOSE_MS); };
 
-  for (const key of ["image", "video", "audio"]) {
+  for (const key of ["image", "video", "audio", "3d"]) {
     const a = links.get(key);
     if (!a || !apps.length) continue;
     a.setAttribute("aria-haspopup", "true");
