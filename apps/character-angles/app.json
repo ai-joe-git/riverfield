@@ -5,7 +5,7 @@
   "section": "image",
   "pack": "qwen",
   "status": "ready",
-  "summary": "One character photo, eight camera angles: eight separate images, one per line, with Qwen Image 2.1 edit.",
+  "summary": "One character photo, eight camera angles, eight separate images: Qwen Image 2.1 edit + Turbo+ (30 steps).",
   "workflow": "workflow.api.json",
   "source": {
     "template": "qwen21-1024-image-edit-full.gui.json",
@@ -45,7 +45,7 @@
       "license": "Apache-2.0"
     }
   ],
-  "notes": "SimplePromptBatcher (one prompt per line) drives TextEncodeQwenImage21, so the graph runs once per line and SaveImage writes one image per angle: eight files, not a contact sheet. The graph is the original qwen21-1024-image-edit-full one: QwenImage21Cache + CiruTurboPrediction, base model, 30 steps. The turbo UNET is selectable too (then turn Turbo prediction off and lower the steps).",
+  "notes": "The original qwen21-1024-image-edit-full graph: QwenImage21Cache + CiruTurboPrediction (Turbo+) on the base model, 30 steps. Turbo+ rejects fewer than 20 sampler steps, so the slider starts at 20; the saved 4-step value from an older version is now invalid and falls back to 30. SimplePromptBatcher feeds the eight angle lines (hidden in the form) and SaveImage writes one image per angle, not a contact sheet.",
   "inputs": [
     {
       "id": "image",
@@ -136,7 +136,7 @@
       "id": "steps",
       "type": "slider",
       "label": "Steps",
-      "min": 4,
+      "min": 20,
       "max": 40,
       "step": 1,
       "default": 30,
@@ -145,7 +145,8 @@
           "node": "458",
           "field": "steps"
         }
-      ]
+      ],
+      "help": "Turbo+ requires at least 20 steps; the original recipe uses 30."
     },
     {
       "id": "seed",
@@ -214,19 +215,6 @@
         {
           "node": "454",
           "field": "vae_name"
-        }
-      ]
-    },
-    {
-      "id": "turbo",
-      "type": "toggle",
-      "label": "Turbo prediction",
-      "default": true,
-      "help": "CiruTurboPrediction, as in the original workflow. Off for a full-quality pass with more steps.",
-      "bind": [
-        {
-          "node": "471",
-          "field": "enabled"
         }
       ]
     }
