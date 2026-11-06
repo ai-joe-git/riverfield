@@ -5318,6 +5318,34 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151)",
       "run": "workflow-example"
+    },
+    "gaussian-splat": {
+      "case": "gaussian-splat-polar-bear",
+      "type": "video",
+      "card": "examples/gaussian-splat/card.mp4",
+      "poster": "examples/gaussian-splat/poster.jpg",
+      "full": "examples/gaussian-splat/full.mp4",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Picture",
+          "type": "image",
+          "src": "examples/gaussian-splat/input-image.jpg",
+          "full": "examples/gaussian-splat/input-image-full.jpg"
+        }
+      ],
+      "values": {
+        "background": true,
+        "gaussians": 524288,
+        "preview": false,
+        "steps": 40,
+        "frames": 200
+      },
+      "seed": 121595029923847,
+      "seconds": 762.4,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "20261106-163838149-3c79"
     }
   },
   "updated_from": "20261026-041209-l40s"
