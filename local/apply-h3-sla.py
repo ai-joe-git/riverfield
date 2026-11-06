@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APPS = ROOT / "apps"
 
 # The H3 apps of the catalogue. The turbo clones derive from them.
-TARGETS = ["h3-video", "h3-photo", "extend-video", "reshoot"]
+TARGETS = ["h3-video", "h3-photo", "extend-video", "reshoot", "h3-long-shot"]
 
 CLASS = "H3SLAAttentionROCM"
 TITLE = "H3 SLA Attention - ROCM"
