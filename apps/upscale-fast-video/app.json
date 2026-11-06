@@ -1,0 +1,252 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "upscale-fast-video",
+  "name": "Fast Upscale Video",
+  "section": "video",
+  "pack": "upscale",
+  "status": "ready",
+  "summary": "Upscale a clip with a local ESRGAN model, in chunks, keeping the original audio. Built for long files.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "RiverField Upscale Video node + core UpscaleModelLoader + SaveVideo",
+    "comfyui": "0.43.0",
+    "notes": "PyAV walks the file one frame at a time, writes a chunk every chunk_seconds, concatenates with stream copy, muxes the source audio with -c:a copy. No SeedVR2, no full-clip decode in memory."
+  },
+  "outputs": [
+    {
+      "node": "3",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4xLSDIR.pth",
+      "dir": "upscale_models",
+      "gb": 0.05,
+      "phase": "aux",
+      "license": "see OpenModelDB"
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4xNomos2_otf_esrgan.pth",
+      "dir": "upscale_models",
+      "gb": 0.05,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/RealESRGAN_x4plus.safetensors",
+      "dir": "upscale_models",
+      "gb": 0.05,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/2x-ESRGAN.pth",
+      "dir": "upscale_models",
+      "gb": 0.05,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4x-AnimeSharp-lite.pth",
+      "dir": "upscale_models",
+      "gb": 0.05,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/RealESRGAN_x4plus_anime_6B.pth",
+      "dir": "upscale_models",
+      "gb": 0.05,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    }
+  ],
+  "notes": "The model select lists the files installed in ComfyUI/models/upscale_models. Chunking is the point: a 2 h video is decoded, upscaled and encoded 20 s at a time, so RAM stays flat; the audio is copied, never re-encoded. keep_chunks keeps the per-chunk mp4s so a failed long run can resume from the last written chunk.",
+  "inputs": [
+    {
+      "id": "video",
+      "type": "video",
+      "label": "Video",
+      "required": true,
+      "limits": {
+        "max_mb": 4096
+      },
+      "bind": [
+        {
+          "node": "1",
+          "field": "video_path"
+        }
+      ]
+    },
+    {
+      "id": "upscale_model",
+      "type": "select",
+      "label": "Upscale model",
+      "default": "4xLSDIR.pth",
+      "options": [
+        {
+          "value": "4xLSDIR.pth",
+          "label": "4xLSDIR.pth"
+        },
+        {
+          "value": "4xNomos2_otf_esrgan.pth",
+          "label": "4xNomos2_otf_esrgan.pth"
+        },
+        {
+          "value": "RealESRGAN_x4plus.safetensors",
+          "label": "RealESRGAN_x4plus.safetensors"
+        },
+        {
+          "value": "2x-ESRGAN.pth",
+          "label": "2x-ESRGAN.pth"
+        },
+        {
+          "value": "4x-AnimeSharp-lite.pth",
+          "label": "4x-AnimeSharp-lite.pth"
+        },
+        {
+          "value": "RealESRGAN_x4plus_anime_6B.pth",
+          "label": "RealESRGAN_x4plus_anime_6B.pth"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "model_name"
+        }
+      ]
+    },
+    {
+      "id": "scale_by",
+      "type": "slider",
+      "label": "Final scale",
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.05,
+      "default": 1.0,
+      "help": "1.0 keeps the model factor (x2 or x4); 0.5 halves the result.",
+      "bind": [
+        {
+          "node": "1",
+          "field": "scale_by"
+        }
+      ]
+    },
+    {
+      "id": "chunk_seconds",
+      "type": "slider",
+      "label": "Chunk length (s)",
+      "min": 1,
+      "max": 120,
+      "step": 1,
+      "default": 20,
+      "help": "Encode a chunk every N seconds. 20 s is a good default; lower it if RAM is tight.",
+      "bind": [
+        {
+          "node": "1",
+          "field": "chunk_seconds"
+        }
+      ]
+    },
+    {
+      "id": "tile",
+      "type": "slider",
+      "label": "Tile size",
+      "min": 128,
+      "max": 1024,
+      "step": 64,
+      "default": 512,
+      "help": "Tiling inside the model; lower it if the upscale runs out of memory.",
+      "bind": [
+        {
+          "node": "1",
+          "field": "tile"
+        }
+      ]
+    },
+    {
+      "id": "crf",
+      "type": "slider",
+      "label": "CRF",
+      "min": 12,
+      "max": 30,
+      "step": 1,
+      "default": 18,
+      "help": "Lower is better and bigger; 18 is visually lossless for delivery.",
+      "bind": [
+        {
+          "node": "1",
+          "field": "crf"
+        }
+      ]
+    },
+    {
+      "id": "encoder_preset",
+      "type": "select",
+      "label": "Encoder preset",
+      "default": "veryfast",
+      "options": [
+        {
+          "value": "veryfast",
+          "label": "veryfast"
+        },
+        {
+          "value": "fast",
+          "label": "fast"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "slow",
+          "label": "slow"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "preset"
+        }
+      ]
+    },
+    {
+      "id": "keep_audio",
+      "type": "toggle",
+      "label": "Keep the audio",
+      "default": true,
+      "bind": [
+        {
+          "node": "1",
+          "field": "keep_audio"
+        }
+      ]
+    },
+    {
+      "id": "keep_chunks",
+      "type": "toggle",
+      "label": "Keep chunk files",
+      "default": false,
+      "help": "Keeps the per-chunk mp4s (resume by hand after a crash).",
+      "bind": [
+        {
+          "node": "1",
+          "field": "keep_chunks"
+        }
+      ]
+    }
+  ]
+}
