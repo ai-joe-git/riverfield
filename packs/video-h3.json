@@ -39,7 +39,8 @@
         "h3-photo",
         "h3-photo-turbo",
         "h3-video",
-        "h3-video-turbo"
+        "h3-video-turbo",
+        "pika-studio-director"
       ]
     },
     {
@@ -119,7 +120,8 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
-        "h3-long-shot"
+        "h3-long-shot",
+        "pika-studio-director"
       ]
     },
     {
