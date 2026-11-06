@@ -42,6 +42,12 @@ export function formFor(app) {
     const useSaved = validValue(inp, chosen) && !(inp.prefill && isText && chosen === "");
     values[inp.id] = useSaved ? chosen : fallback;
   }
+  // a select option can recommend settings (the step count of a model); fill them only where the user has no saved value
+  for (const inp of app.inputs) {
+    if (inp.type !== "select" || !inp.options) continue;
+    const opt = inp.options.find((o) => String(o.value) === String(values[inp.id]));
+    for (const [id, v] of Object.entries(opt?.sync ?? {})) if (!(id in saved)) values[id] = v;
+  }
   f = { values, files: {}, preset: (app.presets || []).some((p) => p.id === saved.__preset) ? saved.__preset : "", count: 1 };
   forms.set(app.id, f);
   return f;
