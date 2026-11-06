@@ -144,6 +144,13 @@
     "download_gb": 28.3,
     "needs_hf_token": false
   },
+  "relayvsr": {
+    "apps": [
+      "relayvsr-upscale"
+    ],
+    "download_gb": 10.58,
+    "needs_hf_token": false
+  },
   "tts": {
     "apps": [
       "tts",

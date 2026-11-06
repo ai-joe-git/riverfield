@@ -1,0 +1,149 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "clip.mp4"
+    },
+    "_meta": {
+      "title": "Load Video"
+    }
+  },
+  "2": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "1",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Get Video Components"
+    }
+  },
+  "4": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "5": {
+    "class_type": "RelayVSRConditioning",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "RelayVSRConditioning"
+    }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ],
+      "seed": 0,
+      "steps": 1,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "7": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "relayvsr_flash_vae_x2_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "104": {
+    "class_type": "VSRDecode",
+    "inputs": {
+      "vae": [
+        "7",
+        0
+      ],
+      "samples": [
+        "6",
+        0
+      ],
+      "images": [
+        "2",
+        0
+      ],
+      "detail": 1
+    },
+    "_meta": {
+      "title": "VSR Decode"
+    }
+  },
+  "105": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "104",
+        0
+      ],
+      "audio": [
+        "2",
+        1
+      ],
+      "fps": [
+        "2",
+        2
+      ],
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none"
+    },
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "106": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "105",
+        0
+      ],
+      "filename_prefix": "riverfield/relayvsr-upscale",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto"
+    },
+    "_meta": {
+      "title": "Save Video"
+    }
+  }
+}

@@ -263,6 +263,32 @@
       "measured_on": null
     },
     {
+      "id": "relayvsr-upscale",
+      "name": "RelayVSR Upscale",
+      "section": "video",
+      "pack": "relayvsr",
+      "status": "ready",
+      "whole_gb": 5.29,
+      "phases_gb": {
+        "encode": 0.0,
+        "denoise": 5.16,
+        "denoise2": 0.0,
+        "decode": 0.13,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 5.16,
+      "optional_gb": 5.29,
+      "biggest_file": {
+        "name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+        "gb": 5.16
+      },
+      "verdict_24gb": "fits whole",
+      "modal_gpu": "L4 / A10G (24 GB)",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "music-yue2-cover",
       "name": "YuE2 Cover",
       "section": "audio",

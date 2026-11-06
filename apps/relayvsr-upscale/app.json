@@ -1,0 +1,169 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "relayvsr-upscale",
+  "name": "RelayVSR Upscale",
+  "section": "video",
+  "pack": "relayvsr",
+  "status": "ready",
+  "summary": "One-step Wan RelayVSR video upscale, x2 or x4: pick the DIT and the Flash VAE of the same factor, the clip goes in at its native size.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "relayvsr_x2_x4video.json",
+    "comfyui": "0.44.0",
+    "notes": "RelayVSR (kopperx/RelayVSR, Apache-2.0) is a one-step Wan video restorer: RelayVSRConditioning takes the clip at its native size and sends only every 15th frame through the DIT, the KSampler runs 1 step at cfg 1 with euler/simple, and VSRDecode (the Flash decoder, which also reads the low-quality frames) restores all of them. The upscale factor is not a setting: it is baked into the checkpoint pair, so the DIT and the Flash VAE must be the same factor — x2 with x2, x4 with x4. The two selects sync each other in the form; a mismatch fails at decode with a clear ComfyUI error. Both nodes are core ComfyUI since 0.44.0, no custom node. The sampler recipe is not exposed: more than one step at cfg 1 is outside what the model was distilled for."
+  },
+  "inputs": [
+    {
+      "id": "video",
+      "type": "video",
+      "label": "Video to upscale",
+      "required": true,
+      "limits": {
+        "max_mb": 500
+      },
+      "help": "The clip at the resolution you want upscaled: the model multiplies it by its own factor, so a 480p input at x4 comes out at 1080p.",
+      "bind": [
+        {
+          "node": "1",
+          "field": "file"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "RelayVSR model (DIT)",
+      "default": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+          "label": "x2 — relayvsr_x2_lightx2v_int8_convrot (one-step distill)",
+          "sync": {
+            "vae_name": "relayvsr_flash_vae_x2_fp32.safetensors"
+          }
+        },
+        {
+          "value": "relayvsr_x4_int8_convrot.safetensors",
+          "label": "x4 — relayvsr_x4_int8_convrot (the paper's 4× model)",
+          "sync": {
+            "vae_name": "relayvsr_flash_vae_x4_fp32.safetensors"
+          }
+        }
+      ],
+      "help": "The DIT decides the factor. Picking one also picks the Flash VAE of the same factor: an x2 DIT with an x4 decoder (or the other way round) cannot decode the latent.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "RelayVSR Flash VAE",
+      "default": "relayvsr_flash_vae_x2_fp32.safetensors",
+      "options": [
+        {
+          "value": "relayvsr_flash_vae_x2_fp32.safetensors",
+          "label": "x2 — relayvsr_flash_vae_x2_fp32",
+          "sync": {
+            "unet_name": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+          }
+        },
+        {
+          "value": "relayvsr_flash_vae_x4_fp32.safetensors",
+          "label": "x4 — relayvsr_flash_vae_x4_fp32",
+          "sync": {
+            "unet_name": "relayvsr_x4_int8_convrot.safetensors"
+          }
+        }
+      ],
+      "help": "The small per-frame decoder that restores the frames the DIT skipped. Same factor as the DIT.",
+      "bind": [
+        {
+          "node": "7",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "type": "slider",
+      "label": "Decoder detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "How much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output, lower is calmer and closer to the source.",
+      "bind": [
+        {
+          "node": "104",
+          "field": "detail"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "6",
+          "field": "seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "106",
+      "type": "video",
+      "label": "Upscaled video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "RelayVSR: Large-Small Model Collaboration for Efficient Real-World Video Super-Resolution, Wang et al. (Apache-2.0)"
+  ],
+  "test": {
+    "video": "test/clip.mp4"
+  }
+}

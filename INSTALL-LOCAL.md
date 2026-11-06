@@ -720,7 +720,7 @@ segment : segment 1 → image 1, segment 2 → images 1+2, plan `MINIMAX_H3_TIME
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
 Packs : `core image image-flux3 image-krea2 upscale image-qwen-edit image-moss
-video-ltx25 video-h3 video-wan video-wan-effects video-wan-camera video-scail audio`.
+video-ltx25 video-h3 video-wan video-wan-effects video-wan-camera video-scail audio relayvsr`.
 
 Les fichiers déjà présents (même nom, ou mêmes octets sous un autre nom) sont réutilisés.
 
