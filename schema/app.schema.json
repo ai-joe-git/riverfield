@@ -214,6 +214,11 @@
             "$ref": "#/$defs/set"
           },
           "description": "Extra node fields written when this option is chosen, e.g. the LoRA file that goes with a style, or the prompt that goes with an effect LoRA."
+        },
+        "sync": {
+          "type": "object",
+          "description": "Other form fields to fill when this option is chosen, keyed by input id (the step count that goes with a model, say).",
+          "additionalProperties": true
         }
       }
     },

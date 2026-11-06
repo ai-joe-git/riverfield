@@ -5,7 +5,7 @@
   "section": "image",
   "pack": "qwen",
   "status": "ready",
-  "summary": "One character photo, eight camera angles, eight separate images: Qwen Image 2.1 edit, base + Turbo+ (30 steps) or Turbo (4 steps).",
+  "summary": "One character photo, eight camera angles, eight separate images: Qwen Image 2.1 edit, base + Turbo+ (30 steps) or Turbo (4 to 8 steps).",
   "workflow": "workflow.api.json",
   "source": {
     "template": "qwen21-1024-image-edit-full.gui.json",
@@ -45,7 +45,7 @@
       "license": "Apache-2.0"
     }
   ],
-  "notes": "Two recipes in one app. The base model runs through CiruTurboPrediction (Turbo+), which requires at least 20 sampler steps, so it uses 30. The Turbo model bypasses the patch (enabled = false) and runs 4 steps. Choosing the model sets both the patch and the step count in the graph, so the two cannot be mixed up. SimplePromptBatcher feeds the eight angle lines (hidden in the form); SaveImage writes one image per angle.",
+  "notes": "Two recipes in one app. The base model runs through CiruTurboPrediction (Turbo+), which requires at least 20 sampler steps, so it keeps 30. The Turbo model bypasses the patch (enabled = false) and its steps are yours to set, 4 to 8; picking the model fills in its recommended count. The two cannot be mixed up: the base recipe always writes the patch on and 30 steps, the Turbo recipe writes it off and leaves your step count alone. SimplePromptBatcher feeds the eight angle lines (hidden in the form); SaveImage writes one image per angle.",
   "inputs": [
     {
       "id": "image",
@@ -133,7 +133,7 @@
       ]
     },
     {
-      "id": "steps",
+      "id": "step_count",
       "type": "slider",
       "label": "Steps",
       "min": 1,
@@ -146,8 +146,7 @@
           "field": "steps"
         }
       ],
-      "help": "Set by the recipe: base + Turbo+ runs 30 steps, the Turbo model runs 4.",
-      "hidden": true
+      "help": "Turbo: 4 to 8 steps. Base + Turbo+ needs at least 20 and the original recipe uses 30."
     },
     {
       "id": "seed",
@@ -169,7 +168,7 @@
       "options": [
         {
           "value": "qwen_image_2.1_int8_convrot.safetensors",
-          "label": "Qwen 2.1 base + Turbo+ (30 steps)",
+          "label": "Qwen 2.1 base + Turbo+",
           "sets": [
             {
               "node": "471",
@@ -181,23 +180,24 @@
               "field": "steps",
               "value": 30
             }
-          ]
+          ],
+          "sync": {
+            "step_count": 30
+          }
         },
         {
           "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
-          "label": "Qwen 2.1 Turbo (4 steps)",
+          "label": "Qwen 2.1 Turbo",
           "sets": [
             {
               "node": "471",
               "field": "enabled",
               "value": false
-            },
-            {
-              "node": "458",
-              "field": "steps",
-              "value": 4
             }
-          ]
+          ],
+          "sync": {
+            "step_count": 4
+          }
         }
       ],
       "bind": [

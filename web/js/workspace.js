@@ -642,8 +642,17 @@ function dropzone(app, inp, rerender) {
   return zone;
 }
 
-function sideField(app, inp, f, ui) {
+function sideField(app, inp, f, ui, rerender) {
   const set = (v) => { f.values[inp.id] = v; persistSoon(); };
+  // an option can carry the settings that go with it (the step count of a model, say)
+  const syncOption = (o) => {
+    let changed = false;
+    for (const [id, v] of Object.entries(o?.sync ?? {})) {
+      const target = app.inputs.find((i) => i.id === id);
+      if (target && !isMedia(target.type) && f.values[id] !== v) { f.values[id] = v; changed = true; }
+    }
+    if (changed) { persistSoon(); rerender?.(); }
+  };
   const help = inp.help ? el("p", { class: "help" }, inp.help) : null;
   if (inp.type === "textarea") {
     const ta = el("textarea", { class: inp.required ? "" : "short", placeholder: inp.default ? t("ws.eg", { x: inp.default }) : inp.label, value: f.values[inp.id] ?? "", "aria-label": inp.label });
@@ -664,14 +673,14 @@ function sideField(app, inp, f, ui) {
     if (short) {
       const seg = el("div", { class: "seg", role: "group", "aria-label": inp.label });
       const draw = () => seg.replaceChildren(...opts.map((o) => el("button", { type: "button", "aria-pressed": String(String(o.value) === String(f.values[inp.id])),
-        onclick: () => { set(o.value); draw(); } }, o.label)));
+        onclick: () => { set(o.value); syncOption(o); draw(); } }, o.label)));
       draw();
       return el("div", { class: "field" }, el("span", { class: "lbl" }, inp.label), seg, help);
     }
     const val = el("span", { class: "v" }, optionLabel(inp, f.values[inp.id]));
     const row = el("button", { class: "selrow", type: "button", "aria-haspopup": "dialog", "aria-label": inp.label }, val, icon("chevD"));
     row.onclick = () => popover(row, el("div", {}, el("h4", {}, inp.label), ...opts.map((o) => el("button", { class: "opt", type: "button",
-      "aria-selected": String(String(o.value) === String(f.values[inp.id])), onclick: () => { set(o.value); val.textContent = o.label; closePopover(); } },
+      "aria-selected": String(String(o.value) === String(f.values[inp.id])), onclick: () => { set(o.value); val.textContent = o.label; closePopover(); syncOption(o); } },
       o.label, el("span", { class: "chk" }, icon("check"))))), { width: Math.max(260, row.offsetWidth) });
     return el("div", { class: "field" }, el("span", { class: "lbl" }, inp.label), row, help);
   }
@@ -734,7 +743,7 @@ function sidebarPanel(app, rerenderSide) {
   for (const inp of app.inputs) {
     if (inp.hidden) continue;
     if (isMedia(inp.type)) main.push(dropzone(app, inp, rerenderSide));
-    else (isAdvanced(inp) ? adv : main).push(sideField(app, inp, f, ui));
+    else (isAdvanced(inp) ? adv : main).push(sideField(app, inp, f, ui, rerenderSide));
   }
   if (app.presets?.length) adv.unshift(presetField(app, f));
   const advanced = adv.length ? el("details", { class: "adv" }, el("summary", {}, t("ws.advanced"), icon("chevD", "i-chev")), el("div", { class: "in" }, ...adv)) : null;
