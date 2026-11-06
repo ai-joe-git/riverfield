@@ -78,7 +78,8 @@ export function openCompare(item) {
               title: byId.get(e.app)?.name ?? e.app,
               onclick: () => { right = { label: `RiverField · ${byId.get(e.app)?.name ?? e.app}`, type: it.type, url: it.full, size: null }; draw(); } },
               it.type === "video" ? el("video", { src: `${it.full}#t=0.1`, muted: true, preload: "metadata", style: { width: "100%", height: "100%", objectFit: "cover" } })
-                : el("img", { src: it.full, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }));
+                : it.type === "audio" ? el("span", { style: { display: "grid", placeItems: "center", height: "100%", color: "var(--blue)" } }, icon("audio"))
+                  : el("img", { src: it.full, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } }));
           }))) : el("div"));
     }
     const m = mediaEl(side);

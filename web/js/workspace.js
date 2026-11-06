@@ -1,13 +1,13 @@
 // An app's workspace. Two layouts, both built from app.json alone:
 //   composer: prompt-first apps (image, audio): results fill the page, a floating prompt bar sits at the bottom
 //   sidebar:  upload-first apps (video, tools): controls in a left column, results and examples on the right
-import { el, icon, store, toast, popover, closePopover, fmtSeconds, fmtShort, isMedia, extOf, masonry } from "./util.js";
+import { el, icon, store, toast, popover, closePopover, fmtSeconds, fmtShort, isMedia, extOf, isImageSrc, masonry } from "./util.js";
 import { directorView } from "./director.js";
 import { t } from "./i18n.js";
 import {
   byId, layoutOf, familyOf, VIDEO_TABS, videoTabOf, tagline, iconOf, promptInput, estimate, fitOf, rememberApp, categoryOf, CATEGORIES, apps,
 } from "./catalog.js";
-import { exampleItem, thumb, hoverPlay, fullMedia, playWhenVisible, optionTile, optionThumb } from "./media.js";
+import { exampleItem, thumb, hoverPlay, fullMedia, playWhenVisible, optionTile, optionThumb, inputTile } from "./media.js";
 import { flags, flagButton } from "./flags.js";
 import { feed, feedView, hooks } from "./feed.js";
 import { openPainter, maskPreview } from "./paint.js";
@@ -309,6 +309,8 @@ function appThumb(a) {
   const ex = a.example?.full ? a.example : null;
   if (!ex) return el("span", { style: { display: "grid", placeItems: "center", width: "100%", height: "100%", color: "#55555c" } }, icon(iconOf(a)));
   const src = ex.type === "video" ? ex.poster : ex.card || ex.full;
+  // an audio app whose card is the sound itself has no still: the type icon, not a broken <img>
+  if (!isImageSrc(src)) return el("span", { class: "media in-tile" }, el("span", { class: "typeicon" }, icon(ex.type === "audio" ? "audio" : iconOf(a))));
   return el("img", { src, alt: "", loading: "lazy", class: ex.type === "audio" ? "contain" : null, style: ex.type === "audio" ? { objectFit: "contain" } : null });
 }
 
@@ -795,7 +797,7 @@ function exampleTiles(list, { onPick } = {}) {
 function heroFlow(app) {
   const item = exampleItem(app);
   if (!item) return null;
-  const ins = item.inputs.slice(0, 2).map((i) => el("div", { class: "media" }, i.thumb ? el("img", { src: i.thumb, alt: i.label, title: i.label }) : el("span", { class: "typeicon" }, icon(i.type || "image"))));
+  const ins = item.inputs.slice(0, 2).map((i) => inputTile(i));
   return el("div", { class: "flow" },
     ins.length ? el("div", { class: "ins" }, ...ins) : null,
     ins.length ? el("span", { class: "arrow" }, icon("chevR")) : null,
@@ -846,7 +848,7 @@ function libraryTab(app) {
         el("div", {}, el("span", { class: "tag ghost" }, t("ws.example")), el("h2", { class: "display", style: { margin: "10px 0 0", fontSize: "26px" } }, app.name)),
         prompt ? el("div", { class: "prompt", style: { padding: "12px", borderRadius: "12px", background: "#1b1b1e", fontSize: "13.5px" } }, prompt) : null,
         item.inputs.length ? el("div", { class: "ins-row" }, ...item.inputs.map((i) => el("figure", {},
-          el("div", { class: "media" }, i.thumb ? el("img", { src: i.thumb, alt: "" }) : el("span", { class: "typeicon" }, icon(i.type || "image"))), el("figcaption", {}, i.label)))) : null,
+          inputTile(i), el("figcaption", {}, i.label)))) : null,
         el("dl", { class: "vals" }, ...valueRows(app, item.values)),
         el("div", { class: "statline" },
           item.seconds ? el("span", {}, icon("clock"), fmtSeconds(item.seconds)) : null,
