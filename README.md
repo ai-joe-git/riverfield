@@ -83,6 +83,7 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
 | `upscale-fast-video` | The same upscaler on a clip: **4 frames per batch**, chunks joined by stream copy, **audio kept** | ESRGAN + `RiverFieldUpscaleVideo` | very slow on the iGPU; chunked to keep memory flat |
+| `relayvsr-upscale` | Wan **RelayVSR** video upscale in one step: **x2 or x4**, the DIT and the Flash VAE are picked together (the factor is baked in the pair), only every 15th frame goes through the DIT and the Flash decoder restores the rest, detail slider | RelayVSR int8 (Wan) | 137 s for 7.29 s, 608×352 → 2432×1408 |
 
 Four things are not an app:
 
