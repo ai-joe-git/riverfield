@@ -75,7 +75,8 @@
           "field": "prompts"
         }
       ],
-      "prefill": true
+      "prefill": true,
+      "hidden": true
     },
     {
       "id": "prepend",
@@ -87,7 +88,8 @@
           "node": "900",
           "field": "prepend"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "append",
@@ -99,7 +101,8 @@
           "node": "900",
           "field": "append"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "negative_prompt",
@@ -111,7 +114,8 @@
           "node": "452",
           "field": "negative_prompt"
         }
-      ]
+      ],
+      "hidden": true
     },
     {
       "id": "resolution",
