@@ -2,11 +2,20 @@
   "pack": "video-h3",
   "apps": [
     "extend-video",
+    "extend-video-turbo",
+    "h3-long-shot",
     "h3-photo",
+    "h3-photo-turbo",
+    "h3-r2v",
+    "h3-r2v-flex",
     "h3-video",
-    "reshoot"
+    "h3-video-turbo",
+    "pika-studio-director",
+    "reshoot",
+    "reshoot-turbo",
+    "studio-director"
   ],
-  "download_gb": 75.72,
+  "download_gb": 99.16,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -25,8 +34,12 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "extend-video",
+        "extend-video-turbo",
+        "h3-long-shot",
         "h3-photo",
-        "h3-video"
+        "h3-photo-turbo",
+        "h3-video",
+        "h3-video-turbo"
       ]
     },
     {
@@ -38,7 +51,12 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
-        "reshoot"
+        "h3-r2v",
+        "h3-r2v-flex",
+        "pika-studio-director",
+        "reshoot",
+        "reshoot-turbo",
+        "studio-director"
       ]
     },
     {
@@ -50,7 +68,21 @@
       "gated": false,
       "license": "MIT",
       "used_by": [
-        "reshoot"
+        "reshoot",
+        "reshoot-turbo"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 0.64,
+      "name": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "pika-studio-director",
+        "studio-director"
       ]
     },
     {
@@ -62,7 +94,8 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
-        "reshoot"
+        "reshoot",
+        "reshoot-turbo"
       ]
     },
     {
@@ -79,6 +112,32 @@
     },
     {
       "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.9,
+      "name": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-long-shot"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.9,
+      "name": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-r2v-flex",
+        "pika-studio-director",
+        "studio-director"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
       "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
       "dir": "text_encoders",
       "gb": 27.14,
@@ -87,9 +146,29 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "extend-video",
+        "extend-video-turbo",
         "h3-photo",
+        "h3-photo-turbo",
         "h3-video",
-        "reshoot"
+        "h3-video-turbo",
+        "reshoot",
+        "reshoot-turbo"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.0,
+      "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-long-shot",
+        "h3-r2v",
+        "h3-r2v-flex",
+        "pika-studio-director",
+        "studio-director"
       ]
     },
     {
@@ -102,9 +181,33 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "extend-video",
+        "extend-video-turbo",
+        "h3-long-shot",
         "h3-photo",
+        "h3-photo-turbo",
+        "h3-r2v",
+        "h3-r2v-flex",
         "h3-video",
-        "reshoot"
+        "h3-video-turbo",
+        "pika-studio-director",
+        "reshoot",
+        "reshoot-turbo",
+        "studio-director"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.0,
+      "name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-long-shot",
+        "h3-r2v",
+        "pika-studio-director",
+        "studio-director"
       ]
     },
     {
@@ -117,9 +220,14 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "extend-video",
+        "extend-video-turbo",
         "h3-photo",
+        "h3-photo-turbo",
+        "h3-r2v-flex",
         "h3-video",
-        "reshoot"
+        "h3-video-turbo",
+        "reshoot",
+        "reshoot-turbo"
       ]
     }
   ]

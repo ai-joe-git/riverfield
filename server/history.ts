@@ -133,7 +133,7 @@ function safeExt(name: string | undefined, type: string | undefined): string {
 
 const VIDEO_EXT = new Set([".mp4", ".webm", ".mov", ".mkv", ".gif"]);
 const AUDIO_EXT = new Set([".mp3", ".wav", ".flac", ".ogg", ".m4a", ".opus"]);
-const MODEL_EXT = new Set([".glb", ".gltf", ".obj", ".fbx", ".stl", ".ply", ".usdz"]);
+const MODEL_EXT = new Set([".glb", ".gltf", ".obj", ".fbx", ".stl", ".ply", ".usdz", ".spz"]);
 
 /** What the file is, by its extension first: core SaveVideo and CreateVideo report their mp4 under
  * `images` (with `animated: true`), so the SDK calls it an image and the web would draw it in an <img>.

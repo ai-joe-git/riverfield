@@ -1,0 +1,47 @@
+{
+  "pack": "qwen",
+  "apps": [
+    "character-angles"
+  ],
+  "download_gb": 28.3,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "Comfy-Org/Qwen-Image",
+      "file": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.0,
+      "name": "qwen_image_2.1_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "character-angles"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Qwen-Image",
+      "file": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 8.0,
+      "name": "qwen3vl_8b_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "character-angles"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Qwen-Image",
+      "file": "vae/qwen_image_2.1_vae_bf16.safetensors",
+      "dir": "vae",
+      "gb": 0.3,
+      "name": "qwen_image_2.1_vae_bf16.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "character-angles"
+      ]
+    }
+  ]
+}

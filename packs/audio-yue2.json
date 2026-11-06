@@ -10,6 +10,18 @@
   "models": [
     {
       "repo": "Comfy-Org/YuE2",
+      "file": "audio_encoders/sheetsage2_bf16.safetensors",
+      "dir": "audio_encoders",
+      "gb": 1.39,
+      "name": "sheetsage2_bf16.safetensors",
+      "gated": false,
+      "license": "CC BY-NC 4.0",
+      "used_by": [
+        "music-yue2-cover"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/YuE2",
       "file": "checkpoints/yue2_3b_int8_convrot.safetensors",
       "dir": "checkpoints",
       "gb": 3.96,
@@ -18,18 +30,6 @@
       "license": "CC BY-NC 4.0",
       "used_by": [
         "music-yue2",
-        "music-yue2-cover"
-      ]
-    },
-    {
-      "repo": "Comfy-Org/YuE2",
-      "file": "audio_encoders/sheetsage2_bf16.safetensors",
-      "dir": "audio_encoders",
-      "gb": 1.39,
-      "name": "sheetsage2_bf16.safetensors",
-      "gated": false,
-      "license": "CC BY-NC 4.0",
-      "used_by": [
         "music-yue2-cover"
       ]
     }

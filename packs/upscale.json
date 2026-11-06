@@ -5,10 +5,12 @@
     "remove-bg",
     "smooth",
     "upscale",
+    "upscale-fast",
+    "upscale-fast-video",
     "upscale-video",
     "video-remove-bg"
   ],
-  "download_gb": 5.13,
+  "download_gb": 5.41,
   "needs_hf_token": false,
   "custom_nodes": [],
   "models": [
@@ -60,6 +62,84 @@
       "license": "MIT",
       "used_by": [
         "depth-map"
+      ]
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/2x-ESRGAN.pth",
+      "dir": "upscale_models",
+      "gb": 0.07,
+      "name": "2x-ESRGAN.pth",
+      "gated": false,
+      "license": "see OpenModelDB",
+      "used_by": [
+        "upscale-fast",
+        "upscale-fast-video"
+      ]
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4x-AnimeSharp-lite.pth",
+      "dir": "upscale_models",
+      "gb": 0.02,
+      "name": "4x-AnimeSharp-lite.pth",
+      "gated": false,
+      "license": "see OpenModelDB",
+      "used_by": [
+        "upscale-fast",
+        "upscale-fast-video"
+      ]
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4xLSDIR.pth",
+      "dir": "upscale_models",
+      "gb": 0.07,
+      "name": "4xLSDIR.pth",
+      "gated": false,
+      "license": "see OpenModelDB",
+      "used_by": [
+        "upscale-fast",
+        "upscale-fast-video"
+      ]
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4xNomos2_otf_esrgan.pth",
+      "dir": "upscale_models",
+      "gb": 0.03,
+      "name": "4xNomos2_otf_esrgan.pth",
+      "gated": false,
+      "license": "see OpenModelDB",
+      "used_by": [
+        "upscale-fast",
+        "upscale-fast-video"
+      ]
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/RealESRGAN_x4plus.safetensors",
+      "dir": "upscale_models",
+      "gb": 0.07,
+      "name": "RealESRGAN_x4plus.safetensors",
+      "gated": false,
+      "license": "see OpenModelDB",
+      "used_by": [
+        "upscale-fast",
+        "upscale-fast-video"
+      ]
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/RealESRGAN_x4plus_anime_6B.pth",
+      "dir": "upscale_models",
+      "gb": 0.02,
+      "name": "RealESRGAN_x4plus_anime_6B.pth",
+      "gated": false,
+      "license": "see OpenModelDB",
+      "used_by": [
+        "upscale-fast",
+        "upscale-fast-video"
       ]
     },
     {

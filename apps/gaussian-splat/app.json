@@ -1,0 +1,154 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "gaussian-splat",
+  "name": "Gaussian Splat",
+  "section": "3d",
+  "pack": "gaussian-splat",
+  "status": "ready",
+  "higgsfield_feature": "3D",
+  "summary": "One picture becomes a 3D Gaussian splat: Idol/TripoSplat writes the .spz, a .glb mesh and a turntable clip.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "3d_idol_image_to_gaussian_splat.json",
+    "comfyui": "0.44.0",
+    "notes": "Converted with tools/import_workflow.py (the subgraphs are flattened by tools/ui2api.py), then the two SaveGLB exports and the subgraph's background, gaussian-count and preview switches were exposed as app inputs. The .spz splat, the .glb mesh and the orbit clip are all kept."
+  },
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Picture",
+      "required": true,
+      "help": "One subject, well lit, alone on its background: the splat is built from what it sees.",
+      "limits": { "max_mb": 30 },
+      "bind": [
+        { "node": "99", "field": "image" }
+      ]
+    },
+    {
+      "id": "background",
+      "type": "toggle",
+      "label": "Remove background",
+      "default": true,
+      "help": "Cut the subject out with BiRefNet before the splat is built. Turn it off when the picture already has an alpha channel.",
+      "bind": [
+        { "node": "88:35", "field": "switch" }
+      ]
+    },
+    {
+      "id": "gaussians",
+      "type": "select",
+      "label": "Gaussians",
+      "default": 262144,
+      "options": [
+        { "value": 65536, "label": "65k, draft" },
+        { "value": 131072, "label": "131k" },
+        { "value": 262144, "label": "262k, native" },
+        { "value": 524288, "label": "524k, dense" }
+      ],
+      "help": "How many points the splat holds. 262k matches Idol's octree density; more points are denser, not more detailed, and cost time and VRAM.",
+      "bind": [
+        { "node": "88:55", "field": "num_gaussians" }
+      ]
+    },
+    {
+      "id": "preview",
+      "type": "toggle",
+      "label": "Sampling preview",
+      "default": true,
+      "help": "Draw the sampling preview while the splat decodes. Off is a little faster and uses less VRAM.",
+      "bind": [
+        { "node": "88:96", "field": "switch" }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 10,
+      "max": 40,
+      "step": 1,
+      "default": 20,
+      "help": "Diffusion steps. 20 is the workflow's default; fewer is a rougher draft, more a slower refinement.",
+      "bind": [
+        { "node": "88:6", "field": "steps" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed for the sampler.",
+      "bind": [
+        { "node": "88:6", "field": "seed" }
+      ]
+    },
+    {
+      "id": "frames",
+      "type": "slider",
+      "label": "Turntable frames",
+      "min": 25,
+      "max": 250,
+      "step": 25,
+      "default": 75,
+      "help": "The orbit clip runs at 25 fps: 75 frames is 3 seconds, 250 is 10.",
+      "bind": [
+        { "node": "75", "field": "frames" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "67", "type": "model", "label": "Mesh (.glb)" },
+    { "node": "42", "type": "video", "label": "Turntable" },
+    { "node": "51", "type": "model", "label": "Splat (.spz)" }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "diffusion_models/idol_fp16.safetensors",
+      "dir": "diffusion_models",
+      "gb": 0.741,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "clip_vision/dino_v3_vit_h_bf16.safetensors",
+      "dir": "clip_vision",
+      "gb": 1.681,
+      "phase": "encode",
+      "license": "DINOv3 License"
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "vae/idol_decoder_fp16.safetensors",
+      "dir": "vae",
+      "gb": 0.576,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "vae/flux2-vae.safetensors",
+      "dir": "vae",
+      "gb": 0.336,
+      "phase": "decode",
+      "license": "FLUX Kommunity License"
+    },
+    {
+      "repo": "Comfy-Org/BiRefNet",
+      "file": "background_removal/birefnet.safetensors",
+      "dir": "background_removal",
+      "gb": 0.444,
+      "phase": "aux",
+      "license": "MIT"
+    }
+  ],
+  "credits": [
+    "Idol by Comfy-Org (Apache-2.0), a fine-tune of TripoSplat by VAST-AI-Research",
+    "BiRefNet (MIT)",
+    "DINOv3 by Meta (DINOv3 License)"
+  ],
+  "notes": "Idol is Comfy-Org's fine-tune of TripoSplat. The picture is cut out (BiRefNet), encoded with DINOv3, denoised into a sparse gaussian set (Idol + the Idol decoder) and decoded to a splat. The app writes the native .spz splat, a triangle-mesh .glb and a 25 fps turntable render of the splat. The .glb opens in the viewer here, Blender, Godot or Unity; the .spz opens in gaussian-splat viewers such as SuperSplat. 262k gaussians matches the octree density; more is denser, not more detailed. One subject per picture works best; the seed changes the sampler and the gaussian layout."
+}

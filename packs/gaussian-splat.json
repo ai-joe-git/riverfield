@@ -1,0 +1,71 @@
+{
+  "pack": "gaussian-splat",
+  "apps": [
+    "gaussian-splat"
+  ],
+  "download_gb": 3.78,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "Comfy-Org/BiRefNet",
+      "file": "background_removal/birefnet.safetensors",
+      "dir": "background_removal",
+      "gb": 0.444,
+      "name": "birefnet.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "gaussian-splat"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "clip_vision/dino_v3_vit_h_bf16.safetensors",
+      "dir": "clip_vision",
+      "gb": 1.681,
+      "name": "dino_v3_vit_h_bf16.safetensors",
+      "gated": false,
+      "license": "DINOv3 License",
+      "used_by": [
+        "gaussian-splat"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "diffusion_models/idol_fp16.safetensors",
+      "dir": "diffusion_models",
+      "gb": 0.741,
+      "name": "idol_fp16.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "gaussian-splat"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "vae/flux2-vae.safetensors",
+      "dir": "vae",
+      "gb": 0.336,
+      "name": "flux2-vae.safetensors",
+      "gated": false,
+      "license": "FLUX Kommunity License",
+      "used_by": [
+        "gaussian-splat"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Idol",
+      "file": "vae/idol_decoder_fp16.safetensors",
+      "dir": "vae",
+      "gb": 0.576,
+      "name": "idol_decoder_fp16.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "gaussian-splat"
+      ]
+    }
+  ]
+}
