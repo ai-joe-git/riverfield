@@ -5346,6 +5346,32 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "20261106-163838149-3c79"
+    },
+    "relayvsr-upscale": {
+      "case": "relayvsr-upscale-x4-street-kitchen",
+      "type": "video",
+      "card": "examples/relayvsr-upscale/card.mp4",
+      "poster": "examples/relayvsr-upscale/poster.jpg",
+      "full": "examples/relayvsr-upscale/full.mp4",
+      "inputs": [
+        {
+          "id": "video",
+          "label": "Video to upscale",
+          "type": "video",
+          "src": "examples/relayvsr-upscale/input-clip.jpg",
+          "full": "examples/relayvsr-upscale/input-clip-full.mp4"
+        }
+      ],
+      "values": {
+        "unet_name": "relayvsr_x4_int8_convrot.safetensors",
+        "vae_name": "relayvsr_flash_vae_x4_fp32.safetensors",
+        "detail": 1
+      },
+      "seed": 162013336914072,
+      "seconds": 137.1,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "20261106-211717402-c926"
     }
   },
   "updated_from": "20261026-041209-l40s"
