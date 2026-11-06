@@ -22,6 +22,7 @@ is not the least the app needs.
 | `upscale` | ready | 4.0 GB | denoise 3.5 GB | seedvr2_3b_int8_convrot.safetensors (3.5) | fits whole | L4 / A10G (24 GB) | 6.5 GB (H100) |
 | `upscale-video` | ready | 4.0 GB | denoise 3.5 GB | seedvr2_3b_int8_convrot.safetensors (3.5) | fits whole | L4 / A10G (24 GB) | 26.1 GB (L40S) |
 | `music-yue2` | ready | 4.0 GB | encode 4.0 GB | yue2_3b_int8_convrot.safetensors (4.0) | fits whole | L4 / A10G (24 GB) | not measured |
+| `relayvsr-upscale` | ready | 5.3 GB (+5.3 optional) | denoise 5.2 GB | relayvsr_x2_lightx2v_int8_convrot.safetensors (5.2) | fits whole | L4 / A10G (24 GB) | not measured |
 | `music-yue2-cover` | ready | 5.3 GB | encode 5.3 GB | yue2_3b_int8_convrot.safetensors (4.0) | fits whole | L4 / A10G (24 GB) | not measured |
 | `ai-influencer` | ready | 11.0 GB | denoise 5.8 GB | flux3-image-klein-int8-convrot.safetensors (5.8) | fits whole | L4 / A10G (24 GB) | 9.9 GB (L40S) |
 | `ai-influencer-photo` | ready | 11.0 GB | denoise 5.8 GB | flux3-image-klein-int8-convrot.safetensors (5.8) | fits whole | L4 / A10G (24 GB) | 12.2 GB (L40S) |
