@@ -157,6 +157,22 @@
       ]
     },
     {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.8,
+      "max": 0.95,
+      "step": 0.05,
+      "default": 0.9,
+      "help": "Sparsity (higher = faster). 0.9 is what the Pika template uses; 0.85 keeps more exact blocks.",
+      "bind": [
+        {
+          "node": "35",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
       "id": "sla",
       "type": "toggle",
       "label": "Sparse attention (H3 SLA)",
