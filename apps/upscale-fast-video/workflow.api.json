@@ -1,0 +1,37 @@
+{
+  "1": {
+    "class_type": "RiverFieldUpscaleVideo",
+    "inputs": {
+      "video_path": "",
+      "upscale_model": [
+        "2",
+        0
+      ],
+      "scale_by": 1.0,
+      "chunk_seconds": 20.0,
+      "tile": 512,
+      "crf": 18,
+      "preset": "veryfast",
+      "keep_audio": true,
+      "keep_chunks": false
+    }
+  },
+  "2": {
+    "class_type": "UpscaleModelLoader",
+    "inputs": {
+      "model_name": "4xLSDIR.pth"
+    }
+  },
+  "3": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "1",
+        0
+      ],
+      "filename_prefix": "riverfield/upscale-fast-video",
+      "format": "auto",
+      "format.codec": "auto"
+    }
+  }
+}

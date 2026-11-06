@@ -1,0 +1,149 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "upscale-fast",
+  "name": "Fast Upscale",
+  "section": "image",
+  "pack": "upscale",
+  "status": "ready",
+  "summary": "A photo or a clip upscaled by a local ESRGAN model: pick the model, keep the native factor or scale it back down.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "ComfyUI core LoadImage + UpscaleModelLoader + ImageUpscaleWithModel + ImageScaleBy",
+    "comfyui": "0.43.0",
+    "notes": "No SeedVR2: plain spandrel upscale models from models/upscale_models, tiled by the core node."
+  },
+  "outputs": [
+    {
+      "node": "5",
+      "type": "image",
+      "label": "Image"
+    }
+  ],
+  "models": [
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4xLSDIR.pth",
+      "dir": "upscale_models",
+      "gb": 0.07,
+      "phase": "aux",
+      "license": "see OpenModelDB"
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4xNomos2_otf_esrgan.pth",
+      "dir": "upscale_models",
+      "gb": 0.03,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/RealESRGAN_x4plus.safetensors",
+      "dir": "upscale_models",
+      "gb": 0.07,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/2x-ESRGAN.pth",
+      "dir": "upscale_models",
+      "gb": 0.07,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/4x-AnimeSharp-lite.pth",
+      "dir": "upscale_models",
+      "gb": 0.02,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    },
+    {
+      "repo": "openmodeldb/models",
+      "file": "upscale_models/RealESRGAN_x4plus_anime_6B.pth",
+      "dir": "upscale_models",
+      "gb": 0.02,
+      "phase": "aux",
+      "license": "see OpenModelDB",
+      "optional": true
+    }
+  ],
+  "notes": "Upscale models live in ComfyUI/models/upscale_models and the select lists the files installed there. The core ImageUpscaleWithModel tiles at 512 px, so a 0.4 MP frame upscaled x4 stays within VRAM. scale_by < 1 downsamples the model output (e.g. 0.5 on a 4x model to land near 1 MP).",
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Image",
+      "required": true,
+      "limits": {
+        "max_mb": 60
+      },
+      "bind": [
+        {
+          "node": "1",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "upscale_model",
+      "type": "select",
+      "label": "Upscale model",
+      "default": "4xLSDIR.pth",
+      "options": [
+        {
+          "value": "4xLSDIR.pth",
+          "label": "4xLSDIR.pth"
+        },
+        {
+          "value": "4xNomos2_otf_esrgan.pth",
+          "label": "4xNomos2_otf_esrgan.pth"
+        },
+        {
+          "value": "RealESRGAN_x4plus.safetensors",
+          "label": "RealESRGAN_x4plus.safetensors"
+        },
+        {
+          "value": "2x-ESRGAN.pth",
+          "label": "2x-ESRGAN.pth"
+        },
+        {
+          "value": "4x-AnimeSharp-lite.pth",
+          "label": "4x-AnimeSharp-lite.pth"
+        },
+        {
+          "value": "RealESRGAN_x4plus_anime_6B.pth",
+          "label": "RealESRGAN_x4plus_anime_6B.pth"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "model_name"
+        }
+      ]
+    },
+    {
+      "id": "scale_by",
+      "type": "slider",
+      "label": "Final scale",
+      "min": 0.25,
+      "max": 1.0,
+      "step": 0.05,
+      "default": 1.0,
+      "help": "1.0 keeps the model's native factor (x2 or x4); 0.5 halves it, e.g. a 4x model on 0.4 MP lands near 1.6 MP.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "scale_by"
+        }
+      ]
+    }
+  ]
+}
