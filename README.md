@@ -48,7 +48,7 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 
 | | |
 |---|---|
-| Apps | **140 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus 21 of ours: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **144 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `e3bee7f` (0.42.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
 | GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
@@ -78,6 +78,10 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, Pika Flex LoRA, imposed models): a wrong preset cannot degrade it | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
+| `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment | MiniMax H3 int8 | — |
+| `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
+| `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
+| `upscale-fast-video` | The same upscaler on a clip: **4 frames per batch**, chunks joined by stream copy, **audio kept** | ESRGAN + `RiverFieldUpscaleVideo` | very slow on the iGPU; chunked to keep memory flat |
 
 Four things are not an app:
 
