@@ -1,7 +1,8 @@
 {
   "pack": "image-moss",
   "apps": [
-    "moss-image"
+    "moss-image",
+    "moss-turbo"
   ],
   "download_gb": 13.0,
   "needs_hf_token": false,
@@ -16,7 +17,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
-        "moss-image"
+        "moss-image",
+        "moss-turbo"
       ]
     },
     {
@@ -28,7 +30,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
-        "moss-image"
+        "moss-image",
+        "moss-turbo"
       ]
     },
     {
@@ -40,7 +43,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
-        "moss-image"
+        "moss-image",
+        "moss-turbo"
       ]
     }
   ]

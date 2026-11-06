@@ -6,17 +6,76 @@
     "tts-omni",
     "tts-omni-clone"
   ],
-  "download_gb": 0,
+  "download_gb": 7.79,
   "needs_hf_token": false,
-  "custom_nodes": [
+  "custom_nodes": [],
+  "models": [
     {
-      "repo": "https://github.com/wildminder/ComfyUI-Chatterbox",
-      "commit": "b619de9e605b8477ba76bfd069f64be2ce2b7b5c"
+      "repo": "k2-fsa/OmniVoice",
+      "file": "OmniVoice/model.safetensors",
+      "dir": "omnivoice",
+      "gb": 2.45,
+      "name": "model.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "tts-omni",
+        "tts-omni",
+        "tts-omni-clone",
+        "tts-omni-clone"
+      ]
     },
     {
-      "repo": "https://github.com/Saganaki22/ComfyUI-OmniVoice-TTS",
-      "commit": "3fe8e42a6d4a03628471aa1ba8506657e2e96dea"
+      "repo": "ResembleAI/chatterbox",
+      "file": "s3gen.safetensors",
+      "dir": "tts",
+      "gb": 1.06,
+      "name": "s3gen.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "tts",
+        "tts-clone"
+      ]
+    },
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "t3_cfg.safetensors",
+      "dir": "tts",
+      "gb": 2.13,
+      "name": "t3_cfg.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "tts",
+        "tts-clone"
+      ]
+    },
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "t3_mtl23ls_v3.safetensors",
+      "dir": "tts",
+      "gb": 2.14,
+      "name": "t3_mtl23ls_v3.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "tts",
+        "tts-clone"
+      ]
+    },
+    {
+      "repo": "ResembleAI/chatterbox",
+      "file": "ve.safetensors",
+      "dir": "tts",
+      "gb": 0.01,
+      "name": "ve.safetensors",
+      "gated": false,
+      "license": "MIT",
+      "used_by": [
+        "tts",
+        "tts-clone"
+      ]
     }
-  ],
-  "models": []
+  ]
 }

@@ -121,7 +121,16 @@ export function fullMedia(type, src, { poster, autoplay = true } = {}) {
     const v = el("video", { src, poster: poster || null, controls: true, loop: true, playsinline: true, preload: "auto", autoplay: autoplay || null });
     return v;
   }
-  if (type === "model") return modelViewer(src, { height: 520 });
+  if (type === "model") {
+    const ext = extOf(src);
+    // GLB/GLTF go to the three.js viewer; a gaussian-splat file (.spz) has no loader here, so offer the download
+    if (ext !== "glb" && ext !== "gltf") {
+      return el("div", { class: "empty", style: { display: "grid", gap: "12px", placeItems: "center", padding: "56px 24px" } },
+        el("span", { class: "dim" }, `.${ext} splat file`),
+        el("a", { class: "btn lime", href: src, download: "" }, icon("download"), `Download .${ext}`));
+    }
+    return modelViewer(src, { height: 520 });
+  }
   if (type === "audio") {
     return el("div", { class: "audio-box" }, el("div", { class: "media audio wave", style: { borderRadius: "12px", aspectRatio: "4 / 1" } }, waveform(src)),
       el("audio", { src, controls: true, preload: "metadata", autoplay: autoplay || null }));

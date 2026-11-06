@@ -1,10 +1,27 @@
 {
+  "3d": {
+    "apps": [
+      "image-to-3d"
+    ],
+    "download_gb": 15.2,
+    "needs_hf_token": false
+  },
   "audio": {
     "apps": [
       "music",
+      "music-turbo",
+      "music-turbo-hq",
       "sfx"
     ],
     "download_gb": 29.29,
+    "needs_hf_token": false
+  },
+  "audio-yue2": {
+    "apps": [
+      "music-yue2",
+      "music-yue2-cover"
+    ],
+    "download_gb": 5.35,
     "needs_hf_token": false
   },
   "core": {
@@ -13,6 +30,13 @@
       "smoke-invert"
     ],
     "download_gb": 0,
+    "needs_hf_token": false
+  },
+  "gaussian-splat": {
+    "apps": [
+      "gaussian-splat"
+    ],
+    "download_gb": 3.78,
     "needs_hf_token": false
   },
   "image": {
@@ -96,7 +120,8 @@
   },
   "image-moss": {
     "apps": [
-      "moss-image"
+      "moss-image",
+      "moss-turbo"
     ],
     "download_gb": 13.0,
     "needs_hf_token": false
@@ -112,26 +137,62 @@
     "download_gb": 31.69,
     "needs_hf_token": false
   },
+  "qwen": {
+    "apps": [
+      "character-angles"
+    ],
+    "download_gb": 28.3,
+    "needs_hf_token": false
+  },
+  "tts": {
+    "apps": [
+      "tts",
+      "tts-clone",
+      "tts-omni",
+      "tts-omni-clone"
+    ],
+    "download_gb": 7.79,
+    "needs_hf_token": false
+  },
   "upscale": {
     "apps": [
       "depth-map",
       "remove-bg",
       "smooth",
       "upscale",
+      "upscale-fast",
+      "upscale-fast-video",
       "upscale-video",
       "video-remove-bg"
     ],
-    "download_gb": 5.13,
+    "download_gb": 5.41,
     "needs_hf_token": false
   },
   "video-h3": {
     "apps": [
       "extend-video",
+      "extend-video-turbo",
+      "h3-long-shot",
       "h3-photo",
+      "h3-photo-turbo",
+      "h3-r2v",
+      "h3-r2v-flex",
       "h3-video",
-      "reshoot"
+      "h3-video-turbo",
+      "pika-studio-director",
+      "reshoot",
+      "reshoot-turbo",
+      "studio-director"
     ],
-    "download_gb": 75.72,
+    "download_gb": 99.16,
+    "needs_hf_token": false
+  },
+  "video-ltx": {
+    "apps": [
+      "ltx-director",
+      "ltx-director-4seg"
+    ],
+    "download_gb": 39.7,
     "needs_hf_token": false
   },
   "video-ltx25": {
@@ -148,6 +209,7 @@
       "genjutsu",
       "idol",
       "kick-ad",
+      "lipsync",
       "magic-button",
       "melting-doodle",
       "mixed-media",

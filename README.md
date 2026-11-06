@@ -3,7 +3,7 @@
 Open-source Higgsfield on ComfyUI: every app is one folder, every model is open weights.
 
 **RiverField is a fork of [Freefield](https://github.com/neuregex/freefield) by Sammir Femat (neuregex), MIT.**
-It adds a **3D studio** (a picture to a textured GLB, TRELLIS.2 or Pixal3D), **Lipsync** (LTX-2.5 image-and-audio to
+It adds a **3D studio** (a picture to a textured GLB with TRELLIS.2 or Pixal3D, or to a Gaussian splat with Idol), **Lipsync** (LTX-2.5 image-and-audio to
 video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voice design), turbo variants of the
 MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniMax H3 reference pipeline**, a
 **Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
@@ -48,7 +48,7 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 
 | | |
 |---|---|
-| Apps | **144 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **145 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `e3bee7f` (0.42.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
 | GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
@@ -71,6 +71,7 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `tts-omni`, `tts-omni-clone` | OmniVoice: voice design from attributes, cloning, 600+ languages | OmniVoice 0.6B | 4.1 s / 4.7 s |
 | `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
 | `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
+| `gaussian-splat` | A picture to a **Gaussian splat**: the native `.spz`, a `.glb` mesh and a turntable clip; BiRefNet cut-out, 65k–524k gaussians, sampling preview | Idol / TripoSplat | — |
 | `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
 | `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, optional **reference sheet** (Ingredients IC-LoRA held on every frame), 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP; 192 s for 2.28 s with a sheet |
 
@@ -93,9 +94,9 @@ Four things are not an app:
   not ship its class** — the runner asks `/object_info/<class>`, rewires the model chain to the previous node and
   drops it. CUDA or Intel XPU users therefore run the same apps, on the backend's own attention.
 - **A 3D studio** — `section: "3d"` in the manifest, a `model` output type, `.glb` classified and served as
-  `model/gltf-binary`, a three.js viewer in the web UI (`web/js/model3d.js`, vendored in `web/vendor/three`),
-  and a patch for `comfy-api-proxy`, which drops ComfyUI's `3d` output key (`local/patch-proxy.py`, re-applied by
-  `run-backend.sh`).
+  `model/gltf-binary`, `.spz` splats kept as downloads, a three.js viewer in the web UI (`web/js/model3d.js`,
+  vendored in `web/vendor/three`), and a patch for `comfy-api-proxy`, which drops ComfyUI's `3d` output key
+  (`local/patch-proxy.py`, re-applied by `run-backend.sh`).
 - **A Material Planner panel** — `web/js/director.js` + the `.dir-*` styles draw a real editing surface for the
   two director apps: media bin with thumbnails and drop targets, a frame-accurate timeline (draggable GEN windows
   snapped to `5+17n`, trimmable video/audio clips, edit-style snapping), per-segment prompts and ordered
