@@ -140,7 +140,7 @@ is not the least the app needs.
 | `sdr-hdr` | ready | 24.6 GB | denoise 22.8 GB | ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors (21.5) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | 37.3 GB (H100 NVL) |
 | `h3-long-shot` | ready | 42.3 GB | denoise 22.9 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
 | `h3-r2v-flex` | ready | 40.9 GB | denoise 22.9 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
-| `pika-studio-director` | ready | 40.7 GB | denoise 22.9 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
+| `pika-studio-director` | ready | 40.7 GB (+22.9 optional) | denoise 22.9 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
 | `studio-director` | ready | 40.7 GB | denoise 22.9 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
 | `dub` | ready | 41.2 GB (+5.2 optional) | denoise 24.0 GB | ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors (21.5) | needs Modal | L40S (48 GB), whole | 40.9 GB (H100) |
 | `extend-video` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 50.5 GB (H100) |

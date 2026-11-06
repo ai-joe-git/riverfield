@@ -3346,7 +3346,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 22.87,
-      "optional_gb": 0,
+      "optional_gb": 22.87,
       "biggest_file": {
         "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
         "gb": 20.97
