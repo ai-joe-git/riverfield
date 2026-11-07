@@ -76,7 +76,7 @@ Restart ComfyUI. The nodes appear under the **RiverField** category.
 
 ## Requirements
 
-- ComfyUI (tested on 0.43.0).
+- ComfyUI (tested on 0.43.0 and 0.44.0).
 - For the planners: the pack that owns the target widget — `MiniMaxH3TimelinePlanner`
   (Comfy-Org MiniMax H3) or `LTXDirectorCS25` (CGlide's LTX-2.5-Director). The planners do not
   import them; they only produce strings.
