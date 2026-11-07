@@ -4,7 +4,7 @@ RiverField tourne par-dessus **ton** ComfyUI ROCm, pas sur Modal.
 
 | | |
 |---|---|
-| ComfyUI | `/home/zardoz/comfyui-vanilla-gfx1151/ComfyUI` (0.42.0, gfx1151) |
+| ComfyUI | `/home/zardoz/comfyui-vanilla-gfx1151/ComfyUI` (0.44.0, gfx1151) |
 | venv | `/home/zardoz/comfyui-vanilla-gfx1151/.venv-r101` (torch 2.14 + ROCm 10.1) |
 | Modèles | `ComfyUI/models` (les tiens) |
 | Backend | `:8188` ComfyUI · `:8189` comfy-api-proxy · `:8000` gateway |

@@ -21,7 +21,10 @@ from infra.modal_profile import enforce as _enforce_profile
 ROOT = Path(__file__).resolve().parent.parent
 if modal.is_local():   # on your machine, before modal run/deploy creates anything; never inside containers
     _enforce_profile(ROOT)
-COMFYUI_COMMIT = "e3bee7ffcb7d6547ed0bcd15221792f3b8646b17"   # 2026-10-19, ComfyUI 0.42.0+
+# 2026-11-06, ComfyUI 0.44.0+: the first build this repo pins with native RelayVSR
+# (RelayVSRConditioning + VSRDecode, Comfy-Org/ComfyUI#17511). No release tag has it yet — v0.44.1
+# was cut before it merged — so this is a master commit, the same one the local backend runs.
+COMFYUI_COMMIT = "63e5bf594339f676b4b15e072529873e3448409e"
 COMFY_API_PROXY = "comfy-api-proxy==0.1.6"
 COMFY_DIR = "/comfyui"
 MODELS_DIR = "/models"
