@@ -100,7 +100,7 @@
       "dir": "diffusion_models",
       "gb": 4.91,
       "phase": "denoise",
-      "license": "Apache-2.0"
+      "license": "MiniMax-Music3 Community License"
     },
     {
       "repo": "Comfy-Org/MiniMax-Music-3",
@@ -108,7 +108,7 @@
       "dir": "text_encoders",
       "gb": 9.2,
       "phase": "encode",
-      "license": "Apache-2.0"
+      "license": "MiniMax-Music3 Community License"
     },
     {
       "repo": "Comfy-Org/MiniMax-Music-3",
@@ -116,11 +116,11 @@
       "dir": "vae",
       "gb": 0.22,
       "phase": "decode",
-      "license": "Apache-2.0"
+      "license": "MiniMax-Music3 Community License"
     }
   ],
   "credits": [
-    "MiniMax Music 3 (Apache-2.0)",
+    "MiniMax Music 3 (MiniMax-Music3 Community License)",
     "minimax_music3_turbo_lora_8step (community LoRA, local file)"
   ],
   "notes": "Music Turbo HQ runs the same 8-step turbo LoRA for 12 steps: a middle ground between Music Turbo (8) and the plain Music app (no LoRA). Keep minimax_music3_turbo_lora_8step.safetensors in ComfyUI/models/loras, it is not in the audio pack. The MP3 lands in riverfield/music-turbo-hq.",

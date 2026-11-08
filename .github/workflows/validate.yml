@@ -28,6 +28,8 @@ jobs:
           python-version: "3.12"
       - run: python -m compileall -q infra lab tools
       - run: python -m unittest discover -s test -p 'comfy_validate_test.py'
+      - run: python -m unittest discover -s test -p 'local_backend_test.py'
+      - run: python -m unittest discover -s test -p 'update_test.py'
       - name: packs and VRAM map match the manifests
         run: |
           python tools/catalog.py all

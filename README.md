@@ -8,14 +8,18 @@ video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voic
 MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniMax H3 reference pipeline**, a
 **Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
 attention** node now running on comfy-kitchen's Sol-Attn (and bypassed on CUDA/XPU), and an **MCP server** so an
-agent can drive the studio. Upstream stays the reference for everything else.
+agent can drive the studio. RiverField also adds **AutoShorts / Video Factory**, a persistent local
+storyboard-to-film pipeline, **Pika Video** and **Pika Text to Video** with optional **RelayVSR x2/x4**,
+and a **shared inference queue** for web, MCP and AutoShorts model calls. Upstream stays the reference
+for the inherited apps; [upstream synchronization](docs/upstream-sync.md) is reviewed patch by patch.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
 ![The web app: the Video menu, Cinema Studio Video with the lab's example loaded and its camera moves, then the result playing in the Library tab](docs/media/ui-demo.webp)
 
-Image, video, VFX and audio apps in a studio laid out like Higgsfield's, each one a ComfyUI workflow on open weights,
-run on Modal or on your own ComfyUI. Every example in the app is a real GPU run made by the lab, with its time and peak VRAM.
+Image, video, VFX, audio and 3D apps in a studio laid out like Higgsfield's, using ComfyUI workflows
+and the native AutoShorts pipeline. Examples come from real upstream lab runs and local RiverField GPU runs;
+generation time and peak VRAM are shown when recorded, never invented.
 
 [Run it](#run-it) on Modal or [on your own GPU](#on-your-own-gpu-without-modal) · [every app](#apps) with its model and VRAM · [add an app](#add-an-app) from any ComfyUI workflow ·
 [every GPU run](docs/lab-runs.md) of the lab
@@ -26,14 +30,16 @@ run on Modal or on your own ComfyUI. Every example in the app is a real GPU run 
 <td width="50%"><img src="docs/media/ui-app.jpg" alt="Cinema Studio Video: the form on the left with the scene, camera move and tempo; the lab's example on the right"><br><b>An app.</b> The form is drawn from the app's <code>app.json</code>; "Load this example" fills it with a lab run.</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/media/ui-menu.jpg" alt="The Video menu: 46 apps in Create, Edit, Motion control and Templates, and a column with the open models behind them"><br><b>The Video menu.</b> 46 apps grouped as in Higgsfield, and the open models behind them.</td>
+<td width="50%"><img src="docs/media/ui-menu.jpg" alt="An earlier Video menu with apps grouped by task and a column showing their models"><br><b>The Video menu.</b> Apps grouped by task, with the models behind them. This earlier screenshot predates the latest RiverField additions.</td>
 <td width="50%"><img src="docs/media/ui-how.jpg" alt="Dub's How it works tab: the pipeline, every model with its size and license, and the VRAM per phase"><br><b>How it works.</b> Every model with its size and license, the VRAM per phase, and the commands to run the app.</td>
 </tr>
 </table>
 
 RiverField rebuilds Higgsfield's creative apps (image, video, VFX, audio) on top of ComfyUI and the Comfy SDK.
-There is no per-app code. Each app is a folder in `apps/` with an `app.json` manifest and a ComfyUI workflow in API
-format; the web UI, the runner, the model downloads, the VRAM map and the tests are all derived from those manifests.
+Most apps are folders in `apps/` with an `app.json` manifest and a ComfyUI workflow in API format;
+forms, model downloads and the VRAM map are derived from those manifests. AutoShorts is the exception:
+its manifest selects a native persistent pipeline with a dedicated editor, local LLM planning,
+scene review, TTS, media generation, optional RelayVSR and FFmpeg assembly.
 
 ```
 browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ──▶ comfy-api-proxy :8189 ──▶ ComfyUI :8188
@@ -41,6 +47,10 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
              from apps/*/app.json                 unloads the GPU       in front of ComfyUI       (Modal or local)
                                                   when the app changes
 ```
+
+The shared server-side inference queue serializes web/MCP workflow jobs and AutoShorts model calls.
+The gateway waits for ComfyUI's queue before unloading models. AutoShorts also calls local llama.cpp
+and FFmpeg outside the ComfyUI graph; project state is kept under `out/autoshorts/`.
 
 ![Twelve of the apps' examples, each made on a GPU by the lab: Transformations, Mixed Media, Effects, Recast, Relight, Day to Night, Cinema Studio, Depth Map, Volcano Ad, H3 Video, Styles and Storm Creature](docs/media/examples.jpg)
 
@@ -51,15 +61,15 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 | Apps | **149 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, **AutoShorts / Video Factory**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
-| GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
+| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples and completed AutoShorts productions. Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
 | End to end | Run from the browser on 23 Oct, web UI → server → gateway on Modal → ComfyUI on an H100: `morph` 160.8 s from the button to the video (128.7 s of it on the GPU), `mixed-media` 149 s, `dub` 72 s. On 24 Oct through the hosted demo (`infra/web_app.py`, the same web app on Modal behind a passcode): `face-swap` 25.2 s on the GPU. The model-free smoke apps cover the same path in CI |
 | LoRA lab | 334 cases with fixed seeds: one showcase per app (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
 | CI | `.github/workflows/validate.yml` on every push: the manifest validator, the tests, the type check, the generated packs and VRAM map, and a CPU-only ComfyUI that accepts every workflow and the prompt of every lab case (about 3 minutes) |
 
 ## What RiverField adds
 
-Everything below is on top of upstream Freefield, in the same shape: a folder in `apps/`, a ComfyUI workflow in
-API format, and a manifest the UI, the runner and the MCP all read.
+Everything below is on top of upstream Freefield. Workflow apps use a folder in `apps/`, an API-format
+graph and a manifest. AutoShorts uses a native pipeline instead of a graph.
 
 | App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
 |---|---|---|---|
@@ -79,8 +89,9 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
-| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | — |
-| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP and the same optional RelayVSR 2×/4× pass | MiniMax H3 int8 | — |
+| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
+| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP and the same optional RelayVSR 2×/4× pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
+| `autoshorts` | Native persistent **Video Factory**: local llama.cpp storyboard, TTS, per-scene media, review, optional RelayVSR x2/x4, captions, music and FFmpeg MP4 | Existing local RiverField engines + llama.cpp | Completed local six-scene productions; runtime depends on the chosen engines and settings |
 | `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment | MiniMax H3 int8 | — |
 | `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
@@ -118,7 +129,9 @@ blue `#8DB4FF` accent with cyan and violet supports, and mint `#58E6B1` only for
 `:root` block of `web/app.css`.
 
 `./start.sh` starts the backend (ComfyUI + comfy-api-proxy + gateway), the web app and the MCP; `./stop.sh` stops
-them; `./update.sh` merges upstream, rebuilds the turbo variants and re-syncs the ComfyUI-side nodes.
+them. `./update.sh` updates from **RiverField origin/main**, fast-forward only, then applies available local
+overlays and validates. `./update.sh --check-upstream` only fetches and lists recent **Freefield** commits;
+it never merges them. See [the synchronization policy](docs/upstream-sync.md).
 After a **ComfyUI-Manager** update, run `./local/restore-comfy.sh` (it recopies the `riverfield-*` nodes and
 re-applies the two patches inside the third-party packs), then `./stop.sh && ./start.sh`. Machines and ports:
 [`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
@@ -131,7 +144,7 @@ re-applies the two patches inside the third-party packs), then `./stop.sh && ./s
 |---|---|---|---|---|
 | `create-image` | Create Image | FLUX 3 Image Klein (int8) + BFL's 9B prompt upsampler (an on/off toggle): 10 aspect ratios, 1K to 2K, 17 photographic looks; a layout table in JSON can follow the prompt | fits whole, 17.8 GB | ready |
 | `z-image` | Create Image, fast drafts | Z-Image Turbo (int8); the lab makes its reference photos with it | fits whole, 12.2 GB | ready |
-| `moss-image` | Create Image with a layout | MOSS-Image SFT (int8), Apache-2.0; also takes a layout JSON with a box per text and object | fits whole, 13.0 GB | draft |
+| `moss-image` | Create Image with a layout | MOSS-Image SFT (int8), Apache-2.0; also takes a layout JSON with a box per text and object | fits whole, 13.0 GB | ready |
 | `styles` | Image styles | Krea 2 Turbo (int8) + Krea's nine official style LoRAs, picked from a list | fits whole, 19.4 GB | ready |
 | `style-reference` | Style transfer | Krea 2 Turbo (int8) + style-reference LoRA | fits whole, 19.4 GB | ready |
 | `cinema-studio` | Cinematic Cameras | FLUX 3 Image Klein + genre, era, camera body, lens, focal length, aperture, lighting and color palette, written as the look they give; 6 aspect ratios, 1K to 2K | fits whole, 11.0 GB | ready |
@@ -522,11 +535,20 @@ using the node definitions in `tools/object_info.json`.
 
 Code: MIT. Model weights are not in this repository and keep their own licenses, listed in each `app.json`
 (Apache-2.0, MIT, OpenRAIL, LTX-2.x Community License, FLUX Kommunity License, Krea 2 Community License, SAM License,
-Stable Audio Community License, MiniMax H3 Community License). Some community LoRAs are research-only or non-commercial
+Stable Audio Community License, MiniMax H3 Community License, MiniMax-Music3 Community License). Some community LoRAs are research-only or non-commercial
 (Cameraman v2 in `camera-copy`), and one states no license on its model card (lightx2v's MiniMax-H3 Turbo in `reshoot`;
 its code repository is Apache-2.0); their `app.json` says so and the web UI shows it next to the model. Workflows are adapted from ComfyUI's official templates, Lightricks' ComfyUI-LTXVideo examples and Comfy-Org's comfy-reshoot (MIT);
 the cloud text-encoder branch in Lightricks' examples is removed so every app runs on open weights only. Camera and
 lens vocabulary in `cinema-studio` comes from [open-higgsfield-ai](https://github.com/sunnychase/open-higgsfield-ai) (MIT).
+
+**MiniMax Music 3 is not Apache-2.0**: `music`, `music-turbo` and `music-turbo-hq` use the
+[MiniMax-Music3 Community License](https://huggingface.co/MiniMaxAI/MiniMax-Music3/blob/main/LICENSE).
+Among its conditions: commercial products/services must prominently display “MiniMax-Music3”; aggregate
+annual revenue from the covered products/services above US$20M requires prior written authorization.
+Products or hosted services offered to third parties must also implement and maintain safeguards against
+prohibited uses. Read the full license and acceptable-use policy before deploying a service. These
+conditions concern the model, not RiverField's MIT-licensed code; community Turbo LoRAs retain their own terms.
+
 LoRAs outside `effects`: Lightricks' IC-LoRAs (LTX-2.x Community License); joyfox's LTX-2.3 transition LoRA (`transitions`,
 `morph` and the four templates on it), dx8152's Multiple Angles and lightx2v's Qwen-Image Lightning (Apache-2.0); lovis93's
 next-scene v2 (MIT); elix3r's talking-head LoRA in `talking` (OpenRAIL); Cseti's CrossView Warp in `reshoot` (MiniMax H3

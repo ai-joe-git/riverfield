@@ -1,32 +1,39 @@
 #!/usr/bin/env bash
-# Met RiverField à jour depuis le dépôt upstream (Freefield), sans perdre les ajouts locaux.
-#
-#   ./update.sh
-#
-# RiverField est un fork : `origin` = ton dépôt, `upstream` = neuregex/freefield.
-# Le merge peut demander des résolutions ; rien n'est écrasé automatiquement.
+# Update RiverField from origin; Freefield upstream is reviewed separately.
 set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-git fetch upstream
-if git merge --no-edit upstream/main; then
-  echo "== upstream mergé"
-else
-  echo
-  echo "conflit : résous-les, puis : git add -A && git commit"
+case "${1:-}" in
+  --check-upstream)
+    git fetch --no-tags upstream main
+    echo "Freefield's latest commits (not necessarily missing from RiverField):"
+    git log -10 --format='%h %cs %s' FETCH_HEAD
+    echo "No merge performed. See docs/upstream-sync.md for patch-based review."
+    exit 0
+    ;;
+  "") ;;
+  *) echo "Usage: ./update.sh [--check-upstream]" >&2; exit 2 ;;
+esac
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Working tree is not clean. Commit or preserve your changes before updating." >&2
   exit 1
 fi
+if [[ "$(git branch --show-current)" != "main" ]]; then
+  echo "Switch to main before updating." >&2
+  exit 1
+fi
+before=$(git rev-parse HEAD)
+git fetch origin main
+git merge --ff-only origin/main
 
-if ! git diff --quiet HEAD@{1} HEAD -- package.json package-lock.json 2>/dev/null; then
-  echo "== package.json a changé : npm install"
+if ! git diff --quiet "$before" HEAD -- package.json package-lock.json; then
   npm install --no-fund --no-audit
 fi
 
-# les workflows H3 de base ont peut-être bougé : on réaligne les clones turbo
-python3 local/make-turbo-apps.py
-./local/restore-comfy.sh || true
+# Optional machine-local overlays are absent on a fresh clone.
+if [[ -f local/make-turbo-apps.py ]]; then python3 local/make-turbo-apps.py; fi
+if [[ -f local/restore-comfy.sh ]]; then bash local/restore-comfy.sh; fi
 npm run validate
-
-echo
-echo "à jour ($(git log -1 --format='%h %s'))"
-echo "relancer : ./stop.sh && ./start.sh"
+echo "RiverField updated ($(git log -1 --format='%h %s'))."
+echo "Services were not restarted. When idle: ./stop.sh && ./start.sh"
