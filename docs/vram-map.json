@@ -3591,58 +3591,6 @@
       "measured_on": null
     },
     {
-      "id": "pika-text-to-video",
-      "name": "Pika Text to Video",
-      "section": "video",
-      "pack": "video-h3",
-      "status": "ready",
-      "whole_gb": 53.85,
-      "phases_gb": {
-        "encode": 27.14,
-        "denoise": 22.93,
-        "denoise2": 0.0,
-        "decode": 3.78,
-        "aux": 0.0
-      },
-      "largest_phase": "encode",
-      "largest_phase_gb": 27.14,
-      "optional_gb": 15.69,
-      "biggest_file": {
-        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-        "gb": 27.14
-      },
-      "verdict_24gb": "needs Modal",
-      "modal_gpu": "L40S (48 GB), by phases",
-      "measured_peak_gb": null,
-      "measured_on": null
-    },
-    {
-      "id": "pika-video",
-      "name": "Pika Video",
-      "section": "video",
-      "pack": "video-h3",
-      "status": "ready",
-      "whole_gb": 53.85,
-      "phases_gb": {
-        "encode": 27.14,
-        "denoise": 22.93,
-        "denoise2": 0.0,
-        "decode": 3.78,
-        "aux": 0.0
-      },
-      "largest_phase": "encode",
-      "largest_phase_gb": 27.14,
-      "optional_gb": 15.69,
-      "biggest_file": {
-        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-        "gb": 27.14
-      },
-      "verdict_24gb": "needs Modal",
-      "modal_gpu": "L40S (48 GB), by phases",
-      "measured_peak_gb": null,
-      "measured_on": null
-    },
-    {
       "id": "reshoot",
       "name": "Re-shoot",
       "section": "video",
@@ -3719,6 +3667,58 @@
       "modal_gpu": "L40S (48 GB), by phases",
       "measured_peak_gb": 44.3,
       "measured_on": "L40S · 20261026-015446-l40s"
+    },
+    {
+      "id": "pika-text-to-video",
+      "name": "Pika Text to Video",
+      "section": "video",
+      "pack": "video-h3",
+      "status": "ready",
+      "whole_gb": 59.14,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 28.09,
+        "denoise2": 0.0,
+        "decode": 3.91,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 28.09,
+      "optional_gb": 20.98,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "pika-video",
+      "name": "Pika Video",
+      "section": "video",
+      "pack": "video-h3",
+      "status": "ready",
+      "whole_gb": 59.14,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 28.09,
+        "denoise2": 0.0,
+        "decode": 3.91,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 28.09,
+      "optional_gb": 20.98,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
     },
     {
       "id": "autoshorts",

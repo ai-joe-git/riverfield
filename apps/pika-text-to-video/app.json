@@ -10,7 +10,7 @@
   "source": {
     "template": "video_pika_h3_flex_t2v.json",
     "comfyui": "0.43.0",
-    "notes": "ComfyUI's Pika H3 Flex t2v template, flattened from its 'Image to Video (Pika H3 Flex)' subgraph with both keyframe slots empty. Local additions: H3SLAAttentionROCM (0.85 sparsity, bypassable) and an optional per-frame ESRGAN upscale (2x-ESRGAN or RealESRGAN_x4plus) that is bypassed when set to None. Default resolution 0.98 MP, lcm sampler and 6-step sigma ladder unchanged."
+    "notes": "ComfyUI's Pika H3 Flex t2v template, flattened from its 'Image to Video (Pika H3 Flex)' subgraph with both keyframe slots empty. Local additions: H3SLAAttentionROCM (0.85 sparsity, bypassable) and an optional RelayVSR x2/x4 pass (the same DIT + Flash VAE as the RelayVSR Upscale app) that is bypassed when set to None. Default resolution 0.98 MP, lcm sampler and 6-step sigma ladder unchanged."
   },
   "inputs": [
     {
@@ -116,6 +116,10 @@
         {
           "node": "140:129",
           "field": "noise_seed"
+        },
+        {
+          "node": "vsr_sampler",
+          "field": "seed"
         }
       ]
     },
@@ -193,32 +197,58 @@
         },
         {
           "value": "x2",
-          "label": "2× — 2x-ESRGAN, per-frame pixel upscale",
+          "label": "2× — RelayVSR x2 (lightx2v DIT + Flash VAE)",
           "sets": [
             {
-              "node": "upscale_loader",
-              "field": "model_name",
-              "value": "2x-ESRGAN.pth"
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x2_fp32.safetensors"
             }
           ]
         },
         {
           "value": "x4",
-          "label": "4× — RealESRGAN x4plus (heavy: 16× pixels)",
+          "label": "4× — RelayVSR x4 (the paper's 4× model)",
           "sets": [
             {
-              "node": "upscale_loader",
-              "field": "model_name",
-              "value": "RealESRGAN_x4plus.safetensors"
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x4_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x4_fp32.safetensors"
             }
           ]
         }
       ],
-      "help": "Optional pixel upscale of every decoded frame before encoding, with the local ESRGAN models. None keeps the native 0.98 MP result; x4 multiplies pixels by 16 and is slow.",
+      "help": "Optional RelayVSR pass on the decoded frames before encoding: the DIT decides the factor and the Flash VAE of the same factor restores the frames it skips. None keeps the native result; x4 multiplies pixels by 16 and is slow.",
       "bypass": [
         {
-          "node": "upscale",
-          "field": "image"
+          "node": "vsr_decode",
+          "field": "images"
+        }
+      ]
+    },
+    {
+      "id": "upscale_detail",
+      "type": "slider",
+      "label": "Upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "RelayVSR: how much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output, lower is calmer and closer to the source.",
+      "bind": [
+        {
+          "node": "vsr_decode",
+          "field": "detail"
         }
       ]
     },
@@ -356,6 +386,40 @@
       "gb": 1.96,
       "phase": "denoise",
       "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
     }
   ]
 }

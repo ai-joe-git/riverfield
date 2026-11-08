@@ -152,7 +152,7 @@
     "class_type": "CreateVideo",
     "inputs": {
       "images": [
-        "upscale",
+        "vsr_decode",
         0
       ],
       "audio": [
@@ -354,29 +354,90 @@
       "title": "H3 SLA Attention - ROCM"
     }
   },
-  "upscale_loader": {
-    "class_type": "UpscaleModelLoader",
+  "vsr_unet": {
+    "class_type": "UNETLoader",
     "inputs": {
-      "model_name": "2x-ESRGAN.pth"
+      "unet_name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "weight_dtype": "default"
     },
     "_meta": {
-      "title": "Load Upscale Model"
+      "title": "Load Diffusion Model (RelayVSR)"
     }
   },
-  "upscale": {
-    "class_type": "ImageUpscaleWithModel",
+  "vsr_cond": {
+    "class_type": "RelayVSRConditioning",
     "inputs": {
-      "upscale_model": [
-        "upscale_loader",
+      "model": [
+        "vsr_unet",
         0
       ],
-      "image": [
+      "images": [
         "140:122",
         0
       ]
     },
     "_meta": {
-      "title": "Upscale Image (using Model)"
+      "title": "RelayVSR Conditioning"
+    }
+  },
+  "vsr_sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "vsr_unet",
+        0
+      ],
+      "positive": [
+        "vsr_cond",
+        0
+      ],
+      "negative": [
+        "vsr_cond",
+        0
+      ],
+      "latent_image": [
+        "vsr_cond",
+        1
+      ],
+      "seed": 0,
+      "steps": 1,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "KSampler (RelayVSR)"
+    }
+  },
+  "vsr_vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "relayvsr_flash_vae_x2_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE (RelayVSR Flash)"
+    }
+  },
+  "vsr_decode": {
+    "class_type": "VSRDecode",
+    "inputs": {
+      "vae": [
+        "vsr_vae",
+        0
+      ],
+      "samples": [
+        "vsr_sampler",
+        0
+      ],
+      "images": [
+        "140:122",
+        0
+      ],
+      "detail": 1
+    },
+    "_meta": {
+      "title": "VSR Decode"
     }
   }
 }

@@ -17,7 +17,7 @@
     "reshoot-turbo",
     "studio-director"
   ],
-  "download_gb": 99.16,
+  "download_gb": 109.74,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -62,6 +62,32 @@
         "reshoot",
         "reshoot-turbo",
         "studio-director"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "pika-text-to-video",
+        "pika-video"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x4_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "pika-text-to-video",
+        "pika-video"
       ]
     },
     {
@@ -244,6 +270,32 @@
         "pika-video",
         "reshoot",
         "reshoot-turbo"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x2_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "pika-text-to-video",
+        "pika-video"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x4_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "pika-text-to-video",
+        "pika-video"
       ]
     }
   ]
