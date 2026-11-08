@@ -135,9 +135,42 @@ After a **ComfyUI-Manager** update, run `./local/restore-comfy.sh` (it recopies 
 re-applies the two patches inside the third-party packs), then `./stop.sh && ./start.sh`. Machines and ports:
 [`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
 
-## Apps
+## AutoShorts / Video Factory
 
-**AutoShorts / Video Factory** is a native, persistent multi-stage application: local llama.cpp storyboard → existing RiverField TTS/media engines → review → optional RelayVSR x2/x4 → subtitled FFmpeg MP4. Open `#/app/autoshorts` under Video → Create. [Setup, operation, API/MCP and current limitations](docs/autoshorts.md).
+**Turn a topic or script into a narrated, subtitled short film, entirely with local inference.**
+AutoShorts is a native RiverField application, not a single ComfyUI workflow.
+Open **Video → Create → AutoShorts**, or `http://127.0.0.1:3000/#/app/autoshorts`.
+
+```text
+Topic / script → local llama.cpp storyboard → narration + scene media
+               → review → optional RelayVSR x2/x4 → captions + music → FFmpeg MP4
+```
+
+The English workspace has three steps:
+
+1. **Create** — enter the topic, language, voice and format. Choose **Fast** (images/imports
+   with camera motion), **Balanced** (mostly images with some generated clips), or **Cinema**
+   (generated video). Detect a running local llama.cpp server, generate a storyboard or import JSON.
+2. **Scenes** — edit narration, prompts, duration, engine and scene order. Generate or import media,
+   reuse RiverField history, listen to speech, and approve or regenerate each scene before upscale.
+3. **Export** — set the final resolution, captions (burned-in, karaoke or separate SRT), optional
+   imported/generated music, framing and fades; render and download the MP4.
+
+Projects and finished stages persist in `out/autoshorts/`: cancellation or a retry keeps completed
+work, and changing captions or music does not rerun video diffusion. Local six-scene productions
+have completed on gfx1151. Web/MCP and AutoShorts model calls share one inference queue.
+
+**Upscale and export size are separate settings.** Approved video scenes use the actual RelayVSR
+x2/x4 result in the edit; the final output is then resized to the selected export resolution.
+For example, choosing a 720-pixel output height will downsize a higher-resolution upscaled source.
+
+**Requirements:** RiverField's local engines, a user-managed llama.cpp server for planning, and
+FFmpeg/ffprobe with libx264/libass. No cloud inference. Caption timing is approximate unless a local
+transcription service is configured; x4 is experimental and must respect each engine's resolution limits.
+
+[Full guide: setup, production, persistence, API/MCP and limitations](docs/autoshorts.md).
+
+## Apps
 
 | App | Rebuilds | Model | On a 24 GB card | Status |
 |---|---|---|---|---|

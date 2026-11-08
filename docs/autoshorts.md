@@ -1,6 +1,6 @@
 # AutoShorts / Video Factory
 
-Open `#/app/autoshorts` (Video → Create). The workspace has three steps: **Créer** (topic and production settings), **Scènes** (one selected scene, with a thumbnail rail), **Exporter** (preview and final encoding). Advanced controls are collapsed. The last project reopens automatically; errors offer a resume action without discarding completed scenes. Start RiverField normally with `./start.sh` or `npm run serve`. After installing this change, restart the **web/MCP processes**, not ComfyUI; the registry is loaded at startup. FFmpeg/ffprobe with libx264 and libass must be on PATH. No new model weights or Python runtime are installed by this feature.
+Open `#/app/autoshorts` (Video → Create). The English workspace has three steps: **Create** (topic and production settings), **Scenes** (one selected scene, with a thumbnail rail), **Export** (preview and final encoding). Advanced controls are collapsed. The last project reopens automatically; errors offer a resume action without discarding completed scenes. Start RiverField normally with `./start.sh` or `npm run serve`. After installing this change, restart the **web/MCP processes**, not ComfyUI; the registry is loaded at startup. FFmpeg/ffprobe with libx264 and libass must be on PATH. No new model weights or Python runtime are installed by this feature.
 
 ## Local setup
 
@@ -12,7 +12,7 @@ llama-server -m /path/to/instruct-model.gguf --host 127.0.0.1 --port 8080
 
 Use `http://127.0.0.1:8080/v1` in the Create panel. Model may be blank for the server default. The server must support OpenAI-style chat completions with `response_format: json_schema`. There is no API key. Storyboard JSON is validated (types, scene IDs, ordering, bounds); at most two repair retries follow an invalid answer. You can instead paste a storyboard manually. `/api/autoshorts/capabilities` exposes the exact config/storyboard schemas and all registry workflows and parameters.
 
-Launchers that assign a random port (BlackRiver, for example) are handled by **Détecter les serveurs llama.cpp actifs** under « Connexion au LLM local »: the backend reads the running `llama-server` arguments, keeps loopback URLs only, and verifies `/v1/models` before listing them. `GET /api/autoshorts/llm-servers` returns the same list. The chosen URL is saved with the project, so a restart that changes the port requires running the detection again.
+Launchers that assign a random port (BlackRiver, for example) are handled by **Detect running llama.cpp servers** under **Local LLM connection and advanced settings**: the backend reads the running `llama-server` arguments, keeps loopback URLs only, and verifies `/v1/models` before listing them. `GET /api/autoshorts/llm-servers` returns the same list. The chosen URL is saved with the project, so a restart that changes the port requires running the detection again.
 
 Inference endpoints and `COMFY_BASE_URL` must be loopback addresses. Hosted-demo use and remote inference are rejected. llama.cpp is user-managed: if its model occupies GPU memory, configure its offload/context accordingly before running diffusion. AutoShorts does not launch or kill model servers.
 
@@ -77,4 +77,4 @@ The additional `autoshorts` MCP tool supports `list`, `capabilities`, `create`, 
 
 `npm test` includes real FFmpeg synthetic exports (two scenes, speech, music ducking, ASS karaoke, MP4/SRT probing), mocked local structured LLM/workflow outputs, cache retries, stale narration rejection, recovery, cancellation, containment, profile calculations and RelayVSR pairing/review gates. No expensive diffusion inference is required by tests.
 
-Not yet validated: a full real llama.cpp → actual GPU TTS/H3/LTX → RelayVSR production on this machine. No new speed or quality claims. Forced alignment, face-aware cropping, cross-dissolves, arbitrary multi-track SFX, and a graphical draggable/trim-handle timeline remain incomplete. Current controls perform real operations, not simulated previews.
+Real local six-scene productions have completed, including generated speech/media, RelayVSR x2 video scenes and final MP4 export. This is not validation of every engine, mode or x4 combination, nor a speed or quality benchmark. Forced alignment, face-aware cropping, cross-dissolves, arbitrary multi-track SFX, and a graphical draggable/trim-handle timeline remain incomplete. Current controls perform real operations, not simulated previews.
