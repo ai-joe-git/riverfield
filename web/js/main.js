@@ -13,6 +13,7 @@ import { hooks, feed } from "./feed.js";
 import { openViewer } from "./viewer.js";
 import { openCompare } from "./compare.js";
 import { flags } from "./flags.js";
+import { autoShortsView } from "./autoshorts.js";
 
 const main = el("main", { id: "main", class: "view" });
 let bar = null;
@@ -22,6 +23,7 @@ function route() {
   const hash = location.hash || "#/";
   const m = /^#\/app\/([\w-]+)(?:\/(history|library|how|director))?/.exec(hash);
   if (m) {
+    if(m[1] === "autoshorts") return autoShortsView();
     if (m[2]) setTab(m[2]);   // deep link straight to one tab of the workspace
     const view = workspaceView(m[1]);
     const app = view.app;

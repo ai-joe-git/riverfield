@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "autoshorts",
+  "name": "AutoShorts · Video Factory",
+  "section": "video",
+  "pack": "core",
+  "status": "ready",
+  "pipeline": "autoshorts",
+  "summary": "Local storyboard, narration, scene generation, RelayVSR and subtitled FFmpeg exports in a persistent production workspace.",
+  "inputs": [],
+  "outputs": [{ "node": "export", "type": "video", "label": "Finished short" }],
+  "models": [],
+  "notes": "Native pipeline: use /api/autoshorts or the autoshorts MCP tool. Existing generation engines run through RiverField history and runner, sequentially. No single ComfyUI workflow."
+}

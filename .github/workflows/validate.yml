@@ -18,6 +18,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: FFmpeg for synthetic AutoShorts editing tests
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
       - run: npm run validate
       - run: npm test
       - run: npm run typecheck
@@ -25,6 +27,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m compileall -q infra lab tools
+      - run: python -m unittest discover -s test -p 'comfy_validate_test.py'
       - name: packs and VRAM map match the manifests
         run: |
           python tools/catalog.py all
@@ -40,6 +43,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: bash tools/ci_comfyui.sh "$RUNNER_TEMP/comfyui"
+      - run: python -m unittest discover -s test -p 'gateway_queue_test.py'
       - run: python tools/comfy_validate.py --comfy-dir "$RUNNER_TEMP/comfyui" --placeholders
       - run: python tools/comfy_validate.py --comfy-dir "$RUNNER_TEMP/comfyui" --placeholders --lab lab/cases.json
       - if: failure()

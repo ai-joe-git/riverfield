@@ -93,6 +93,22 @@ const fail = (e: unknown) => ({
 function build(): McpServer {
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
 
+  server.registerTool("autoshorts", {
+    title: "Local AutoShorts production projects",
+    description: "Persistent local Video Factory. list/create/get/edit/import/task/cancel. task actions: plan, produce, media, audio, align, upscale, evaluate, music, render; scene required for individual actions. task payload accepts force:true for regeneration. Read get_app autoshorts and capabilities first. edit payload is {config?,board?}; import payload {path} is an existing file inside RIVERFIELD_OUT. create payload is configuration. get returns absolute project directory and relative artifact paths. Existing nine tools remain unchanged. Generation child IDs refer to ordinary RiverField history. No cloud inference.",
+    inputSchema: { operation:z.enum(["list","capabilities","create","get","edit","import","task","cancel"]), project:z.string().optional(), payload:z.record(z.string(),z.unknown()).optional() },
+  }, async ({operation,project,payload}) => {
+    try {
+      if(operation==="list")return text(await api("/api/autoshorts"));
+      if(operation==="capabilities")return text(await api("/api/autoshorts/capabilities"));
+      if(operation==="create")return text(await api("/api/autoshorts",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})}));
+      if(!project)throw new Error("project is required");
+      const base=`/api/autoshorts/${encodeURIComponent(project)}`;
+      if(operation==="get")return text(await api(base));
+      return text(await api(base+(operation==="edit"?"":operation==="task"?"/tasks":`/${operation}`),{method:operation==="edit"?"PATCH":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})}));
+    }catch(e){return fail(e);}
+  });
+
   server.registerTool("list_apps", {
     title: "List RiverField apps",
     description: "Every app of the studio with its section, status and pack. Filter by section (image, video, audio, 3d, utility).",
@@ -118,7 +134,7 @@ function build(): McpServer {
     try {
       const a = await manifest(app);
       return text({
-        id: a.id, name: a.name, section: a.section, status: a.status, summary: a.summary, pack: a.pack,
+        id: a.id, name: a.name, section: a.section, status: a.status, summary: a.summary, pack: a.pack, pipeline:a.pipeline??null,
         inputs: a.inputs.map((i: Any) => ({
           id: i.id, type: i.type, label: i.label, required: Boolean(i.required),
           default: i.default, min: i.min, max: i.max, step: i.step,

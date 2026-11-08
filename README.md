@@ -48,7 +48,7 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
 
 | | |
 |---|---|
-| Apps | **146 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **149 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, **AutoShorts / Video Factory**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
 | GPU runs | 48 lab runs on Modal from 20 to 26 Oct (L40S and H100), 710 of 733 cases ok. Every example in the web UI comes from one of them, with its time and peak VRAM. Run by run, and what each one changed: [`docs/lab-runs.md`](docs/lab-runs.md) |
@@ -79,6 +79,8 @@ API format, and a manifest the UI, the runner and the MCP all read.
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
+| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, optional **2×/4× ESRGAN** upscale of the decoded frames | MiniMax H3 int8 | — |
+| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP and the same optional 2×/4× upscale | MiniMax H3 int8 | — |
 | `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment | MiniMax H3 int8 | — |
 | `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
@@ -104,7 +106,7 @@ Four things are not an app:
   `<Picture N>` / `<Audio N>` references, and a global prompt. It writes `segment_windows`, a JSON document the
   `RiverFieldH3Planner` node (the `riverfield-comfy-nodes` pack, source in `comfy-nodes/`) turns into the
   planner's `timeline_data`.
-- **An MCP server** (`mcp/server.ts`) — nine tools (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
+- **An MCP server** (`mcp/server.ts`) — nine generation tools plus the native `autoshorts` pipeline tool (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
   `cancel_job`, `history`, `gpu`, `examples`) over the studio's own API, streamable HTTP on
   `http://127.0.0.1:3010/mcp` started with the app, or stdio with `./run-mcp.sh --stdio`. `get_app` flags
   file inputs and panel-driven inputs, and JSON-string inputs (the Studio Director's Material Planner) are
@@ -122,6 +124,8 @@ re-applies the two patches inside the third-party packs), then `./stop.sh && ./s
 [`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
 
 ## Apps
+
+**AutoShorts / Video Factory** is a native, persistent multi-stage application: local llama.cpp storyboard → existing RiverField TTS/media engines → review → optional RelayVSR x2/x4 → subtitled FFmpeg MP4. Open `#/app/autoshorts` under Video → Create. [Setup, operation, API/MCP and current limitations](docs/autoshorts.md).
 
 | App | Rebuilds | Model | On a 24 GB card | Status |
 |---|---|---|---|---|

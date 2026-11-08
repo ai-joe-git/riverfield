@@ -1,0 +1,361 @@
+{
+  "id": "pika-text-to-video",
+  "name": "Pika Text to Video",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "workflow": "workflow.api.json",
+  "summary": "Text to video with Pika H3 Flex (fl2va adapters, empty reference bin) and its own sound. Optional 2×/4× upscale.",
+  "higgsfield_feature": "Create Video",
+  "source": {
+    "template": "video_pika_h3_flex_t2v.json",
+    "comfyui": "0.43.0",
+    "notes": "ComfyUI's Pika H3 Flex t2v template, flattened from its 'Image to Video (Pika H3 Flex)' subgraph with both keyframe slots empty. Local additions: H3SLAAttentionROCM (0.85 sparsity, bypassable) and an optional per-frame ESRGAN upscale (2x-ESRGAN or RealESRGAN_x4plus) that is bypassed when set to None. Default resolution 0.98 MP, lcm sampler and 6-step sigma ladder unchanged."
+  },
+  "inputs": [
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "integrated_multimodal_description: [Shot 1] Stylized 3D animation, Pixar-inspired cartoon rendering with a C4D and Octane look, warm subsurface scattering through ears and fingertips and exaggerated squash-and-stretch acting; a three-head-tall cook with a round face, a tall white toque that flops to one side and a flour-dusted apron stands at a stainless counter in a small warm kitchen, rolling dumplings by hand. The counter is dusted white, a bamboo steamer steams on the right, and a shallow pot of broth sits at the burner behind him with visible heat shimmer. The camera holds a static shot at counter height for the first second while he sets one finished dumpling down on a tray in the foreground, presses the seam with two fingers, then turns away to reach for a rolling pin on the shelf behind him, the toque tipping as he turns. At about one and a half seconds the dumpling on the tray presses itself upward, its pleated top gathering like a brow, and two stubby legs of dough push out of its base. It walks to the tray edge in three quick shuffling steps, the tray ringing slightly under each step, and jumps off toward the pot. At about two and a half seconds the cook whips around and lunges, both arms out, and misses clean over the top of it as the dumpling arcs into the broth with a plop. He freezes half-bent over the pot, arms still out. At about three and a half seconds the surface breaks and the dumpling floats back up, cooked, glossy and steaming, bobbing once against the side of the pot. The last second holds completely still on the cook's face as he straightens up slowly, flour on his cheek, the toque now fully flopped over one eye, one eyebrow rising while his mouth stays flat; a single bubble pops on the broth behind him.\n\noverall_soundscape: Warm small-kitchen ambience with a low gas burner hiss and the faint creak of a steaming bamboo basket, the dry shuffle of a flour dusting, three soft doughy footfalls on metal tray, one short airy whoosh as he lunges, a clean heavy plop into broth, then a gentle simmer with one small bubble popping.\n\nnon_diegetic_music: A light pizzicato cello figure at a moderate tempo that follows the dumpling's footsteps, drops out completely during the lunge and the plop, and returns on a single dry resolved note as the cook straightens up.",
+      "prefill": true,
+      "help": "Describe the action, the camera and the sound. Put spoken words in quotes.",
+      "bind": [
+        {
+          "node": "140:131",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration (s)",
+      "min": 1,
+      "max": 20,
+      "step": 0.5,
+      "default": 5,
+      "help": "Snapped to H3's 17k+5 frame grid at 24 fps (5 s → 124 frames).",
+      "bind": [
+        {
+          "node": "140:133",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "115",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.2,
+      "max": 1.5,
+      "step": 0.02,
+      "default": 0.98,
+      "help": "0.98 MP ≈ 1344×768 at 16:9, rounded to a multiple of 32.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 20261220,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "140:129",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B int8 — native on gfx1151"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B nvfp4 — emulated, slower"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B heretic int8"
+        }
+      ],
+      "help": "int8 runs natively on gfx1151; nvfp4 is emulated here and encodes slower.",
+      "bind": [
+        {
+          "node": "140:128",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "ROCm sparse-attention patch. Turn it off (or run a backend without the node) and it is bypassed: the model goes straight to the guider.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "sla",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "SLA sparsity",
+      "min": 0.8,
+      "max": 0.95,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "Fraction of key blocks skipped. 0.85 is the shipped default the SLA turbo LoRA was distilled against; 0.90 is ~15% faster.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "upscale",
+      "type": "select",
+      "label": "Upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "None — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "2× — 2x-ESRGAN, per-frame pixel upscale",
+          "sets": [
+            {
+              "node": "upscale_loader",
+              "field": "model_name",
+              "value": "2x-ESRGAN.pth"
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RealESRGAN x4plus (heavy: 16× pixels)",
+          "sets": [
+            {
+              "node": "upscale_loader",
+              "field": "model_name",
+              "value": "RealESRGAN_x4plus.safetensors"
+            }
+          ]
+        }
+      ],
+      "help": "Optional pixel upscale of every decoded frame before encoding, with the local ESRGAN models. None keeps the native 0.98 MP result; x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "upscale",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "File name prefix",
+      "default": "riverfield/pika-text-to-video",
+      "bind": [
+        {
+          "node": "92",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "mp4"
+        },
+        {
+          "value": "mkv",
+          "label": "mkv"
+        },
+        {
+          "value": "webm",
+          "label": "webm"
+        },
+        {
+          "value": "mov",
+          "label": "mov"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "92",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "h264"
+        },
+        {
+          "value": "av1",
+          "label": "av1"
+        },
+        {
+          "value": "prores",
+          "label": "prores"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "help": "h264/av1 need mp4 or mkv; prores needs mov or mkv.",
+      "bind": [
+        {
+          "node": "92",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "92",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 3.17,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.96,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    }
+  ]
+}

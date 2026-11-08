@@ -11,6 +11,8 @@
     "h3-video",
     "h3-video-turbo",
     "pika-studio-director",
+    "pika-text-to-video",
+    "pika-video",
     "reshoot",
     "reshoot-turbo",
     "studio-director"
@@ -40,7 +42,9 @@
         "h3-photo-turbo",
         "h3-video",
         "h3-video-turbo",
-        "pika-studio-director"
+        "pika-studio-director",
+        "pika-text-to-video",
+        "pika-video"
       ]
     },
     {
@@ -121,7 +125,9 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "h3-long-shot",
-        "pika-studio-director"
+        "pika-studio-director",
+        "pika-text-to-video",
+        "pika-video"
       ]
     },
     {
@@ -153,6 +159,8 @@
         "h3-photo-turbo",
         "h3-video",
         "h3-video-turbo",
+        "pika-text-to-video",
+        "pika-video",
         "reshoot",
         "reshoot-turbo"
       ]
@@ -170,6 +178,8 @@
         "h3-r2v",
         "h3-r2v-flex",
         "pika-studio-director",
+        "pika-text-to-video",
+        "pika-video",
         "studio-director"
       ]
     },
@@ -192,6 +202,8 @@
         "h3-video",
         "h3-video-turbo",
         "pika-studio-director",
+        "pika-text-to-video",
+        "pika-video",
         "reshoot",
         "reshoot-turbo",
         "studio-director"
@@ -228,6 +240,8 @@
         "h3-r2v-flex",
         "h3-video",
         "h3-video-turbo",
+        "pika-text-to-video",
+        "pika-video",
         "reshoot",
         "reshoot-turbo"
       ]

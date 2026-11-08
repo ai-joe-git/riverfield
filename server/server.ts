@@ -27,6 +27,8 @@ import { explainSubmitError, InputError, resolveValues, Runner, type Values } fr
 import { History } from "./history.ts";
 import { Flags } from "./flags.ts";
 import { DOOR_HTML, Guard } from "./guard.ts";
+import { AutoShorts } from "./autoshorts.ts";
+import { InferenceQueue } from "./inference-queue.ts";
 
 const root = repoRoot();
 const { apps, problems } = loadRegistry(root);
@@ -41,6 +43,8 @@ const vram = new Map<string, VramRow>(
 );
 let runner: Runner | null = null;
 const getRunner = () => (runner ??= new Runner());
+const inference = new InferenceQueue();
+const runControllers = new Map<string, AbortController>();
 const draftsAllowed = process.env.RIVERFIELD_DRAFTS === "1";
 const outDir = process.env.RIVERFIELD_OUT || join(root, "out");
 const guard = Guard.fromEnv(join(outDir, "limits.json"));
@@ -63,6 +67,45 @@ const history = new History(join(outDir, "history"), {
   frames: (jobId, signal) => getRunner().frames(jobId, signal),
 });
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
+const autoshorts = new AutoShorts(join(outDir, "autoshorts"), apps, async (app, raw, signal, update, resume) => inference.run(app.name, async () => {
+  signal.throwIfAborted();
+  // Composite production must not silently invoke an externally configured Modal/cloud runner.
+  const backend = new URL(getRunner().baseUrl);
+  if(!["127.0.0.1","localhost","[::1]"].includes(backend.hostname))throw new InputError("AutoShorts requires a local COMFY_BASE_URL (loopback gateway); cloud backends are not used");
+  const values = resolveValues(app, raw);
+  let entry = resume ? history.get(resume) : null;
+  if (entry && !["succeeded", "running", "queued", "starting"].includes(entry.status)) entry = null;
+  const cancel = () => { if (entry) void history.cancel(entry.id); };
+  signal.addEventListener("abort", cancel, { once: true });
+  let timer: ReturnType<typeof setInterval> | undefined;
+  try {
+    if (!entry) {
+      const created = history.start(app, values); entry = history.get(created.id)!;
+      update({ child: created.id }); contact();
+      const job = await getRunner().submit(app, values);
+      const following = history.follow(created, job);
+      if (signal.aborted) await history.cancel(created.id);
+      timer = setInterval(() => { const e = history.get(created.id); if(e) update({ queue:e.status==="queued"?e.queue:null, progress:e.progress }); }, 2000);
+      await following;
+    } else {
+      update({child:entry.id});
+      while (["running","queued","starting"].includes(history.get(entry.id)?.status || "")) {
+        if(signal.aborted)await history.cancel(entry.id);
+        await new Promise(r=>setTimeout(r,1000));
+      }
+    }
+    const done=history.get(entry.id)!;
+    if(done.status!=="succeeded") throw new Error(done.error?.message || `Child run ${done.id}: ${done.status}`);
+    signal.throwIfAborted();
+    const output=done.outputs.find(o=>["video","image","audio"].includes(o.type));
+    const file=output && history.file(done.id,output.file);
+    if(!file) throw new Error("Workflow produced no usable local output");
+    return {path:file,job:done.id,seconds:done.seconds??done.total??0,modelLoading:null};
+  } catch(e) {
+    if(entry && history.get(entry.id)?.status==="starting") history.fail(entry as any,(e as Error).message,signal.aborted?"canceled":"failed");
+    throw e;
+  } finally { if(timer)clearInterval(timer);signal.removeEventListener("abort",cancel); }
+}, signal, position => update({queue:position})), inference.run);
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -85,13 +128,14 @@ function loadExamples(): Record<string, unknown> {
   }
 }
 
-const runnable = (a: App) => Boolean(a.workflowPath) && (a.status === "ready" || draftsAllowed);
+const runnable = (a: App) => Boolean(a.workflowPath || a.pipeline) && (a.status === "ready" || draftsAllowed);
 
 function publicApp(a: App) {
   return {
     id: a.id, name: a.name, section: a.section, summary: a.summary ?? "", status: a.status, pack: a.pack,
     runnable: runnable(a),
     layout: a.layout ?? null,
+    pipeline: a.pipeline ?? null,
     panel_title: a.panel_title ?? null,
     higgsfield_feature: a.higgsfield_feature ?? null,
     modes: a.modes ?? null,
@@ -185,17 +229,25 @@ async function jobView(id: string) {
 /** Submit in the background; the entry tells the UI how it goes. */
 function startRun(app: App, values: Values, preset?: string) {
   const entry = history.start(app, values, preset);
+  const controller = new AbortController();
+  runControllers.set(entry.id, controller);
   void (async () => {
     try {
-      const job = await getRunner().submit(app, values, preset);
-      contact();
-      await history.follow(entry, job);
+      await inference.run(app.name, async () => {
+        const job = await getRunner().submit(app, values, preset);
+        const following = history.follow(entry, job);
+        if(controller.signal.aborted) await history.cancel(entry.id);
+        contact();
+        await following;
+        const done=history.get(entry.id);
+        if(done?.status==="failed")throw new Error(done.error?.message||"Workflow failed");
+      },controller.signal,position=>history.setQueue(entry.id,position));
     } catch (e) {
       const explained = explainSubmitError(app, e);
       const message = explained ?? (e as Error).message ?? String(e);
       console.error(`[${app.id}] ${message}`);
-      history.fail(entry, message);
-    }
+      if(history.get(entry.id)?.status!=="failed")history.fail(entry, message, controller.signal.aborted?"canceled":"failed");
+    } finally { runControllers.delete(entry.id); }
   })();
   return history.view(entry);
 }
@@ -267,6 +319,35 @@ const server = createServer(async (req, res) => {
     }
     if (parts[0] === "api") {
       const [, area, id, sub, arg] = parts;
+      if(req.method==="GET" && area==="inference")return send(res,200,inference.snapshot());
+      if(area === "autoshorts") {
+        if(guard.hosted) return send(res,403,{error:"AutoShorts is local-only; disabled on hosted demos"});
+        if(req.method === "GET" && id === "capabilities") return send(res,200,{apps:autoshorts.capabilities(),schemas:autoshorts.schemas()});
+        if(req.method === "GET" && id === "llm-servers") return send(res,200,{servers:await autoshorts.llmServers()});
+        if(req.method === "GET" && !id) return send(res,200,{projects:autoshorts.list()});
+        if(req.method === "POST" && !id) return send(res,201,autoshorts.create(await (await toRequest(req)).json()));
+        if(req.method === "GET" && id && !sub) return send(res,200,autoshorts.describe(id));
+        if(req.method === "PATCH" && id && !sub) return send(res,200,autoshorts.edit(id,await (await toRequest(req)).json()));
+        if((req.method === "GET" || req.method === "HEAD") && sub === "files") {
+          return sendFile(req,res,autoshorts.file(id,parts.slice(4).join("/")));
+        }
+        if(req.method === "POST" && sub === "import") {
+          const request=await toRequest(req);
+          if(request.headers.get("content-type")?.includes("multipart/form-data")) {
+            const file=(await request.formData()).get("file");
+            if(!file || typeof file === "string") throw new InputError("Upload a media file");
+            return send(res,201,{path:autoshorts.import(id,new Uint8Array(await file.arrayBuffer()),file.name)});
+          }
+          const body=await request.json() as {path:string};
+          return send(res,201,{path:autoshorts.importPath(id,body.path,outDir)});
+        }
+        if(req.method === "POST" && sub === "cancel") return send(res,200,await autoshorts.cancel(id));
+        if(req.method === "POST" && sub === "tasks") {
+          const body=await (await toRequest(req)).json() as {action:string;scene?:string;force?:boolean};
+          return send(res,202,autoshorts.start(id,body.action,body.scene,body.force===true));
+        }
+        return send(res,404,{error:"Unknown AutoShorts route"});
+      }
       if (req.method === "GET" && area === "apps" && parts.length === 2) {
         const order = { image: 0, video: 1, audio: 2, utility: 3 } as Record<string, number>;
         const sorted = [...apps].sort((a, b) => order[a.section] - order[b.section]
@@ -287,6 +368,7 @@ const server = createServer(async (req, res) => {
       if (req.method === "POST" && area === "apps" && sub === "run") {
         const app = byId.get(id);
         if (!app) return send(res, 404, { error: "unknown app" });
+        if(app.pipeline)throw new InputError("AutoShorts is a persistent multi-stage application: use /api/autoshorts or the autoshorts MCP tool, not a single graph run");
         if (!app.workflowPath) throw new InputError(`${app.id} has no workflow yet`);
         if (!runnable(app)) throw new InputError(`${app.id} is a draft; start the server with RIVERFIELD_DRAFTS=1 to run it anyway`);
         const refused = guard.refuse(activeRuns());
@@ -312,8 +394,15 @@ const server = createServer(async (req, res) => {
           res.writeHead(200, { "content-type": p.type, "content-length": p.bytes.byteLength, "cache-control": "no-store" });
           return res.end(p.bytes);
         }
-        if (req.method === "POST" && sub === "cancel") return send(res, 200, { canceled: await history.cancel(id) });
-        if (req.method === "DELETE" && id && !sub) return send(res, history.remove(id) ? 200 : 404, { removed: id });
+        if (req.method === "POST" && sub === "cancel") {
+          const submitted = runControllers.has(id);
+          runControllers.get(id)?.abort();
+          return send(res, 200, { canceled: (await history.cancel(id)) || submitted });
+        }
+        if (req.method === "DELETE" && id && !sub) {
+          runControllers.get(id)?.abort();
+          return send(res, history.remove(id) ? 200 : 404, { removed: id });
+        }
       }
       if (area === "gpu") {
         if (req.method === "GET" && !id) return send(res, 200, await gpuStatus(url.searchParams.get("device") === "1"));
@@ -355,14 +444,15 @@ const server = createServer(async (req, res) => {
     if (file.startsWith(webRoot) && existsSync(file) && statSync(file).isFile()) return sendFile(req, res, file);
     return send(res, 404, { error: "not found" });
   } catch (e) {
-    const status = e instanceof InputError ? 400 : 500;
+    const status = (e as NodeJS.ErrnoException).code === "ENOENT" && req.url?.startsWith("/api/autoshorts") ? 404
+      : e instanceof InputError || req.url?.startsWith("/api/autoshorts") ? 400 : 500;
     if (status === 500) console.error(e);
     return send(res, status, { error: (e as Error).message });
   }
 });
 
 // runs that were still going when the server stopped are followed again
-history.resume(async (jobId) => getRunner().jobs().get(jobId));
+void inference.run("Recover existing backend jobs", () => history.resume(async (jobId) => getRunner().jobs().get(jobId))).catch(e=>console.error("[recovery]",e));
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.RIVERFIELD_HOST || "127.0.0.1";

@@ -47,6 +47,17 @@ class Pantry:
 
     async def prepare(self, app: str, models: str) -> dict:
         async with self.lock:
+            # ComfyUI serializes prompts, but /free must not race a running or pending prompt.
+            # This also protects clients which submit outside RiverField's web queue.
+            while True:
+                async with self.session.get(f"{COMFYUI_URL}/queue") as r:
+                    r.raise_for_status()
+                    queue = await r.json()
+                if "queue_running" not in queue or "queue_pending" not in queue:
+                    raise RuntimeError("ComfyUI queue state is unavailable; refusing to change models")
+                if not queue["queue_running"] and not queue["queue_pending"]:
+                    break
+                await asyncio.sleep(0.25)
             freed = False
             previous = self.app
             if self.models is not None and models != self.models:

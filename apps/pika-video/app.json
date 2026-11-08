@@ -1,0 +1,405 @@
+{
+  "id": "pika-video",
+  "name": "Pika Video",
+  "section": "video",
+  "pack": "video-h3",
+  "status": "ready",
+  "workflow": "workflow.api.json",
+  "summary": "Animate one or two keyframes with Pika H3 Flex (fl2va): first and last picture, a prompt and its own sound. Optional 2×/4× upscale.",
+  "higgsfield_feature": "Create Video",
+  "source": {
+    "template": "video_pika_h3_flex_fl2va.json",
+    "comfyui": "0.43.0",
+    "notes": "ComfyUI's Pika H3 Flex fl2va template, flattened from its 'Image to Video (Pika H3 Flex)' subgraph. Local additions: H3SLAAttentionROCM (0.85 sparsity, bypassable), a ResolutionSelector instead of the first picture's raw size (0.98 MP default), and an optional per-frame ESRGAN upscale (2x-ESRGAN or RealESRGAN_x4plus) that is bypassed when set to None. The lcm sampler and the 6-step Pika sigma ladder are untouched."
+  },
+  "inputs": [
+    {
+      "id": "first_frame",
+      "type": "image",
+      "label": "First frame",
+      "required": false,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Optional. Stretched to the output canvas and anchored on frame 0.",
+      "bind": [
+        {
+          "node": "148",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "140:131",
+          "field": "first_frame"
+        }
+      ]
+    },
+    {
+      "id": "last_frame",
+      "type": "image",
+      "label": "Last frame",
+      "required": false,
+      "limits": {
+        "max_mb": 30
+      },
+      "help": "Optional. Cover-cropped to the canvas and anchored on the final frame.",
+      "bind": [
+        {
+          "node": "147",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "140:131",
+          "field": "last_frame"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Editorial pop-art photography and printed-graphic hybrid: the woman and her clothing stay photographic with real skin texture, while everything printed — the sticker pizza, the stars, the halftone dots, the sticker tiles on the floor — stays flat printed card with heavy black outlines and no thickness. Flat hard frontal light, seamless process-red field, no gloss on the red. The shot begins exactly on Picture 1: tight portrait framing, red cat-eye sunglasses on her face, black and white checkerboard top, lips just touching the tip of the flat sticker pizza held at chin height, deadpan behind the dark lenses. At about half a second she bites the sticker and pulls her head back, and the red field behind her behaves like printed paper: a ragged tear opens behind her shoulders and curls at its edges. At about one and a half seconds she spins a full turn on the spot, clockwise, the sticker turning with her so its black outline draws a full circle against the red. At about two and a half seconds she jumps up through the tear toward the lens, and the camera pulls back with small amplitude at slow speed, coming to rest exactly when her raised arms fit inside the frame. At about three and a half seconds she lands facing the lens in the pose of Picture 2: arms overhead holding the sticker pizza, its bitten edge toward camera, the red cat-eye sunglasses airborne above and to her left, tumbling end over end with one lens catching the light, her face breaking into a wide open laugh. Flat yellow stars and small sticker pizza tiles populate the red field exactly as in Picture 2, and the halftone dot pattern resolves into visible print grain. The shot settles into the final composition of Picture 2 and holds, with only the sunglasses still turning in the air.\n\noverall_soundscape: A crisp papery bite, then the dry rasping tear of thick printed stock splitting and curling, one short airy whoosh for the spin, a light thump of her landing, the plastic clatter of sunglasses tumbling above her, and her open laugh arriving on the landing over a dry studio room with no reverb.\n\nnon_diegetic_music: A fast bright brass-and-clarinet figure that hits on the spin, cuts to a single sustained note through the jump, and lands on one resolved chord with her laugh.",
+      "prefill": true,
+      "help": "Describe the motion and the sound. The alignment preamble tells the model where Picture 1 and Picture 2 sit in time.",
+      "bind": [
+        {
+          "node": "140:131",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration (s)",
+      "min": 1,
+      "max": 20,
+      "step": 0.5,
+      "default": 5,
+      "help": "Snapped to H3's 17k+5 frame grid at 24 fps (5 s → 124 frames).",
+      "bind": [
+        {
+          "node": "140:133",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "115",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.2,
+      "max": 1.5,
+      "step": 0.02,
+      "default": 0.98,
+      "help": "0.98 MP ≈ 1344×768 at 16:9, rounded to a multiple of 32.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": 20261220,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "140:129",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B int8 — native on gfx1151"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B nvfp4 — emulated, slower"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B heretic int8"
+        }
+      ],
+      "help": "int8 runs natively on gfx1151; nvfp4 is emulated here and encodes slower.",
+      "bind": [
+        {
+          "node": "140:128",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "ROCm sparse-attention patch. Turn it off (or run a backend without the node) and it is bypassed: the model goes straight to the guider.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "sla",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "SLA sparsity",
+      "min": 0.8,
+      "max": 0.95,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "Fraction of key blocks skipped. 0.85 is the shipped default the SLA turbo LoRA was distilled against; 0.90 is ~15% faster.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "upscale",
+      "type": "select",
+      "label": "Upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "None — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "2× — 2x-ESRGAN, per-frame pixel upscale",
+          "sets": [
+            {
+              "node": "upscale_loader",
+              "field": "model_name",
+              "value": "2x-ESRGAN.pth"
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RealESRGAN x4plus (heavy: 16× pixels)",
+          "sets": [
+            {
+              "node": "upscale_loader",
+              "field": "model_name",
+              "value": "RealESRGAN_x4plus.safetensors"
+            }
+          ]
+        }
+      ],
+      "help": "Optional pixel upscale of every decoded frame before encoding, with the local ESRGAN models. None keeps the native 0.98 MP result; x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "upscale",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "File name prefix",
+      "default": "riverfield/pika-video",
+      "bind": [
+        {
+          "node": "92",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "mp4"
+        },
+        {
+          "value": "mkv",
+          "label": "mkv"
+        },
+        {
+          "value": "webm",
+          "label": "webm"
+        },
+        {
+          "value": "mov",
+          "label": "mov"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "92",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "h264"
+        },
+        {
+          "value": "av1",
+          "label": "av1"
+        },
+        {
+          "value": "prores",
+          "label": "prores"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "help": "h264/av1 need mp4 or mkv; prores needs mov or mkv.",
+      "bind": [
+        {
+          "node": "92",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "92",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 3.17,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "loras/pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.96,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    }
+  ]
+}

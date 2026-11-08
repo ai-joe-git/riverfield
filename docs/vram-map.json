@@ -3591,6 +3591,58 @@
       "measured_on": null
     },
     {
+      "id": "pika-text-to-video",
+      "name": "Pika Text to Video",
+      "section": "video",
+      "pack": "video-h3",
+      "status": "ready",
+      "whole_gb": 53.85,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 22.93,
+        "denoise2": 0.0,
+        "decode": 3.78,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 15.69,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "pika-video",
+      "name": "Pika Video",
+      "section": "video",
+      "pack": "video-h3",
+      "status": "ready",
+      "whole_gb": 53.85,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 22.93,
+        "denoise2": 0.0,
+        "decode": 3.78,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 15.69,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "reshoot",
       "name": "Re-shoot",
       "section": "video",
@@ -3667,6 +3719,29 @@
       "modal_gpu": "L40S (48 GB), by phases",
       "measured_peak_gb": 44.3,
       "measured_on": "L40S · 20261026-015446-l40s"
+    },
+    {
+      "id": "autoshorts",
+      "name": "AutoShorts · Video Factory",
+      "section": "video",
+      "pack": "core",
+      "status": "ready",
+      "whole_gb": 0,
+      "phases_gb": {
+        "encode": 0.0,
+        "denoise": 0.0,
+        "denoise2": 0.0,
+        "decode": 0.0,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 0.0,
+      "optional_gb": 0,
+      "biggest_file": null,
+      "verdict_24gb": "no models",
+      "modal_gpu": "any",
+      "measured_peak_gb": null,
+      "measured_on": null
     },
     {
       "id": "smoke",

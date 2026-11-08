@@ -41,7 +41,7 @@ export function categoryOf(id) {
 
 /** The video studio's three tabs, like a camera crew: shoot, fix, move. */
 export const VIDEO_TABS = [
-  { id: "create", apps: ["video", "cinema-video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "effects", "morph", "video-t2v", "genjutsu", "speak", "talking", "dub", "transitions", "camera-moves"] },
+  { id: "create", apps: ["autoshorts", "video", "cinema-video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "effects", "morph", "video-t2v", "genjutsu", "speak", "talking", "dub", "transitions", "camera-moves"] },
   { id: "edit", apps: ["recast", "mixed-media", "reframe", "extend-video", "extend-video-turbo", "vfx-clean-plate", "vfx-day-to-night", "vfx-water", "sdr-hdr", "upscale-video", "relayvsr-upscale", "smooth", "reshoot", "reshoot-turbo", "video-remove-bg"] },
   { id: "motion", apps: ["motion-transfer", "camera-copy"] },
   { id: "templates", apps: ["behind-the-scenes", "asmr-product", "asmr-whisper", "asmr-host", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad",

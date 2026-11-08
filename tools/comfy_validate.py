@@ -121,6 +121,13 @@ def make_placeholders(api: dict, comfy_dir: Path) -> None:
                 p.write_bytes(b"")
 
 
+def check_placeholder_install(comfy_dir: Path) -> None:
+    """Fixtures must never shadow real weights in a production installation."""
+    for p in (comfy_dir / "models").rglob("*"):
+        if p.suffix.lower() in MODEL_EXT and p.is_file() and p.stat().st_size > 0:
+            raise ValueError("--placeholders requires an empty CPU test installation, not a real model directory. Run without --placeholders on your normal ComfyUI.")
+
+
 def validate(url: str, api: dict, label: str) -> bool:
     status, body = _post(f"{url}/prompt", {"prompt": api, "client_id": "riverfield-validate"})
     if status == 200 and "prompt_id" in body:
@@ -205,6 +212,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--placeholders", action="store_true", help="create empty model files and tiny example inputs")
     ap.add_argument("--lab", type=Path, help="check the prompts of a lab cases file instead of the apps")
     a = ap.parse_args(argv)
+
+    if a.placeholders:
+        if not a.comfy_dir:
+            ap.error("--placeholders needs --comfy-dir")
+        try:
+            check_placeholder_install(a.comfy_dir)
+        except ValueError as e:
+            ap.error(str(e))
 
     jobs: list[tuple[str, dict]] = []
     if a.lab:

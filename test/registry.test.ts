@@ -11,7 +11,7 @@ test("every manifest passes the schema and its bindings resolve", () => {
 
 test("ready apps all have a workflow on disk", () => {
   for (const app of apps.filter((a) => a.status === "ready")) {
-    assert.ok(app.graph, `${app.id} has no workflow loaded`);
+    assert.ok(app.graph || app.pipeline, `${app.id} has neither workflow nor pipeline loaded`);
   }
 });
 

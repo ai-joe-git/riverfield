@@ -26,6 +26,7 @@
   },
   "core": {
     "apps": [
+      "autoshorts",
       "smoke",
       "smoke-invert"
     ],
@@ -187,6 +188,8 @@
       "h3-video",
       "h3-video-turbo",
       "pika-studio-director",
+      "pika-text-to-video",
+      "pika-video",
       "reshoot",
       "reshoot-turbo",
       "studio-director"

@@ -244,6 +244,14 @@ export class History {
     return entry;
   }
 
+  /** Position in RiverField's admission queue, before the backend receives a prompt. */
+  setQueue(id: string, position: number | null): void {
+    const entry = this.read(id), live = this.live.get(id);
+    if (!entry || !live || TERMINAL.has(entry.status)) return;
+    live.queue = position;
+    if (position !== null) { entry.status = "queued"; this.save(entry); }
+  }
+
   /** The submit failed (bad workflow, backend unreachable, missing models): keep the reason with the run. */
   fail(entry: Entry, message: string, status: Status = "failed"): void {
     entry.status = status;
@@ -388,7 +396,8 @@ export class History {
    * from its id). Runs that never got a job id, or are too old for the backend to still hold them,
    * are marked lost without asking it: asking would start a GPU just to hear the job is gone.
    */
-  resume(getJob: (id: string) => Promise<JobLike>, maxAgeMs = 60 * 60 * 1000): void {
+  resume(getJob: (id: string) => Promise<JobLike>, maxAgeMs = 60 * 60 * 1000): Promise<void> {
+    const recovering: Promise<unknown>[] = [];
     for (const entry of this.entries()) {
       if (TERMINAL.has(entry.status)) continue;
       if (!entry.job) {
@@ -400,10 +409,11 @@ export class History {
         continue;
       }
       this.live.set(entry.id, { progress: null, queue: null, preview: null });
-      getJob(entry.job)
+      recovering.push(getJob(entry.job)
         .then((job) => this.follow(entry, job))
-        .catch((e) => this.fail(entry, `could not pick this run up again: ${(e as Error).message}`, "lost"));
+        .catch((e) => this.fail(entry, `could not pick this run up again: ${(e as Error).message}`, "lost")));
     }
+    return Promise.all(recovering).then(() => {});
   }
 
   async cancel(id: string): Promise<boolean> {
