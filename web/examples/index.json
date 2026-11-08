@@ -5302,8 +5302,8 @@
           "id": "image",
           "label": "Character image",
           "type": "image",
-          "src": "examples/character-angles/input-character.jpg",
-          "full": "examples/character-angles/input-character.jpg"
+          "src": "examples/character-angles/input-mr-house.jpg",
+          "full": "examples/character-angles/input-mr-house.jpg"
         }
       ],
       "values": {

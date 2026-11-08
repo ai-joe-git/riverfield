@@ -147,7 +147,7 @@
   "473": {
     "class_type": "LoadImage",
     "inputs": {
-      "image": "elephant-1024-full.png"
+      "image": "mr-house-reference.jpg"
     },
     "_meta": {
       "title": "Load Image"
