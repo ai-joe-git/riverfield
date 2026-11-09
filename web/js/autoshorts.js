@@ -202,7 +202,7 @@ export function autoShortsView() {
               entity.reference ? button("Regenerate (GPU)", safely(async () => { entity.reference = ""; entity.approved = false; dirty = true; await save(); await api(`/${p.id}/tasks`, "POST", { action: "references" }); await refresh(); })) : null),
             disclosure("Image prompt and traits", field("Canonical image prompt override", entity.imagePrompt || meta?.prompt || "", changed(v => entity.imagePrompt = v), "textarea"), jsonField("Appearance traits", entity.traits || {}, v => entity.traits = v)));
         })),
-        el("h3", {}, "2 · Shot opening / ending images (FL2VA mode)"),
+        el("h3", {}, "2 · Shot reference images (keyframe mode)"),
         el("div", { class: "as-prep-grid" }, ...sceneList().filter(s => s.method === "video" && !r?.scenes?.find(x => x.id === s.id)?.director).map((s, i) => {
           const state = p.states[s.id] || {}, meta = r?.scenes?.find(x => x.id === s.id);
           return el("article", { class: "as-prep-card" }, el("b", {}, `Scene ${i + 1} · ${meta?.recipe?.family || s.engine} / ${meta?.recipe?.conditioning || "unconfigured"}`),
