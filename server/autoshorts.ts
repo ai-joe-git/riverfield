@@ -8,6 +8,7 @@ import type { Values } from "./runner.ts";
 import type { Inference } from "./inference-queue.ts";
 import { approximateWords, assemble, captions, command, probe, sourceDimensions, dimensions, ASSEMBLY_VERSION, type Word } from "./autoshorts-media.ts";
 import { bibleSchema, shotStateSchema, continuityIssues, shotPrompt } from "./autoshorts-continuity.ts";
+import { planningConstraints, planningExample } from "./autoshorts-planning.ts";
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).refine(v=>!["__proto__","constructor","prototype"].includes(v),"Reserved identifier");
 const engine = z.string().min(1).max(80);
@@ -60,7 +61,7 @@ type Config = z.infer<typeof configSchema>;
 type Scene = z.infer<typeof sceneSchema>;
 export type Artifact = { key:string; path:string; job?:string; seconds:number; modelLoading:number|null; duration?:number; words?:Word[]; alignment?:string; alignmentKey?:string; inputHash?:string; workflowUpscale?:number; generation?:{prompt:string;references:string[];engine:string}; resolution?:{mp:number;factor:number;width:number;height:number} };
 type SceneState = { media?:Artifact; audio?:Artifact; upscale?:Artifact; evaluation?:unknown; keyframe?:Artifact; keyframeApproved?:string; };
-type Task = { id:string; action:string; scene?:string; force?:boolean; status:"queued"|"running"|"succeeded"|"failed"|"canceled"|"interrupted"; started:string; finished?:string; error?:string; operation?:string; child?:string; dependency?:string; queue?:number|null; progress?:unknown };
+type Task = { id:string; action:string; scene?:string; force?:boolean; planning?:{attempt:number;path:string}; status:"queued"|"running"|"succeeded"|"failed"|"canceled"|"interrupted"; started:string; finished?:string; error?:string; operation?:string; child?:string; dependency?:string; queue?:number|null; progress?:unknown };
 export type Project = { id:string; title:string; created:string; updated:string; revision:number; config:Config; board?:z.infer<typeof boardSchema>; states:Record<string,SceneState>; tasks:Task[]; exports:{path:string;srt:string;key:string;seconds:number;created:string;provenance?:string}[]; music?:Artifact };
 export type Execute = (app:App, values:Values, signal:AbortSignal, update:(v:Partial<Task>)=>void, resume?:string)=>Promise<{path:string;job:string;seconds:number;modelLoading:number|null}>;
 export const hash = (x:unknown) => createHash("sha256").update(x instanceof Uint8Array ? x : JSON.stringify(x)).digest("hex").slice(0,24);
@@ -269,13 +270,18 @@ export class AutoShorts {
     const result=await this.execute(app,values,signal,update,prior?.child);signal.throwIfAborted();
     const path=`${folder}/${key}-${hash(result.job)}${extname(result.path)}`;retain(result.path,join(this.directory(p.id),path));return {...result,path,key};
   }
-  private async plan(p:Project,signal:AbortSignal){
+  private async plan(p:Project,signal:AbortSignal,task:Task){
     const c=p.config, url=localURL(c.llmUrl);
     const methods=c.mode==="FAST"?"Only image or import scenes; no video diffusion.":c.mode==="HYBRID"?"Mostly images; at most one third of scenes may use video diffusion.":"Original video scenes using the available video engines.";
     const available=[c.imageEngine,c.videoEngine];available.forEach(a=>this.app(a));
     const schema={type:"object",properties:{title:{type:"string"},hook:{type:"string"},narration:{type:"string"},closing:{type:"string"},music:{type:"string"},scenes:{type:"array",items:{type:"object",properties:{id:{type:"string"},order:{type:"integer"},duration:{type:"number"},narration:{type:"string"},visual:{type:"string"},prompt:{type:"string"},engine:{type:"string",enum:available},method:{type:"string",enum:["image","video"]},references:{type:"array",items:{type:"string"}},instructions:{type:"string"}},required:["id","order","duration","narration","visual","prompt","engine","method","references","instructions"],additionalProperties:false}}},required:["title","hook","narration","closing","music","scenes"],additionalProperties:false};
-    const messages:any[]=[{role:"system",content:c.system},{role:"user",content:`Topic/script: ${c.topic}\nLanguage ${c.language}, aspect ${c.aspect}, target ${c.duration} seconds. ${methods} Available engines: ${JSON.stringify(available.map(a=>({id:a,inputs:this.app(a).inputs.filter(i=>["duration","resolution","megapixels"].includes(i.id))})))}. Use stable scene IDs, no references unless provided. Every scene's narration must be spoken in the requested language. Include hook and closing in scene narration. Return the storyboard JSON.`}];
+    const constraints=planningConstraints(c.topic);
+    const messages:any[]=[{role:"system",content:c.system},{role:"user",content:`Topic/script: ${c.topic}\nLanguage ${c.language}, aspect ${c.aspect}, target ${c.duration} seconds. ${methods} Available engines: ${JSON.stringify(available.map(a=>({id:a,inputs:this.app(a).inputs.filter(i=>["duration","resolution","megapixels"].includes(i.id))})))}. Use stable ASCII scene IDs, no references unless provided. If narration is requested, use the requested language. Hook and closing can be visual beats: never invent a narrator or dialogue when the brief prohibits them. Return the storyboard JSON.`}];
     const grammar:any=structuredClone(schema);
+    grammar.properties.scenes.minItems=constraints.count||1;grammar.properties.scenes.maxItems=constraints.count||40;
+    const shotGrammar=grammar.properties.scenes.items.properties;
+    if(c.mode==="CINEMA"){shotGrammar.method={const:"video"};shotGrammar.engine={const:c.videoEngine};}
+    if(c.mode==="FAST"){shotGrammar.method={const:"image"};shotGrammar.engine={const:c.imageEngine};}
     if(c.mode==="CINEMA"){
       grammar.properties.visualBible=z.toJSONSchema(bibleSchema);delete grammar.properties.visualBible.$schema;grammar.required.push("visualBible");
       const shot=grammar.properties.scenes.items;
@@ -283,14 +289,34 @@ export class AutoShorts {
       shot.required.push("continuity","dialogue","speechMode");
       messages.push({role:"user",content:"CINEMA continuity requirements: create a visualBible with canonical character, vehicle, setting and prop IDs, full descriptions and traits (wardrobe, age, car model/color), style, timeOfDay and lighting. Leave reference empty and approved false until real images are reviewed. Each shot needs explicit continuity: entityIds, settingId, timeOfDay, lighting, counts, transition, notes. Do not duplicate canonical characters. Do not change time/lighting without an explicit transition. Every independent shot prompt must contain full relevant descriptions, not 'the same woman/car'. Separate external narration from character dialogue: put character speech only in dialogue, never duplicate it in narration. Use speechMode native when no external narrator is needed. Keep native ambience, engines and sound effects. Do not force narration into every shot."});
     }
+    if(constraints.noNarration){grammar.properties.narration={const:""};shotGrammar.narration={const:""};if(c.mode==="CINEMA")shotGrammar.speechMode={const:"native"};}
+    if(constraints.noDialogue&&c.mode==="CINEMA")shotGrammar.dialogue={const:""};
+    if(constraints.noMusic)grammar.properties.music={const:""};
+    messages.push({role:"user",content:`Use this exact field structure (example values are placeholders; adapt entities, shot count, time and descriptions to the actual brief):\n${JSON.stringify(planningExample(c.imageEngine,c.videoEngine,c.mode==="CINEMA"),null,2)}\nCritical rules: each canonical entity ID is unique. Every used entityId and settingId must exist in visualBible.entities. entityIds MUST include settingId. counts is an object keyed by those exact IDs, NOT generic people/vehicles/setting categories. traits values are plain descriptive strings. Do not invent reference paths; reference is empty and approved is false. Midnight maps to timeOfDay night, not dusk. Preserve the brief's no-narration/no-dialogue/no-music requirements. ${constraints.count?`Exactly ${constraints.count} shots totaling ${c.duration} seconds.`:""} ${JSON.stringify(constraints)}. Return the final JSON directly, no reasoning or markdown.`});
+    const diagnostics=`planning/${task.id}`,dir=join(this.directory(p.id),diagnostics);mkdirSync(dir,{recursive:true});
+    let lastError="";
     for(let attempt=0;attempt<3;attempt++){
-      const r=await fetch(`${url}/chat/completions`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:c.model||undefined,messages,temperature:c.temperature,response_format:{type:"json_schema",json_schema:{name:"storyboard",strict:true,schema:grammar}}}),signal:AbortSignal.timeout(180000),redirect:"error"})
-        .catch(e=>{signal.throwIfAborted();throw new Error(`Cannot reach local llama.cpp at ${url}: ${e.message}. Start llama-server with the selected model, or import a storyboard manually.`);});
-      if(!r.ok)throw new Error(`Local llama.cpp ${r.status}: ${(await r.text()).slice(0,1000)}. Enable /v1/chat/completions with JSON schema support.`);
-      const data=await r.json() as any, content=data.choices?.[0]?.message?.content;
+      const request={model:c.model||undefined,messages,temperature:c.temperature,response_format:{type:"json_schema",json_schema:{name:"storyboard",strict:true,schema:grammar}}};
+      Object.assign(request,{max_tokens:8192,chat_template_kwargs:{enable_thinking:false}});
+      const evidence={attempt:attempt+1,started:new Date().toISOString(),request:structuredClone(request)};
+      task.planning={attempt:attempt+1,path:`${diagnostics}/attempt-${attempt+1}.json`};task.operation=`Local llama.cpp · storyboard attempt ${attempt+1}/3`;this.save(p);
+      writeFileSync(join(dir,`attempt-${attempt+1}.json`),JSON.stringify(evidence,null,2));
+      const r=await fetch(`${url}/chat/completions`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(request),signal:AbortSignal.any([signal,AbortSignal.timeout(180000)]),redirect:"error"})
+        .catch(e=>{
+          writeFileSync(join(dir,`attempt-${attempt+1}.json`),JSON.stringify({...evidence,error:e.message,canceled:signal.aborted},null,2));
+          signal.throwIfAborted();throw new Error(`Cannot reach local llama.cpp at ${url}: ${e.message}. Start llama-server with the selected model, or import a storyboard manually.`);
+        });
+      if(!r.ok){const error=`Local llama.cpp ${r.status}: ${(await r.text()).slice(0,1000)}. Enable /v1/chat/completions with JSON schema support.`;writeFileSync(join(dir,`attempt-${attempt+1}.json`),JSON.stringify({...evidence,error},null,2));throw new Error(error);}
+      const data=await r.json().catch(e=>{writeFileSync(join(dir,`attempt-${attempt+1}.json`),JSON.stringify({...evidence,error:`Invalid HTTP JSON response: ${e.message}`},null,2));throw e;}) as any, content=data.choices?.[0]?.message?.content;
       signal.throwIfAborted();
       try{
+        if(data.choices?.[0]?.finish_reason==="length")throw new Error("Storyboard response was truncated by the token limit; shorten the plan instead of accepting incomplete JSON");
+        if(typeof content!=="string"||!content.trim())throw new Error("Local LLM returned no final JSON content");
         const board=boardSchema.parse(JSON.parse(content));
+        if(constraints.count&&(board.scenes.length!==constraints.count||Math.abs(board.scenes.reduce((n,s)=>n+s.duration,0)-c.duration)>.1))throw new Error(`Expected exactly ${constraints.count} shots totaling ${c.duration} seconds`);
+        if(constraints.noNarration&&(board.narration.trim()||board.scenes.some(s=>s.narration.trim())))throw new Error("The brief prohibits narration; leave narration empty");
+        if(constraints.noDialogue&&board.scenes.some(s=>s.dialogue.trim()))throw new Error("The brief prohibits spoken dialogue; leave dialogue empty");
+        if(constraints.noMusic&&board.music.trim())throw new Error("The brief prohibits music; leave music empty");
         if(c.mode==="CINEMA"&&!board.visualBible)throw new Error("Cinema plans require a visual bible and explicit continuity state");
         if(board.visualBible?.entities.some(e=>e.reference||e.approved))throw new Error("Do not invent canonical reference files or approve unseen images");
         for(const s of board.scenes){
@@ -301,10 +327,15 @@ export class AutoShorts {
           if(s.method==="image"&&s.engine!==c.imageEngine)throw new Error("Image scenes must use the image engine");
         }
         if(c.mode==="HYBRID"&&board.scenes.filter(s=>s.method==="video").length>Math.ceil(board.scenes.length/3))throw new Error("HYBRID must use at most one third video scenes");
+        writeFileSync(join(dir,`attempt-${attempt+1}.json`),JSON.stringify({...evidence,response:data,valid:true},null,2));
         p.board=board;p.title=board.title;return;
       }
-      catch(e){messages.push({role:"assistant",content:content||""},{role:"user",content:`Repair the JSON to satisfy the schema: ${String(e).slice(0,2000)}`});}
-    }throw new Error("Local LLM failed storyboard validation after 3 attempts; edit/import a storyboard manually.");
+      catch(e){
+        lastError=e instanceof z.ZodError?e.issues.map(i=>`${i.path.join(".")||"storyboard"}: ${i.message}`).join("; "):String(e);
+        writeFileSync(join(dir,`attempt-${attempt+1}.json`),JSON.stringify({...evidence,response:data,valid:false,error:lastError},null,2));
+        messages.push({role:"assistant",content:content||""},{role:"user",content:`Repair the JSON to satisfy the schema: ${lastError.slice(0,4000)}`});
+      }
+    }throw new Error(`Local LLM failed storyboard validation after 3 attempts: ${lastError.slice(0,2000)}. Saved responses: ${diagnostics}/`);
   }
   private profile(p:Project,s:Scene,app:App){let profile=s.profile==="auto"?p.config.profile:s.profile;
     if(profile==="auto"){
@@ -437,8 +468,8 @@ export class AutoShorts {
     p.exports.push({path:`${folder}/final.mp4`,srt:`${folder}/captions.srt`,provenance:`${folder}/provenance.json`,key,seconds:(Date.now()-started)/1000,created:new Date().toISOString()});this.save(p);
   }
   private async run(p:Project,t:Task,signal:AbortSignal,update:(v:Partial<Task>)=>void){
-    if(t.action==="plan"){update({operation:"Local llama.cpp · validated storyboard"});await this.inference("llama.cpp storyboard",()=>this.plan(p,signal),signal,position=>update({queue:position}));this.save(p);return;}
-    if(t.action==="produce"&&!p.board){await this.inference("llama.cpp storyboard",()=>this.plan(p,signal),signal,position=>update({queue:position}));this.save(p);}
+    if(t.action==="plan"){update({operation:"Local llama.cpp · validated storyboard"});await this.inference("llama.cpp storyboard",()=>this.plan(p,signal,t),signal,position=>update({queue:position}));this.save(p);return;}
+    if(t.action==="produce"&&!p.board){await this.inference("llama.cpp storyboard",()=>this.plan(p,signal,t),signal,position=>update({queue:position}));this.save(p);}
     if(!p.board)throw new Error("Generate or save a storyboard first");
     if(t.action==="render")return this.render(p,signal,update);
     if(t.action==="references")return this.references(p,t,signal,update);

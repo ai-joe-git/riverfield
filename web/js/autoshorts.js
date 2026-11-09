@@ -92,7 +92,7 @@ export function autoShortsView() {
         : failure || task.status === "canceled" ? button("Resume without redoing everything", safely(async () => {
           if (dirty) await save(); await api(`/${p.id}/tasks`, "POST", { action: task.action, scene: task.action === "produce" ? undefined : task.scene }); await refresh();
         }), "btn lime") : null));
-    if (failure) status.append(disclosure("Technical details of the error", el("code", {}, error), el("small", {}, task.operation || "", task.child ? ` · run ${task.child}` : "")));
+    if (failure) status.append(disclosure("Technical details of the error", el("code", {}, error), el("small", {}, task.operation || "", task.child ? ` · run ${task.child}` : ""), task.planning?.path ? el("a", { href: fileURL(p, task.planning.path), target: "_blank", rel: "noopener" }, "Open saved planning response and validation errors") : null));
   }
   function localSettings() {
     const c = p.config, found = el("div", { class: "as-inline" });

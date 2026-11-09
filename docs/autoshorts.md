@@ -12,6 +12,22 @@ llama-server -m /path/to/instruct-model.gguf --host 127.0.0.1 --port 8080
 
 Use `http://127.0.0.1:8080/v1` in the Create panel. Model may be blank for the server default. The server must support OpenAI-style chat completions with `response_format: json_schema`. There is no API key. Storyboard JSON is validated (types, scene IDs, ordering, bounds); at most two repair retries follow an invalid answer. You can instead paste a storyboard manually. `/api/autoshorts/capabilities` exposes the exact config/storyboard schemas and all registry workflows and parameters.
 
+Planning sends the exact JSON field structure to the model as well as a sampling
+grammar; a grammar alone does not teach entity IDs, counts or reference semantics.
+Cinema methods/engines are constrained to video and the chosen engine. Explicit
+whole-film English directives such as “exactly two shots”, “no narrator”, “no spoken
+dialogue” and “no background music” additionally constrain the plan. Hook/closing
+can be visual beats and no longer force unwanted narration. These literal checks
+are not a general natural-language requirements parser; review the storyboard.
+
+Planning requests disable optional template thinking (`enable_thinking: false`)
+and cap completion output at 8192 tokens. Each attempt saves its request, response
+and exact validation errors locally in `planning/<task-id>/attempt-N.json`. The task
+and error panel link to the last diagnostic file; do not publish it indiscriminately
+because it includes the full brief and model output. Truncated completions are
+rejected, and cancellation aborts the active HTTP request. A three-attempt failure
+reports the actual last errors rather than only a generic rejection message.
+
 Launchers that assign a random port (BlackRiver, for example) are handled by **Detect running llama.cpp servers** under **Local LLM connection and advanced settings**: the backend reads the running `llama-server` arguments, keeps loopback URLs only, and verifies `/v1/models` before listing them. `GET /api/autoshorts/llm-servers` returns the same list. The chosen URL is saved with the project, so a restart that changes the port requires running the detection again.
 
 Inference endpoints and `COMFY_BASE_URL` must be loopback addresses. Hosted-demo use and remote inference are rejected. llama.cpp is user-managed: if its model occupies GPU memory, configure its offload/context accordingly before running diffusion. AutoShorts does not launch or kill model servers.
