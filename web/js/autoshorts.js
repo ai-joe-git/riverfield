@@ -47,7 +47,8 @@ export function autoShortsView() {
       throw new Error(label ? `Fix the “${label}” field.` : "Fix the invalid field before continuing.");
     }
     const saved = await api(`/${p.id}`, "PATCH", { config: p.config, board: p.board });
-    p.revision = saved.revision; p.updated = saved.updated; p.title = saved.title; dirty = false; syncProject();
+    // Keep server-normalized defaults and invalidated reference approvals, not stale local flags.
+    p = { ...p, ...saved }; dirty = false; syncProject();
   }
   async function refresh() { p = await api(`/${p.id}`); assets = p.assets || []; dirty = false; syncProject(); draw(); }
   async function open(id) { if (dirty) await save(); p = await api(`/${id}`); assets = p.assets || []; selected = p.board?.scenes[0]?.id || null; step = p.exports.length ? 2 : p.board ? 1 : 0; remember(); draw(); }
@@ -106,7 +107,7 @@ export function autoShortsView() {
           })));
         })),
         button("Show available models", safely(async () => {
-          const u = new URL(c.llmUrl); if (!["127.0.0.1", "localhost", "[::1]"].includes(u.hostname)) throw new Error("Utilise un serveur local");
+          const u = new URL(c.llmUrl); if (!["127.0.0.1", "localhost", "[::1]"].includes(u.hostname)) throw new Error("Use a local server");
           const r = await fetch(`${c.llmUrl.replace(/\/$/, "")}/models`); if (!r.ok) throw new Error(`The local server answered ${r.status}`);
           const d = await r.json(); toast((d.data || []).map(m => m.id).join(", ") || "No model advertised");
         }))),
@@ -129,7 +130,7 @@ export function autoShortsView() {
     return el("section", { class: "as-setup" },
       el("div", { class: "as-section-title" }, el("span", { class: "as-eyebrow" }, "01 / Project"), el("h2", { class: "display" }, "What story do you want to tell?"), el("p", { class: "dim" }, "Describe an idea or paste your script. You can edit every scene before production.")),
       field("Topic or script", c.topic, set("topic"), "textarea"),
-      el("div", { class: "as-mode-cards" }, ...modes.map(([value, title, description]) => button(el("span", {}, el("strong", {}, title), el("small", {}, description)), () => { c.mode = value; dirty = true; draw(); }, `as-mode${c.mode === value ? " selected" : ""}`, { "aria-pressed": String(c.mode === value) }))),
+      el("div", { class: "as-mode-cards" }, ...modes.map(([value, title, description]) => button(el("span", {}, el("strong", {}, title), el("small", {}, description)), () => { c.mode = value; if (value === "CINEMA" && !p.board && c.videoEngine === "h3-video-turbo") c.videoEngine = "pika-video"; dirty = true; draw(); }, `as-mode${c.mode === value ? " selected" : ""}`, { "aria-pressed": String(c.mode === value) }))),
       el("div", { class: "as-fields" }, select("Format", c.aspect, [["9:16", "Vertical · 9:16"], ["16:9", "Landscape · 16:9"], ["1:1", "Square · 1:1"]], changed(v => { c.aspect = v; c.height = v === "9:16" ? 1920 : 1080; })),
         field("Target duration (seconds)", c.duration, set("duration"), "number"), select("Language", c.language, [...new Map([["fr", "Français"], ["en", "English"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"], [c.language, c.language === "fr" ? "Français" : c.language]]).entries()], set("language"))),
       el("div", { class: "as-fields" }, select("Narrator voice", c.tts, engines.filter(a => ["tts", "tts-clone", "tts-omni", "tts-omni-clone"].includes(a.id)).map(a => [a.id, a.name]), changed(v => { c.tts = v; draw(); })),
@@ -143,7 +144,7 @@ export function autoShortsView() {
   }
   function addScene() {
     const scenes = p.board.scenes, s = { id: `shot-${crypto.randomUUID().slice(0, 8)}`, order: Math.max(-1, ...scenes.map(s => s.order)) + 1, duration: 3,
-      narration: "", visual: "", prompt: "Describe the scene", engine: p.config.imageEngine, method: "image", references: [], instructions: "", params: {}, profile: "auto", megapixels: .4, factor: 2, trim: 0, keepAudio: false, decision: "pending" };
+      narration: "", visual: "", prompt: "Describe the scene", engine: p.config.imageEngine, method: "image", references: [], instructions: "", params: {}, profile: "auto", megapixels: .4, factor: 2, trim: 0, keepAudio: true, speechMode: "auto", dialogue: "", decision: "pending" };
     scenes.push(s); selected = s.id; dirty = true; draw();
   }
   function moveScene(s, delta) {
@@ -172,7 +173,9 @@ export function autoShortsView() {
       el("div", { class: "as-editor-title" }, el("div", {}, el("span", { class: "as-eyebrow" }, `02 / Scene ${index + 1} of ${sorted.length}`), el("h2", { class: "display" }, s.narration.split(/[.!?]/)[0]?.slice(0, 65) || `Scene ${index + 1}`)), el("span", { class: `as-scene-badge ${s.decision}` }, sceneBadge(s))),
       el("div", { class: "as-shot-main" }, el("div", { class: "as-shot-preview" }, preview(media, s.visual),
         el("div", { class: "as-preview-meta" }, el("small", {}, state.upscale ? "Upscaled preview" : "Source media"), state.media ? el("a", { href: fileURL(p, state.media.path), target: "_blank", rel: "noopener" }, "Open original ↗") : null)),
-        el("div", { class: "as-shot-copy" }, field("What the voice says", s.narration, changed(v => { s.narration = v; p.board.narration = sceneList().map(s => s.narration).join(" "); }), "textarea"),
+        el("div", { class: "as-shot-copy" }, field("External narration (optional TTS, not character dialogue)", s.narration, changed(v => { s.narration = v; p.board.narration = sceneList().map(s => s.narration).join(" "); }), "textarea"),
+          field("Character dialogue (native clip speech)", s.dialogue || "", changed(v => s.dialogue = v), "textarea"),
+          select("Speech source", s.speechMode || "auto", [["auto", "Auto · optional narrator + native soundtrack"], ["narration", "Explicit TTS narration + native soundtrack"], ["native", "Native dialogue and ambience only"], ["mute", "Mute all scene audio"]], changed(v => s.speechMode = v)),
           field("What the scene shows", s.visual, changed(v => s.visual = v), "textarea"), field("Minimum duration (seconds)", s.duration, changed(v => s.duration = v), "number"),
           state.audio ? el("div", { class: "as-narration-player" }, el("small", {}, "Listen to the narration"), el("audio", { src: fileURL(p, state.audio.path), controls: true, preload: "none" })) : el("p", { class: "as-hint" }, "Narration is generated during production."))),
       el("div", { class: "as-shot-actions" }, button(s.decision === "accepted" ? "✓ Scene approved" : "Approve the scene", safely(async () => { s.decision = "accepted"; dirty = true; await save(); draw(); }), s.decision === "accepted" ? "btn ghost" : "btn lime", { disabled: !state.media }),
@@ -194,13 +197,32 @@ export function autoShortsView() {
         el("p", { class: "as-hint" }, `Visual: ${seconds(state.media?.seconds)} · Upscale: ${seconds(state.upscale?.seconds)} · Model loading: ${state.media?.modelLoading ?? "not measured"}`),
         state.audio ? el("p", { class: "as-hint" }, `Voice length: ${seconds(state.audio.duration)} · ${state.audio.alignment}`) : null,
         state.evaluation ? el("p", {}, String(state.evaluation)) : null),
+      p.board.visualBible ? disclosure("Continuity state and reviewed keyframe",
+        jsonField("Shot state (entityIds, settingId, timeOfDay, lighting, counts, transition, notes)", s.continuity || {}, v => s.continuity = v),
+        state.keyframe ? preview(state.keyframe, "Continuity keyframe") : null,
+        button(state.keyframe ? "Regenerate keyframe (GPU)" : "Prepare keyframe (GPU)", start("keyframe", s.id, !!state.keyframe)),
+        button(state.keyframeApproved === state.keyframe?.key && state.keyframe ? "✓ Keyframe approved" : "Approve keyframe", start("approve-keyframe", s.id), "btn ghost", { disabled: !state.keyframe }),
+        el("p", { class: "as-hint" }, "Pika Text to Video uses Pika Video with this reviewed first frame. Review identity, car, location and lighting; references reduce drift but do not guarantee consistency.")) : null,
       disclosure("Trimming and edit order",
-        field("Media start time (seconds)", s.trim, changed(v => s.trim = v), "number"), check("Keep the clip audio under the narration", s.keepAudio, changed(v => s.keepAudio = v)),
+        field("Media start time (seconds)", s.trim, changed(v => s.trim = v), "number"), check("Preserve native speech, ambience and sound effects (duck only during TTS)", s.keepAudio !== false, changed(v => s.keepAudio = v)),
         el("div", { class: "as-shot-actions" }, button("← Move earlier", () => moveScene(s, -1), "btn ghost", { disabled: index === 0 }), button("Move later →", () => moveScene(s, 1), "btn ghost", { disabled: index === sorted.length - 1 }),
           button("Remove from edit", () => { if (confirm("Remove this scene from the edit? Its files are kept.")) { p.board.scenes = p.board.scenes.filter(x => x.id !== s.id); dirty = true; draw(); } }))),
       el("div", { class: "as-bottom-actions" }, button("Continue production", start("produce"), "btn lime"), button("Go to export →", go(2))),
       check("Automatically approve new scenes and continue to export", p.config.autoAccept, set("autoAccept")));
-    return el("div", { class: "as-storyboard-layout" }, rail, el("div", { class: "as-editor-stack" }, editor, mediaLibrary(), disclosure("Title, hook and closing", field("Video title", p.board.title, changed(v => p.board.title = v)), field("Hook", p.board.hook, changed(v => p.board.hook = v)), field("Closing", p.board.closing, changed(v => p.board.closing = v))), boardEditor()));
+    return el("div", { class: "as-storyboard-layout" }, rail, el("div", { class: "as-editor-stack" }, editor, continuityPanel(), mediaLibrary(), disclosure("Title, hook and closing", field("Video title", p.board.title, changed(v => p.board.title = v)), field("Hook", p.board.hook, changed(v => p.board.hook = v)), field("Closing", p.board.closing, changed(v => p.board.closing = v))), boardEditor()));
+  }
+  function continuityPanel() {
+    const bible = p.board.visualBible;
+    return disclosure("Visual continuity bible · canonical references",
+      el("p", { class: "as-hint" }, "Define stable character, vehicle, setting and lighting descriptions before generating independent shots. Prepare/import canonical images, approve them, then prepare and approve each shot keyframe. Existing footage is not retroactively repaired."),
+      bible ? jsonField("Visual bible", bible, v => p.board.visualBible = v) : el("p", {}, "No visual bible. Replan Cinema or add visualBible and per-scene continuity in the storyboard JSON; existing exports remain reusable."),
+      field("Keyframe image-editing engine", p.config.keyframeEngine || "edit", set("keyframeEngine")),
+      bible ? button("Generate missing canonical references (GPU)", start("references")) : null,
+      ...(bible?.entities || []).map(entity => el("div", {}, el("b", {}, `${entity.id} · ${entity.kind}`), el("p", {}, entity.description),
+        entity.reference ? preview({ path: entity.reference }, entity.id) : null,
+        button("Import canonical image", () => chooseFile("image/*", async path => { entity.reference = path; entity.approved = false; dirty = true; })),
+        entity.reference ? button("Clear reference for regeneration", () => { entity.reference = ""; entity.approved = false; dirty = true; draw(); }) : null,
+        check("Canonical reference approved", !!entity.approved, changed(v => entity.approved = v)))));
   }
   function boardEditor() {
     let raw = p.board ? JSON.stringify(p.board, null, 2) : "";
@@ -221,7 +243,7 @@ export function autoShortsView() {
     const heights = c.aspect === "9:16" ? [1920, 1280] : [1080, 720]; if (!heights.includes(c.height)) heights.push(c.height);
     return el("section", { class: "as-export-layout" },
       el("div", { class: "as-export-preview" }, latest ? preview({ path: latest.path }, "Final video") : el("div", { class: "as-empty-state" }, icon("film"), el("h2", {}, "Your film, coming here"), el("p", {}, `${ready} of ${scenes.length} scene${scenes.length === 1 ? "" : "s"} ready to edit.`), button("Review the scenes", go(1))),
-        latest ? el("div", { class: "as-shot-actions" }, el("a", { class: "btn lime", href: fileURL(p, latest.path), download: "autoshorts.mp4" }, "Download the MP4"), el("a", { class: "btn ghost", href: fileURL(p, latest.srt), download: "captions.srt" }, "SRT captions"), el("small", { class: "dim" }, `Encoding: ${seconds(latest.seconds)}`)) : null,
+        latest ? el("div", { class: "as-shot-actions" }, el("a", { class: "btn lime", href: fileURL(p, latest.path), download: "autoshorts.mp4" }, "Download the MP4"), el("a", { class: "btn ghost", href: fileURL(p, latest.srt), download: "captions.srt" }, "SRT captions"), latest.provenance ? el("a", { class: "btn ghost", href: fileURL(p, latest.provenance), target: "_blank", rel: "noopener" }, "Export provenance") : null, el("small", { class: "dim" }, `Encoding: ${seconds(latest.seconds)}`)) : null,
         el("div", { class: "as-timeline", "aria-label": "Edit order" }, ...scenes.map((s, i) => button(el("span", {}, el("b", {}, `${i + 1}`), el("small", {}, `${Math.max(s.duration, p.states[s.id]?.audio?.duration || 0).toFixed(1)} s`), el("span", {}, s.narration.slice(0, 65))), () => { selected = s.id; step = 1; draw(); }, "as-timeline-scene")))),
       el("div", { class: "as-export-settings" }, el("span", { class: "as-eyebrow" }, "03 / Export"), el("h2", { class: "display" }, "Finish the edit"),
         select("Video size", c.height, heights.map(h => [h, `${aspectWidth(c.aspect, h)} × ${h}`]), changed(v => c.height = Number(v))),

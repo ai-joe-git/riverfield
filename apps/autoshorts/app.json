@@ -6,9 +6,9 @@
   "pack": "core",
   "status": "ready",
   "pipeline": "autoshorts",
-  "summary": "Local storyboard, narration, scene generation, RelayVSR and subtitled FFmpeg exports in a persistent production workspace.",
+  "summary": "Local storyboard, reviewed continuity references/keyframes, native sound with optional narration, RelayVSR and subtitled FFmpeg exports.",
   "inputs": [],
   "outputs": [{ "node": "export", "type": "video", "label": "Finished short" }],
   "models": [],
-  "notes": "Native pipeline: use /api/autoshorts or the autoshorts MCP tool. Existing generation engines run through RiverField history and runner, sequentially. No single ComfyUI workflow."
+  "notes": "Native pipeline: use /api/autoshorts or the autoshorts MCP tool and read capabilities for schemas. Cinema uses board.visualBible and per-scene continuity, reviewed canonical images (references task), keyframe and approve-keyframe tasks before media generation. Dialogue is native character speech; narration is optional TTS. keepAudio:false explicitly mutes native sound; speechMode:mute mutes both. Render writes provenance.json with actual source paths, hashes, factors and audio inputs. Existing engines use the shared queue/history/runner. No single ComfyUI workflow; references reduce drift but do not guarantee consistency."
 }

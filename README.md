@@ -153,6 +153,9 @@ The English workspace has three steps:
    (generated video). Detect a running local llama.cpp server, generate a storyboard or import JSON.
 2. **Scenes** — edit narration, prompts, duration, engine and scene order. Generate or import media,
    reuse RiverField history, listen to speech, and approve or regenerate each scene before upscale.
+   Cinema uses a shared visual bible, canonical identity/vehicle/setting references, explicit shot state
+   and reviewed keyframes fed into reference-capable Pika/H3 workflows; independent prompts repeat
+   the relevant descriptions. References reduce drift but cannot guarantee visual continuity.
 3. **Export** — set the final resolution, captions (burned-in, karaoke or separate SRT), optional
    imported/generated music, framing and fades; render and download the MP4.
 
@@ -163,6 +166,10 @@ have completed on gfx1151. Web/MCP and AutoShorts model calls share one inferenc
 **Upscale and export size are separate settings.** Approved video scenes use the actual RelayVSR
 x2/x4 result in the edit; the final output is then resized to the selected export resolution.
 For example, choosing a 720-pixel output height will downsize a higher-resolution upscaled source.
+Pika's internal upscale is disabled for AutoShorts sources to avoid stacking RelayVSR passes.
+Exports include a source-provenance manifest. Native clip sound is preserved by default and ducked
+only during optional external TTS; character dialogue is distinct from narration, and explicit mutes
+are respected. [Real six-scene Cinema audit and CPU-only audio repair](docs/autoshorts-production-audit.md).
 
 **Requirements:** RiverField's local engines, a user-managed llama.cpp server for planning, and
 FFmpeg/ffprobe with libx264/libass. No cloud inference. Caption timing is approximate unless a local

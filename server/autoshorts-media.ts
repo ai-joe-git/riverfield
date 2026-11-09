@@ -53,7 +53,8 @@ export function captions(words: Word[], karaoke = false, width = 1080, height = 
   }
   return { srt, ass };
 }
-export type EditScene = { media: string; image: boolean; audio: string; duration: number; trim: number; keepAudio: boolean };
+export const ASSEMBLY_VERSION = 2;
+export type EditScene = { media: string; image: boolean; audio?: string; sourceAudio?:string; duration: number; trim: number; keepAudio: boolean };
 export type EditOptions = { aspect: string; height: number; fps: number; fit: "crop"|"contain"; transition: number; burn: boolean; music?: string; musicVolume: number };
 export function segmentArgs(s: EditScene, o: EditOptions, output: string): string[] {
   const { width:w, height:h } = dimensions(o.aspect,o.height), d = s.duration;
@@ -62,15 +63,22 @@ export function segmentArgs(s: EditScene, o: EditOptions, output: string): strin
   const motion = s.image ? `,zoompan=z='min(max(zoom,pzoom)+0.00025,1.06)':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s=${w}x${h}:fps=${o.fps}` : "";
   const fade = Math.min(o.transition,d/4);
   const video = `[0:v]${fit},setsar=1,fps=${o.fps}${motion},tpad=stop_mode=clone:stop_duration=${d},trim=duration=${d},setpts=PTS-STARTPTS,fade=t=in:d=${fade},fade=t=out:st=${d-fade}:d=${fade},format=yuv420p[v]`;
-  const audio = s.keepAudio && !s.image ? `[1:a]apad,atrim=duration=${d},asetpts=PTS-STARTPTS[n];[0:a]apad,atrim=duration=${d},volume=0.25[src];[n][src]amix=inputs=2:duration=first[a]`
-    : `[1:a]apad,atrim=duration=${d},asetpts=PTS-STARTPTS[a]`;
-  return ["-y", "-threads","2", ...(s.image ? ["-loop","1"] : ["-ss",String(s.trim)]), "-i",s.media,"-i",s.audio,
+  const inputs=[...(s.audio?["-i",s.audio]:[]),...(s.keepAudio&&s.sourceAudio?["-ss",String(s.trim),"-i",s.sourceAudio]:[])];
+  const source=s.sourceAudio?(s.audio?2:1):0, native=s.keepAudio&&!s.image;
+  const normalize=`aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS,apad,atrim=duration=${d}`;
+  const audio=s.audio&&native
+    ? `[1:a]${normalize},asplit=2[n][sc];[${source}:a]${normalize}[src];[src][sc]sidechaincompress=threshold=0.03:ratio=4:attack=20:release=250:makeup=1[duck];[n][duck]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95:level=false:latency=true[a]`
+    : s.audio?`[1:a]${normalize},alimiter=limit=0.95:level=false:latency=true[a]`
+    : native?`[${source}:a]${normalize},alimiter=limit=0.95:level=false:latency=true[a]`
+    : `anullsrc=r=48000:cl=stereo,atrim=duration=${d}[a]`;
+  return ["-y", "-threads","2", ...(s.image ? ["-loop","1"] : ["-ss",String(s.trim)]), "-i",s.media,...inputs,
     "-filter_complex_threads","1","-filter_complex",`${video};${audio}`,"-map","[v]","-map","[a]","-t",String(d),"-c:v","libx264","-preset","fast","-crf","20","-c:a","aac","-ar","48000","-ac","2","-r",String(o.fps),output];
 }
 export async function assemble(dir: string, scenes: EditScene[], o: EditOptions, signal?: AbortSignal) {
   if (!scenes.length) throw new Error("No scenes to render");
   for (let i=0;i<scenes.length;i++) {
     const file=join(dir,`segment-${i}.mp4`),marker=join(dir,`segment-${i}.done`);
+    // The parent export key includes ASSEMBLY_VERSION and every edit input.
     if(existsSync(file)&&existsSync(marker))continue;
     await command("ffmpeg",segmentArgs(scenes[i],o,file),signal);
     writeFileSync(marker,"encoded");
@@ -81,7 +89,7 @@ export async function assemble(dir: string, scenes: EditScene[], o: EditOptions,
   const args = ["-y","-i",join(dir,"joined.mp4")];
   if(o.music) args.push("-stream_loop","-1","-i",o.music);
   const filters:string[]=[];
-  if(o.music) filters.push(`[0:a]asplit=2[voice][sc];[1:a]volume=${o.musicVolume},atrim=duration=${duration}[music];[music][sc]sidechaincompress=threshold=0.03:ratio=8[duck];[voice][duck]amix=inputs=2:duration=first,alimiter=limit=0.95[a]`);
+  if(o.music) filters.push(`[0:a]asplit=2[voice][sc];[1:a]volume=${o.musicVolume},atrim=duration=${duration}[music];[music][sc]sidechaincompress=threshold=0.03:ratio=8[duck];[voice][duck]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95:level=false:latency=true[a]`);
   // Use a fixed relative name: arbitrary paths never enter the subtitle filter grammar.
   if(o.burn) filters.push("[0:v]ass=filename=captions.ass[v]");
   if(filters.length) args.push("-filter_complex_threads","1","-filter_complex",filters.join(";"));

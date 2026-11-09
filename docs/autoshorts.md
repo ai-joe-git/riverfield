@@ -19,13 +19,52 @@ Inference endpoints and `COMFY_BASE_URL` must be loopback addresses. Hosted-demo
 ## Workflow
 
 1. Create a project, enter a topic or script, language, mode, aspect, narrator, engines and resolution profile.
-2. Generate a storyboard and edit its scene narration, prompts, order, duration and engine. Add scenes for intro/outro. FAST restricts expensive video diffusion; HYBRID plans mostly stills; CINEMA uses generated clips.
+2. Generate a storyboard and edit its scene narration, prompts, order, duration and engine. Add scenes for intro/outro. FAST restricts expensive video diffusion; HYBRID plans mostly stills; CINEMA uses generated clips and plans a visual bible plus explicit per-shot continuity state.
 3. Produce. Existing Runner/History execute child workflows sequentially. Import files or reuse history through the media library. Asset paths are scoped to the project; path imports are limited to `RIVERFIELD_OUT`.
 4. Review originals. Mark a scene accepted, or regenerate it. Accepted scenes may be upscaled; rejected/pending scenes never consume upscale compute. Optional local vision review inspects one frame and reports text, never automatically accepts a scene. Without a vision server, review manually.
 5. Upscale and render, or opt explicitly into automatic acceptance for one-click production.
 6. Preview/download MP4/SRT. Reopen projects in the selector. Canceling preserves completed stages. After restart, interrupted tasks offer Resume/retry; recorded child history runs are reused when still available.
 
 Narration is per scene, through Chatterbox/OmniVoice (including their cloned-voice variants). Import a reference voice for cloning. OmniVoice tags and supported speech parameters are editable. Parameters/duration limits are validated by the actual app runner; unsupported H3 durations or resolutions fail with a range/option message instead of silently changing the engine. Long narration may require splitting a scene.
+
+### Native audio and dialogue
+
+New scenes preserve native clip audio by default. `keepAudio: false` explicitly mutes
+the native track; saved projects are not silently migrated. `speechMode` is `auto`,
+`narration`, `native` or `mute` (all scene audio). `dialogue` is character speech for
+the video engine; `narration` is external TTS. Auto skips duplicate TTS when the
+dialogue and narration are identical; native/mute skip TTS entirely. With narration,
+native sound is ducked only while TTS is active, rather than discarded or constantly
+attenuated. After speech it returns to normal gain. Native sound is read from the
+original clip even when the selected visual input is a RelayVSR result.
+
+Existing TTS remains reusable. Moving a line into native dialogue changes video
+generation inputs and requires explicit regeneration, not just an audio-only render.
+Native dialogue is not automatically captioned or semantically deduplicated against TTS.
+
+### Visual continuity review
+
+Cinema planning creates `board.visualBible`: `style`, `timeOfDay`, `lighting` and
+`entities` (stable `id`, `kind`, `description`, `traits`, `reference`, `approved`).
+Each scene's `continuity` lists `entityIds`, `settingId`, `timeOfDay`, `lighting`,
+`counts`, `transition` and `notes`. Canonical character IDs represent individuals,
+not interchangeable extras. Day/night/color contradictions and duplicate individuals
+are checked conservatively; this does not replace human review.
+
+In Scenes, expand **Visual continuity bible · canonical references**. Import references
+or run `references` to generate missing ones through the local image engine. Review
+each canonical image and approve it. Then run per-scene `keyframe`: the server builds
+a CPU contact sheet and calls `config.keyframeEngine` (`edit` by default) to compose
+one consistent shot. Review/approve it with `approve-keyframe` before footage generation.
+Changing identity descriptions/references invalidates approval; re-preparing unchanged
+keyframes reuses them, while the regeneration control explicitly requests a fresh image.
+
+Pika Text to Video routes to Pika Video for these reviewed first-frame inputs. Other
+chosen engines must support image references; use e.g. H3 R2V Flex instead of a
+text-only H3 engine. Every independent shot prompt expands the relevant bible identities,
+setting, lighting and state. All inference still uses the existing queue. Old footage
+may be re-exported without a bible; new multi-shot Cinema generation cannot proceed
+without it. Consistency is not guaranteed: review and regenerate bad keyframes/clips.
 
 The timeline is an **editing** timeline, not an H3 reference window. Scene order, trim starts and source-sound retention are editable. FFmpeg probes inputs, normalizes geometry/FPS/audio, adds Ken Burns to stills, extends short clips by holding the last frame, and uses fade-through-black transitions. Narration determines minimum shot duration. Outputs are H.264/AAC MP4; normalized segments concatenate with stream copy. Crop is centered or contain/letterbox, not face tracking. Optional music is looped, mixed with sidechain ducking and limiting. Imported sound effects may be used as a soundtrack; there is not yet a multi-track SFX editor.
 
@@ -40,6 +79,15 @@ The timeline is an **editing** timeline, not an H3 reference window. Scene order
 H3 Turbo's current 0.4/0.6/0.8 MP select **does not accept 0.2 MP**; AutoShorts does not extend it. Pika/LTX options use their actual manifest ranges. x4 multiplies width and height, hence **16× pixels**. The final editor resizes/reframes to the requested output (1080×1920 portrait, 1920×1080 landscape, 1080² square).
 
 RelayVSR's existing one-step/cfg-1 recipe is unchanged. Originals and each upscaled artifact remain separately accessible. Changing only a custom upscale factor does not regenerate source video. Runner.prepare and the existing gateway own model switching/unloading; there is no second GPU manager. A shared FIFO admission queue covers **all web/MCP workflow submissions plus AutoShorts LLM, vision and speech-alignment requests**, retaining the slot through completion, not just submission. GPU/context failures block subsequent inference until services are restarted. CPU FFmpeg editing is separate. The gateway also waits for ComfyUI's running/pending prompt queue before model preparation. `GET /api/inference` reports the active operation and waiting jobs.
+
+AutoShorts disables Pika's internal upscale when generating sources. Existing Pika
+child-workflow artifacts record/recover their actual internal factor from history, so a total x2
+does not accidentally become x4. Rendering selects `state.upscale.path` only when
+an external pass is required and valid. New exports include `provenance.json` with
+selected source paths, hashes, measured geometry, effective factors and audio inputs;
+the export screen exposes it. Assembly-version changes invalidate old render caches.
+An arbitrary imported clip is treated as a source at its current resolution; it has
+no inferred pre-import upscale history. Choose Native to avoid further upscale on such a clip.
 
 Calls made directly by an external client to llama.cpp, the CLI runner or ComfyUI bypass the web admission queue; RiverField cannot guarantee exclusivity for those independent clients. They must participate in the same orchestration or refrain from submitting concurrent inference. Models remaining loaded in RAM are not, by themselves, parallel inference.
 
@@ -69,7 +117,7 @@ POST  /api/autoshorts/:id/cancel
 GET   /api/autoshorts/:id/files/<path>       seekable project artifact
 ```
 
-Actions: `plan`, `produce`, `media`, `audio`, `align`, `upscale`, `evaluate`, `music`, `render`. Individual scene actions require stable scene ID. `force:true` requests fresh media/audio/upscale; normal retries use dependency caches. `align` retimes existing narration without rerunning TTS. Successful CPU scene encodes are checkpointed for interrupted render retries. Only one task runs per project; the pipeline queue serializes production across projects. Other RiverField UI jobs still use the normal backend queue.
+Actions: `plan`, `produce`, `media`, `audio`, `align`, `upscale`, `evaluate`, `music`, `render`, `references`, `keyframe`, `approve-keyframe`. Individual scene actions require stable scene ID. `force:true` requests fresh media/audio/upscale/keyframes; normal retries use dependency caches. `align` retimes existing narration without rerunning TTS. Successful CPU scene encodes are checkpointed for interrupted render retries. Only one task runs per project; the pipeline queue serializes production across projects. All web/MCP model calls share the same inference admission queue.
 
 The additional `autoshorts` MCP tool supports `list`, `capabilities`, `create`, `get`, `edit`, `import`, `task`, `cancel`, with optional `project` and JSON `payload`. Start by reading capabilities. `get` returns an absolute project directory; combine it with relative export/asset paths. Poll it for durable task state. Existing nine MCP tools are unchanged, and child history IDs work with them. AutoShorts is not a single graph and intentionally cannot be submitted through `run_app`.
 
