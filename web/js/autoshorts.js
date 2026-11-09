@@ -98,13 +98,13 @@ export function autoShortsView() {
   function localSettings() {
     const c = p.config, found = el("div", { class: "as-inline" });
     return disclosure("Local LLM connection and advanced settings",
-      el("div", { class: "as-fields" }, field("llama.cpp address", c.llmUrl, set("llmUrl")), field("Model (empty = server default)", c.model, set("model"))),
+      el("div", { class: "as-fields" }, field("Local server URL (/v1)", c.llmUrl, set("llmUrl")), field("Model (empty = server default)", c.model, set("model"))),
       el("div", { class: "as-inline" },
-        button("Detect running llama.cpp servers", safely(async () => {
+        button("Detect running local model servers", safely(async () => {
           const { servers } = await api("/llm-servers");
-          if (!servers.length) { found.replaceChildren(); throw new Error("No running llama-server found on this machine. Start it, or enter its address."); }
+          if (!servers.length) { found.replaceChildren(); throw new Error("No local model server found (llama.cpp, Ollama, vLLM, LM Studio...). Start it, or enter its address."); }
           found.replaceChildren(...servers.map(s => button(`${s.url}${s.models[0] ? ` · ${s.models[0]}` : ""}`, () => {
-            c.llmUrl = s.url; c.model = s.models[0] || ""; dirty = true; draw(); toast("llama.cpp server selected");
+            c.llmUrl = s.url; c.model = s.models[0] || ""; dirty = true; draw(); toast("Local server selected");
           })));
         })),
         button("Show available models", safely(async () => {

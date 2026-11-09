@@ -160,9 +160,29 @@ export class AutoShorts {
   }
   importPath(pid:string,path:string,allowedRoot:string) {const f=contained(allowedRoot,path);return this.import(pid,readFileSync(f),basename(f));}
   capabilities(){return [...this.apps.values()].filter(a=>a.status==="ready"&&!a.pipeline).map(a=>({id:a.id,name:a.name,inputs:a.inputs,outputs:a.outputs,recipe:a.outputs.some(o=>o.type==="video")?recipeFor(a,true):undefined}));}
-  /** Find llama.cpp servers already running on this machine, including launchers that pick a random port. */
+  /** Loopback TCP listeners as candidate OpenAI base URLs (any process: llama.cpp, Ollama, vLLM, LM Studio, pasta...). */
+  private loopbackEndpoints():string[] {
+    const hosts=new Set<string>();
+    const read=(file:string,v6:boolean)=>{
+      let txt="";try{txt=readFileSync(file,"utf8");}catch{return;}
+      for(const line of txt.split("\n").slice(1)){
+        const cols=line.trim().split(/\s+/);if(cols.length<4||cols[3]!=="0A")continue;   // 0A = LISTEN
+        const parts=cols[1].split(":");if(parts.length!==2)continue;
+        const addr=parts[0],port=parseInt(parts[1],16);
+        if(!Number.isFinite(port)||port<=0)continue;
+        if(v6?addr==="00000000000000000000000001000000":addr==="0100007F")hosts.add(v6?`[::1]:${port}`:`127.0.0.1:${port}`);
+      }
+    };
+    read("/proc/net/tcp",false);read("/proc/net/tcp6",true);
+    return [...hosts].map(hp=>`http://${hp}/v1`);
+  }
+  /**
+   * Find local OpenAI-compatible inference servers already running, whatever their process
+   * name: llama.cpp (incl. random-port launchers), Ollama, vLLM, LM Studio, etc. A candidate
+   * counts only if it answers `GET /v1/models` with a model list. Loopback only.
+   */
   async llmServers():Promise<{url:string;models:string[]}[]> {
-    const urls=new Set<string>();
+    const urls=new Set<string>(this.loopbackEndpoints());
     for(const pid of readdirSync("/proc")){
       if(!/^\d+$/.test(pid))continue;
       try{
@@ -175,9 +195,11 @@ export class AutoShorts {
     await Promise.all([...urls].map(async url=>{
       try{
         const r=await fetch(`${url}/models`,{signal:AbortSignal.timeout(2500),redirect:"error"});if(!r.ok)return;
-        const data=await r.json() as any;
-        live.push({url,models:(data.data||data.models||[]).map((m:any)=>m.id||m.model).filter((m:unknown):m is string=>typeof m==="string")});
-      }catch{/* listed but not answering: not a usable endpoint */ }
+        if(!/json/i.test(r.headers.get("content-type")||""))return;
+        const data=await r.json() as any;const list=data.data||data.models;
+        if(!Array.isArray(list))return;   // answered, but not an OpenAI model list
+        live.push({url,models:list.map((m:any)=>m.id||m.model||m.name).filter((m:unknown):m is string=>typeof m==="string")});
+      }catch{/* not listening, not HTTP, or not an OpenAI endpoint */ }
     }));
     return live.sort((a,b)=>a.url.localeCompare(b.url));
   }

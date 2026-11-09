@@ -161,3 +161,16 @@ test("canonical references and keyframes are reviewed, cached and routed into Pi
     assert.equal(p.states.shot.media!.inputHash,key,"old footage is retained, not overwritten");
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test("llmServers detects any local OpenAI-compatible server, not only llama-server",{timeout:30000},async()=>{
+  const dir=mkdtempSync(join(tmpdir(),"rf-llmsrv-"));
+  const srv=createServer((req,res)=>{const u=req.url||"";if(u.endsWith("/v1/models")){res.setHeader("content-type","application/json");res.end(JSON.stringify({data:[{id:"fake-model"}]}));}else{res.statusCode=404;res.end("{}");}});
+  srv.listen(0,"127.0.0.1");await once(srv,"listening");
+  const port=(srv.address() as any).port;
+  try{
+    const service=new AutoShorts(join(dir,"projects"),apps,async()=>{throw new Error("no gpu");});
+    const found=await service.llmServers();
+    const hit=found.find(s=>s.url===`http://127.0.0.1:${port}/v1`);
+    assert.ok(hit,"a non-llama-server local OpenAI endpoint is detected");
+    assert.ok(hit!.models.includes("fake-model"));
+  }finally{srv.close();await once(srv,"close");rmSync(dir,{recursive:true,force:true});}
+});
