@@ -20,7 +20,8 @@ export function planningExample(imageEngine:string,videoEngine:string,cinema:boo
         {id:"vehicle_1",kind:"vehicle",description:"Full canonical body, model, color, wheels and distinguishing features",traits:{color:"red"},reference:"",approved:false},
         {id:"setting_1",kind:"setting",description:"Full canonical location and time description",traits:{},reference:"",approved:false}]};
     Object.assign(example.scenes[0],{continuity:{entityIds:["character_1","vehicle_1","setting_1"],settingId:"setting_1",timeOfDay:"night",lighting:"Same canonical lighting",
-      counts:{character_1:1,vehicle_1:1,setting_1:1},transition:false,notes:"Explicit starting state and ending state of this shot"},dialogue:"",speechMode:"native"});
+      counts:{character_1:1,vehicle_1:1,setting_1:1},transition:false,notes:"Explicit starting state and ending state of this shot"},dialogue:"",dialogueLines:[],speechMode:"native",
+      direction:{framing:"Medium shot",camera:"Slow small dolly inward",action:"One manageable action, in causal order",startState:"Exact opening pose and prop ownership",endState:"Exact ending pose and prop ownership",emotion:"Observable emotional reaction",soundscape:"Location ambience and physical sounds, no repeated dialogue",music:""}});
   }
   return example;
 }

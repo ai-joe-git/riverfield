@@ -177,6 +177,11 @@ transcription service is configured; x4 is experimental and must respect each en
 
 [Full guide: setup, production, persistence, API/MCP and limitations](docs/autoshorts.md).
 
+Cinema now exposes its preparation checklist and [local model recipes](docs/autoshorts-model-recipes.md):
+Pika/H3 FL2VA endpoint alignment versus Ref2VA identity/reference roles, native speaker-attributed
+dialogue by default, and reviewed canonical/shot images before video. The vertical micro-drama
+direction preset is **experimental**; this is not yet a qualified DramaBox-style episode generator.
+
 ## Apps
 
 | App | Rebuilds | Model | On a 24 GB card | Status |

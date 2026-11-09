@@ -34,6 +34,12 @@ Inference endpoints and `COMFY_BASE_URL` must be loopback addresses. Hosted-demo
 
 ## Workflow
 
+**Cinema preparation and model-specific prompting:** see
+[the local Pika/H3 recipe guide](autoshorts-model-recipes.md). The visible production
+checklist handles references → review → shot images → review → clips. `prepare` and
+`produce` enter normal `waiting_review` states rather than reporting missing assets
+as inference failures. Cinema defaults to native character dialogue/sound, not TTS.
+
 1. Create a project, enter a topic or script, language, mode, aspect, narrator, engines and resolution profile.
 2. Generate a storyboard and edit its scene narration, prompts, order, duration and engine. Add scenes for intro/outro. FAST restricts expensive video diffusion; HYBRID plans mostly stills; CINEMA uses generated clips and plans a visual bible plus explicit per-shot continuity state.
 3. Produce. Existing Runner/History execute child workflows sequentially. Import files or reuse history through the media library. Asset paths are scoped to the project; path imports are limited to `RIVERFIELD_OUT`.
@@ -67,8 +73,8 @@ Each scene's `continuity` lists `entityIds`, `settingId`, `timeOfDay`, `lighting
 not interchangeable extras. Day/night/color contradictions and duplicate individuals
 are checked conservatively; this does not replace human review.
 
-In Scenes, expand **Visual continuity bible · canonical references**. Import references
-or run `references` to generate missing ones through the local image engine. Review
+In Scenes, use **Cinema / Production checklist**. Import references
+or press **Prepare canonical references** to generate missing ones through the local image engine. Review
 each canonical image and approve it. Then run per-scene `keyframe`: the server builds
 a CPU contact sheet and calls `config.keyframeEngine` (`edit` by default) to compose
 one consistent shot. Review/approve it with `approve-keyframe` before footage generation.
@@ -133,7 +139,7 @@ POST  /api/autoshorts/:id/cancel
 GET   /api/autoshorts/:id/files/<path>       seekable project artifact
 ```
 
-Actions: `plan`, `produce`, `media`, `audio`, `align`, `upscale`, `evaluate`, `music`, `render`, `references`, `keyframe`, `approve-keyframe`. Individual scene actions require stable scene ID. `force:true` requests fresh media/audio/upscale/keyframes; normal retries use dependency caches. `align` retimes existing narration without rerunning TTS. Successful CPU scene encodes are checkpointed for interrupted render retries. Only one task runs per project; the pipeline queue serializes production across projects. All web/MCP model calls share the same inference admission queue.
+Actions: `plan`, `prepare`, `produce`, `media`, `audio`, `align`, `upscale`, `evaluate`, `music`, `render`, `references`, `keyframe`, `keyframe-end`, `approve-keyframe`, `approve-keyframe-end`. Individual scene actions require stable scene ID. `force:true` requests fresh media/audio/upscale/keyframes; normal retries use dependency caches. `waiting_review` is a normal preparation/review stop, not a failed job. `align` retimes existing narration without rerunning TTS. Successful CPU scene encodes are checkpointed for interrupted render retries. Only one task runs per project; the pipeline queue serializes production across projects. All web/MCP model calls share the same inference admission queue.
 
 The additional `autoshorts` MCP tool supports `list`, `capabilities`, `create`, `get`, `edit`, `import`, `task`, `cancel`, with optional `project` and JSON `payload`. Start by reading capabilities. `get` returns an absolute project directory; combine it with relative export/asset paths. Poll it for durable task state. Existing nine MCP tools are unchanged, and child history IDs work with them. AutoShorts is not a single graph and intentionally cannot be submitted through `run_app`.
 

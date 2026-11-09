@@ -8,6 +8,7 @@ export const bibleSchema=z.object({
   entities:z.array(z.object({id:identifier,kind:z.enum(["character","vehicle","setting","prop"]),
     description:z.string().min(1).max(3000), traits:z.record(z.string(),z.string()).default({}),
     reference:z.string().max(500).default(""), approved:z.boolean().default(false),
+    imagePrompt:z.string().max(8000).default(""),
   })).min(1).max(12),
 });
 export const shotStateSchema=z.object({

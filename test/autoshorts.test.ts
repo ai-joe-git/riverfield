@@ -85,7 +85,7 @@ test("review gate prevents upscaling rejected media; x2/x4 use synchronized Rela
     const service=new AutoShorts(join(dir,"projects"),apps,async(app,values)=>{calls.push({app:app.id,values});return {path:source,job:`upscale-${calls.length}`,seconds:.05,modelLoading:null};});
     let p=service.create({profile:"x2",height:720,aspect:"16:9"});const path=service.import(p.id,readFileSync(source),"input.mp4");
     p=service.edit(p.id,{board:{...board(),scenes:[{...scene(),method:"import",references:[path],narration:"",profile:"custom",megapixels:.4,factor:2}]}});
-    service.start(p.id,"produce");p=await done(service,p.id);assert.equal(p.tasks.at(-1)?.status,"succeeded",p.tasks.at(-1)?.error||"");assert.equal(calls.length,0);assert.equal(p.exports.length,0);
+    service.start(p.id,"produce");p=await done(service,p.id);assert.equal(p.tasks.at(-1)?.status,"waiting_review");assert.equal(p.tasks.at(-1)?.review?.stage,"clip-review");assert.equal(calls.length,0);assert.equal(p.exports.length,0);
     service.start(p.id,"upscale","shot-1");p=await done(service,p.id);assert.equal(p.tasks.at(-1)?.status,"failed");assert.equal(calls.length,0);
     p.board!.scenes[0].decision="accepted";service.edit(p.id,{board:p.board});service.start(p.id,"upscale","shot-1");p=await done(service,p.id);
     assert.equal(p.tasks.at(-1)?.status,"succeeded",p.tasks.at(-1)?.error||"");assert.equal(calls[0].app,"relayvsr-upscale");assert.match(calls[0].values.unet_name,/x2_lightx2v/);assert.match(calls[0].values.vae_name,/x2_fp32/);

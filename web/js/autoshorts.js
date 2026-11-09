@@ -16,7 +16,7 @@ function field(label, value, change, type = "text") {
   return el("label", { class: "as-field" }, el("span", {}, label), input);
 }
 function select(label, value, options, change) {
-  return el("label", { class: "as-field" }, el("span", {}, label), el("select", { onchange: e => change(e.target.value) },
+  return el("label", { class: "as-field" }, el("span", {}, label), el("select", { "aria-label": label, onchange: e => change(e.target.value) },
     ...options.map(o => { const [v, name] = Array.isArray(o) ? o : [o, o]; return el("option", { value: v, selected: String(v) === String(value) }, name); })));
 }
 const disclosure = (title, ...children) => el("details", { class: "as-disclosure" }, el("summary", {}, title), el("div", { class: "as-detail-body" }, ...children));
@@ -55,7 +55,7 @@ export function autoShortsView() {
   async function create() { if (p && dirty) await save(); p = await api("", "POST", {}); assets = []; selected = null; step = 0; dirty = false; syncProject(); remember(); draw(); }
   const start = (action, scene, force = false) => safely(async () => {
     await save(); await api(`/${p.id}/tasks`, "POST", { action, scene, force });
-    returnStep = action === "plan" ? 1 : action === "render" ? 2 : null;
+    returnStep = ["plan", "prepare", "references", "keyframe", "keyframe-end"].includes(action) ? 1 : action === "render" ? 2 : null;
     await refresh();
   });
   const chooseFile = (accept, done, multiple = false) => {
@@ -77,19 +77,20 @@ export function autoShortsView() {
     status.replaceChildren(); if (!p) return;
     const scenes = sceneList(), completed = scenes.filter(s => p.states[s.id]?.media).length, accepted = scenes.filter(s => s.decision === "accepted").length;
     const task = p.tasks.at(-1); if (!task) return;
-    const busy = ["running", "queued"].includes(task.status), failure = ["failed", "interrupted"].includes(task.status);
+    const waiting = task.status === "waiting_review" || (task.status === "failed" && /prepare canonical references, then prepare and approve|review and approve the prepared keyframe/.test(task.error || ""));
+    const busy = ["running", "queued"].includes(task.status), failure = !waiting && ["failed", "interrupted"].includes(task.status);
     const sceneIndex = scenes.findIndex(s => s.id === task.scene);
-    const title = failure ? "Production interrupted" : busy ? task.queue != null ? "Waiting in the inference queue" : "Production running" : task.status === "canceled" ? "Production stopped" : "Step finished";
+    const title = waiting ? "Preparation / review needed" : failure ? "Production interrupted" : busy ? task.queue != null ? "Waiting in the inference queue" : "Production running" : task.status === "canceled" ? "Production stopped" : "Step finished";
     const error = task.error || "";
     const readable = /header too small|deserializing header/i.test(error)
       ? "The last upscale failed on an empty or invalid model file. Finished scenes are kept; resuming reuses their files."
-      : failure ? error : `${completed}/${scenes.length} media ready · ${accepted} approved`;
+      : waiting ? task.review?.message || "Prepare canonical references and shot images using the production checklist below. This is a normal preparation stage, not an inference failure." : failure ? error : `${completed}/${scenes.length} media ready · ${accepted} approved`;
     status.append(el("section", { class: `as-notice ${failure ? "error" : busy ? "working" : ""}` },
       el("div", { class: "as-notice-copy" }, el("strong", {}, title, sceneIndex >= 0 ? ` · scene ${sceneIndex + 1}/${scenes.length}` : ""), el("p", {}, readable),
         busy ? el("small", {}, task.operation || task.action, ` · ${seconds((Date.now() - Date.parse(task.started)) / 1000)}`,
           task.queue != null ? ` · file ${task.queue}` : "", task.progress?.step ? ` · ${task.progress.step}/${task.progress.steps}` : "") : null),
       busy ? button("Stop", safely(async () => { await api(`/${p.id}/cancel`, "POST", {}); await refresh(); }))
-        : failure || task.status === "canceled" ? button("Resume without redoing everything", safely(async () => {
+        : waiting ? button("Open production checklist", () => { step = 1; draw(); content.querySelector("#as-production")?.scrollIntoView({ block: "start", behavior: "smooth" }); }, "btn lime") : failure || task.status === "canceled" ? button("Resume without redoing everything", safely(async () => {
           if (dirty) await save(); await api(`/${p.id}/tasks`, "POST", { action: task.action, scene: task.action === "produce" ? undefined : task.scene }); await refresh();
         }), "btn lime") : null));
     if (failure) status.append(disclosure("Technical details of the error", el("code", {}, error), el("small", {}, task.operation || "", task.child ? ` · run ${task.child}` : ""), task.planning?.path ? el("a", { href: fileURL(p, task.planning.path), target: "_blank", rel: "noopener" }, "Open saved planning response and validation errors") : null));
@@ -114,8 +115,8 @@ export function autoShortsView() {
       found,
       el("div", { class: "as-fields" }, select("Image engine", c.imageEngine, engineOptions("image"), set("imageEngine")), select("Clip engine", c.videoEngine, engineOptions("video"), set("videoEngine"))),
       field("Director instructions", c.system, set("system"), "textarea"), field("Creativity (0–2)", c.temperature, set("temperature"), "number"),
-      field("OmniVoice attributes, comma-separated", c.voiceTags.join(", "), changed(v => c.voiceTags = v.split(",").map(s => s.trim()).filter(Boolean))),
-      jsonField("TTS parameters", c.speechParams, v => c.speechParams = v),
+      c.mode !== "CINEMA" || c.cinemaAudio === "narration" ? field("OmniVoice attributes, comma-separated", c.voiceTags.join(", "), changed(v => c.voiceTags = v.split(",").map(s => s.trim()).filter(Boolean))) : null,
+      c.mode !== "CINEMA" || c.cinemaAudio === "narration" ? jsonField("TTS parameters", c.speechParams, v => c.speechParams = v) : null,
       field("Local transcription, /v1 URL (optional)", c.alignUrl, set("alignUrl")),
       field("Local vision review, /v1 URL (optional)", c.visionUrl, set("visionUrl")), field("Vision model", c.visionModel, set("visionModel")));
   }
@@ -126,6 +127,8 @@ export function autoShortsView() {
   }
   function setup() {
     const c = p.config;
+    const cinemaEngines = engines.filter(a => a.outputs.some(o => o.type === "video") && a.recipe?.cinemaSupported).map(a => [a.id, a.name + (a.recipe.effectiveEngine !== a.id ? ` → ${a.recipe.effectiveEngine}` : "")]);
+    if (!cinemaEngines.some(([id]) => id === c.videoEngine)) cinemaEngines.push([c.videoEngine, `${c.videoEngine} · check Cinema adapter support`]);
     const modes = [["FAST", "Fast", "Images, imported media and camera motion."], ["HYBRID", "Balanced", "Images and a few generated clips. Recommended."], ["CINEMA", "Cinema", "Original scenes generated as video."]];
     return el("section", { class: "as-setup" },
       el("div", { class: "as-section-title" }, el("span", { class: "as-eyebrow" }, "01 / Project"), el("h2", { class: "display" }, "What story do you want to tell?"), el("p", { class: "dim" }, "Describe an idea or paste your script. You can edit every scene before production.")),
@@ -133,9 +136,11 @@ export function autoShortsView() {
       el("div", { class: "as-mode-cards" }, ...modes.map(([value, title, description]) => button(el("span", {}, el("strong", {}, title), el("small", {}, description)), () => { c.mode = value; if (value === "CINEMA" && !p.board && c.videoEngine === "h3-video-turbo") c.videoEngine = "pika-video"; dirty = true; draw(); }, `as-mode${c.mode === value ? " selected" : ""}`, { "aria-pressed": String(c.mode === value) }))),
       el("div", { class: "as-fields" }, select("Format", c.aspect, [["9:16", "Vertical · 9:16"], ["16:9", "Landscape · 16:9"], ["1:1", "Square · 1:1"]], changed(v => { c.aspect = v; c.height = v === "9:16" ? 1920 : 1080; })),
         field("Target duration (seconds)", c.duration, set("duration"), "number"), select("Language", c.language, [...new Map([["fr", "Français"], ["en", "English"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"], [c.language, c.language === "fr" ? "Français" : c.language]]).entries()], set("language"))),
-      el("div", { class: "as-fields" }, select("Narrator voice", c.tts, engines.filter(a => ["tts", "tts-clone", "tts-omni", "tts-omni-clone"].includes(a.id)).map(a => [a.id, a.name]), changed(v => { c.tts = v; draw(); })),
+      c.mode === "CINEMA" ? el("div", { class: "as-fields" }, select("Cinema audio", c.cinemaAudio || "native", [["native", "Native character dialogue + ambience (no narrator)"], ["narration", "Explicitly enable optional external TTS narration"]], changed(v => { c.cinemaAudio = v; draw(); })), select("Cinema direction", c.cinemaStyle || "cinematic", [["cinematic", "Cinematic short"], ["vertical-drama", "Vertical micro-drama (experimental)"]], set("cinemaStyle"))) : null,
+      c.mode === "CINEMA" ? select("Video model for new storyboards", c.videoEngine, cinemaEngines, set("videoEngine")) : null,
+      el("div", { class: "as-fields" }, c.mode !== "CINEMA" || c.cinemaAudio === "narration" ? select("Narrator voice", c.tts, engines.filter(a => ["tts", "tts-clone", "tts-omni", "tts-omni-clone"].includes(a.id)).map(a => [a.id, a.name]), changed(v => { c.tts = v; draw(); })) : null,
         select("Clip quality", c.profile, [["x2", "Economy · 0.4 MP then x2"], ["native", "Native · no upscale"], ["x4", "Experimental · 0.2 MP then x4"], ["auto", "Automatic · local measurements"], ["custom", "Custom"]], changed(v => { c.profile = v; draw(); }))),
-      c.tts.includes("clone") ? el("div", { class: "as-inline" }, el("span", {}, c.voice ? `Voice reference: ${basename(c.voice)}` : "Add a voice sample to clone"), button("Import a voice", () => chooseFile("audio/*", path => c.voice = path))) : null,
+      (c.mode !== "CINEMA" || c.cinemaAudio === "narration") && c.tts.includes("clone") ? el("div", { class: "as-inline" }, el("span", {}, c.voice ? `Voice reference: ${basename(c.voice)}` : "Add a voice sample to clone"), button("Import a voice", () => chooseFile("audio/*", path => c.voice = path))) : null,
       c.profile === "x4" ? el("p", { class: "as-hint" }, "x4 is experimental. Some H3 engines do not accept 0.2 MP; their own limits still apply.") : null,
       c.profile === "custom" ? el("div", { class: "as-fields" }, field("Source megapixels", c.megapixels, set("megapixels"), "number"), select("Upscale", c.factor, [[1, "None"], [2, "x2"], [4, "x4"]], changed(v => c.factor = Number(v)))) : null,
       localSettings(),
@@ -143,8 +148,14 @@ export function autoShortsView() {
       el("p", { class: "as-hint" }, "Creating the storyboard does not start video generation. Technical settings are collapsed above."));
   }
   function addScene() {
+    const cinema = p.config.mode === "CINEMA", previous = sceneList().at(-1);
     const scenes = p.board.scenes, s = { id: `shot-${crypto.randomUUID().slice(0, 8)}`, order: Math.max(-1, ...scenes.map(s => s.order)) + 1, duration: 3,
       narration: "", visual: "", prompt: "Describe the scene", engine: p.config.imageEngine, method: "image", references: [], instructions: "", params: {}, profile: "auto", megapixels: .4, factor: 2, trim: 0, keepAudio: true, speechMode: "auto", dialogue: "", decision: "pending" };
+    if (cinema) {
+      s.duration = 5; s.engine = p.config.videoEngine; s.method = "video"; s.speechMode = "native"; s.dialogueLines = [];
+      if (previous?.continuity) s.continuity = { ...structuredClone(previous.continuity), transition: false, notes: `Continue from: ${previous.direction?.endState || previous.continuity.notes || "previous shot"}` };
+      s.direction = { framing: "", camera: "", action: "", startState: previous?.direction?.endState || "", endState: "", emotion: "", soundscape: "", music: "" };
+    }
     scenes.push(s); selected = s.id; dirty = true; draw();
   }
   function moveScene(s, delta) {
@@ -154,6 +165,75 @@ export function autoShortsView() {
   function sceneBadge(s) {
     if (p.tasks.at(-1)?.scene === s.id && busyProject(p)) return "Running";
     return s.decision === "regenerate" ? "Redo" : s.decision === "accepted" ? "Approved" : p.states[s.id]?.media ? "To review" : "To create";
+  }
+  function productionPanel() {
+    if (p.config.mode !== "CINEMA" || !p.board) return null;
+    const r = p.readiness, bible = p.board.visualBible;
+    const stage = r?.stage || "configuration";
+    return el("section", { id: "as-production", class: "as-prep" },
+      el("span", { class: "as-eyebrow" }, "CINEMA / PRODUCTION CHECKLIST"),
+      el("h2", {}, "Prepare → Review → Generate"),
+      el("p", { class: "dim" }, "Preparation is part of production, not an error. Images and clips use the same local inference queue. You approve identities and shot images before video compute."),
+      el("ol", { class: "as-prep-stages" }, ...[
+        ["Canonical references", `${r?.missingReferences || 0} missing · ${r?.unreviewedReferences || 0} to review`],
+        ["Shot images", `${r?.pendingKeyframes || 0} shots need preparation/review`],
+        ["Video clips", `${sceneList().filter(s => p.states[s.id]?.media).length}/${sceneList().length} generated`],
+        ["Upscale & export", p.exports.length ? `${p.exports.length} saved versions` : "After clip approval"],
+      ].map(([title, detail]) => el("li", {}, el("b", {}, title), el("small", {}, detail)))),
+      ...(r?.issues || []).map(issue => el("p", { class: "as-hint" }, issue)),
+      el("div", { class: "as-shot-actions" }, button(stage === "references" ? "Prepare canonical references (GPU)" : ["reference-review", "keyframes", "configuration"].includes(stage) ? "Continue asset preparation (GPU)" : "Check prepared assets", start("prepare"), "btn lime"),
+        button("Continue to video production (GPU)", start("produce"), "btn ghost", { disabled: !bible || !!r?.issues?.length || !!r?.missingReferences || !!r?.unreviewedReferences || !!r?.pendingKeyframes })),
+      !bible ? el("p", {}, "This storyboard has no visual bible. Recreate the Cinema storyboard before preparing new footage; saved exports remain available.") : el("div", {},
+        disclosure("Global visual direction", field("Visual style", bible.style, changed(v => bible.style = v), "textarea"), select("Time of day", bible.timeOfDay, ["night", "day", "dawn", "dusk", "interior"], changed(v => bible.timeOfDay = v)), field("Lighting", bible.lighting, changed(v => bible.lighting = v), "textarea"),
+          select("Reference image engine", p.config.imageEngine, engineOptions("image"), set("imageEngine")), field("Image editing engine for shot images", p.config.keyframeEngine || "edit", set("keyframeEngine")),
+          check("Prepare both opening and ending frames for FL2VA (additional GPU image jobs)", !!p.config.endpointFrames, changed(v => { p.config.endpointFrames = v; }))),
+        el("h3", {}, "1 · Canonical identities and locations"),
+        el("div", { class: "as-prep-grid" }, ...bible.entities.map(entity => {
+          const meta = r?.references?.find(e => e.id === entity.id);
+          return el("article", { class: "as-prep-card" }, el("b", {}, `${entity.id} · ${entity.kind}`),
+            el("div", { class: "as-prep-preview" }, entity.reference ? preview({ path: entity.reference }, entity.id) : el("p", {}, "Reference not prepared yet")),
+            field("Canonical appearance", entity.description, changed(v => entity.description = v), "textarea"),
+            el("small", {}, entity.approved ? "✓ Approved" : meta?.exists ? "Review this image before approving" : "Generate or import this reference"),
+            el("div", { class: "as-shot-actions" }, button("Approve reference", safely(async () => { entity.approved = true; dirty = true; await save(); draw(); }), "btn ghost", { disabled: !meta?.exists || entity.approved }),
+              button("Import image", () => chooseFile("image/*", async path => { entity.reference = path; entity.approved = false; dirty = true; })),
+              entity.reference ? button("Regenerate (GPU)", safely(async () => { entity.reference = ""; entity.approved = false; dirty = true; await save(); await api(`/${p.id}/tasks`, "POST", { action: "references" }); await refresh(); })) : null),
+            disclosure("Image prompt and traits", field("Canonical image prompt override", entity.imagePrompt || meta?.prompt || "", changed(v => entity.imagePrompt = v), "textarea"), jsonField("Appearance traits", entity.traits || {}, v => entity.traits = v)));
+        })),
+        el("h3", {}, "2 · Shot opening / ending images"),
+        el("div", { class: "as-prep-grid" }, ...sceneList().filter(s => s.method === "video").map((s, i) => {
+          const state = p.states[s.id] || {}, meta = r?.scenes?.find(x => x.id === s.id);
+          return el("article", { class: "as-prep-card" }, el("b", {}, `Scene ${i + 1} · ${meta?.recipe?.family || s.engine} / ${meta?.recipe?.conditioning || "unconfigured"}`),
+            ...[false, ...(meta?.endRequired ? [true] : [])].map(end => {
+              const frame = end ? state.endKeyframe : state.keyframe, approved = end ? meta?.endKeyframeReady : meta?.keyframeReady;
+              return el("div", {}, el("small", {}, end ? "Ending frame" : "Opening frame"), el("div", { class: "as-prep-preview" }, frame ? preview(frame, end ? "Ending frame" : "Opening frame") : el("p", {}, "Prepared after canonical approval")),
+                button(end ? "Prepare / regenerate ending (GPU)" : "Prepare / regenerate opening (GPU)", start(end ? "keyframe-end" : "keyframe", s.id, !!frame), "btn ghost", { disabled: !!r?.missingReferences || !!r?.unreviewedReferences }),
+                button(approved ? "✓ Shot image approved" : "Approve shot image", start(end ? "approve-keyframe-end" : "approve-keyframe", s.id), "btn ghost", { disabled: !frame || !!approved }));
+            }),
+            button("Edit this shot", () => { selected = s.id; draw(); content.querySelector(".as-scene-editor")?.scrollIntoView({ block: "start" }); }),
+            disclosure("Optimized image prompts", field("Opening image prompt override", s.keyframePrompt || meta?.keyframePrompt || "", changed(v => s.keyframePrompt = v), "textarea"), meta?.endRequired ? field("Ending image prompt override", s.endKeyframePrompt || meta?.endKeyframePrompt || "", changed(v => s.endKeyframePrompt = v), "textarea") : null));
+        }))));
+  }
+  function dialogueEditor(s) {
+    const people = (p.board.visualBible?.entities || []).filter(e => e.kind === "character" && s.continuity?.entityIds.includes(e.id));
+    return el("div", {}, el("b", {}, "Native character dialogue"), el("p", { class: "as-hint" }, "The video model speaks these lines. TTS is not involved. Give each line its actual speaker and delivery; voice identity and lip sync still require review."),
+      ...(s.dialogueLines || []).map((line, i) => el("div", { class: "as-dialogue-line" }, select("Speaker", line.speakerId, people.map(e => [e.id, e.id]), changed(v => line.speakerId = v)), field("Spoken words", line.text, changed(v => line.text = v), "textarea"), field("Delivery / emotion", line.delivery || "", changed(v => line.delivery = v)), field("Dialogue language (e.g. fr, en)", line.language || p.config.language, changed(v => line.language = v)), button("Remove line", () => { s.dialogueLines.splice(i, 1); dirty = true; draw(); }))),
+      !(s.dialogueLines || []).length ? field("Character dialogue (native clip speech)", s.dialogue || "", changed(v => s.dialogue = v), "textarea") : null,
+      button("Add speaker line", () => { s.dialogueLines ||= []; s.dialogueLines.push({ speakerId: people[0]?.id || "", text: s.dialogue || "", delivery: "", language: p.config.language }); s.dialogue = ""; dirty = true; draw(); }, "btn ghost", { disabled: !people.length }));
+  }
+  function shotDirection(s) {
+    const d = s.direction || {};
+    return disclosure("Shot direction · opening state, action, reaction and sound", ...[
+      ["framing", "Framing / angle"], ["camera", "Camera movement, speed and amplitude"], ["startState", "Opening pose and prop ownership"], ["action", "Action in causal order"], ["endState", "Ending pose and prop ownership"], ["emotion", "Visible emotional reaction"], ["soundscape", "Native ambience and physical sounds (not dialogue)"], ["music", "Native background score (empty = none)"],
+    ].map(([key, label]) => field(label, d[key] || "", changed(v => { s.direction ||= {}; s.direction[key] = v; }), "textarea")));
+  }
+  function recipePanel(s) {
+    const meta = p.readiness?.scenes?.find(x => x.id === s.id), actual = p.states[s.id]?.media?.generation;
+    return disclosure("Model recipe and exact video prompt", el("b", {}, `${meta?.recipe?.family || s.engine} / ${meta?.recipe?.conditioning || "custom"}`),
+      el("p", {}, meta?.recipe?.guidance || "No specialized local recipe for this engine."), meta?.problem ? el("p", {}, meta.problem) : null,
+      ...(meta?.warnings || []).map(w => el("p", { class: "as-hint" }, w)),
+      meta?.recipe?.source ? el("a", { href: meta.recipe.source, target: "_blank", rel: "noopener" }, "Official prompt guidance") : null,
+      el("pre", { class: "as-compiled-prompt" }, meta?.compiledPrompt || actual?.prompt || "The final bound prompt is shown after reference images have been prepared. No fictitious reference numbers are sent."),
+      el("p", { class: "as-hint" }, "Local compilation, not a hosted prompt rewriter. Official prompt formats are guidance, not a visual-quality guarantee."));
   }
   function scenesPanel() {
     if (!p.board) return el("section", { class: "as-empty-state" }, icon("film"), el("h2", {}, "Start with the script"), el("p", {}, "Create a storyboard from your topic, or import a storyboard JSON."), button("Set up the project", go(0), "btn lime"), boardEditor());
@@ -169,15 +249,17 @@ export function autoShortsView() {
       }), button("+ Add a scene", addScene));
     if (!s) return el("div", {}, rail, button("Add a first scene", addScene));
     const state = p.states[s.id] || {}, index = sorted.indexOf(s), media = state.upscale || state.media;
+    const narrationOn = !!s.narration?.trim() && (s.speechMode === "narration" || ((!s.speechMode || s.speechMode === "auto") && (p.config.mode !== "CINEMA" || p.config.cinemaAudio === "narration")));
     const editor = el("section", { class: "as-scene-editor" },
       el("div", { class: "as-editor-title" }, el("div", {}, el("span", { class: "as-eyebrow" }, `02 / Scene ${index + 1} of ${sorted.length}`), el("h2", { class: "display" }, s.narration.split(/[.!?]/)[0]?.slice(0, 65) || `Scene ${index + 1}`)), el("span", { class: `as-scene-badge ${s.decision}` }, sceneBadge(s))),
       el("div", { class: "as-shot-main" }, el("div", { class: "as-shot-preview" }, preview(media, s.visual),
         el("div", { class: "as-preview-meta" }, el("small", {}, state.upscale ? "Upscaled preview" : "Source media"), state.media ? el("a", { href: fileURL(p, state.media.path), target: "_blank", rel: "noopener" }, "Open original ↗") : null)),
-        el("div", { class: "as-shot-copy" }, field("External narration (optional TTS, not character dialogue)", s.narration, changed(v => { s.narration = v; p.board.narration = sceneList().map(s => s.narration).join(" "); }), "textarea"),
-          field("Character dialogue (native clip speech)", s.dialogue || "", changed(v => s.dialogue = v), "textarea"),
-          select("Speech source", s.speechMode || "auto", [["auto", "Auto · optional narrator + native soundtrack"], ["narration", "Explicit TTS narration + native soundtrack"], ["native", "Native dialogue and ambience only"], ["mute", "Mute all scene audio"]], changed(v => s.speechMode = v)),
+        el("div", { class: "as-shot-copy" }, dialogueEditor(s),
+          select("Speech source", s.speechMode === "auto" && p.config.mode === "CINEMA" && p.config.cinemaAudio !== "narration" ? "native" : s.speechMode || "native", [["auto", "Follow project audio policy"], ["narration", "Explicit TTS narration + native soundtrack"], ["native", "Native dialogue and ambience only"], ["mute", "Mute all scene audio"]], changed(v => { s.speechMode = v; draw(); })),
+          disclosure("Optional external narrator (TTS, opt-in)", el("p", { class: "as-hint" }, "Not required for Cinema. Select explicit TTS narration above to enable a narrator for this shot."), field("External narration (optional TTS, not character dialogue)", s.narration, changed(v => s.narration = v), "textarea")),
           field("What the scene shows", s.visual, changed(v => s.visual = v), "textarea"), field("Minimum duration (seconds)", s.duration, changed(v => s.duration = v), "number"),
-          state.audio ? el("div", { class: "as-narration-player" }, el("small", {}, "Listen to the narration"), el("audio", { src: fileURL(p, state.audio.path), controls: true, preload: "none" })) : el("p", { class: "as-hint" }, "Narration is generated during production."))),
+          state.audio ? el("div", { class: "as-narration-player" }, el("small", {}, "Saved narration (used only when enabled)"), el("audio", { src: fileURL(p, state.audio.path), controls: true, preload: "none" })) : el("p", { class: "as-hint" }, "Native dialogue and sound are generated with the clip. No TTS is needed."))),
+      shotDirection(s), recipePanel(s),
       el("div", { class: "as-shot-actions" }, button(s.decision === "accepted" ? "✓ Scene approved" : "Approve the scene", safely(async () => { s.decision = "accepted"; dirty = true; await save(); draw(); }), s.decision === "accepted" ? "btn ghost" : "btn lime", { disabled: !state.media }),
         button(state.media ? "Regenerate visual" : "Generate visual", start("media", s.id, !!state.media)),
         button("Import another media", () => chooseFile("image/*,video/*", async path => {
@@ -191,7 +273,7 @@ export function autoShortsView() {
         s.profile === "custom" ? el("div", { class: "as-fields" }, field("Source MP", s.megapixels, changed(v => s.megapixels = v), "number"), select("Upscale", s.factor, [1, 2, 4], changed(v => s.factor = Number(v)))) : null,
         field("References (project media paths, comma-separated)", s.references.join(", "), changed(v => s.references = v.split(",").map(x => x.trim()).filter(Boolean))),
         jsonField("Extra engine parameters", s.params, v => s.params = v),
-        el("div", { class: "as-shot-actions" }, button(state.audio ? "Regenerate narration" : "Generate narration", start("audio", s.id, !!state.audio)), button("Re-time captions", start("align", s.id)),
+        el("div", { class: "as-shot-actions" }, button(state.audio ? "Regenerate narration" : "Generate narration", start("audio", s.id, !!state.audio), "btn ghost", { disabled: !narrationOn }), button("Re-time captions", start("align", s.id), "btn ghost", { disabled: !narrationOn || !state.audio }),
           button(state.upscale ? "Recompute the upscale" : "Upscale the approved scene", start("upscale", s.id, !!state.upscale), "btn ghost", { disabled: s.decision !== "accepted" || s.method === "image" }),
           p.config.visionUrl ? button("Local vision review", start("evaluate", s.id)) : null),
         el("p", { class: "as-hint" }, `Visual: ${seconds(state.media?.seconds)} · Upscale: ${seconds(state.upscale?.seconds)} · Model loading: ${state.media?.modelLoading ?? "not measured"}`),
@@ -209,20 +291,12 @@ export function autoShortsView() {
           button("Remove from edit", () => { if (confirm("Remove this scene from the edit? Its files are kept.")) { p.board.scenes = p.board.scenes.filter(x => x.id !== s.id); dirty = true; draw(); } }))),
       el("div", { class: "as-bottom-actions" }, button("Continue production", start("produce"), "btn lime"), button("Go to export →", go(2))),
       check("Automatically approve new scenes and continue to export", p.config.autoAccept, set("autoAccept")));
-    return el("div", { class: "as-storyboard-layout" }, rail, el("div", { class: "as-editor-stack" }, editor, continuityPanel(), mediaLibrary(), disclosure("Title, hook and closing", field("Video title", p.board.title, changed(v => p.board.title = v)), field("Hook", p.board.hook, changed(v => p.board.hook = v)), field("Closing", p.board.closing, changed(v => p.board.closing = v))), boardEditor()));
+    return el("div", {}, productionPanel(), el("div", { class: "as-storyboard-layout" }, rail, el("div", { class: "as-editor-stack" }, editor, continuityPanel(), mediaLibrary(), disclosure("Title, hook and closing", field("Video title", p.board.title, changed(v => p.board.title = v)), field("Hook", p.board.hook, changed(v => p.board.hook = v)), field("Closing", p.board.closing, changed(v => p.board.closing = v))), boardEditor())));
   }
   function continuityPanel() {
     const bible = p.board.visualBible;
-    return disclosure("Visual continuity bible · canonical references",
-      el("p", { class: "as-hint" }, "Define stable character, vehicle, setting and lighting descriptions before generating independent shots. Prepare/import canonical images, approve them, then prepare and approve each shot keyframe. Existing footage is not retroactively repaired."),
-      bible ? jsonField("Visual bible", bible, v => p.board.visualBible = v) : el("p", {}, "No visual bible. Replan Cinema or add visualBible and per-scene continuity in the storyboard JSON; existing exports remain reusable."),
-      field("Keyframe image-editing engine", p.config.keyframeEngine || "edit", set("keyframeEngine")),
-      bible ? button("Generate missing canonical references (GPU)", start("references")) : null,
-      ...(bible?.entities || []).map(entity => el("div", {}, el("b", {}, `${entity.id} · ${entity.kind}`), el("p", {}, entity.description),
-        entity.reference ? preview({ path: entity.reference }, entity.id) : null,
-        button("Import canonical image", () => chooseFile("image/*", async path => { entity.reference = path; entity.approved = false; dirty = true; })),
-        entity.reference ? button("Clear reference for regeneration", () => { entity.reference = ""; entity.approved = false; dirty = true; draw(); }) : null,
-        check("Canonical reference approved", !!entity.approved, changed(v => entity.approved = v)))));
+    return disclosure("Advanced continuity JSON", el("p", { class: "as-hint" }, "Normal preparation and approval controls are in the production checklist above. JSON editing is optional."),
+      bible ? jsonField("Visual bible", bible, v => p.board.visualBible = v) : el("p", {}, "No visual bible. Replan Cinema before generating new footage; existing exports remain reusable."));
   }
   function boardEditor() {
     let raw = p.board ? JSON.stringify(p.board, null, 2) : "";
@@ -262,6 +336,7 @@ export function autoShortsView() {
   }
   function draw() {
     if (disposed) return;
+    if (p?.config.mode === "CINEMA" && p.config.cinemaAudio === undefined) p.config.cinemaAudio = "native";
     header.replaceChildren(el("div", { class: "as-brand" }, el("span", { class: "as-eyebrow" }, "RiverField / Local video studio"), el("h1", { class: "display" }, "AutoShorts")),
       p ? el("div", { class: "as-project-title" }, el("strong", {}, p.board?.title || p.title), el("small", { class: "dim" }, "Project saved on this machine")) : null,
       el("div", { class: "as-project-actions" }, select("Project", p?.id || "", [["", "Choose a project"], ...projects.map(x => [x.id, x.id === p?.id ? p.board?.title || p.title : x.title])], safely(open)),
@@ -289,7 +364,7 @@ export function autoShortsView() {
       const before = p.tasks.at(-1), next = await api(`/${p.id}`), after = next.tasks.at(-1);
       p = next; assets = p.assets || [];
       if (after?.status !== before?.status || after?.operation !== before?.operation) {
-        if (after?.status === "succeeded" && returnStep != null) { step = returnStep; returnStep = null; }
+        if (["succeeded", "waiting_review"].includes(after?.status) && returnStep != null) { step = returnStep; returnStep = null; }
         syncProject(); draw();
       } else progress();
     } catch { /* keep the saved project visible while the web server reconnects */ }

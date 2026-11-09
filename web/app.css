@@ -1007,3 +1007,16 @@ body.dir-dragging * { cursor: grabbing !important; }
 @media(max-width:1100px) { .as-project-title { display:none; } .as-storyboard-layout { grid-template-columns:185px minmax(0,1fr); gap:16px; } .as-shot-main { gap:16px; } }
 @media(max-width:850px) { .as-workspace { padding:20px 16px; } .as-heading { flex-wrap:wrap; gap:14px; } .as-project-actions { margin-left:0; flex-wrap:wrap; } .as-shot-main, .as-export-layout { grid-template-columns:1fr; } .as-export-settings { border:0; padding:0; } .as-notice { flex-wrap:wrap; } .as-shot-preview > img,.as-shot-preview > video { height:300px; } }
 @media(max-width:600px) { .as-storyboard-layout { grid-template-columns:1fr; } .as-scene-rail { position:static; display:flex; overflow:auto; max-height:none; padding-bottom:8px; } .as-rail-title { display:none; } .as-scene-pick { min-width:175px; } .as-mode-cards { grid-template-columns:1fr; gap:7px; } .as-mode { padding:12px; } .as-step { padding:9px 14px; } .as-scene-editor { padding:16px; } }
+.as-prep { margin-bottom: 28px; padding: 24px; border: 1px solid var(--line, #263344); border-radius: 16px; background: var(--panel, #101722); scroll-margin-top: 85px; }
+.as-prep h2, .as-prep h3 { margin: 12px 0; }
+.as-prep-stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0; list-style: none; }
+.as-prep-stages li { display: grid; gap: 6px; padding: 14px; border: 1px solid #263344; border-radius: 10px; }
+.as-prep-stages small, .as-prep-card > small { color: #9daabd; }
+.as-prep-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; margin: 16px 0; }
+.as-prep-card { min-width: 0; padding: 16px; border: 1px solid #263344; border-radius: 12px; background: #0b0f16; }
+.as-prep-preview { display: grid; place-items: center; min-height: 160px; margin: 12px 0; background: #080b10; border-radius: 8px; }
+.as-prep-preview img, .as-prep-preview video { width: 100%; max-height: 240px; object-fit: contain; }
+.as-prep-preview p { padding: 14px; color: #9daabd; }
+.as-compiled-prompt { white-space: pre-wrap; overflow: auto; max-height: 360px; padding: 14px; background: #080b10; font-size: 12px; }
+.as-dialogue-line { padding: 12px; margin: 12px 0; border-left: 2px solid #8db4ff; background: #0b0f16; }
+@media (max-width: 700px) { .as-prep { padding: 16px; } .as-prep-stages { grid-template-columns: 1fr 1fr; } }
