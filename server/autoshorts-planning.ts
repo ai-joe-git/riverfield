@@ -25,3 +25,13 @@ export function planningExample(imageEngine:string,videoEngine:string,cinema:boo
   }
   return example;
 }
+
+/**
+ * llama.cpp / Ollama grammar compilers reject some JSON Schema keywords (notably
+ * `pattern` and `format`). Strip them from the sampling grammar only: the server-side
+ * zod schema still enforces the real constraints, and the repair loop fixes any drift.
+ */
+export function stripUnsupportedSchemaKeywords(node:unknown):void {
+  if(Array.isArray(node)){for(const x of node)stripUnsupportedSchemaKeywords(x);return;}
+  if(node&&typeof node==="object"){const o=node as Record<string,unknown>;delete o.pattern;delete o.format;for(const v of Object.values(o))stripUnsupportedSchemaKeywords(v);}
+}

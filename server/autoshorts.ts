@@ -8,7 +8,7 @@ import type { Values } from "./runner.ts";
 import type { Inference } from "./inference-queue.ts";
 import { approximateWords, assemble, captions, command, probe, sourceDimensions, dimensions, ASSEMBLY_VERSION, type Word } from "./autoshorts-media.ts";
 import { bibleSchema, shotStateSchema, continuityIssues, shotPrompt } from "./autoshorts-continuity.ts";
-import { planningConstraints, planningExample } from "./autoshorts-planning.ts";
+import { planningConstraints, planningExample, stripUnsupportedSchemaKeywords } from "./autoshorts-planning.ts";
 import {recipeFor,compileVideoPrompt,canonicalImagePrompt,keyframeImagePrompt,RECIPE_VERSION,type MediaBinding} from "./autoshorts-recipes.ts";
 import {buildDirectorPlan,nearestOverlap,SEAM,FPS,type DirectorBatch} from "./autoshorts-planner.ts";
 
@@ -451,6 +451,7 @@ export class AutoShorts {
     if(constraints.noDialogue&&c.mode==="CINEMA"){shotGrammar.dialogue={const:""};shotGrammar.dialogueLines={type:"array",maxItems:0,items:z.toJSONSchema(dialogueLine)};delete shotGrammar.dialogueLines.items.$schema;}
     if(constraints.noMusic){grammar.properties.music={const:""};if(c.mode==="CINEMA")grammar.properties.scenes.items.properties.direction.properties.music={const:""};}
     messages.push({role:"user",content:`Use this exact field structure (example values are placeholders; adapt entities, shot count, time and descriptions to the actual brief):\n${JSON.stringify(planningExample(c.imageEngine,c.videoEngine,c.mode==="CINEMA"),null,2)}\nCritical rules: each canonical entity ID is unique. Every used entityId and settingId must exist in visualBible.entities. entityIds MUST include settingId. counts is an object keyed by those exact IDs, NOT generic people/vehicles/setting categories. traits values are plain descriptive strings. Do not invent reference paths; reference is empty and approved is false. Midnight maps to timeOfDay night, not dusk. Preserve the brief's no-narration/no-dialogue/no-music requirements. ${constraints.count?`Exactly ${constraints.count} shots totaling ${c.duration} seconds.`:""} ${JSON.stringify(constraints)}. Return the final JSON directly, no reasoning or markdown.`});
+    stripUnsupportedSchemaKeywords(grammar);
     const diagnostics=`planning/${task.id}`,dir=join(this.directory(p.id),diagnostics);mkdirSync(dir,{recursive:true});
     let lastError="";
     for(let attempt=0;attempt<3;attempt++){
