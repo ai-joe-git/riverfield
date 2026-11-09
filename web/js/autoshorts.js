@@ -137,7 +137,10 @@ export function autoShortsView() {
       el("div", { class: "as-fields" }, select("Format", c.aspect, [["9:16", "Vertical · 9:16"], ["16:9", "Landscape · 16:9"], ["1:1", "Square · 1:1"]], changed(v => { c.aspect = v; c.height = v === "9:16" ? 1920 : 1080; })),
         field("Target duration (seconds)", c.duration, set("duration"), "number"), select("Language", c.language, [...new Map([["fr", "Français"], ["en", "English"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"], [c.language, c.language === "fr" ? "Français" : c.language]]).entries()], set("language"))),
       c.mode === "CINEMA" ? el("div", { class: "as-fields" }, select("Cinema audio", c.cinemaAudio || "native", [["native", "Native character dialogue + ambience (no narrator)"], ["narration", "Explicitly enable optional external TTS narration"]], changed(v => { c.cinemaAudio = v; draw(); })), select("Cinema direction", c.cinemaStyle || "cinematic", [["cinematic", "Cinematic short"], ["vertical-drama", "Vertical micro-drama (experimental)"]], set("cinemaStyle"))) : null,
-      c.mode === "CINEMA" ? select("Video model for new storyboards", c.videoEngine, cinemaEngines, set("videoEngine")) : null,
+      c.mode === "CINEMA" ? el("div", { class: "as-fields" }, select("Video engine (new storyboards)", c.videoEngine, cinemaEngines, changed(v => { c.videoEngine = v; if (v === "pika-studio-director" || v === "studio-director") c.endpointFrames = false; draw(); })),
+        select("Segments per director run", c.cinemaSegmentsPerRun || 1, [[1, "1 · one clip per shot (safest review)"], [2, "2 · two shots per run"], [3, "3 · three shots per run"], [4, "4 · four shots per run"]], changed(v => { c.cinemaSegmentsPerRun = Number(v); dirty = true; })),
+        check("Use FL2VA first/last-frame mode instead of the director Ref2VA", !!c.endpointFrames, changed(v => { c.endpointFrames = v; if (v) c.videoEngine = "pika-video"; draw(); }))) : null,
+      c.mode === "CINEMA" ? el("p", { class: "as-hint" }, "Cinema drives the existing Pika Studio Director (locked LCM + 6-step recipe, Ref2VA) with the approved canonical sheets. More segments per run means fewer model loads but one clip is split across shots; keep 1 for per-shot review.") : null,
       el("div", { class: "as-fields" }, c.mode !== "CINEMA" || c.cinemaAudio === "narration" ? select("Narrator voice", c.tts, engines.filter(a => ["tts", "tts-clone", "tts-omni", "tts-omni-clone"].includes(a.id)).map(a => [a.id, a.name]), changed(v => { c.tts = v; draw(); })) : null,
         select("Clip quality", c.profile, [["x2", "Economy · 0.4 MP then x2"], ["native", "Native · no upscale"], ["x4", "Experimental · 0.2 MP then x4"], ["auto", "Automatic · local measurements"], ["custom", "Custom"]], changed(v => { c.profile = v; draw(); }))),
       (c.mode !== "CINEMA" || c.cinemaAudio === "narration") && c.tts.includes("clone") ? el("div", { class: "as-inline" }, el("span", {}, c.voice ? `Voice reference: ${basename(c.voice)}` : "Add a voice sample to clone"), button("Import a voice", () => chooseFile("audio/*", path => c.voice = path))) : null,
@@ -199,8 +202,8 @@ export function autoShortsView() {
               entity.reference ? button("Regenerate (GPU)", safely(async () => { entity.reference = ""; entity.approved = false; dirty = true; await save(); await api(`/${p.id}/tasks`, "POST", { action: "references" }); await refresh(); })) : null),
             disclosure("Image prompt and traits", field("Canonical image prompt override", entity.imagePrompt || meta?.prompt || "", changed(v => entity.imagePrompt = v), "textarea"), jsonField("Appearance traits", entity.traits || {}, v => entity.traits = v)));
         })),
-        el("h3", {}, "2 · Shot opening / ending images"),
-        el("div", { class: "as-prep-grid" }, ...sceneList().filter(s => s.method === "video").map((s, i) => {
+        el("h3", {}, "2 · Shot opening / ending images (FL2VA mode)"),
+        el("div", { class: "as-prep-grid" }, ...sceneList().filter(s => s.method === "video" && !r?.scenes?.find(x => x.id === s.id)?.director).map((s, i) => {
           const state = p.states[s.id] || {}, meta = r?.scenes?.find(x => x.id === s.id);
           return el("article", { class: "as-prep-card" }, el("b", {}, `Scene ${i + 1} · ${meta?.recipe?.family || s.engine} / ${meta?.recipe?.conditioning || "unconfigured"}`),
             ...[false, ...(meta?.endRequired ? [true] : [])].map(end => {
@@ -211,7 +214,16 @@ export function autoShortsView() {
             }),
             button("Edit this shot", () => { selected = s.id; draw(); content.querySelector(".as-scene-editor")?.scrollIntoView({ block: "start" }); }),
             disclosure("Optimized image prompts", field("Opening image prompt override", s.keyframePrompt || meta?.keyframePrompt || "", changed(v => s.keyframePrompt = v), "textarea"), meta?.endRequired ? field("Ending image prompt override", s.endKeyframePrompt || meta?.endKeyframePrompt || "", changed(v => s.endKeyframePrompt = v), "textarea") : null));
-        }))));
+        })),
+        (r?.directorPlan || []).length ? el("div", {},
+          el("h3", {}, "3 · Pika Studio Director plan (Ref2VA)"),
+          el("p", { class: "as-hint" }, "AutoShorts drives the existing Pika Studio Director: locked LCM + 6-step recipe, canonical sheets bound to image slots, one Material Planner segment per shot. Review the timeline and prompts before generating."),
+          el("div", { class: "as-prep-grid" }, ...r.directorPlan.map((b, bi) => el("article", { class: "as-prep-card" },
+            el("b", {}, `Run ${bi + 1} · ${b.engine} · ${b.adapter}`),
+            el("small", {}, `${b.scenes.length} segment(s) · ${b.bindings.length} reference image(s)`),
+            el("ul", { class: "as-plan-list" }, ...b.windows.map(w => el("li", {}, el("b", {}, `${w.scene}`), el("span", {}, `${w.start}–${w.end} frames · ${w.seconds}s`), el("code", {}, `images [${w.images.join(", ")}]`)))),
+            el("details", { class: "as-disclosure" }, el("summary", {}, "Bound references"), el("ul", { class: "as-plan-list" }, ...b.bindings.map(x => el("li", {}, el("code", {}, x.slot), el("span", {}, x.entity))))),
+            el("details", { class: "as-disclosure" }, el("summary", {}, "Compiled segment prompts"), el("div", {}, ...b.windows.map(w => el("pre", { class: "as-compiled-prompt" }, w.prompt)))))))) : null));
   }
   function dialogueEditor(s) {
     const people = (p.board.visualBible?.entities || []).filter(e => e.kind === "character" && s.continuity?.entityIds.includes(e.id));

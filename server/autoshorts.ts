@@ -10,6 +10,7 @@ import { approximateWords, assemble, captions, command, probe, sourceDimensions,
 import { bibleSchema, shotStateSchema, continuityIssues, shotPrompt } from "./autoshorts-continuity.ts";
 import { planningConstraints, planningExample } from "./autoshorts-planning.ts";
 import {recipeFor,compileVideoPrompt,canonicalImagePrompt,keyframeImagePrompt,RECIPE_VERSION,type MediaBinding} from "./autoshorts-recipes.ts";
+import {buildDirectorPlan,nearestOverlap,SEAM,FPS,type DirectorBatch} from "./autoshorts-planner.ts";
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).refine(v=>!["__proto__","constructor","prototype"].includes(v),"Reserved identifier");
 const engine = z.string().min(1).max(80);
@@ -54,6 +55,7 @@ export const configSchema = z.object({
    temperature:z.number().min(0).max(2).default(.7), videoEngine:engine.default("h3-video-turbo"), imageEngine:engine.default("z-image"),
    keyframeEngine:engine.default("edit"),
   cinemaAudio:z.enum(["native","narration"]).default("native"), cinemaStyle:z.enum(["cinematic","vertical-drama"]).default("cinematic"), endpointFrames:z.boolean().default(false),
+  cinemaEngine:engine.default("pika-studio-director"), cinemaSegmentsPerRun:z.number().int().min(1).max(8).default(1),
   tts:engine.default("tts"), voice:z.string().max(200).default(""), voiceTags:z.array(z.string()).max(12).default(["female"]),
   speechParams:z.record(z.string(),z.unknown()).default({}),
   profile:z.enum(["auto","native","x2","x4","custom"]).default("x2"), megapixels:z.number().min(.1).max(2).default(.4),
@@ -128,7 +130,8 @@ export class AutoShorts {
   save(p:Project) { p.updated=new Date().toISOString(); const dir=this.directory(p.id); writeFileSync(join(dir,"project.json.tmp"),JSON.stringify(p,null,2));renameSync(join(dir,"project.json.tmp"),join(dir,"project.json")); if(p.board){writeFileSync(join(dir,"storyboard.json.tmp"),JSON.stringify(p.board,null,2));renameSync(join(dir,"storyboard.json.tmp"),join(dir,"storyboard.json"));} }
   create(raw:unknown) {
     const config=configSchema.parse(raw); localURL(config.llmUrl); if(config.alignUrl)localURL(config.alignUrl);if(config.visionUrl)localURL(config.visionUrl);
-    if(config.mode==="CINEMA"&&!(raw&&typeof raw==="object"&&"videoEngine" in raw))config.videoEngine="pika-video";
+    if(config.mode==="CINEMA"&&!(raw&&typeof raw==="object"&&"videoEngine" in raw))config.videoEngine=config.cinemaEngine;
+    if(config.mode==="CINEMA"&&!(raw&&typeof raw==="object"&&"endpointFrames" in raw))config.endpointFrames=false;
     if(config.mode==="CINEMA"&&!(raw&&typeof raw==="object"&&"transition" in raw))config.transition=0;
     const p:Project={id:randomUUID(),title:config.topic.slice(0,80)||"Untitled production",created:new Date().toISOString(),updated:"",revision:0,config,states:{},tasks:[],exports:[]};
     for(const d of ["scenes","audio","subtitles","upscaled","exports","assets","references"])mkdirSync(join(this.directory(p.id),d),{recursive:true});
@@ -211,30 +214,83 @@ export class AutoShorts {
     if(refs.length>images.length)throw new Error(`${s.id}: ${refs.length} reference images exceed ${app.name}'s ${images.length} slots; reduce the shot's canonical reference set`);
     return refs.map((ref,i)=>({...ref,input:images[i].id}));
   }
+  private isDirectorEngine(engine:string){return engine==="pika-studio-director"||engine==="studio-director";}
+  private usesDirector(p:Project,s:Scene){return p.config.mode==="CINEMA"&&s.method==="video"&&this.isDirectorEngine(s.engine)&&!p.config.endpointFrames;}
+  private directorScenes(p:Project){return p.config.mode==="CINEMA"?[...p.board?.scenes||[]].filter(s=>this.usesDirector(p,s)).sort((a,b)=>a.order-b.order):[];}
+  private directorSheet(p:Project,entityId:string){const e=p.board?.visualBible?.entities.find(x=>x.id===entityId);return {entity:entityId,path:e?.reference||"",description:e?.description||entityId};}
+  /** The planned director runs (batches) for review; tolerant of not-yet-approved references. */
+  directorPlan(p:Project):DirectorBatch[]{
+    const scenes=this.directorScenes(p);if(!scenes.length||!p.board?.visualBible)return [];
+    const app=this.apps.get(p.config.cinemaEngine);if(!app?.workflowPath)return [];
+    const aspectOpt=(app.inputs.find(i=>i.id==="aspect")?.options||[]).find(o=>String(o.value).startsWith(p.config.aspect));
+    const profile=this.profile(p,scenes[0],app);
+    try{return buildDirectorPlan(app,scenes,p.board.visualBible as any,(id)=>this.directorSheet(p,id),{aspect:String(aspectOpt?.value||""),megapixels:profile.mp,language:p.config.language,seed:42,perRun:p.config.cinemaSegmentsPerRun});}
+    catch{return [];}
+  }
+  private setDirectorMedia(p:Project,s:Scene,batch:DirectorBatch,index:number,artifact:{path:string;job?:string;seconds:number;modelLoading:number|null},key:string){
+    const w=batch.windows[index],state=p.states[s.id]??={};
+    state.media={...artifact,key,inputHash:this.mediaHash(p,s,RECIPE_VERSION),workflowUpscale:1,
+      generation:{engine:batch.engine,prompt:w.prompt,references:batch.bindings.map(b=>b.path),recipeVersion:RECIPE_VERSION,recipe:`${batch.engine}:${batch.adapter}`,
+        bindings:batch.bindings.map(b=>({input:b.slot,path:b.path,role:"identity" as const,entity:b.entity,description:b.entity}))}};
+    state.upscale=undefined;s.decision=p.config.autoAccept?"accepted":"pending";this.save(p);
+  }
+  private async directorMedia(p:Project,t:Task,signal:AbortSignal,update:(v:Partial<Task>)=>void){
+    const c=p.config,bible=p.board!.visualBible!;
+    const scenes=this.directorScenes(p);if(!scenes.length)throw new ReviewRequired("configuration","No reference-capable Cinema scene to generate");
+    for(const s of scenes)for(const id of s.continuity?.entityIds||[]){const e=bible.entities.find(x=>x.id===id);if(!e||!this.imageExists(p,e.reference)||!e.approved)throw new ReviewRequired("reference-review",`${s.id}: approve canonical reference ${id} before director generation`);}
+    const plan=this.directorPlan(p);if(!plan.length)throw new ReviewRequired("configuration","Could not build a director plan; check aspect and reference slots");
+    for(const batch of plan){
+      const members=batch.scenes.map(id=>scenes.find(s=>s.id===id)!);
+      if(members.every(s=>{const st=p.states[s.id];return !!st?.media&&st.media.inputHash===this.mediaHash(p,s,RECIPE_VERSION)&&s.decision!=="regenerate"&&existsSync(join(this.directory(p.id),st.media.path));}))continue;
+      const values:Values={...batch.values};
+      for(const b of batch.bindings)values[b.slot]={bytes:readFileSync(this.file(p.id,b.path)),name:basename(b.path)};
+      update({operation:`Pika Studio Director · ${batch.scenes.length} segment(s) Ref2VA`});
+      const clip=await this.generated(p,t,this.app(batch.engine),values,"scenes",hash([batch.segmentWindows,batch.bindings.map(b=>b.path),values.megapixels,c.aspect]),signal,update);
+      if(batch.scenes.length===1){this.setDirectorMedia(p,members[0],batch,0,clip,hash([batch.segmentWindows,members[0].id]));continue;}
+      // Split the concatenated batch clip into per-scene clips on the CPU (no extra GPU).
+      const L=batch.windows.map(w=>w.end-w.start);
+      const newLen=L.map((len,i)=>i===0?len:len-nearestOverlap(SEAM,Math.min(len,L[i-1])-1));
+      const meta=await probe(this.file(p.id,clip.path),signal),sum=newLen.reduce((a,b)=>a+b,0)/FPS;
+      if(Math.abs(sum-(meta.duration||0))>0.75)throw new ReviewRequired("director-batch",`batch clip is ${meta.duration}s but segments sum to ${sum}s; set segments-per-run to 1 or review in the director app`);
+      let start=0;
+      for(let i=0;i<batch.windows.length;i++){
+        const dur=newLen[i]/FPS,out=`scenes/${clip.key}-seg${i}.mp4`;
+        await command("ffmpeg",["-y","-ss",String(+start.toFixed(3)),"-i",this.file(p.id,clip.path),"-t",String(+dur.toFixed(3)),"-c:v","libx264","-preset","fast","-crf","18","-c:a","aac","-movflags","+faststart",join(this.directory(p.id),out)],signal);
+        this.setDirectorMedia(p,members[i],batch,i,{...clip,path:out},hash([batch.segmentWindows,members[i].id]));start+=dur;
+      }
+    }
+  }
   readiness(p:Project){
     const bible=p.board?.visualBible,issues:string[]=[];
     const references=(bible?.entities||[]).map(e=>({...e,exists:this.imageExists(p,e.reference),prompt:e.imagePrompt||canonicalImagePrompt(e,bible,p.config.imageEngine)}));
     if(p.config.mode==="CINEMA"&&p.board&&!bible)issues.push("Plan a visual bible before generating new Cinema footage; existing exports remain available.");
+    const plan=this.directorPlan(p);
+    const windowOf=new Map<string,{prompt:string,images:number[]}>();
+    for(const b of plan)for(const w of b.windows)windowOf.set(w.scene,{prompt:w.prompt,images:w.images});
     const scenes=(p.board?.scenes||[]).map(s=>{
+      const director=this.usesDirector(p,s);
       let recipe:ReturnType<typeof recipeFor>|undefined,bindings:MediaBinding[]=[],compiledPrompt="",problem="",endRequired=false,warnings:string[]=[];
       try{
         if(s.method==="video"){
           if(!s.prompt.trim()||/^(describe the scene|todo)$/i.test(s.prompt.trim()))throw new Error(`${s.id}: describe this shot's action before preparing assets`);
           recipe=this.videoRecipe(s,p.config.mode==="CINEMA").recipe;
-          if(p.config.mode==="CINEMA"&&!recipe.cinemaSupported)throw new Error(`${s.id}: ${s.engine} has no reference-capable Cinema adapter in AutoShorts. Choose Pika Video, Pika Ref (H3 R2V Flex), or H3 R2V.`);
-          endRequired=!!p.config.endpointFrames&&recipe.endpointFrames;
-          if(bible){bindings=this.videoBindings(p,s);if(s.references.length)throw new Error(`${s.id}: use the canonical image controls for this compiled recipe; arbitrary extra video/audio references belong in the standalone reference app.`);}
-          if(!bible||bindings.every(b=>this.imageExists(p,b.path))){const result=compileVideoPrompt(recipe,s,bible,bindings,p.config.language,s.speechMode!=="mute");compiledPrompt=result.prompt;warnings=result.warnings;}
+          if(p.config.mode==="CINEMA"&&!recipe.cinemaSupported)throw new Error(`${s.id}: ${s.engine} has no reference-capable Cinema adapter in AutoShorts. Choose Pika Studio Director (Ref2VA), Pika Video (FL2VA) or H3 R2V.`);
+          if(director){const w=windowOf.get(s.id);compiledPrompt=w?.prompt||"";bindings=(w?.images||[]).map(i=>({input:`image${i+1}`,path:"",role:"identity" as const,description:this.directorSheet(p,(s.continuity?.entityIds||[])[i]||"").description}));}
+          else{
+            endRequired=!!p.config.endpointFrames&&recipe.endpointFrames;
+            if(bible){bindings=this.videoBindings(p,s);if(s.references.length)throw new Error(`${s.id}: use the canonical image controls for this compiled recipe; arbitrary extra video/audio references belong in the standalone reference app.`);}
+            if(!bible||bindings.every(b=>this.imageExists(p,b.path))){const result=compileVideoPrompt(recipe,s,bible,bindings,p.config.language,s.speechMode!=="mute");compiledPrompt=result.prompt;warnings=result.warnings;}
+          }
         }
       }catch(e){problem=(e as Error).message;issues.push(problem);}
       const state=p.states[s.id];
       const labels=(bible?.entities||[]).filter(e=>s.continuity?.entityIds.includes(e.id)).map((e,i)=>`${i+1}: ${e.id} (${e.kind})`);
-      return {id:s.id,recipe,bindings,compiledPrompt,problem,warnings,keyframePrompt:s.keyframePrompt||(bible?keyframeImagePrompt(s,bible,labels):""),endKeyframePrompt:s.endKeyframePrompt||(bible?keyframeImagePrompt(s,bible,labels,"last"):""),keyframeReady:!!bible&&this.currentFrame(p,s),endRequired,endKeyframeReady:!endRequired||this.currentFrame(p,s,true),mediaReady:!!state?.media&&state.media.inputHash===this.mediaHash(p,s)&&s.decision!=="regenerate"&&existsSync(join(this.directory(p.id),state.media.path)),decision:s.decision};
+      return {id:s.id,director,recipe,bindings,compiledPrompt,problem,warnings,keyframePrompt:s.keyframePrompt||(bible&&!director?keyframeImagePrompt(s,bible,labels):""),endKeyframePrompt:s.endKeyframePrompt||(bible&&!director?keyframeImagePrompt(s,bible,labels,"last"):""),keyframeReady:director|| (!!bible&&this.currentFrame(p,s)),endRequired:director?false:endRequired,endKeyframeReady:director|| !endRequired||this.currentFrame(p,s,true),mediaReady:!!state?.media&&state.media.inputHash===this.mediaHash(p,s)&&s.decision!=="regenerate"&&existsSync(join(this.directory(p.id),state.media.path)),decision:s.decision};
     });
     const missing=references.filter(e=>!e.exists),unreviewed=references.filter(e=>e.exists&&!e.approved);
     const video=scenes.filter(s=>s.recipe),frames=video.filter(s=>!s.keyframeReady||!s.endKeyframeReady);
     const stage=!p.board?"storyboard":issues.length?"configuration":missing.length?"references":unreviewed.length?"reference-review":frames.length?"keyframes":video.some(s=>!s.mediaReady||s.decision!=="accepted")?"clips":"export";
-    return {stage,issues,references,scenes,missingReferences:missing.length,unreviewedReferences:unreviewed.length,pendingKeyframes:frames.length};
+    return {stage,issues,references,scenes,directorPlan:plan.map(b=>({engine:b.engine,adapter:b.adapter,scenes:b.scenes,bindings:b.bindings,windows:b.windows.map(w=>({scene:w.scene,start:w.start,end:w.end,seconds:w.seconds,images:w.images}))})),missingReferences:missing.length,unreviewedReferences:unreviewed.length,pendingKeyframes:frames.length};
   }
   private async prepare(p:Project,t:Task,signal:AbortSignal,update:(v:Partial<Task>)=>void){
     const ready=this.readiness(p);if(ready.issues.length)throw new ReviewRequired("configuration",ready.issues.join("; "));
@@ -242,7 +298,9 @@ export class AutoShorts {
     if(ready.missingReferences)await this.references(p,t,signal,update);
     const pending=p.board.visualBible.entities.filter(e=>!e.approved);
     if(pending.length)throw new ReviewRequired("reference-review",`Review and approve ${pending.length} canonical references below. No video or TTS was generated.`);
-    for(const s of [...p.board.scenes].sort((a,b)=>a.order-b.order).filter(s=>s.method==="video")){
+    // The director Ref2VA route binds canonical sheets directly to segments; only the
+    // FL2VA / single-app path composes per-shot keyframes.
+    for(const s of [...p.board.scenes].sort((a,b)=>a.order-b.order).filter(s=>s.method==="video"&&!this.usesDirector(p,s))){
       await this.keyframe(p,s,t,signal,update);
       if(this.needsEnd(p,s))await this.keyframe(p,s,t,signal,update,false,"last");
     }
@@ -250,6 +308,7 @@ export class AutoShorts {
   }
   private mediaHash(p:Project,s:Scene,recipeVersion=p.states[s.id]?.media?.generation?.recipeVersion) {
     if(s.method==="import")return hash(s.references);
+    if(this.usesDirector(p,s)){const bible=p.board!.visualBible!;const paths=(s.continuity?.entityIds||[]).map(id=>bible.entities.find(e=>e.id===id)?.reference||"");return hash(["director",RECIPE_VERSION,s.id,s.duration,s.prompt,s.visual,s.direction,s.dialogueLines,s.speechMode,paths,p.config.aspect,p.config.cinemaEngine,p.config.cinemaSegmentsPerRun]);}
     const profile=s.profile==="auto"?p.config.profile:s.profile;
     const source=profile==="custom"?(s.profile==="custom"?s.megapixels:p.config.megapixels):profile;
     const legacy=[s.prompt,s.engine,s.method,s.params,s.references,source,p.config.aspect];
@@ -464,6 +523,7 @@ export class AutoShorts {
       const path=s.references[0];this.file(p.id,path);const key=hash([path]);if(state.media?.key!==key)state.upscale=undefined;state.media={key,path,seconds:0,modelLoading:null,inputHash:this.mediaHash(p,s)};this.save(p);return;
     }
     if(state.media?.inputHash===this.mediaHash(p,s)&&s.decision!=="regenerate"&&existsSync(join(this.directory(p.id),state.media.path)))return;
+    if(this.usesDirector(p,s))return this.directorMedia(p,t,signal,update);
     if(c.mode==="FAST"&&s.method==="video")throw new Error("FAST mode avoids video diffusion; select image/import");
     const consistent=s.method==="video"&&!!p.board?.visualBible;
     if(s.method==="video"&&c.mode==="CINEMA"&&(p.board?.scenes.length||0)>1&&!consistent)throw new ReviewRequired("configuration","Multi-shot Cinema generation needs a visual bible and reviewed keyframes. Existing media can still be rendered without regeneration.");

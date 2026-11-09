@@ -74,8 +74,18 @@ not interchangeable extras. Day/night/color contradictions and duplicate individ
 are checked conservatively; this does not replace human review.
 
 In Scenes, use **Cinema / Production checklist**. Import references
-or press **Prepare canonical references** to generate missing ones through the local image engine. Review
-each canonical image and approve it. Then run per-scene `keyframe`: the server builds
+or press **Prepare canonical references** to generate the missing multi-view identity
+sheets through the local image engine. Review and approve each sheet.
+
+**Default (Pika Studio Director, Ref2VA):** once the sheets are approved, AutoShorts
+builds the `segment_windows` timeline and binds the sheets to `image1..9`; the compiled
+Ref2VA prompts and the plan are shown under **3 · Pika Studio Director plan**. Press
+Produce to generate each shot through the director (locked LCM + 6-step recipe). No
+per-shot keyframe is required. `cinemaSegmentsPerRun` groups consecutive compatible
+shots into one multi-segment director run (the combined clip is split on the CPU).
+
+**Optional (FL2VA):** enable **Use FL2VA first/last-frame mode** to compose reviewed
+opening/ending images instead. Then run per-scene `keyframe`: the server builds
 a CPU contact sheet and calls `config.keyframeEngine` (`edit` by default) to compose
 one consistent shot. Review/approve it with `approve-keyframe` before footage generation.
 Changing identity descriptions/references invalidates approval; re-preparing unchanged

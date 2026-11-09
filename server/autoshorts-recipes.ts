@@ -61,12 +61,25 @@ export function compileVideoPrompt(recipe:ReturnType<typeof recipeFor>,scene:any
   return finish(`${alignment}integrated_multimodal_description:\n[Shot 1] ${visuals}\n\noverall_soundscape:\n${sound}\n\nnon_diegetic_music:\n${music}`);
 }
 
+/** Views requested on a canonical reference sheet: consistent angles of ONE entity. */
+export function sheetViews(kind:string){
+  return kind==="character"?"front portrait, three-quarter view, side profile and a full-body view of the SAME person"
+    :kind==="vehicle"?"front, side and rear three-quarter views of the SAME vehicle"
+    :kind==="setting"?"two or three establishing angles of the SAME location from different viewpoints"
+    :"front, side and detail views of the SAME prop";
+}
+/**
+ * A canonical reference is a reusable identity sheet, not a single pose: the same entity
+ * shown consistently from several angles so every shot can bind it as a Ref2VA reference.
+ * It must never mix unrelated identities.
+ */
 export function canonicalImagePrompt(entity:any,bible:any,engine:string){
-  const role=entity.kind==="character"?"One single canonical actor, clear recognizable face and full wardrobe, natural proportions; no duplicate people or alternate views"
-    :entity.kind==="vehicle"?"One single complete vehicle, three-quarter product view; preserve exact body model, color, wheel geometry and accessories; no people or driver"
-    :entity.kind==="setting"?"One empty establishing location, coherent architecture and geography; no people, vehicles or signage"
-    :"One isolated canonical prop, readable shape/material/scale; no hands or duplicate objects";
-  return `${engine.startsWith("z-image")?"A precise photographic still":"Create one photographic reference image"}. ${role}. ${entity.description}. ${JSON.stringify(entity.traits)}. ${bible.style}. Time: ${bible.timeOfDay}. Lighting: ${bible.lighting}. No collage, contact sheet, labels, text, watermarks or video action sequence.`;
+  const views=sheetViews(entity.kind);
+  const role=entity.kind==="character"?"One single canonical actor shown consistently across every view; identical face, hair, age, wardrobe and jewelry in all angles; no different people"
+    :entity.kind==="vehicle"?"One single canonical vehicle shown consistently across every view; identical body model, color, wheels and accessories; no people or driver"
+    :entity.kind==="setting"?"One single canonical location shown consistently across every view; coherent architecture, geography and lighting; no people, vehicles or signage"
+    :"One single canonical prop shown consistently across every view; readable shape, material and scale; no hands or duplicate objects";
+  return `${engine.startsWith("z-image")?"A precise photographic reference sheet":"Create one photographic reference sheet"} of ${views}. ${role}. ${entity.description}. ${JSON.stringify(entity.traits)}. ${bible.style}. Time: ${bible.timeOfDay}. Lighting: ${bible.lighting}. Same identity in every panel, arranged as a clean reference sheet; no captions, labels, numbers, watermarks or unrelated subjects.`;
 }
 export function keyframeImagePrompt(scene:any,bible:any,labels:string[],endpoint:"first"|"last"="first"){
   const d=scene.direction||{};

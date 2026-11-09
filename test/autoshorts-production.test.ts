@@ -70,7 +70,7 @@ test("Cinema planning requests a visual bible and separate dialogue; contradicti
   llm.listen(0,"127.0.0.1");await once(llm,"listening");
   try{
     const service=new AutoShorts(join(dir,"projects"),apps,async()=>{throw new Error("GPU forbidden");});
-    const cfg={mode:"CINEMA",llmUrl:`http://127.0.0.1:${(llm.address() as any).port}/v1`};
+    const cfg={mode:"CINEMA",videoEngine:"pika-video",llmUrl:`http://127.0.0.1:${(llm.address() as any).port}/v1`};
     let p=service.create(cfg);assert.equal(p.config.videoEngine,"pika-video");
     service.start(p.id,"plan");p=await done(service,p.id);assert.equal(p.tasks.at(-1)?.status,"succeeded",p.tasks.at(-1)?.error||"");assert.ok(p.board?.visualBible);
     invalid=true;const bad=service.create(cfg);service.start(bad.id,"plan");p=await done(service,bad.id);

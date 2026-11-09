@@ -19,13 +19,23 @@ existing app workflows; prompt formatting does not qualify a new sampling recipe
 
 ## Prompt and input contracts
 
+**Cinema defaults to the existing Pika Studio Director** (`pika-studio-director`):
+AutoShorts is the producer, the director stays the video engine. It reuses the director's
+locked LCM sampler, 6-step sigma schedule, Ref2VA model/LoRA pairing, `image1..9` /
+`video1..3` / `audio1..3` inputs and the Material Planner timeline. AutoShorts builds the
+`segment_windows` document automatically (geometry mirrors `h3_planner.py`: 24 fps,
+`5+17n` lengths, 39-frame seams) and binds the approved canonical sheets to the slots.
+
 | Workflow | Conditioning in AutoShorts Cinema | Compiled prompt |
 |---|---|---|
-| Pika Video | FL2VA: reviewed opening image, optionally a reviewed ending image | Endpoint alignment first; `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music` |
-| Pika Text to Video | Routes explicitly to Pika Video for reference-conditioned Cinema shots | Same FL2VA contract; the UI and generation metadata show the effective engine |
-| H3 R2V Flex (Pika Ref) | Ref2VA: actual ordered canonical images, then the shot composition image | `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music` |
-| H3 R2V | Ref2VA with the selected MiniMax H3 workflow | Same reference-role fields, without claiming Pika sampling |
-| H3 Video / Turbo | Text-only app inputs, even though the underlying model family supports frames | T2VA format outside reference-based Cinema; choose a reference-capable app for Cinema |
+| **Pika Studio Director (default)** | Ref2VA through the Material Planner: canonical sheets bound to `image1..9`, one segment per shot, batched by `cinemaSegmentsPerRun` | Per-segment `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music` |
+| Pika Video (FL2VA option) | FL2VA: reviewed opening image, optionally a reviewed ending image | Endpoint alignment first; `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music` |
+| H3 R2V Flex / H3 R2V | Ref2VA single-app route (still available): canonical images + composition keyframe | Same reference-role fields |
+| H3 Video / Turbo | Text-only app inputs | Not reference-capable; choose the director or a Ref2VA app for Cinema |
+
+Canonical references are **multi-view identity sheets** (consistent angles of one entity),
+reused across every shot rather than regenerated per shot. Turn on **FL2VA first/last-frame
+mode** only for precise endpoint conditioning; it is not the default for recurring characters.
 
 Ref2VA no longer receives only a generic keyframe. Each supplied image has a named
 role, an exact workflow input (`image1`, `image2`, ...), a real `<Picture N>` marker,
@@ -45,17 +55,19 @@ existing/explicit fade settings are preserved. Timing still needs actual clip re
 
 ## What happens when you press Prepare / Produce
 
-1. **Missing canonical images:** generate them sequentially using the configured
-   local image app, then enter `waiting_review`.
+1. **Missing canonical sheets:** generate the multi-view identity/vehicle/location
+   sheets sequentially using the configured local image app, then enter `waiting_review`.
 2. **Canonical review:** approve or regenerate/import each identity, vehicle,
    location or prop in the visible **Cinema / Production checklist**.
-3. **Shot images:** compose opening images through the configured local image-editing
-   workflow (default `edit`) from a CPU-built reference sheet. Optional ending images
-   are a separate, explicitly enabled cost for FL2VA. Enter `waiting_review` again.
-4. **Shot-image review:** approve the opening/ending images. The exact compiled video
-   prompt and bound references are available for inspection before video compute.
-5. **Video:** generate the actual reference-conditioned clips and wait for clip
-   review, unless the user explicitly opted into automatic clip acceptance.
+3. **Director plan:** with the default director route, the storyboard is turned into
+   `segment_windows` and the compiled Ref2VA prompts are shown for review (no per-shot
+   keyframe is needed — the canonical sheets are the references). The FL2VA option
+   instead composes opening/ending images through the image-editing workflow and asks
+   for their approval.
+4. **Video:** generate the reference-conditioned clips through the director (one run per
+   shot by default; `cinemaSegmentsPerRun` groups consecutive compatible shots into a
+   single multi-segment run and splits the result on the CPU), then wait for clip review
+   unless automatic clip acceptance was chosen.
 6. **Upscale/export:** reuse accepted clips, apply only the required RelayVSR factor,
    and export using the existing persistent pipeline and provenance manifest.
 

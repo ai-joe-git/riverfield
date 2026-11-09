@@ -22,7 +22,7 @@ async function run(response:()=>any,inspect?:(request:any)=>void){
   const server=createServer(async(req,res)=>{let raw="";for await(const chunk of req)raw+=chunk;const data=JSON.parse(raw);inspect?.(data);requests++;res.setHeader("content-type","application/json");res.end(JSON.stringify(response()));});
   server.listen(0,"127.0.0.1");await once(server,"listening");
   const service=new AutoShorts(dir,loadRegistry().apps,async()=>{throw new Error("No media/TTS inference allowed");});
-  const p=service.create({topic:brief,mode:"CINEMA",duration:10,llmUrl:`http://127.0.0.1:${(server.address() as any).port}/v1`});
+  const p=service.create({topic:brief,mode:"CINEMA",videoEngine:"pika-video",duration:10,llmUrl:`http://127.0.0.1:${(server.address() as any).port}/v1`});
   service.start(p.id,"plan");
   try{
     for(let i=0;i<200;i++){const result=service.get(p.id);if(!["queued","running"].includes(result.tasks.at(-1)!.status)){

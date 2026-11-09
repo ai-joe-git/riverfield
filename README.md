@@ -177,10 +177,13 @@ transcription service is configured; x4 is experimental and must respect each en
 
 [Full guide: setup, production, persistence, API/MCP and limitations](docs/autoshorts.md).
 
-Cinema now exposes its preparation checklist and [local model recipes](docs/autoshorts-model-recipes.md):
-Pika/H3 FL2VA endpoint alignment versus Ref2VA identity/reference roles, native speaker-attributed
-dialogue by default, and reviewed canonical/shot images before video. The vertical micro-drama
-direction preset is **experimental**; this is not yet a qualified DramaBox-style episode generator.
+Cinema now **orchestrates the existing Pika Studio Director** (locked LCM + 6-step Ref2VA,
+Material Planner timeline) instead of a competing per-shot engine: AutoShorts builds the
+`segment_windows` document and binds reusable multi-view canonical sheets to `image1..9`.
+See [local model recipes](docs/autoshorts-model-recipes.md) for the Ref2VA/FL2VA prompt
+contracts, native speaker-attributed dialogue, and the reviewed preparation stages. The
+vertical micro-drama direction preset is **experimental**; this is not yet a qualified
+DramaBox-style episode generator.
 
 ## Apps
 

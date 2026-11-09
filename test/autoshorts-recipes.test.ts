@@ -58,7 +58,7 @@ test("native Cinema never synthesizes a narrator implicitly; explicit per-scene 
 });
 test("image prompts distinguish canonical roles from a single starting/ending state",()=>{
   assert.match(canonicalImagePrompt(bible.entities[0],bible,"z-image"),/single canonical actor/);
-  assert.match(canonicalImagePrompt(bible.entities[2],bible,"z-image"),/empty establishing location/);
+  assert.match(canonicalImagePrompt(bible.entities[2],bible,"z-image"),/canonical location shown consistently/);
   const first=keyframeImagePrompt(shot(),bible,["anna","ben","hall"]),last=keyframeImagePrompt(shot(),bible,["anna","ben","hall"],"last");
   assert.match(first,/OPENING state: Anna holds the unopened envelope low/);assert.doesNotMatch(first,/ENDING state: Ben holds/);
   assert.match(last,/ENDING state: Ben holds the opened envelope/);
@@ -102,3 +102,29 @@ for(const engine of ["pika-video","h3-r2v-flex"]){
     }finally{rmSync(dir,{recursive:true,force:true});}
   });
 }
+
+test("Cinema routes through Pika Studio Director Ref2VA with reused canonical sheets, no per-shot keyframe and no TTS",{timeout:60000},async()=>{
+  const dir=mkdtempSync(join(tmpdir(),"rf-director-")),calls:{app:string;values:any}[]=[];
+  try{
+    const image=join(dir,"s.png"),video=join(dir,"s.mp4");
+    await command("ffmpeg",["-y","-f","lavfi","-i","color=c=blue:s=160x96","-frames:v","1","-threads","1",image]);
+    await command("ffmpeg",["-y","-f","lavfi","-i","color=c=blue:s=160x96:r=24:d=1","-c:v","libx264","-threads","1",video]);
+    const service=new AutoShorts(join(dir,"projects"),apps,async(app,values)=>{assert.ok(!app.id.startsWith("tts"),"native director Cinema must not launch TTS");calls.push({app:app.id,values});return {path:app.outputs.some(o=>o.type==="image")?image:video,job:`mock-${calls.length}`,seconds:0,modelLoading:null};});
+    let p=service.create({mode:"CINEMA",profile:"custom",megapixels:.5,factor:1});
+    assert.equal(p.config.videoEngine,"pika-studio-director","new Cinema projects default to the director");
+    const script=board("pika-studio-director");
+    p=service.edit(p.id,{board:script});
+    service.start(p.id,"produce");p=await done(service,p.id);
+    assert.equal(p.tasks.at(-1)?.status,"waiting_review");assert.equal(p.tasks.at(-1)?.review?.stage,"reference-review");assert.equal(calls.length,3);
+    p.board!.visualBible!.entities.forEach(e=>e.approved=true);p=service.edit(p.id,{board:p.board});
+    service.start(p.id,"produce");p=await done(service,p.id);
+    assert.equal(p.tasks.at(-1)?.status,"waiting_review");assert.equal(p.tasks.at(-1)?.review?.stage,"clip-review");
+    const gen=calls.at(-1)!;assert.equal(gen.app,"pika-studio-director");assert.equal(gen.values.flex_mode,"ref2va");
+    assert.ok(gen.values.image1.bytes&&gen.values.image2.bytes&&gen.values.image3.bytes);
+    const doc=JSON.parse(String(gen.values.segment_windows));assert.equal(doc.windows.length,1);assert.deepEqual(doc.windows[0].images,[0,1,2]);
+    assert.match(String(doc.windows[0].prompt),/subject_definitions:/);assert.match(String(doc.windows[0].prompt),/<d>\[French\]/);
+    assert.equal(p.states.shot.keyframe,undefined,"the director route needs no per-shot keyframe");
+    assert.equal(p.states.shot.audio,undefined);assert.equal(p.states.shot.media!.generation?.recipe,"pika-studio-director:ref2va");
+    const total=calls.length;service.start(p.id,"produce");p=await done(service,p.id);assert.equal(calls.length,total,"accepted director footage is not regenerated");
+  }finally{rmSync(dir,{recursive:true,force:true});}
+});
