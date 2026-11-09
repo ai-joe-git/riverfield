@@ -43,7 +43,7 @@ test("the planner sees the exact JSON structure and honors a two-shot native-onl
     const schema=request.response_format.json_schema.schema,shot=schema.properties.scenes.items.properties;
     assert.equal(schema.properties.scenes.minItems,2);assert.equal(schema.properties.scenes.maxItems,2);
     assert.equal(shot.method.const,"video");assert.equal(shot.engine.const,"pika-video");
-    assert.doesNotMatch(JSON.stringify(schema),/"pattern"|"format"/,"grammar must not send unsupported keywords");
+    assert.doesNotMatch(JSON.stringify(schema),/"pattern"|"format"|"propertyNames"|"patternProperties"|"uniqueItems"/,"grammar must not send unsupported keywords");
     assert.equal(shot.narration.const,"");assert.equal(shot.dialogue.const,"");assert.equal(shot.speechMode.const,"native");
     assert.equal(request.chat_template_kwargs.enable_thinking,false);assert.equal(request.max_tokens,8192);
     const instructions=request.messages.map((m:any)=>m.content).join("\n");
