@@ -42,12 +42,12 @@ class Session:
 
 
 def state(**changes):
-    return dict(busy=False, pending=False, loaded_models=0, reserved_bytes=0, **changes)
+    return dict(busy=False, pending=False, loaded_models=0, reserved_bytes=0, allocated_bytes=0, **changes)
 
 
 class ReleaseTests(unittest.IsolatedAsyncioTestCase):
     async def test_requires_four_confirmations_after_pending_flags_and_cached_models(self):
-        states = [state(), {**state(), "pending": True}, {**state(), "loaded_models": 1}, {**state(), "reserved_bytes": 100}, state()]
+        states = [state(), {**state(), "pending": True}, {**state(), "loaded_models": 1}, {**state(), "reserved_bytes": gateway.IDLE_GPU_BYTES + 1}, state()]
         session = Session(states)
         pantry = gateway.Pantry(session)
         pantry.models, pantry.app = "video", "pika"
@@ -71,10 +71,19 @@ class ReleaseTests(unittest.IsolatedAsyncioTestCase):
                 await gateway.Pantry(session).release()
 
     async def test_allocator_release_timeout_never_claims_success(self):
-        session = Session([{**state(), "reserved_bytes": 10}])
+        session = Session([{**state(), "reserved_bytes": gateway.IDLE_GPU_BYTES + 1}])
         with patch.object(gateway.asyncio, "sleep", new=AsyncMock()), patch.object(gateway.time, "monotonic", side_effect=[0, 1, 50]):
             with self.assertRaises(web.HTTPConflict):
                 await gateway.Pantry(session).release()
+
+    async def test_small_permanent_rocm_buffers_are_reported_and_accepted_only_after_stability(self):
+        steady = {**state(), "reserved_bytes": 80 * 1024 ** 2, "allocated_bytes": 79 * 1024 ** 2}
+        session = Session([state(), {**steady, "allocated_bytes": 78 * 1024 ** 2}, steady])
+        with patch.object(gateway.asyncio, "sleep", new=AsyncMock()):
+            result = await gateway.Pantry(session).release()
+        self.assertTrue(result["released"])
+        self.assertEqual(result["retained_gpu_bytes"], steady["reserved_bytes"])
+        self.assertGreaterEqual(session.polls, 6)
 
 
 if __name__ == "__main__":

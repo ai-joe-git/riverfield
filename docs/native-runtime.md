@@ -47,7 +47,9 @@ All managed local inference shares the existing FIFO studio queue:
 2. Run the media job through actual backend completion, not just submission.
 3. Before reloading the LLM: ask the **local** gateway to release ComfyUI models.
 4. The gateway waits for its worker release flags to clear, zero loaded models,
-   zero PyTorch GPU allocator reservations and an idle queue over four observations.
+   an idle queue and stable PyTorch allocator figures over four observations.
+   Small permanent utility buffers are allowed up to 256 MiB total (configurable
+   with `RIVERFIELD_IDLE_GPU_MB`); retained bytes are reported, never described as zero.
 5. Load the GGUF, read effective context when advertised, and replay the persisted
    conversation/project state. Reloading loses the process's KV cache, not the chat.
 
@@ -59,7 +61,7 @@ the updated gateway. No ComfyUI core files are patched.
 
 Missing bridge, backend disconnection, active external work, or unconfirmed allocator
 release **blocks LLM reload** rather than guessing that memory is free. Builds/plugins
-that retain permanent GPU allocations may therefore require manual investigation.
+that retain GPU allocations above the idle allowance require manual investigation.
 Other clients can still submit work outside Riverfield's queue; there is no global
 cross-application GPU lock.
 
@@ -96,10 +98,13 @@ creative choices or visual/audio claims automatically correct.
 
 - `npm test`, `npm run typecheck`, `npm run validate`.
 - Gateway tests: `python -m unittest discover -s test -p gateway_release_test.py -v`
-  in an environment with `aiohttp` (no GPU/model initialization).
+  in an environment with `aiohttp` (no GPU/model initialization); five release tests.
 - Native lifecycle tests use tiny scripted HTTP fixtures, including cancellation and
   queue order. A separate local smoke check loaded the existing Qwen3.5 0.8B GGUF
   with Vulkan, streamed `OK`, and confirmed its child exited on unload.
 - Browser checks cover profile persistence, all 264 distinct option groups advertised by the tested
   binary, managed provider creation, project locks and mobile layout, without media
-  generation. Full real ComfyUI ↔ LLM handoff remains to be exercised after backend restart.
+  generation. A real ComfyUI bridge acknowledgement followed by a managed 0.8B agent turn
+  and confirmed unload also passed with an empty media cache (zero jobs/tools dispatched).
+  This revealed the permanent ~80 MiB ROCm utility buffer and validates the bounded-residue
+  handling. Handoff after a heavy video job has not been exercised in this task.

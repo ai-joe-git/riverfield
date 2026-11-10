@@ -15,10 +15,12 @@ async def status(request):
     queue = PromptServer.instance.prompt_queue
     flags = queue.get_flags(reset=False)
     reserved = sum(torch.cuda.memory_reserved(i) for i in range(torch.cuda.device_count())) if torch.cuda.is_available() else 0
+    allocated = sum(torch.cuda.memory_allocated(i) for i in range(torch.cuda.device_count())) if torch.cuda.is_available() else 0
     return web.json_response({
         "pending": bool(flags.get("unload_models") or flags.get("free_memory")),
         "loaded_models": len(memory.current_loaded_models),
         "reserved_bytes": reserved,
+        "allocated_bytes": allocated,
         "busy": queue.get_tasks_remaining() != 0,
     })
 

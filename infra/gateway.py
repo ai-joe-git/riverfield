@@ -30,6 +30,7 @@ COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
 PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:8189")
 TOKEN = os.environ.get("RIVERFIELD_TOKEN", "")
 ALLOW_OPEN = os.environ.get("RIVERFIELD_ALLOW_OPEN") == "1"
+IDLE_GPU_BYTES = int(os.environ.get("RIVERFIELD_IDLE_GPU_MB", "256")) * 1024 ** 2
 HOP_HEADERS = {"host", "authorization", "content-length", "transfer-encoding", "connection", "keep-alive"}
 
 log = logging.getLogger("gateway")
@@ -79,7 +80,7 @@ class Pantry:
                 raise web.HTTPConflict(text="ComfyUI still has running or queued work")
             async with self.session.post(f"{COMFYUI_URL}/free", json={"unload_models": True, "free_memory": True}, timeout=ClientTimeout(total=5)) as r:
                 r.raise_for_status()
-            deadline, stable = time.monotonic() + 45, 0
+            deadline, stable, previous = time.monotonic() + 45, 0, None
             while time.monotonic() < deadline:
                 await asyncio.sleep(0.5)
                 async with self.session.get(f"{COMFYUI_URL}/riverfield-memory/status", timeout=ClientTimeout(total=5)) as r:
@@ -87,12 +88,17 @@ class Pantry:
                     state = await r.json()
                 if state["busy"]:
                     raise web.HTTPConflict(text="Another client submitted ComfyUI work during release")
-                stable = stable + 1 if not state["pending"] and state["loaded_models"] == 0 and state["reserved_bytes"] == 0 else 0
+                # ROCm/ComfyUI may retain small, live utility tensors (~80 MiB on gfx1151).
+                # Confirm an idle, model-free, bounded and stable allocator rather than requiring impossible zero.
+                signature = (state["reserved_bytes"], state["allocated_bytes"])
+                idle = not state["pending"] and state["loaded_models"] == 0 and state["reserved_bytes"] <= IDLE_GPU_BYTES
+                stable = (stable + 1 if signature == previous else 1) if idle else 0
+                previous = signature if idle else None
                 if stable >= 4:
                     self.models, self.app = None, None
                     self.frees += 1
-                    return {"released": True, "comfyui": state}
-            raise web.HTTPConflict(text="ComfyUI did not confirm released models and GPU allocator memory; refusing LLM reload")
+                    return {"released": True, "retained_gpu_bytes": state["reserved_bytes"], "comfyui": state}
+            raise web.HTTPConflict(text="ComfyUI did not confirm released models and a stable bounded GPU allocator; refusing LLM reload")
 
 
 def authorized(request: web.Request) -> bool:

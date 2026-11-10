@@ -305,7 +305,7 @@ export class Runner {
   /** A managed LLM must not be loaded on top of cached media models. No silent 404 fallback. */
   async release(signal?:AbortSignal):Promise<void>{
     const response=await this.doFetch(`${this.baseUrl}/riverfield/release`,{method:"POST",headers:{"content-type":"application/json",...(this.token?{authorization:`Bearer ${this.token}`}:{})},body:"{}",signal:AbortSignal.any([AbortSignal.timeout(60000),...(signal?[signal]:[])])});
-    if(!response.ok)throw new Error(`Cannot safely release ComfyUI models (${response.status}). Update/restart the Riverfield gateway and memory bridge before loading the managed agent.`);
+    if(!response.ok){let detail=await response.text();try{const body=JSON.parse(detail);detail=String(body.error||body.message||"");}catch{/* Gateway conflicts may be plain text. */}detail=detail.split(this.token||"\0").join("[redacted]").slice(0,500);throw new Error(`Cannot safely release ComfyUI models (${response.status}): ${detail||"update/restart the Riverfield gateway and memory bridge before loading the managed agent"}`);}
     const result=await response.json() as any;if(result.released!==true)throw new Error("ComfyUI did not confirm model release; native model was not loaded");
   }
 
