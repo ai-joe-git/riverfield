@@ -141,7 +141,9 @@ re-applies the two patches inside the third-party packs), then `./stop.sh && ./s
 
 ## Riverfield Agent
 
-**Talk to your studio.** Open **Agent** in the top bar (`http://127.0.0.1:3000/#/agent`).
+**Talk to your studio.** The local home page (`http://127.0.0.1:3000/#/`) opens a fresh chat welcome view.
+Open **Agent** in the top bar (`#/agent`) to restore your last conversation, or **Explore** (`#/explore`)
+to browse the studio. Hosted demos keep Explore as their home page.
 
 Riverfield Agent is a native, general-purpose AI agent — **not** a scripted production pipeline.
 The **LLM decides** what to do, the **MCP tools** provide the capabilities, and **Riverfield executes**
@@ -156,6 +158,14 @@ user message → your chosen LLM → MCP tool discovery → get_app (manifest + 
   LM Studio) with custom base URLs, automatic loopback discovery through `/v1/models`, and remote
   providers (OpenAI, OpenRouter, Anthropic). Each provider is clearly labeled **Local** or **Remote**;
   API keys stay server-side (file mode `0600`, redacted in errors and logs) and are never sent to the browser.
+- **Native output budgets by default.** The model picker reads explicit output caps from `/models` metadata:
+  Halogen advertises **1,048,576**, and models advertising **262,144** or **131,072** keep those ceilings too.
+  Context length is never treated as an output cap. Input and tools reserve room in a shared context window
+  using conservative estimates, not an exact tokenizer; the actual reply need not fill its budget.
+  Unknown OpenAI-compatible caps delegate to the server (no `max_tokens` sent); Anthropic uses the configured
+  fallback because its API requires an output budget. **Models & connections** also offers custom limits
+  up to 2,097,152 tokens. Existing profiles default to native without rewriting keys or old numeric settings.
+  Streaming has a 30-second connection deadline and a 120-second idle watchdog, not a fixed total duration.
 - **Real agentic loop.** Multi-step reasoning, native function calling where supported, an explicit
   JSON tool protocol as a fallback, incremental streaming of text and tool activity, bounded step limits,
   cancellation, and honest errors. A tool that was not run is never reported as done.

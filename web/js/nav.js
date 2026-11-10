@@ -74,7 +74,7 @@ function gpuPill() {
 export function topbar({ onLang }) {
   gpuState.listeners.clear();   // a rebuilt bar (language change) replaces the old pill
   const items = [
-    ["explore", "#/", "compass"], ["image", "#/image", "image"], ["video", "#/video", "video"], ["audio", "#/audio", "audio"], ["3d", "#/3d", "box"],
+    ["explore", "#/explore", "compass"], ["image", "#/image", "image"], ["video", "#/video", "video"], ["audio", "#/audio", "audio"], ["3d", "#/3d", "box"],
     ["agent", "#/agent", "spark"], ["apps", "#/apps", "layers"], ["library", "#/library", "film"],
   ];
   const links = new Map();

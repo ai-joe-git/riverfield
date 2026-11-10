@@ -61,7 +61,7 @@ export class RiverfieldAgent {
     const controller=new AbortController(),live:Live={controller,promise:Promise.resolve(),conversation:c};this.active.set(c.id,live);live.promise=this.loop(c,controller.signal).finally(()=>this.active.delete(c.id));
   }
   private text(c:Conversation,role:ChatMessage["role"],content:string,callId?:string){c.messages.push({id:randomUUID(),role,content,callId,created:now()});}
-  private context(c:Conversation,p:Provider){const messages=[...c.messages];const limit=Math.max(2000,(p.contextTokens-p.maxTokens)*3-SYSTEM.length);
+  private context(c:Conversation,p:Provider){const messages=[...c.messages];const reserve=p.tokenMode==="native"?Math.min(p.maxTokens,Math.max(1024,Math.floor(p.contextTokens*.1))):p.maxTokens;const limit=Math.max(2000,(p.contextTokens-reserve)*3-SYSTEM.length);
     while(JSON.stringify(messages).length>limit){const next=messages.findIndex((m,i)=>i>0&&m.role==="user");if(next<0)throw new Error("Current turn exceeds the configured context budget. Start a new conversation or raise the context limit.");messages.splice(0,next);}
     return messages;
   }
@@ -121,7 +121,8 @@ export class RiverfieldAgent {
           let record=c.tools.find(t=>t.id===call.id);if(!record){record={...call,status:"proposed",turn:c.messages.filter(m=>m.role==="user").at(-1)?.id};c.tools.push(record);}
           if(!(await this.execute(c,record,tools,mcp,signal)))return;
         }
-        const p=this.providers.get(c.provider),model=c.model||p.model;
+        const stored=this.providers.get(c.provider),model=c.model||stored.model;
+        const p=this.completion===complete?await this.providers.resolve(c.provider,model):stored;
         const message:ChatMessage={id:randomUUID(),role:"assistant",content:"",created:now()};let lastSave=0;
         // Never retain a GPU queue slot while invoking MCP or waiting for media jobs.
         // Snapshot context before adding this response; deltas must not feed back into their own request.

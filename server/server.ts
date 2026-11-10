@@ -306,7 +306,8 @@ const server = createServer(async (req, res) => {
         if(id==="providers"){
           if(req.method==="GET"&&!sub)return send(res,200,{providers:agent.providers.list()});
           if(req.method==="POST"&&!sub)return send(res,201,agent.providers.save(await body()));
-          if(req.method==="GET"&&arg==="models")return send(res,200,{models:await agent.providers.models(sub)});
+          if(req.method==="GET"&&arg==="models")return send(res,200,{models:await agent.providers.models(sub,url.searchParams.get("refresh")==="1")});
+          if(req.method==="GET"&&arg==="limits")return send(res,200,await agent.providers.limits(sub,url.searchParams.get("model")||agent.providers.get(sub).model));
           if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}
         }
         if(id==="discover"&&req.method==="GET")return send(res,200,{servers:await discoverModels()});
