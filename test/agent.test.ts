@@ -88,6 +88,21 @@ test("tool errors become tool results and unknown/invalid calls cannot execute",
  const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[call("made_up_tool"),call("get_app",{}),call("list_apps"),{text:"Errors handled",calls:[]}],async()=>({isError:true,content:[{type:"text",text:"Backend unavailable"}]}));a=x.a;a.message(x.c.id,{text:"test"});const c=await settled(a,x.c.id);assert.equal(c.status,"idle");assert.equal(x.calls.length,1);assert.equal(c.tools.filter(t=>t.status==="error").length,3);assert.ok(c.messages.some(m=>m.role==="tool"&&m.content.includes("Unknown MCP tool")));
  }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
 });
+test("identical non-polling tool calls stop the turn instead of looping",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[call("list_apps"),call("list_apps"),{text:"must not run",calls:[]}],async()=>text({count:0,apps:[]}));a=x.a;
+ a.message(x.c.id,{text:"find image apps"});const c=await settled(a,x.c.id);
+ assert.equal(c.status,"failed");assert.match(c.error||"",/repeated list_apps with identical arguments/i);
+ assert.equal(x.calls.filter(c=>c.name==="list_apps").length,1,"the repeated call is not dispatched");
+ assert.equal(c.tools.filter(t=>t.name==="list_apps").length,2);assert.ok(c.tools.some(t=>t.status==="error"&&/repeated list_apps/i.test(t.error||"")));
+ for(const m of c.messages)for(const call of m.calls||[])assert.ok(c.messages.some(x=>x.role==="tool"&&x.callId===call.id),"every assistant tool call keeps a matching tool message");
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
+test("polling tools may legitimately repeat with the same id in one turn",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[call("wait_job",{id:"job-a"}),call("wait_job",{id:"job-a"}),{text:"Done",calls:[]}],async()=>text({id:"job-a",status:"succeeded",outputs:[]}));a=x.a;
+ a.message(x.c.id,{text:"wait for the job"});const c=await settled(a,x.c.id);
+ assert.equal(c.status,"idle");assert.equal(x.calls.filter(c=>c.name==="wait_job").length,2);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
 test("restart marks uncertain dispatches and reconnects known jobs without resubmitting generation",async()=>{
  const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[]);a=x.a;const c=x.c;c.status="running";c.jobs=["owned-job"];c.tools=[{id:"pending",name:"run_app",arguments:{app:"z-image"},status:"running"}];a.store.save(c);await a.close();
  const calls:any[]=[];a=new RiverfieldAgent(dir,process.cwd(),new InferenceQueue().run,()=>({tools:async()=>definitions,call:async(name,args)=>{calls.push(name);return text(name==="history"?{runs:[{id:"owned-job",app:"z-image",status:"succeeded"}]}:{id:args.id,status:"succeeded",outputs:[]});},close:async()=>{}}));

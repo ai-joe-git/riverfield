@@ -168,7 +168,9 @@ user message → your chosen LLM → MCP tool discovery → get_app (manifest + 
   Streaming has a 30-second connection deadline and a 120-second idle watchdog, not a fixed total duration.
 - **Real agentic loop.** Multi-step reasoning, native function calling where supported, an explicit
   JSON tool protocol as a fallback, incremental streaming of text and tool activity, bounded step limits,
-  cancellation, and honest errors. A tool that was not run is never reported as done.
+  cancellation, and honest errors. A tool that was not run is never reported as done. Repeating the same
+  non-polling tool call with identical arguments in one turn stops the turn instead of looping; `job`,
+  `wait_job`, `history`, `gpu` and `cancel_job` remain repeatable.
 - **Anti-hallucination guardrails.** The agent must `get_app` before `run_app`; tool arguments are validated
   against the live MCP schema; file paths are scoped to History, your uploads and examples; `run_app` carries
   an idempotency key so a retry cannot silently pay for a second generation; native video dialogue is never
