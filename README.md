@@ -176,13 +176,21 @@ user message → your chosen LLM → MCP tool discovery → get_app (manifest + 
 - **Workflow-aware prompting.** `get_app` returns per-app guidance (Pika H3 Flex Ref2VA/FL2VA field formats,
   MiniMax H3 speaker/dialogue tags, Material Planner `segment_windows` geometry, RelayVSR model pairing) so the
   model prompts each engine correctly instead of inventing inputs.
-- **Media-first chat.** Generated images, videos and audio render inline with dimensions, duration, engine and
-  runtime, plus download and History links. Outputs can be attached to the next message and reused instead of
-  regenerated.
+- **Media-first chat.** Generated images, videos and audio render inline at their chronological origin, attached
+  to the tool call, job and conversation turn that produced them, with verified dimensions, duration, engine and
+  runtime plus download, History and reuse actions. A conversation-header **Media** drawer indexes every artifact
+  with All/Images/Videos/Audio filters, a viewer, download, reuse and jump-to-origin; video thumbnails load metadata
+  only when visible. Repeated polling never duplicates a card, and legacy conversations are assigned origins once.
+- **Export without secrets.** The **Export** menu downloads Markdown (chronology, tools, statuses, optional
+  arguments/results, media links, model and timestamps) or JSON (the full structured conversation plus
+  message-to-artifact origins). API keys, cookies, credentials and provider configuration are never exported;
+  use History for portable original copies.
 - **Autonomy you control.** *Ask before running* (default), *Auto* for enabled tools, or *Read-only* for
   inspection without generation. The exact proposed tool and arguments are shown before approval.
-- **Persistence and recovery.** Conversations, tool calls, job IDs and artifacts live in `out/agent/`.
-  After a restart, running jobs are reconnected through History rather than resubmitted.
+- **Persistence and recovery.** Conversations, tool calls, job IDs, artifact origins and job states live in
+  `out/agent/`. `run_app`, `job`, `wait_job` and `cancel_job` results merge monotonically: a succeeded job never
+  regresses to running. Startup migration persists recovered terminal states and legacy media origins; after a
+  restart, running jobs are reconnected through History rather than resubmitted.
 - **Shared GPU queue.** Agent LLM calls never hold the inference slot while a media job runs, so the agent
   cannot deadlock the queue it is waiting on. Externally managed model servers are never killed for you.
 

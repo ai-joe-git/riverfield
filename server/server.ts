@@ -29,6 +29,7 @@ import { Flags } from "./flags.ts";
 import { DOOR_HTML, Guard } from "./guard.ts";
 import { InferenceQueue } from "./inference-queue.ts";
 import { RiverfieldAgent } from "./agent.ts";
+import { exportConversation } from "./agent-export.ts";
 import { StudioMcp } from "./agent-mcp.ts";
 import { discoverModels } from "./model-discovery.ts";
 import { build as studioMcpServer } from "../mcp/server.ts";
@@ -321,6 +322,13 @@ const server = createServer(async (req, res) => {
             const event=(type:string,value:unknown)=>res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`);event("state",c);
             const off=agent.subscribe(sub,event),timer=setInterval(()=>res.write(": heartbeat\n\n"),15000);res.on("close",()=>{off();clearInterval(timer);});return;
           }
+          if(arg==="export"&&req.method==="GET"){
+            const c=agent.store.get(sub),format=url.searchParams.get("format")||"markdown";
+            if(!["markdown","json"].includes(format))throw new InputError("Choose Markdown or JSON export");
+            const provider=agent.providers.list().find(p=>p.id===c.provider),out=exportConversation(c,provider,s=>agent.providers.redactText(s),url.searchParams.get("details")!=="0");
+            const text=format==="json"?JSON.stringify(out.json,null,2):out.markdown;
+            res.writeHead(200,{"content-type":format==="json"?"application/json; charset=utf-8":"text/markdown; charset=utf-8","content-disposition":`attachment; filename="riverfield-${c.id}.${format==="json"?"json":"md"}"`,"cache-control":"no-store"});return res.end(text);
+          }
           if(arg==="files"&&parts[5]&&(req.method==="GET"||req.method==="HEAD")){const c=agent.store.get(sub);return sendFile(req,res,agent.store.file(c,parts[5]),"private, no-cache");}
           if(req.method==="POST"){
             if(arg==="messages")return send(res,202,agent.message(sub,await body()));
@@ -331,7 +339,7 @@ const server = createServer(async (req, res) => {
             if(arg==="upload"){
               const f=(await (await toRequest(req,22)).formData()).get("file");if(!f||typeof f==="string")throw new InputError("Upload a file");const c=agent.store.get(sub);if(c.status==="running")throw new InputError("Wait for the current turn before uploading");return send(res,201,agent.store.upload(c,new Uint8Array(await f.arrayBuffer()),f.name,f.type));
             }
-            if(arg==="reuse"){const c=agent.store.get(sub),raw=await body() as any,a=c.artifacts.find(a=>a.id===raw.artifact);if(!a)throw new InputError("Unknown artifact");if(c.status==="running")throw new InputError("Wait for current turn");if(!c.attachments.some(x=>x.id===a.id))c.attachments.push(a);agent.store.save(c);return send(res,200,a);}
+            if(arg==="reuse"){const c=agent.store.get(sub),raw=await body() as any,a=[...c.artifacts,...c.attachments].find(a=>a.id===raw.artifact);if(!a)throw new InputError("Unknown artifact");if(c.status==="running")throw new InputError("Wait for current turn");if(!c.attachments.some(x=>x.id===a.id))c.attachments.push(a);agent.store.save(c);return send(res,200,a);}
           }
         }
         return send(res,404,{error:"Unknown Agent route"});
