@@ -154,6 +154,16 @@ user message → your chosen LLM → MCP tool discovery → get_app (manifest + 
             → run_app → job/wait_job → real artifact shown in chat → optional upscale/export
 ```
 
+For narrative video, the studio adds a **pre-production gate** on top of that loop: the agent first asks
+clickable questions (format, genre, runtime, video/image app, language), then drafts a full scene plan with
+`production_plan`. Nothing is generated while the plan is a draft, the model cannot approve its own plan, and
+video generation stays locked until the user approves the plan in the studio. Approval validates runtime
+coverage, per-scene dialogue, unique scenes, the installed engine and locked values. Production then starts
+with **one pilot clip**; the rest of the approved scenes stay blocked until the user approves that clip.
+Each submitted segment must contain an approved scene prompt and its exact dialogue, so a paraphrase cannot
+silently replace the script. A studio check keeps the final answer honest when the produced runtime is below
+the approved runtime.
+
 - **Providers, local and remote.** OpenAI-compatible endpoints (llama.cpp, **Halogen**, Ollama, vLLM,
   LM Studio) with custom base URLs, automatic loopback discovery through `/v1/models`, and remote
   providers (OpenAI, OpenRouter, Anthropic). Each provider is clearly labeled **Local** or **Remote**;
@@ -193,7 +203,9 @@ user message → your chosen LLM → MCP tool discovery → get_app (manifest + 
   message-to-artifact origins). API keys, cookies, credentials and provider configuration are never exported;
   use History for portable original copies.
 - **Autonomy you control.** *Ask before running* (default), *Auto* for enabled tools, or *Read-only* for
-  inspection without generation. The exact proposed tool and arguments are shown before approval.
+  inspection without generation. The exact proposed tool and arguments are shown before approval. Plan approval
+  and pilot approval are always studio actions, never model decisions; drafting the plan itself does not need a
+  second tool-approval click.
 - **Persistence and recovery.** Conversations, tool calls, job IDs, artifact origins and job states live in
   `out/agent/`. `run_app`, `job`, `wait_job` and `cancel_job` results merge monotonically: a succeeded job never
   regresses to running. Startup migration persists recovered terminal states and legacy media origins; after a

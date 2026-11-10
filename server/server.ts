@@ -38,12 +38,16 @@ import {MediaTools} from "./media.ts";
 import {NativeRuntime} from "./native-runtime.ts";
 import {complete,type Provider} from "./agent-providers.ts";
 import {projectTool} from "./agent-project.ts";
+import {askTool,productionTool} from "./production.ts";
 import {parseNativeHelp} from "./native-options.ts";
 
 const root = repoRoot();
 const { apps, problems } = loadRegistry(root);
 for (const p of problems.filter((x) => x.severity === "error")) console.error(`[registry] ${p.app}: ${p.message}`);
 const byId = new Map(apps.map((a) => [a.id, a]));
+/** Registry facts used to validate a production plan; no workflow or model data leaves the server. */
+const studioApps = () => [...byId.values()].map(a => ({ id: a.id, name: a.name, section: a.section, status: a.status,
+  inputs: a.inputs.map(i => ({ id: i.id, type: i.type, options: i.options?.map(o => ({ value: o.value })) })) }));
 
 // VRAM verdicts from tools/catalog.py (optional: the UI just shows less without it)
 type VramRow = { id: string; whole_gb: number; largest_phase_gb: number; verdict_24gb: string; measured_peak_gb: number | null };
@@ -339,7 +343,7 @@ const server = createServer(async (req, res) => {
           if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}
         }
         if(id==="discover"&&req.method==="GET")return send(res,200,{servers:await discoverModels()});
-        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:[...(await client.tools()).filter(t=>t.name!=="project_state"),projectTool]});}finally{await client.close();}}
+        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:[...(await client.tools()).filter(t=>!["project_state",askTool.name,productionTool.name].includes(t.name)),projectTool,askTool,productionTool]});}finally{await client.close();}}
         if(id==="conversations"){
           if(!sub&&req.method==="GET")return send(res,200,{conversations:agent.list()});
           if(!sub&&req.method==="POST"){const raw=await body() as any;return send(res,201,agent.store.create(typeof raw.provider==="string"?raw.provider:"",typeof raw.model==="string"?raw.model:""));}
@@ -354,6 +358,7 @@ const server = createServer(async (req, res) => {
             const event=(type:string,value:unknown)=>res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`);event("state",c);
             const off=agent.subscribe(sub,event),timer=setInterval(()=>res.write(": heartbeat\n\n"),15000);res.on("close",()=>{off();clearInterval(timer);});return;
           }
+          if(arg==="production"&&req.method==="GET")return send(res,200,agent.productionView(sub,studioApps()));
           if(arg==="export"&&req.method==="GET"){
             const c=agent.store.get(sub),format=url.searchParams.get("format")||"markdown";
             if(!["markdown","json"].includes(format))throw new InputError("Choose Markdown or JSON export");
@@ -364,6 +369,14 @@ const server = createServer(async (req, res) => {
           if(arg==="files"&&parts[5]&&(req.method==="GET"||req.method==="HEAD")){const c=agent.store.get(sub);return sendFile(req,res,agent.store.file(c,parts[5]),"private, no-cache");}
           if(req.method==="POST"){
             if(arg==="messages")return send(res,202,agent.message(sub,await body()));
+            if(arg==="answers")return send(res,202,await agent.answer(sub,await body()));
+            if(arg==="production"){
+              const raw=await body() as any;
+              if(typeof raw.pilot==="string")return send(res,202,agent.approvePilot(sub,raw.pilot,studioApps()));
+              if(raw.approve===true)return send(res,202,agent.approveProduction(sub,studioApps()));
+              if(raw.plan!==undefined)return send(res,200,agent.saveProduction(sub,raw.plan,studioApps()));
+              throw new InputError("Expected a plan, approve=true or a produced pilot artifact");
+            }
             if(arg==="continue")return send(res,202,agent.resume(sub));
             if(arg==="stop")return send(res,200,await agent.stop(sub));
             if(arg==="jobs")return send(res,200,await agent.refreshJobs(sub));
