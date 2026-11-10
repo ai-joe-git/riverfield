@@ -27,8 +27,13 @@ import { explainSubmitError, InputError, resolveValues, Runner, type Values } fr
 import { History } from "./history.ts";
 import { Flags } from "./flags.ts";
 import { DOOR_HTML, Guard } from "./guard.ts";
-import { AutoShorts } from "./autoshorts.ts";
 import { InferenceQueue } from "./inference-queue.ts";
+import { RiverfieldAgent } from "./agent.ts";
+import { StudioMcp } from "./agent-mcp.ts";
+import { discoverModels } from "./model-discovery.ts";
+import { build as studioMcpServer } from "../mcp/server.ts";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import {MediaTools} from "./media.ts";
 
 const root = repoRoot();
 const { apps, problems } = loadRegistry(root);
@@ -67,45 +72,14 @@ const history = new History(join(outDir, "history"), {
   frames: (jobId, signal) => getRunner().frames(jobId, signal),
 });
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
-const autoshorts = new AutoShorts(join(outDir, "autoshorts"), apps, async (app, raw, signal, update, resume) => inference.run(app.name, async () => {
-  signal.throwIfAborted();
-  // Composite production must not silently invoke an externally configured Modal/cloud runner.
-  const backend = new URL(getRunner().baseUrl);
-  if(!["127.0.0.1","localhost","[::1]"].includes(backend.hostname))throw new InputError("AutoShorts requires a local COMFY_BASE_URL (loopback gateway); cloud backends are not used");
-  const values = resolveValues(app, raw);
-  let entry = resume ? history.get(resume) : null;
-  if (entry && !["succeeded", "running", "queued", "starting"].includes(entry.status)) entry = null;
-  const cancel = () => { if (entry) void history.cancel(entry.id); };
-  signal.addEventListener("abort", cancel, { once: true });
-  let timer: ReturnType<typeof setInterval> | undefined;
-  try {
-    if (!entry) {
-      const created = history.start(app, values); entry = history.get(created.id)!;
-      update({ child: created.id }); contact();
-      const job = await getRunner().submit(app, values);
-      const following = history.follow(created, job);
-      if (signal.aborted) await history.cancel(created.id);
-      timer = setInterval(() => { const e = history.get(created.id); if(e) update({ queue:e.status==="queued"?e.queue:null, progress:e.progress }); }, 2000);
-      await following;
-    } else {
-      update({child:entry.id});
-      while (["running","queued","starting"].includes(history.get(entry.id)?.status || "")) {
-        if(signal.aborted)await history.cancel(entry.id);
-        await new Promise(r=>setTimeout(r,1000));
-      }
-    }
-    const done=history.get(entry.id)!;
-    if(done.status!=="succeeded") throw new Error(done.error?.message || `Child run ${done.id}: ${done.status}`);
-    signal.throwIfAborted();
-    const output=done.outputs.find(o=>["video","image","audio"].includes(o.type));
-    const file=output && history.file(done.id,output.file);
-    if(!file) throw new Error("Workflow produced no usable local output");
-    return {path:file,job:done.id,seconds:done.seconds??done.total??0,modelLoading:null};
-  } catch(e) {
-    if(entry && history.get(entry.id)?.status==="starting") history.fail(entry as any,(e as Error).message,signal.aborted?"canceled":"failed");
-    throw e;
-  } finally { if(timer)clearInterval(timer);signal.removeEventListener("abort",cancel); }
-}, signal, position => update({queue:position})), inference.run);
+const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
+const mcpURL=process.env.RIVERFIELD_AGENT_MCP_URL||`${studioURL}/mcp`;
+const agent=new RiverfieldAgent(outDir,root,inference.run,()=>new StudioMcp(mcpURL));
+const media=new MediaTools(outDir,root);
+function localAccess(req:IncomingMessage){
+  if(!["127.0.0.1","::1","::ffff:127.0.0.1"].includes(req.socket.remoteAddress||""))throw new InputError("Agent configuration and embedded MCP require a local connection");
+  if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host)throw new InputError("Cross-origin studio requests are not permitted");
+}
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -128,14 +102,13 @@ function loadExamples(): Record<string, unknown> {
   }
 }
 
-const runnable = (a: App) => Boolean(a.workflowPath || a.pipeline) && (a.status === "ready" || draftsAllowed);
+const runnable = (a: App) => Boolean(a.workflowPath) && (a.status === "ready" || draftsAllowed);
 
 function publicApp(a: App) {
   return {
     id: a.id, name: a.name, section: a.section, summary: a.summary ?? "", status: a.status, pack: a.pack,
     runnable: runnable(a),
     layout: a.layout ?? null,
-    pipeline: a.pipeline ?? null,
     panel_title: a.panel_title ?? null,
     higgsfield_feature: a.higgsfield_feature ?? null,
     modes: a.modes ?? null,
@@ -155,6 +128,7 @@ function publicApp(a: App) {
     } : null,
     credits: a.credits ?? [],
     notes: a.notes ?? null,
+    source: a.source ?? null,
   };
 }
 
@@ -184,12 +158,12 @@ function sendFile(req: IncomingMessage, res: ServerResponse, file: string, cache
   return createReadStream(file).pipe(res);
 }
 
-async function toRequest(req: IncomingMessage): Promise<Request> {
+async function toRequest(req: IncomingMessage,limitMb=maxUploadMb): Promise<Request> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const c of req) {
     size += (c as Buffer).byteLength;
-    if (maxUploadMb && size > maxUploadMb * 2 ** 20) throw new InputError(`uploads are limited to ${maxUploadMb} MB here`);
+    if (limitMb && size > limitMb * 2 ** 20) throw new InputError(`uploads are limited to ${limitMb} MB here`);
     chunks.push(c as Buffer);
   }
   return new Request(`http://local${req.url}`, {
@@ -199,7 +173,7 @@ async function toRequest(req: IncomingMessage): Promise<Request> {
   });
 }
 
-async function readValues(app: App, request: Request): Promise<{ values: Values; preset?: string }> {
+async function readValues(app: App, request: Request): Promise<{ values: Values; preset?: string; requestKey?:string }> {
   const form = await request.formData();
   const values: Values = {};
   for (const input of app.inputs) {
@@ -213,7 +187,8 @@ async function readValues(app: App, request: Request): Promise<{ values: Values;
     }
   }
   const preset = form.get("preset");
-  return { values, preset: typeof preset === "string" && preset ? preset : undefined };
+  const key=form.get("request_id");if(key!==null&&(typeof key!=="string"||!key.length||key.length>200))throw new InputError("Invalid idempotency key");
+  return { values, preset: typeof preset === "string" && preset ? preset : undefined,requestKey:typeof key==="string"?key:undefined };
 }
 
 async function jobView(id: string) {
@@ -227,8 +202,9 @@ async function jobView(id: string) {
 }
 
 /** Submit in the background; the entry tells the UI how it goes. */
-function startRun(app: App, values: Values, preset?: string) {
-  const entry = history.start(app, values, preset);
+function startRun(app: App, values: Values, preset?: string,requestKey?:string) {
+  if(requestKey){const old=history.findRequest(requestKey);if(old){if(old.app!==app.id)throw new InputError("Idempotency key belongs to another app");return history.view(old);}}
+  const entry = history.start(app, values, preset,requestKey);
   const controller = new AbortController();
   runControllers.set(entry.id, controller);
   void (async () => {
@@ -317,38 +293,57 @@ const server = createServer(async (req, res) => {
         return res.end(DOOR_HTML);
       }
     }
+    if(parts[0]==="mcp"){
+      localAccess(req);if(guard.hosted)return send(res,403,{error:"Embedded studio MCP is disabled on hosted demos"});
+      const mcp=studioMcpServer(studioURL),transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
+      res.on("close",()=>{void transport.close();void mcp.close();});await mcp.connect(transport);await transport.handleRequest(req,res);return;
+    }
     if (parts[0] === "api") {
       const [, area, id, sub, arg] = parts;
-      if(req.method==="GET" && area==="inference")return send(res,200,inference.snapshot());
-      if(area === "autoshorts") {
-        if(guard.hosted) return send(res,403,{error:"AutoShorts is local-only; disabled on hosted demos"});
-        if(req.method === "GET" && id === "capabilities") return send(res,200,{apps:autoshorts.capabilities(),schemas:autoshorts.schemas()});
-        if(req.method === "GET" && id === "llm-servers") return send(res,200,{servers:await autoshorts.llmServers()});
-        if(req.method === "GET" && !id) return send(res,200,{projects:autoshorts.list()});
-        if(req.method === "POST" && !id) return send(res,201,autoshorts.create(await (await toRequest(req)).json()));
-        if(req.method === "GET" && id && !sub) return send(res,200,autoshorts.describe(id));
-        if(req.method === "PATCH" && id && !sub) return send(res,200,autoshorts.edit(id,await (await toRequest(req)).json()));
-        if((req.method === "GET" || req.method === "HEAD") && sub === "files") {
-          return sendFile(req,res,autoshorts.file(id,parts.slice(4).join("/")));
+      if(area==="agent"){
+        localAccess(req);if(guard.hosted)return send(res,403,{error:"Agent provider settings are disabled on public hosted demos"});
+        const body=async()=>await (await toRequest(req,22)).json();
+        if(id==="providers"){
+          if(req.method==="GET"&&!sub)return send(res,200,{providers:agent.providers.list()});
+          if(req.method==="POST"&&!sub)return send(res,201,agent.providers.save(await body()));
+          if(req.method==="GET"&&arg==="models")return send(res,200,{models:await agent.providers.models(sub)});
+          if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}
         }
-        if(req.method === "POST" && sub === "import") {
-          const request=await toRequest(req);
-          if(request.headers.get("content-type")?.includes("multipart/form-data")) {
-            const file=(await request.formData()).get("file");
-            if(!file || typeof file === "string") throw new InputError("Upload a media file");
-            return send(res,201,{path:autoshorts.import(id,new Uint8Array(await file.arrayBuffer()),file.name)});
+        if(id==="discover"&&req.method==="GET")return send(res,200,{servers:await discoverModels()});
+        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:await client.tools()});}finally{await client.close();}}
+        if(id==="conversations"){
+          if(!sub&&req.method==="GET")return send(res,200,{conversations:agent.list()});
+          if(!sub&&req.method==="POST"){const raw=await body() as any;return send(res,201,agent.store.create(typeof raw.provider==="string"?raw.provider:"",typeof raw.model==="string"?raw.model:""));}
+          if(sub&&!arg){if(req.method==="GET")return send(res,200,agent.get(sub));if(req.method==="PATCH")return send(res,200,agent.edit(sub,await body()));if(req.method==="DELETE"){await agent.remove(sub);return send(res,200,{removed:true});}}
+          if(arg==="events"&&req.method==="GET"){
+            const c=agent.get(sub);res.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-store",connection:"keep-alive","x-accel-buffering":"no"});
+            const event=(type:string,value:unknown)=>res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`);event("state",c);
+            const off=agent.subscribe(sub,event),timer=setInterval(()=>res.write(": heartbeat\n\n"),15000);res.on("close",()=>{off();clearInterval(timer);});return;
           }
-          const body=await request.json() as {path:string};
-          return send(res,201,{path:autoshorts.importPath(id,body.path,outDir)});
+          if(arg==="files"&&parts[5]&&(req.method==="GET"||req.method==="HEAD")){const c=agent.store.get(sub);return sendFile(req,res,agent.store.file(c,parts[5]),"private, no-cache");}
+          if(req.method==="POST"){
+            if(arg==="messages")return send(res,202,agent.message(sub,await body()));
+            if(arg==="continue")return send(res,202,agent.resume(sub));
+            if(arg==="stop")return send(res,200,await agent.stop(sub));
+            if(arg==="jobs")return send(res,200,await agent.refreshJobs(sub));
+            if(arg==="approve"){const raw=await body() as any;if(typeof raw.tool!=="string"||typeof raw.allow!=="boolean")throw new InputError("Expected tool ID and approval boolean");return send(res,202,agent.approve(sub,raw.tool,raw.allow));}
+            if(arg==="upload"){
+              const f=(await (await toRequest(req,22)).formData()).get("file");if(!f||typeof f==="string")throw new InputError("Upload a file");const c=agent.store.get(sub);if(c.status==="running")throw new InputError("Wait for the current turn before uploading");return send(res,201,agent.store.upload(c,new Uint8Array(await f.arrayBuffer()),f.name,f.type));
+            }
+            if(arg==="reuse"){const c=agent.store.get(sub),raw=await body() as any,a=c.artifacts.find(a=>a.id===raw.artifact);if(!a)throw new InputError("Unknown artifact");if(c.status==="running")throw new InputError("Wait for current turn");if(!c.attachments.some(x=>x.id===a.id))c.attachments.push(a);agent.store.save(c);return send(res,200,a);}
+          }
         }
-        if(req.method === "POST" && sub === "cancel") return send(res,200,await autoshorts.cancel(id));
-        if(req.method === "POST" && sub === "tasks") {
-          const body=await (await toRequest(req)).json() as {action:string;scene?:string;force?:boolean};
-          return send(res,202,autoshorts.start(id,body.action,body.scene,body.force===true));
-        }
-        return send(res,404,{error:"Unknown AutoShorts route"});
+        return send(res,404,{error:"Unknown Agent route"});
+      }
+      if(req.method==="GET" && area==="inference")return send(res,200,inference.snapshot());
+      if(area==="media"){
+        localAccess(req);if(guard.hosted)throw new InputError("Local media tools are disabled on hosted demos");
+        if(req.method==="POST"&&!id)return send(res,200,await media.run(await (await toRequest(req,1)).json()));
+        if(req.method==="GET"&&sub==="files"&&arg)return sendFile(req,res,media.file(id,arg));
       }
       if (req.method === "GET" && area === "apps" && parts.length === 2) {
+        // Newly added app folders are discoverable by every MCP client without an agent schema rewrite.
+        for(const a of loadRegistry(root).apps)if(!byId.has(a.id)){apps.push(a);byId.set(a.id,a);}
         const order = { image: 0, video: 1, audio: 2, utility: 3 } as Record<string, number>;
         const sorted = [...apps].sort((a, b) => order[a.section] - order[b.section]
           || Number(b.status === "ready") - Number(a.status === "ready") || a.name.localeCompare(b.name));
@@ -368,18 +363,17 @@ const server = createServer(async (req, res) => {
       if (req.method === "POST" && area === "apps" && sub === "run") {
         const app = byId.get(id);
         if (!app) return send(res, 404, { error: "unknown app" });
-        if(app.pipeline)throw new InputError("AutoShorts is a persistent multi-stage application: use /api/autoshorts or the autoshorts MCP tool, not a single graph run");
         if (!app.workflowPath) throw new InputError(`${app.id} has no workflow yet`);
         if (!runnable(app)) throw new InputError(`${app.id} is a draft; start the server with RIVERFIELD_DRAFTS=1 to run it anyway`);
         const refused = guard.refuse(activeRuns());
         if (refused) return send(res, 429, { error: refused });
-        const { values, preset } = await readValues(app, await toRequest(req));
-        const view = startRun(app, resolveValues(app, values), preset);
+        const { values, preset,requestKey } = await readValues(app, await toRequest(req));
+        const view = startRun(app, resolveValues(app, values), preset,requestKey);
         guard.record();
         return send(res, 202, view);
       }
       if (area === "history") {
-        if (req.method === "GET" && !id) return send(res, 200, { entries: history.list(url.searchParams.get("app") || undefined) });
+        if (req.method === "GET" && !id) {const key=url.searchParams.get("request_id"),entry=key?history.findRequest(key):undefined;return send(res,200,{entries:key?(entry?[history.view(entry)]:[]):history.list(url.searchParams.get("app")||undefined)});}
         if (req.method === "GET" && id && !sub) {
           const e = history.get(id);
           return e ? send(res, 200, e) : send(res, 404, { error: "unknown run" });
@@ -444,10 +438,9 @@ const server = createServer(async (req, res) => {
     if (file.startsWith(webRoot) && existsSync(file) && statSync(file).isFile()) return sendFile(req, res, file);
     return send(res, 404, { error: "not found" });
   } catch (e) {
-    const status = (e as NodeJS.ErrnoException).code === "ENOENT" && req.url?.startsWith("/api/autoshorts") ? 404
-      : e instanceof InputError || req.url?.startsWith("/api/autoshorts") ? 400 : 500;
+    const status = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : e instanceof InputError || req.url?.startsWith("/api/agent") ? 400 : 500;
     if (status === 500) console.error(e);
-    return send(res, status, { error: (e as Error).message });
+    return send(res, status, { error: req.url?.startsWith("/api/agent")?agent.providers.redact(e):(e as Error).message });
   }
 });
 

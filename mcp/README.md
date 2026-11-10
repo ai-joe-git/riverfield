@@ -21,7 +21,6 @@ Desktop). The app itself must be running: the MCP calls it.
 | `history` | the studio's history: what ran, with what values, where the files are |
 | `gpu` | backend warm? which app is loaded, VRAM in use |
 | `examples` | the lab example of an app: the exact values and inputs that made it |
-| `autoshorts` | persistent local video projects: capabilities, create/edit, storyboard, scene generation/review/upscale, production, render and cancellation; [API and setup](../docs/autoshorts.md) |
 
 Outputs come back as absolute paths (`out/history/<id>/out-01.png`), so an agent can open them
 directly.

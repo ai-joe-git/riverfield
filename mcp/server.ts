@@ -16,6 +16,8 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
+import { fileURLToPath } from "node:url";
+import { promptGuidance } from "./prompt-guidance.ts";
 
 const BASE = (process.env.RIVERFIELD_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
@@ -26,8 +28,8 @@ const DONE = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 
 type Any = Record<string, any>;
 
-async function api(path: string, init?: RequestInit): Promise<any> {
-  const res = await fetch(BASE + path, init);
+async function api(path: string, init?: RequestInit, base=BASE): Promise<any> {
+  const res = await fetch(base + path, init);
   const text = await res.text();
   let body: any = null;
   try { body = text ? JSON.parse(text) : null; } catch { body = text; }
@@ -38,20 +40,20 @@ async function api(path: string, init?: RequestInit): Promise<any> {
   return body;
 }
 
-async function apps(): Promise<Any[]> {
-  const d = await api("/api/apps");
+async function apps(base=BASE): Promise<Any[]> {
+  const d = await api("/api/apps",undefined,base);
   return (d?.apps ?? []) as Any[];
 }
 
-async function manifest(id: string): Promise<Any> {
-  const app = (await apps()).find((a) => a.id === id);
+async function manifest(id: string,base=BASE): Promise<Any> {
+  const app = (await apps(base)).find((a) => a.id === id);
   if (!app) throw new Error(`unknown app "${id}" (see list_apps)`);
   return app;
 }
 
 /** The same multipart the web UI posts: one field per input, files by path. */
-async function form(id: string, values: Any, files: Any, preset?: string): Promise<FormData> {
-  const app = await manifest(id);
+async function form(id: string, values: Any, files: Any, preset?: string,base=BASE): Promise<FormData> {
+  const app = await manifest(id,base);
   const fd = new FormData();
   for (const inp of app.inputs as Any[]) {
     const path = files[inp.id];
@@ -90,24 +92,9 @@ const fail = (e: unknown) => ({
   isError: true,
 });
 
-function build(): McpServer {
+export function build(base=BASE): McpServer {
+  const call=(path:string,init?:RequestInit)=>api(path,init,base);
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
-
-  server.registerTool("autoshorts", {
-    title: "Local AutoShorts production projects",
-    description: "Persistent local Video Factory. list/create/get/edit/import/task/cancel. Read capabilities first for config/board schemas and model recipes. Cinema defaults to the Pika Studio Director (locked LCM + 6-step Ref2VA): AutoShorts builds segment_windows and binds approved canonical sheets to image slots. task actions: plan; prepare (generate missing canonical reference sheets, wait for review, then for FL2VA prepare shot keyframes); produce (same gates, then director/single-app clips/review/upscale/export); media, audio, align, upscale, evaluate, music, render, references, keyframe, keyframe-end, approve-keyframe, approve-keyframe-end. get.readiness exposes directorPlan (batches, windows, bound slots, compiled prompts, adapter). Individual actions require scene; force:true regenerates. waiting_review is a normal terminal review state, NOT inference failure: get returns readiness, missing assets, compiled model prompts and next stages. edit accepts {config?,board?}; visualBible identities, per-shot direction and dialogueLines (speakerId/text/delivery/language) drive native model dialogue. Cinema defaults to native audio, no TTS; explicit narration opts in. keepAudio:false mutes native sound. Ref2VA binds ordered canonical images plus a composition keyframe; FL2VA binds approved endpoint frames. import accepts {path} inside RIVERFIELD_OUT. get returns absolute project directory, artifact paths and export provenance.json. All inference uses the shared local queue. No cloud inference or guaranteed voice/visual identity.",
-    inputSchema: { operation:z.enum(["list","capabilities","create","get","edit","import","task","cancel"]), project:z.string().optional(), payload:z.record(z.string(),z.unknown()).optional() },
-  }, async ({operation,project,payload}) => {
-    try {
-      if(operation==="list")return text(await api("/api/autoshorts"));
-      if(operation==="capabilities")return text(await api("/api/autoshorts/capabilities"));
-      if(operation==="create")return text(await api("/api/autoshorts",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})}));
-      if(!project)throw new Error("project is required");
-      const base=`/api/autoshorts/${encodeURIComponent(project)}`;
-      if(operation==="get")return text(await api(base));
-      return text(await api(base+(operation==="edit"?"":operation==="task"?"/tasks":`/${operation}`),{method:operation==="edit"?"PATCH":"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload||{})}));
-    }catch(e){return fail(e);}
-  });
 
   server.registerTool("list_apps", {
     title: "List RiverField apps",
@@ -118,7 +105,7 @@ function build(): McpServer {
     },
   }, async ({ section, status }) => {
     try {
-      const all = await apps();
+      const all = await apps(base);
       const list = all
         .filter((a) => (!section || a.section === section) && (!status || a.status === status))
         .map((a) => ({ id: a.id, name: a.name, section: a.section, status: a.status, summary: a.summary, pack: a.pack }));
@@ -132,9 +119,9 @@ function build(): McpServer {
     inputSchema: { app: z.string().describe("app id, e.g. create-image") },
   }, async ({ app }) => {
     try {
-      const a = await manifest(app);
+      const a = await manifest(app,base);
       return text({
-        id: a.id, name: a.name, section: a.section, status: a.status, summary: a.summary, pack: a.pack, pipeline:a.pipeline??null,
+        id: a.id, name: a.name, section: a.section, status: a.status, summary: a.summary, pack: a.pack, 
         inputs: a.inputs.map((i: Any) => ({
           id: i.id, type: i.type, label: i.label, required: Boolean(i.required),
           default: i.default, min: i.min, max: i.max, step: i.step,
@@ -147,6 +134,7 @@ function build(): McpServer {
         presets: (a.presets ?? []).map((p: Any) => ({ id: p.id, label: p.label })),
         outputs: a.outputs, models: (a.models ?? []).map((m: Any) => m.name),
         notes: a.notes ?? a.source?.notes ?? null, source: a.source ?? null,
+        prompting: promptGuidance(a as any),
         example: a.example ? { values: a.example.values, inputs: a.example.inputs } : null,
       });
     } catch (e) { return fail(e); }
@@ -160,11 +148,13 @@ function build(): McpServer {
       values: z.record(z.string(), z.any()).optional().describe("input values, by input id"),
       files: z.record(z.string(), z.string()).optional().describe("file inputs, by input id: absolute path"),
       preset: z.string().optional().describe("preset id, when the app has presets"),
+      request_id: z.string().max(200).optional().describe("optional durable idempotency key; retrying this key returns the original job, never a second generation"),
     },
-  }, async ({ app, values, files, preset }) => {
+  }, async ({ app, values, files, preset,request_id }) => {
     try {
-      const fd = await form(app, values ?? {}, files ?? {}, preset);
-      const entry = await api(`/api/apps/${encodeURIComponent(app)}/run`, { method: "POST", body: fd });
+      const fd = await form(app, values ?? {}, files ?? {}, preset,base);
+      if(request_id)fd.append("request_id",request_id);
+      const entry = await call(`/api/apps/${encodeURIComponent(app)}/run`, { method: "POST", body: fd });
       return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created });
     } catch (e) { return fail(e); }
   });
@@ -175,7 +165,7 @@ function build(): McpServer {
     inputSchema: { id: z.string().describe("history entry id returned by run_app") },
   }, async ({ id }) => {
     try {
-      const e = await api(`/api/history/${encodeURIComponent(id)}`);
+      const e = await call(`/api/history/${encodeURIComponent(id)}`);
       const v = local(e);
       return text({ id: v.id, app: v.app, status: v.status, error: v.error ?? null,
         progress: v.progress ?? null, queue: v.queue ?? null,
@@ -191,12 +181,13 @@ function build(): McpServer {
       timeout_s: z.number().int().min(5).max(3600).optional().describe("give up after this many seconds (default 600)"),
       poll_s: z.number().min(1).max(30).optional().describe("seconds between checks (default 3)"),
     },
-  }, async ({ id, timeout_s, poll_s }) => {
+  }, async ({ id, timeout_s, poll_s },extra) => {
     const deadline = Date.now() + (timeout_s ?? 600) * 1000;
     const every = (poll_s ?? 3) * 1000;
     try {
       for (;;) {
-        const e = await api(`/api/history/${encodeURIComponent(id)}`);
+        extra.signal.throwIfAborted();
+        const e = await call(`/api/history/${encodeURIComponent(id)}`,{signal:extra.signal});
         if (DONE.has(e.status)) {
           const v = local(e);
           return text({ id: v.id, app: v.app, status: v.status, error: v.error ?? null,
@@ -218,7 +209,7 @@ function build(): McpServer {
     inputSchema: { id: z.string().describe("history entry id") },
   }, async ({ id }) => {
     try {
-      const r = await api(`/api/history/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+      const r = await call(`/api/history/${encodeURIComponent(id)}/cancel`, { method: "POST" });
       return text({ id, canceled: true, entry: r?.status ?? null });
     } catch (e) { return fail(e); }
   });
@@ -229,12 +220,14 @@ function build(): McpServer {
     inputSchema: {
       app: z.string().optional().describe("only this app"),
       limit: z.number().int().min(1).max(100).optional().describe("how many (default 20)"),
+      request_id:z.string().max(200).optional().describe("recover a specific idempotent submission without resubmitting it"),
     },
-  }, async ({ app, limit }) => {
+  }, async ({ app, limit,request_id }) => {
     try {
       const q = new URLSearchParams();
       if (app) q.set("app", app);
-      const raw = await api(`/api/history${q.size ? `?${q}` : ""}`);
+      if(request_id)q.set("request_id",request_id);
+      const raw = await call(`/api/history${q.size ? `?${q}` : ""}`);
       const list = (Array.isArray(raw) ? raw : (raw?.entries ?? [])) as Any[];
       const out = list.slice(0, limit ?? 20).map((e) => {
         const v = local(e);
@@ -251,7 +244,7 @@ function build(): McpServer {
     inputSchema: { device: z.boolean().optional().describe("include VRAM figures (only when warm)") },
   }, async ({ device }) => {
     try {
-      return text(await api(`/api/gpu${device ? "?device=1" : ""}`));
+      return text(await call(`/api/gpu${device ? "?device=1" : ""}`));
     } catch (e) { return fail(e); }
   });
 
@@ -261,7 +254,7 @@ function build(): McpServer {
     inputSchema: { app: z.string().describe("app id") },
   }, async ({ app }) => {
     try {
-      const a = await manifest(app);
+      const a = await manifest(app,base);
       if (!a.example) return text({ app, example: null, note: "this app has no example" });
       return text({
         app, values: a.example.values,
@@ -270,6 +263,12 @@ function build(): McpServer {
       });
     } catch (e) { return fail(e); }
   });
+
+  server.registerTool("media",{
+    title:"Scoped local media utilities",
+    description:"Generic CPU probe/frame/concat/mix. Paths must be existing History media, user Agent uploads, web examples or outputs of this tool. No arbitrary shell/filters. probe returns dimensions/duration/audio; frame extracts one timestamp; concat normalizes and exports H264/AAC MP4; mix combines up to four audio streams. Editing is bounded to 120 seconds and 4.2 MP. Outputs are real files reusable by run_app.",
+    inputSchema:{operation:z.enum(["probe","frame","concat","mix"]),path:z.string().optional(),paths:z.array(z.string()).max(8).optional(),seconds:z.number().min(0).max(36000).optional(),volumes:z.array(z.number().min(0).max(2)).max(4).optional()},
+  },async input=>{try{return text(await call("/api/media",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)}));}catch(e){return fail(e);}});
 
   return server;
 }
@@ -308,4 +307,4 @@ async function main() {
   });
 }
 
-void main();
+if(resolve(process.argv[1]||"")===fileURLToPath(import.meta.url))void main();

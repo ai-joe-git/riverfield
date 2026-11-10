@@ -8,18 +8,18 @@ video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voic
 MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniMax H3 reference pipeline**, a
 **Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
 attention** node now running on comfy-kitchen's Sol-Attn (and bypassed on CUDA/XPU), and an **MCP server** so an
-agent can drive the studio. RiverField also adds **AutoShorts / Video Factory**, a persistent local
-storyboard-to-film pipeline, **Pika Video** and **Pika Text to Video** with optional **RelayVSR x2/x4**,
-and a **shared inference queue** for web, MCP and AutoShorts model calls. Upstream stays the reference
+agent can drive the studio. RiverField also adds **Riverfield Agent**, a native AI chat that operates the
+studio through those same MCP tools, **Pika Video** and **Pika Text to Video** with optional **RelayVSR x2/x4**,
+and a **shared inference queue** for web, MCP and agent model calls. Upstream stays the reference
 for the inherited apps; [upstream synchronization](docs/upstream-sync.md) is reviewed patch by patch.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
 ![The web app: the Video menu, Cinema Studio Video with the lab's example loaded and its camera moves, then the result playing in the Library tab](docs/media/ui-demo.webp)
 
-Image, video, VFX, audio and 3D apps in a studio laid out like Higgsfield's, using ComfyUI workflows
-and the native AutoShorts pipeline. Examples come from real upstream lab runs and local RiverField GPU runs;
-generation time and peak VRAM are shown when recorded, never invented.
+Image, video, VFX, audio and 3D apps in a studio laid out like Higgsfield's, on ComfyUI workflows,
+plus an integrated agent that runs them for you. Examples come from real upstream lab runs and local
+RiverField GPU runs; generation time and peak VRAM are shown when recorded, never invented.
 
 [Run it](#run-it) on Modal or [on your own GPU](#on-your-own-gpu-without-modal) · [every app](#apps) with its model and VRAM · [add an app](#add-an-app) from any ComfyUI workflow ·
 [every GPU run](docs/lab-runs.md) of the lab
@@ -36,10 +36,10 @@ generation time and peak VRAM are shown when recorded, never invented.
 </table>
 
 RiverField rebuilds Higgsfield's creative apps (image, video, VFX, audio) on top of ComfyUI and the Comfy SDK.
-Most apps are folders in `apps/` with an `app.json` manifest and a ComfyUI workflow in API format;
-forms, model downloads and the VRAM map are derived from those manifests. AutoShorts is the exception:
-its manifest selects a native persistent pipeline with a dedicated editor, local LLM planning,
-scene review, TTS, media generation, optional RelayVSR and FFmpeg assembly.
+Every app is a folder in `apps/` with an `app.json` manifest and a ComfyUI workflow in API format;
+forms, model downloads and the VRAM map are derived from those manifests. There is no per-app code, and no
+separate production pipeline: **Riverfield Agent** composes apps through the same MCP tools an external
+agent uses.
 
 ```
 browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ──▶ comfy-api-proxy :8189 ──▶ ComfyUI :8188
@@ -48,9 +48,9 @@ browser ──▶ web/ + server/ (Node, Comfy SDK) ──▶ gateway :8000 ─�
                                                   when the app changes
 ```
 
-The shared server-side inference queue serializes web/MCP workflow jobs and AutoShorts model calls.
-The gateway waits for ComfyUI's queue before unloading models. AutoShorts also calls local llama.cpp
-and FFmpeg outside the ComfyUI graph; project state is kept under `out/autoshorts/`.
+The shared server-side inference queue serializes web, MCP and agent workflow jobs.
+The gateway waits for ComfyUI's queue before unloading models. The agent's LLM calls go to a
+local or remote provider you choose; conversations live under `out/agent/`.
 
 ![Twelve of the apps' examples, each made on a GPU by the lab: Transformations, Mixed Media, Effects, Recast, Relight, Day to Night, Cinema Studio, Depth Map, Volcano Ad, H3 Video, Styles and Storm Creature](docs/media/examples.jpg)
 
@@ -58,10 +58,11 @@ and FFmpeg outside the ComfyUI graph; project state is kept under `out/autoshort
 
 | | |
 |---|---|
-| Apps | **149 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, **AutoShorts / Video Factory**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **148 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Agent | **Riverfield Agent**: native chat with local (llama.cpp, Ollama, vLLM, LM Studio, Halogen) and remote (OpenAI, OpenRouter, Anthropic) providers, real MCP tool execution, streaming, approvals, media previews and persistence |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
-| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples and completed AutoShorts productions. Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
+| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples. Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
 | End to end | Run from the browser on 23 Oct, web UI → server → gateway on Modal → ComfyUI on an H100: `morph` 160.8 s from the button to the video (128.7 s of it on the GPU), `mixed-media` 149 s, `dub` 72 s. On 24 Oct through the hosted demo (`infra/web_app.py`, the same web app on Modal behind a passcode): `face-swap` 25.2 s on the GPU. The model-free smoke apps cover the same path in CI |
 | LoRA lab | 334 cases with fixed seeds: one showcase per app (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
 | CI | `.github/workflows/validate.yml` on every push: the manifest validator, the tests, the type check, the generated packs and VRAM map, and a CPU-only ComfyUI that accepts every workflow and the prompt of every lab case (about 3 minutes) |
@@ -69,7 +70,7 @@ and FFmpeg outside the ComfyUI graph; project state is kept under `out/autoshort
 ## What RiverField adds
 
 Everything below is on top of upstream Freefield. Workflow apps use a folder in `apps/`, an API-format
-graph and a manifest. AutoShorts uses a native pipeline instead of a graph.
+graph and a manifest.
 
 | App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
 |---|---|---|---|
@@ -90,7 +91,6 @@ graph and a manifest. AutoShorts uses a native pipeline instead of a graph.
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
 | `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
 | `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP and the same optional RelayVSR 2×/4× pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
-| `autoshorts` | Native persistent **Video Factory**: local llama.cpp storyboard, TTS, per-scene media, review, optional RelayVSR x2/x4, captions, music and FFmpeg MP4 | Existing local RiverField engines + llama.cpp | Completed local six-scene productions; runtime depends on the chosen engines and settings |
 | `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment | MiniMax H3 int8 | — |
 | `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
@@ -116,12 +116,16 @@ Four things are not an app:
   `<Picture N>` / `<Audio N>` references, and a global prompt. It writes `segment_windows`, a JSON document the
   `RiverFieldH3Planner` node (the `riverfield-comfy-nodes` pack, source in `comfy-nodes/`) turns into the
   planner's `timeline_data`.
-- **An MCP server** (`mcp/server.ts`) — nine generation tools plus the native `autoshorts` pipeline tool (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
-  `cancel_job`, `history`, `gpu`, `examples`) over the studio's own API, streamable HTTP on
+- **An MCP server** (`mcp/server.ts`) — ten tools (`list_apps`, `get_app`, `run_app`, `job`, `wait_job`,
+  `cancel_job`, `history`, `gpu`, `examples`, `media`) over the studio's own API, streamable HTTP on
   `http://127.0.0.1:3010/mcp` started with the app, or stdio with `./run-mcp.sh --stdio`. `get_app` flags
-  file inputs and panel-driven inputs, and JSON-string inputs (the Studio Director's Material Planner) are
-  documented in each app's notes. Outputs come back as absolute paths, `.glb` included. See
-  [`mcp/README.md`](mcp/README.md).
+  file inputs and panel-driven inputs and returns **workflow-specific prompting guidance** (Pika H3 Flex
+  Ref2VA/FL2VA field formats, MiniMax H3 dialogue tags, RelayVSR pairing, Material Planner `segment_windows`
+  shape) so an agent prompts correctly instead of hallucinating inputs. `run_app` takes an optional
+  `request_id` idempotency key: retrying returns the original job instead of paying for a second generation.
+  Outputs come back as absolute paths, `.glb` included. See [`mcp/README.md`](mcp/README.md).
+- **Riverfield Agent** (`server/agent.ts`, `web/js/agent.js`) — a native chat that uses that same MCP server
+  as its only route into the studio. See [Riverfield Agent](#riverfield-agent).
 
 The palette follows [blackriver-ai.com](https://blackriver-ai.com): #020306 canvas, #0B0F16/#101722 panels, a
 blue `#8DB4FF` accent with cyan and violet supports, and mint `#58E6B1` only for status. All of it lives in the
@@ -135,55 +139,49 @@ After a **ComfyUI-Manager** update, run `./local/restore-comfy.sh` (it recopies 
 re-applies the two patches inside the third-party packs), then `./stop.sh && ./start.sh`. Machines and ports:
 [`INSTALL-LOCAL.md`](INSTALL-LOCAL.md).
 
-## AutoShorts / Video Factory
+## Riverfield Agent
 
-**Turn a topic or script into a narrated, subtitled short film, entirely with local inference.**
-AutoShorts is a native RiverField application, not a single ComfyUI workflow.
-Open **Video → Create → AutoShorts**, or `http://127.0.0.1:3000/#/app/autoshorts`.
+**Talk to your studio.** Open **Agent** in the top bar (`http://127.0.0.1:3000/#/agent`).
+
+Riverfield Agent is a native, general-purpose AI agent — **not** a scripted production pipeline.
+The **LLM decides** what to do, the **MCP tools** provide the capabilities, and **Riverfield executes**
+the work. There is no hardcoded director, storyboard schema or fixed video engine.
 
 ```text
-Topic / script → local llama.cpp storyboard → narration + scene media
-               → review → optional RelayVSR x2/x4 → captions + music → FFmpeg MP4
+user message → your chosen LLM → MCP tool discovery → get_app (manifest + prompting guidance)
+            → run_app → job/wait_job → real artifact shown in chat → optional upscale/export
 ```
 
-The English workspace has three steps:
+- **Providers, local and remote.** OpenAI-compatible endpoints (llama.cpp, **Halogen**, Ollama, vLLM,
+  LM Studio) with custom base URLs, automatic loopback discovery through `/v1/models`, and remote
+  providers (OpenAI, OpenRouter, Anthropic). Each provider is clearly labeled **Local** or **Remote**;
+  API keys stay server-side (file mode `0600`, redacted in errors and logs) and are never sent to the browser.
+- **Real agentic loop.** Multi-step reasoning, native function calling where supported, an explicit
+  JSON tool protocol as a fallback, incremental streaming of text and tool activity, bounded step limits,
+  cancellation, and honest errors. A tool that was not run is never reported as done.
+- **Anti-hallucination guardrails.** The agent must `get_app` before `run_app`; tool arguments are validated
+  against the live MCP schema; file paths are scoped to History, your uploads and examples; `run_app` carries
+  an idempotency key so a retry cannot silently pay for a second generation; native video dialogue is never
+  confused with TTS narration.
+- **Workflow-aware prompting.** `get_app` returns per-app guidance (Pika H3 Flex Ref2VA/FL2VA field formats,
+  MiniMax H3 speaker/dialogue tags, Material Planner `segment_windows` geometry, RelayVSR model pairing) so the
+  model prompts each engine correctly instead of inventing inputs.
+- **Media-first chat.** Generated images, videos and audio render inline with dimensions, duration, engine and
+  runtime, plus download and History links. Outputs can be attached to the next message and reused instead of
+  regenerated.
+- **Autonomy you control.** *Ask before running* (default), *Auto* for enabled tools, or *Read-only* for
+  inspection without generation. The exact proposed tool and arguments are shown before approval.
+- **Persistence and recovery.** Conversations, tool calls, job IDs and artifacts live in `out/agent/`.
+  After a restart, running jobs are reconnected through History rather than resubmitted.
+- **Shared GPU queue.** Agent LLM calls never hold the inference slot while a media job runs, so the agent
+  cannot deadlock the queue it is waiting on. Externally managed model servers are never killed for you.
 
-1. **Create** — enter the topic, language, voice and format. Choose **Fast** (images/imports
-   with camera motion), **Balanced** (mostly images with some generated clips), or **Cinema**
-   (generated video). Detect a running local llama.cpp server, generate a storyboard or import JSON.
-2. **Scenes** — edit narration, prompts, duration, engine and scene order. Generate or import media,
-   reuse RiverField history, listen to speech, and approve or regenerate each scene before upscale.
-   Cinema uses a shared visual bible, canonical identity/vehicle/setting references, explicit shot state
-   and reviewed keyframes fed into reference-capable Pika/H3 workflows; independent prompts repeat
-   the relevant descriptions. References reduce drift but cannot guarantee visual continuity.
-3. **Export** — set the final resolution, captions (burned-in, karaoke or separate SRT), optional
-   imported/generated music, framing and fades; render and download the MP4.
+The same MCP server stays available to **OpenCode**, **BlackRiver Workspace** and any other MCP client:
+the built-in agent is one more interface, never a gate.
 
-Projects and finished stages persist in `out/autoshorts/`: cancellation or a retry keeps completed
-work, and changing captions or music does not rerun video diffusion. Local six-scene productions
-have completed on gfx1151. Web/MCP and AutoShorts model calls share one inference queue.
-
-**Upscale and export size are separate settings.** Approved video scenes use the actual RelayVSR
-x2/x4 result in the edit; the final output is then resized to the selected export resolution.
-For example, choosing a 720-pixel output height will downsize a higher-resolution upscaled source.
-Pika's internal upscale is disabled for AutoShorts sources to avoid stacking RelayVSR passes.
-Exports include a source-provenance manifest. Native clip sound is preserved by default and ducked
-only during optional external TTS; character dialogue is distinct from narration, and explicit mutes
-are respected. [Real six-scene Cinema audit and CPU-only audio repair](docs/autoshorts-production-audit.md).
-
-**Requirements:** RiverField's local engines, a user-managed llama.cpp server for planning, and
-FFmpeg/ffprobe with libx264/libass. No cloud inference. Caption timing is approximate unless a local
-transcription service is configured; x4 is experimental and must respect each engine's resolution limits.
-
-[Full guide: setup, production, persistence, API/MCP and limitations](docs/autoshorts.md).
-
-Cinema now **orchestrates the existing Pika Studio Director** (locked LCM + 6-step Ref2VA,
-Material Planner timeline) instead of a competing per-shot engine: AutoShorts builds the
-`segment_windows` document and binds reusable multi-view canonical sheets to `image1..9`.
-See [local model recipes](docs/autoshorts-model-recipes.md) for the Ref2VA/FL2VA prompt
-contracts, native speaker-attributed dialogue, and the reviewed preparation stages. The
-vertical micro-drama direction preset is **experimental**; this is not yet a qualified
-DramaBox-style episode generator.
+**Limitations.** Reliable function calling depends on the chosen model — small local models may need the JSON
+fallback or a stronger model. Visual continuity, voice identity and lip sync are not guaranteed by any tool.
+The agent has no unrestricted shell or filesystem: only the scoped MCP tools and media utilities above.
 
 ## Apps
 

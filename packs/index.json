@@ -26,7 +26,6 @@
   },
   "core": {
     "apps": [
-      "autoshorts",
       "smoke",
       "smoke-invert"
     ],

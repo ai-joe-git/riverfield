@@ -155,7 +155,6 @@ is not the least the app needs.
 | `cinema-video` | ready | 50.7 GB (+5.2 optional) | denoise 27.3 GB | ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors (21.5) | needs Modal | L40S (48 GB), by phases | 44.3 GB (L40S) |
 | `pika-text-to-video` | ready | 59.1 GB (+21.0 optional) | denoise 28.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `pika-video` | ready | 59.1 GB (+21.0 optional) | denoise 28.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
-| `autoshorts` | ready | 0.0 GB | encode 0.0 GB | — | no models | any | not measured |
 | `smoke` | ready | 0.0 GB | encode 0.0 GB | — | no models | any | not measured |
 | `smoke-invert` | ready | 0.0 GB | encode 0.0 GB | — | no models | any | not measured |
 | `tts` | ready | 0.0 GB (+5.3 optional) | encode 0.0 GB | — | no models | any | not measured |

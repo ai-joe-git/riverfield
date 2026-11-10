@@ -29,7 +29,7 @@ For maintainers: compare `git patch-id --stable` over
 `git log --no-merges -p --pretty='format:commit %H' <base>..<tip>` on each side.
 Then inspect unmatched patches with `git show`. Adapt only the wanted changes
 on a dedicated branch, preserving RiverField's branding, queue, GPU settings
-and native pipelines. Validate and review the diff before merging into main.
+and the integrated agent. Validate and review the diff before merging into main.
 
 ## Review baseline (9 November 2026)
 

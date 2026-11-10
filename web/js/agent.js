@@ -1,0 +1,94 @@
+import {el,toast} from "./util.js";
+
+async function api(path="",method="GET",body){const r=await fetch(`/api/agent${path}`,{method,headers:body instanceof FormData?{}:{"content-type":"application/json"},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data;}
+const button=(text,action,cls="btn ghost",extra={})=>el("button",{type:"button",class:cls,onclick:action,...extra},text);
+const safe=fn=>async(...args)=>{try{return await fn(...args);}catch(e){toast(e.message,{error:true});}};
+function field(label,value,change,type="text"){const input=el(type==="textarea"?"textarea":"input",{type:type==="textarea"?null:type,value:value??"","aria-label":label,autocomplete:"off"});input.oninput=()=>change(type==="number"?Number(input.value):input.value);return el("label",{class:"ag-field"},el("span",{},label),input);}
+function select(label,value,options,change){return el("label",{class:"ag-field"},el("span",{},label),el("select",{"aria-label":label,onchange:e=>change(e.target.value)},...options.map(([id,name])=>el("option",{value:id,selected:String(id)===String(value)},name))));}
+/** Safe Markdown subset. No raw HTML, remote image embeds or javascript: URLs. */
+export function markdown(text){
+  const root=el("div",{class:"ag-markdown"});
+  const inline=line=>{const out=el("span",{}),re=/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^\s)]+\))/g;let last=0,m;
+    while((m=re.exec(line))){out.append(document.createTextNode(line.slice(last,m.index)));const t=m[0];
+      if(t.startsWith("`"))out.append(el("code",{},t.slice(1,-1)));
+      else if(t.startsWith("**"))out.append(el("strong",{},t.slice(2,-2)));
+      else {const link=/^\[([^\]]+)\]\(([^)]+)\)$/.exec(t);if(link&&/^(https?:\/\/|\/api\/|#\/)/i.test(link[2]))out.append(el("a",{href:link[2],target:link[2].startsWith("#")?null:"_blank",rel:"noopener noreferrer"},link[1]));else out.append(document.createTextNode(t));}last=re.lastIndex;
+    }out.append(document.createTextNode(line.slice(last)));return out;};
+  const blocks=text.split(/```/);blocks.forEach((block,i)=>{if(i%2){const split=block.indexOf("\n"),lang=split<0?"":block.slice(0,split),code=split<0?block:block.slice(split+1);root.append(el("div",{class:"ag-code"},el("small",{},lang),button("Copy",safe(()=>navigator.clipboard.writeText(code))),el("pre",{},el("code",{},code))));}
+    else for(const line of block.split("\n")){if(!line.trim()){root.append(el("div",{class:"ag-gap"}));continue;}const heading=/^(#{1,4})\s+(.+)$/.exec(line);root.append(heading?el(`h${heading[1].length+1}`,{},inline(heading[2])):el("p",{class:/^\s*[-*]\s/.test(line)?"ag-list":null},inline(line.replace(/^\s*[-*]\s/,"• "))));}});return root;
+}
+
+export function agentView(){
+  let conversations=[],providers=[],tools=[],c=null,stream=null,disposed=false,draft="",pending=[],sending=false;
+  const root=el("div",{class:"ag-workspace"}),sidebar=el("aside",{class:"ag-sidebar"}),header=el("header",{class:"ag-header"}),chat=el("section",{class:"ag-chat","aria-live":"polite"}),footer=el("footer",{class:"ag-footer"});
+  const shell=el("div",{class:"ag-main"},header,chat,footer);root.append(sidebar,shell);
+  const busy=()=>c?.status==="running";
+  const settings=()=>safe(async()=>{
+    const dialog=el("dialog",{class:"ag-settings"});document.body.append(dialog);dialog.addEventListener("close",()=>dialog.remove());
+    let edited={name:"Local OpenAI compatible",kind:"openai",location:"local",baseURL:"http://127.0.0.1:8731/v1",model:"",temperature:.7,maxTokens:4096,contextTokens:32768,toolMode:"native",vision:false},key="";
+    const form=el("div",{}),serverList=el("div",{class:"ag-server-list"});
+    const draw=()=>form.replaceChildren(
+      select("Saved provider",edited.id||"",[["","New provider"],...providers.map(p=>[p.id,`${p.name} · ${p.location}`])],id=>{edited=id?{...providers.find(p=>p.id===id)}:{name:"New provider",kind:"openai",location:"local",baseURL:"http://127.0.0.1:8080/v1",model:"",temperature:.7,maxTokens:4096,contextTokens:32768,toolMode:"native",vision:false};key="";draw();}),
+      select("Preset", "", [["","Choose a preset"],["local","Local OpenAI / Ollama / Halogen"],["openai","OpenAI"],["openrouter","OpenRouter"],["anthropic","Anthropic"]],v=>{const choices={local:{location:"local",kind:"openai",baseURL:"http://127.0.0.1:8080/v1"},openai:{location:"remote",kind:"openai",baseURL:"https://api.openai.com/v1"},openrouter:{location:"remote",kind:"openai",baseURL:"https://openrouter.ai/api/v1"},anthropic:{location:"remote",kind:"anthropic",baseURL:"https://api.anthropic.com/v1"}};if(choices[v]){Object.assign(edited,choices[v],{name:v,toolMode:"native"});draw();}}),
+      field("Provider name",edited.name,v=>edited.name=v),select("Connection privacy",edited.location,[["local","Local · loopback server"],["remote","Remote · data leaves this machine"]],v=>edited.location=v),select("API adapter",edited.kind,[["openai","OpenAI-compatible chat completions"],["anthropic","Anthropic Messages API"]],v=>edited.kind=v),
+      field("Base URL",edited.baseURL,v=>edited.baseURL=v),field(edited.keyPresent?"API key (saved; blank keeps it)":"API key (not required for local servers)","",v=>key=v,"password"),field("API key environment variable (optional)",edited.keyEnv||"",v=>edited.keyEnv=v||undefined),
+      field("Default model",edited.model,v=>edited.model=v),field("Temperature",edited.temperature,v=>edited.temperature=v,"number"),field("Maximum output tokens",edited.maxTokens,v=>edited.maxTokens=v,"number"),field("Context budget (estimated tokens)",edited.contextTokens,v=>edited.contextTokens=v,"number"),
+      select("Tool calling protocol",edited.toolMode,[["native","Native function/tool calling"],["json","Explicit JSON tool protocol (fallback)"]],v=>edited.toolMode=v),
+      select("Attached images",String(!!edited.vision),[["false","File references only (text model)"],["true","Send images to this vision-capable model"]],v=>edited.vision=v==="true"),
+      el("p",{class:"ag-warning"},"Remote providers receive messages, enabled image attachments and tool results. Local servers are independently managed: Riverfield never kills them. A local endpoint may proxy a cloud model; verify its model name and configuration."),
+      el("div",{class:"ag-actions"},button("Save provider",safe(async()=>{const {keyPresent,...body}=edited;if(key)body.apiKey=key;await api("/providers","POST",body);providers=(await api("/providers")).providers;await loadList();dialog.close();drawHeader();} ),"btn lime"),edited.id?button("Delete provider",safe(async()=>{if(!confirm("Delete this provider configuration?"))return;await api(`/providers/${edited.id}`,"DELETE");providers=(await api("/providers")).providers;dialog.close();drawHeader();})):null,button("Close",()=>dialog.close())));
+    dialog.append(el("h2",{},"Riverfield Agent · Providers"),button("Detect local servers",safe(async()=>{serverList.replaceChildren(el("p",{},"Inspecting local listeners…"));const d=await api("/discover");serverList.replaceChildren(...d.servers.map(s=>button(`${s.url} · ${s.models.slice(0,3).join(", ")||"no models listed"}`,()=>{edited={...edited,name:"Local "+new URL(s.url).port,location:"local",kind:"openai",baseURL:s.url,model:s.models[0]||""};delete edited.id;draw();})));if(!d.servers.length)serverList.append(el("p",{},"No compatible server found. Enter a custom loopback URL."));})),serverList,form);draw();dialog.showModal();
+  });
+  async function loadList(){conversations=(await api("/conversations")).conversations;drawSidebar();}
+  async function open(id){stream?.close();c=await api(`/conversations/${id}`);pending=[];draft="";try{localStorage.setItem("riverfield.agent.conversation",id);}catch{}draw();connectEvents(id);}
+  async function create(){const p=providers[0];c=await api("/conversations","POST",{provider:p?.id||"",model:p?.model||""});await loadList();await open(c.id);}
+  function connectEvents(id){stream=new EventSource(`/api/agent/conversations/${id}/events`);
+    stream.addEventListener("state",e=>{if(disposed||c?.id!==id)return;c=JSON.parse(e.data);drawHeader();drawChat();drawFooter();void loadList();});
+    stream.addEventListener("delta",e=>{if(c?.id!==id)return;const d=JSON.parse(e.data);let m=c.messages.find(m=>m.id===d.id);if(!m){m={id:d.id,role:"assistant",content:"",created:new Date().toISOString()};c.messages.push(m);}m.content+=d.text;drawChat();});
+    stream.addEventListener("jobs",e=>{if(c?.id!==id)return;Object.assign(c,JSON.parse(e.data));drawChat();});
+    stream.addEventListener("queue",e=>{const d=JSON.parse(e.data);header.dataset.queue=d.position==null?"":`Waiting in shared GPU queue: ${d.position}`;});
+  }
+  async function patch(body){c=await api(`/conversations/${c.id}`,"PATCH",body);draw();}
+  function drawSidebar(){sidebar.replaceChildren(el("div",{class:"ag-side-brand"},el("h2",{},"Agent"),button("+ New",safe(create),"btn lime")),button("Providers & models",settings()),...conversations.map(x=>el("div",{class:`ag-conversation${x.id===c?.id?" selected":""}`},button(el("span",{},x.title,el("small",{},x.status)),safe(()=>open(x.id))),button("Rename",safe(async()=>{const title=prompt("Conversation title",x.title);if(title){await api(`/conversations/${x.id}`,"PATCH",{title});if(c?.id===x.id)c.title=title;await loadList();drawHeader();}}),"ag-icon"),button("Delete",safe(async()=>{if(!confirm(`Delete conversation “${x.title}”? Generated History outputs are kept.`))return;await api(`/conversations/${x.id}`,"DELETE");if(c?.id===x.id){stream?.close();c=null;}await loadList();draw();}),"ag-icon"))));}
+  function drawHeader(){const p=providers.find(p=>p.id===c?.provider);header.replaceChildren(el("div",{},el("h1",{},"Riverfield Agent"),el("small",{},c?.title||"Talk to your creative studio")),
+    c?el("div",{class:"ag-controls"},select("Provider",c.provider,[["","Choose a provider"],...providers.map(p=>[p.id,`${p.name} · ${p.location==="remote"?"Remote":"Local"}`])],safe(id=>{const p=providers.find(p=>p.id===id);return patch({provider:id,model:p?.model||""});})),
+      field("Model",c.model,v=>{c.model=v;}),button("Fetch models",safe(async()=>{if(!c.provider)throw new Error("Choose a provider");const d=await api(`/providers/${c.provider}/models`);const dialog=el("dialog",{class:"ag-settings"},el("h3",{},"Available models"));dialog.append(...d.models.map(m=>button(m.id,safe(async()=>{await patch({model:m.id});dialog.close();}))));dialog.append(button("Close",()=>dialog.close()));dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();})),
+      select("Autonomy",c.mode,[["ask","Ask before running"],["auto","Auto · enabled tools"],["read-only","Read-only"]],safe(mode=>patch({mode}))),button("Conversation settings",safe(conversationSettings)),p?el("span",{class:`ag-badge ${p.location}`},p.location==="remote"?"Remote · data sent to provider":"Local endpoint"):null):button("Configure providers",settings()));
+    if(busy())header.querySelectorAll("input,select,button").forEach(b=>b.disabled=true);
+  }
+  function conversationSettings(){const dialog=el("dialog",{class:"ag-settings"});let instructions=c.instructions,maxSteps=c.maxSteps;const enabled=new Set(c.enabledTools.length?c.enabledTools:tools.map(t=>t.name));
+    dialog.append(el("h2",{},"Conversation controls"),field("Additional instructions",instructions,v=>instructions=v,"textarea"),field("Maximum agent steps per turn",maxSteps,v=>maxSteps=v,"number"),el("p",{},"Only enabled tools are offered to the model. Read-only also blocks mutation outside this list."),...tools.map(t=>el("label",{class:"ag-tool-toggle"},el("input",{type:"checkbox",checked:enabled.has(t.name),onchange:e=>e.target.checked?enabled.add(t.name):enabled.delete(t.name)}),el("span",{},t.name))),button("Save",safe(async()=>{if(!enabled.size)throw new Error("Use read-only mode or enable at least one tool");await patch({instructions,maxSteps,enabledTools:[...enabled]});dialog.close();}),"btn lime"),button("Close",()=>dialog.close()));document.body.append(dialog);dialog.onclose=()=>dialog.remove();dialog.showModal();
+  }
+  function artifact(a){const preview=a.type==="image"||a.mime?.startsWith("image/")?el("img",{src:a.url,alt:a.name,loading:"lazy"}):a.type==="video"||a.mime?.startsWith("video/")?el("video",{src:a.url,controls:true,preload:"metadata",playsinline:true}):a.type==="audio"||a.mime?.startsWith("audio/")?el("audio",{src:a.url,controls:true,preload:"metadata"}):el("code",{},a.name);
+    return el("article",{class:"ag-media"},preview,el("small",{},[a.name,a.app,a.seconds!=null?`${a.seconds}s`:null].filter(Boolean).join(" · ")),el("div",{class:"ag-actions"},el("a",{href:a.url,download:a.name,class:"btn ghost"},"Download"),a.job?el("a",{href:a.app?`#/app/${a.app}/history`:"#/library",class:"btn ghost"},"History"):null,button("Attach to next message",safe(async()=>{const item=await api(`/conversations/${c.id}/reuse`,"POST",{artifact:a.id});if(!pending.includes(item.id))pending.push(item.id);if(!c.attachments.some(x=>x.id===item.id))c.attachments.push(item);drawFooter();}),"btn ghost",{disabled:busy()})));
+  }
+  function drawChat(){const nearBottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<120;chat.replaceChildren();
+    if(!c){chat.append(el("div",{class:"ag-welcome"},el("h2",{},"Your studio, through conversation"),el("p",{},"Choose a local or remote model. The agent discovers the same MCP applications and tools as external clients; no fixed video pipeline."),button("New conversation",safe(create),"btn lime")));return;}
+    if(!c.messages.length)chat.append(el("div",{class:"ag-welcome"},el("h2",{},"What would you like to create?"),el("p",{},"For example: create a character reference, animate it with a suitable video workflow, then upscale the actual result. Tool execution is visible and requires approval by default.")));
+    for(const m of c.messages){if(m.role==="tool")continue;if(m.role==="assistant"&&!m.content?.trim()&&!m.calls?.length)continue;const bubble=el("article",{class:`ag-message ${m.role}`},el("small",{},m.role==="user"?"You":"Riverfield Agent"),markdown(m.content||(m.calls?.length?"":"…")));
+      for(const id of m.attachments||[]){const a=c.attachments.find(a=>a.id===id);if(a)bubble.append(el("a",{href:a.url,target:"_blank",rel:"noopener"},a.name));}
+      for(const call of m.calls||[]){const record=c.tools.find(t=>t.id===call.id),details=el("details",{class:"ag-tool"},el("summary",{},`${call.name} · ${record?.status||"pending"}`),el("pre",{},JSON.stringify(call.arguments,null,2)),record?.result?el("pre",{},JSON.stringify(record.result,null,2)):null,record?.error?el("p",{class:"ag-error"},record.error):null);
+        if(c.status==="approval"&&record?.status==="proposed")details.append(button("Approve execution",safe(()=>api(`/conversations/${c.id}/approve`,"POST",{tool:call.id,allow:true})),"btn lime"),button("Reject",safe(()=>api(`/conversations/${c.id}/approve`,"POST",{tool:call.id,allow:false}))));bubble.append(details);
+      }chat.append(bubble);
+    }
+    if(c.error)chat.append(el("div",{class:"ag-error"},c.error));
+    if(c.jobs.length||c.tools.some(t=>t.status==="uncertain"))chat.append(el("section",{class:"ag-jobs"},el("b",{},"Studio jobs"),...c.jobs.map(id=>{const j=c.jobStates[id]||{};return el("div",{},el("code",{},id),el("span",{},`${j.app||""} · ${j.status||"unknown"}${j.queue!=null?` · queue ${j.queue}`:""}`),j.progress?.value!=null?el("progress",{max:1,value:j.progress.value}):null,j.error?el("span",{class:"ag-error"},j.error.message||String(j.error)):null);}),button("Reconnect / refresh jobs",safe(async()=>{c=await api(`/conversations/${c.id}/jobs`,"POST",{});drawChat();}))));
+    if(c.artifacts.length)chat.append(el("section",{class:"ag-gallery"},...c.artifacts.map(artifact)));
+    if(["failed","interrupted","canceled"].includes(c.status))chat.append(button("Continue / retry without repeating completed tools",safe(()=>api(`/conversations/${c.id}/continue`,"POST",{})),"btn lime"));
+    if(nearBottom)chat.scrollTop=chat.scrollHeight;
+  }
+  function drawFooter(){footer.replaceChildren();if(!c)return;
+    const provider=providers.find(p=>p.id===c.provider);
+    if(provider?.location==="remote")footer.append(el("small",{class:"ag-warning"},"Remote provider: your conversation, enabled image attachments and tool results leave this machine."));
+    else footer.append(el("small",{class:"dim"},"Local endpoint · model memory is managed by its own server. Other clients may bypass the studio queue."));
+    footer.append(el("div",{class:"ag-attachments"},...pending.map(id=>{const a=c.attachments.find(a=>a.id===id);return button(`${a?.name||id} ×`,()=>{pending=pending.filter(x=>x!==id);drawFooter();});})));
+    const composer=el("textarea",{"aria-label":"Message Riverfield Agent",placeholder:"Describe what you want. Enter to send, Shift+Enter for a new line.",rows:3,value:draft,disabled:busy()||sending||c.status==="approval"});composer.oninput=()=>draft=composer.value;
+    const submit=safe(async()=>{if(sending||busy())return;if(!c.provider)throw new Error("Configure and choose a provider first");sending=true;try{await api(`/conversations/${c.id}`,"PATCH",{model:c.model});await api(`/conversations/${c.id}/messages`,"POST",{text:draft,attachments:pending});draft="";pending=[];c=await api(`/conversations/${c.id}`);draw();}finally{sending=false;drawFooter();}});
+    composer.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submit();}};
+    const upload=el("input",{type:"file",hidden:true,multiple:true,accept:"image/png,image/jpeg,image/webp,video/mp4,video/webm,audio/*,.txt",onchange:safe(async()=>{for(const file of upload.files){const fd=new FormData();fd.set("file",file);const item=await api(`/conversations/${c.id}/upload`,"POST",fd);c.attachments.push(item);pending.push(item.id);}drawFooter();})});
+    footer.append(composer,el("div",{class:"ag-compose-actions"},upload,button("Attach files",()=>upload.click(),"btn ghost",{disabled:busy()}),el("small",{},`${c.status} · ${c.maxSteps} step limit`),busy()?button("Stop agent & related jobs",safe(()=>api(`/conversations/${c.id}/stop`,"POST",{})),"btn lime"):button("Send",submit,"btn lime",{disabled:sending||c.status==="approval"})));
+  }
+  function draw(){if(disposed)return;drawSidebar();drawHeader();drawChat();drawFooter();}
+  safe(async()=>{providers=(await api("/providers")).providers;await loadList();try{tools=(await api("/tools")).tools;}catch(e){toast(`MCP: ${e.message}`,{error:true});}let saved;try{saved=localStorage.getItem("riverfield.agent.conversation");}catch{}const id=conversations.find(x=>x.id===saved)?.id||conversations[0]?.id;if(id)await open(id);else draw();})();
+  return {node:root,active:"agent",dispose(){disposed=true;stream?.close();}};
+}

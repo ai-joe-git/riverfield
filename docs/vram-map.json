@@ -3721,29 +3721,6 @@
       "measured_on": null
     },
     {
-      "id": "autoshorts",
-      "name": "AutoShorts · Video Factory",
-      "section": "video",
-      "pack": "core",
-      "status": "ready",
-      "whole_gb": 0,
-      "phases_gb": {
-        "encode": 0.0,
-        "denoise": 0.0,
-        "denoise2": 0.0,
-        "decode": 0.0,
-        "aux": 0.0
-      },
-      "largest_phase": "encode",
-      "largest_phase_gb": 0.0,
-      "optional_gb": 0,
-      "biggest_file": null,
-      "verdict_24gb": "no models",
-      "modal_gpu": "any",
-      "measured_peak_gb": null,
-      "measured_on": null
-    },
-    {
       "id": "smoke",
       "name": "Smoke test",
       "section": "utility",

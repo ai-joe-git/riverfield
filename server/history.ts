@@ -19,6 +19,7 @@ const MEDIA = new Set(["image", "video", "audio", "file"]);   // file: 3D models
 export type Entry = {
   id: string;
   app: string;
+  requestKey?: string;
   status: Status;
   job: string | null;
   created: string;
@@ -217,7 +218,7 @@ export class History {
   }
 
   /** Record a run before it is submitted. `values` are the resolved values (defaults filled, seed picked). */
-  start(app: App, values: Values, preset?: string): Entry {
+  start(app: App, values: Values, preset?: string, requestKey?:string): Entry {
     const id = newId();
     const folder = join(this.dir, id);
     mkdirSync(folder);
@@ -236,7 +237,7 @@ export class History {
       }
     }
     const entry: Entry = {
-      id, app: app.id, status: "starting", job: null, created: new Date().toISOString(), started: null, finished: null,
+      id, app: app.id, requestKey, status: "starting", job: null, created: new Date().toISOString(), started: null, finished: null,
       seconds: null, total: null, values: shown, preset: preset ?? null, inputs, outputs: [], error: null,
     };
     this.save(entry);
@@ -450,6 +451,7 @@ export class History {
   list(app?: string, limit = 300) {
     return this.entries().filter((e) => !app || e.app === app).slice(0, limit).map((e) => this.view(e));
   }
+  findRequest(key:string){return this.entries().find(e=>e.requestKey===key);}
 
   get(id: string) {
     const e = this.read(id);

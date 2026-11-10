@@ -18,7 +18,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: FFmpeg for synthetic AutoShorts editing tests
+      - name: FFmpeg for generic media tests
         run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
       - run: npm run validate
       - run: npm test

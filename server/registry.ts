@@ -58,8 +58,6 @@ export type AppManifest = {
   pack: string;
   status: "draft" | "ready";
   workflow?: string;
-  /** Native orchestration, deliberately not a ComfyUI graph. */
-  pipeline?: "autoshorts";
   /** UI layout: "director" mounts the timeline panel (studio-director, ltx-director) */
   layout?: "composer" | "sidebar" | "director";
   /** heading of the director panel, when it is not the default "Material Planner" */
@@ -72,6 +70,7 @@ export type AppManifest = {
   vram?: { peak_gb?: number | null; measured_on?: string | null };
   test?: Record<string, unknown>;
   notes?: string;
+  source?: {notes?:string;[key:string]:unknown};
 };
 
 export type App = AppManifest & { dir: string; workflowPath?: string; graph?: ApiWorkflow };
@@ -228,7 +227,7 @@ export function loadRegistry(root = repoRoot()): { apps: App[]; problems: Proble
       } else {
         problems.push({ app: folder, severity, message: `workflow ${manifest.workflow} not found` });
       }
-    } else if (manifest.status === "ready" && !manifest.pipeline) {
+    } else if (manifest.status === "ready") {
       problems.push({ app: folder, severity: "error", message: "ready apps need a workflow" });
     }
     if (app.graph) checkGraph(app, problems, severity);

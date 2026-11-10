@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/neuregex/freefield/schema/app.schema.json",
   "title": "RiverField app manifest (app.json)",
-  "description": "One app = one folder in apps/ with this manifest and either a ComfyUI workflow or a native composite pipeline. The web UI, runner, model packs and tests read this file.",
+  "description": "One app = one folder with a manifest and a ComfyUI workflow. The UI, runner, model packs and tests read this file.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,9 +15,7 @@
     "outputs",
     "models"
   ],
-  "allOf": [{ "if": { "required": ["pipeline"] }, "then": { "not": { "required": ["workflow"] } } }],
   "properties": {
-    "pipeline": { "enum": ["autoshorts"] },
     "$schema": {
       "type": "string"
     },
