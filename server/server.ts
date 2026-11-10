@@ -337,7 +337,7 @@ const server = createServer(async (req, res) => {
         }
         if(id==="providers"){
           if(req.method==="GET"&&!sub)return send(res,200,{providers:agent.providers.list()});
-          if(req.method==="POST"&&!sub){const raw=await body() as any;if(raw.runtimeProfile){const p=native.get(String(raw.runtimeProfile));Object.assign(raw,{location:"local",kind:"openai",baseURL:"http://127.0.0.1:1/v1",model:`riverfield-${p.id}`,contextTokens:Math.floor(Number(p.options.contextSize||32768)/Number(p.options.parallel||1))});}return send(res,201,agent.providers.save(raw));}
+          if(req.method==="POST"&&!sub){const raw=await body() as any;if(raw.runtimeProfile){const p=native.get(String(raw.runtimeProfile));Object.assign(raw,{location:"local",kind:"openai",baseURL:"http://127.0.0.1:1/v1",model:`riverfield-${p.id}`,contextTokens:native.provider(p.id).contextTokens});}return send(res,201,agent.providers.save(raw));}
           if(req.method==="GET"&&arg==="models"){const p=agent.providers.get(sub);return send(res,200,{models:p.runtimeProfile?[{id:`riverfield-${p.runtimeProfile}`,contextTokens:native.provider(p.runtimeProfile).contextTokens,outputTokens:null}]:await agent.providers.models(sub,url.searchParams.get("refresh")==="1")});}
           if(req.method==="GET"&&arg==="limits"){const p=agent.providers.get(sub);return send(res,200,p.runtimeProfile?{model:`riverfield-${p.runtimeProfile}`,contextTokens:native.provider(p.runtimeProfile).contextTokens,outputTokens:null,source:"managed GGUF profile"}:await agent.providers.limits(sub,url.searchParams.get("model")||p.model));}
           if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}

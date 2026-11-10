@@ -13,9 +13,14 @@ process ownership are not imported.
   does not read tensor payloads or prove that a build supports the model architecture.
 - Each profile has its own settings. A different GGUF requires a new profile.
   Vision projector and external draft paths are explicit: never inherited or auto-paired.
-- Defaults: **32,768 context tokens, one slot, 256/64 batch/microbatch, Q8 KV,
-  no speculative decoding, no auxiliary GGUF**. Context is allocated at load time;
-  changing a request's output cap does not shrink an already allocated KV cache.
+- Defaults: **the GGUF's native context (`-c 0`), one slot, 256/64 batch/microbatch,
+  Q8 KV, no speculative decoding, no auxiliary GGUF**. Native mode asks llama.cpp for the
+  model's full training context, read from the GGUF metadata and confirmed through
+  `/props` after load. Context is allocated at load time and can be several gigabytes at
+  256K; changing a request's output cap does not shrink an already allocated KV cache.
+  Set an explicit token count if the full context does not fit, or let the build's
+  auto-fit adjust other unset arguments. `-c 0` explicitly disables context reduction,
+  so a too-large native context fails honestly instead of silently shrinking the window.
 - 55 structured controls cover context, threads/batches, Flash Attention, load mode,
   KV placement/quantization, fit, device/tensor splits, CPU MoE, vision, MTP/draft,
   and sampling. Unadvertised non-default flags fail before launch; parameter values
