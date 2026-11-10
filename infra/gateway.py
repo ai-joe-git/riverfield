@@ -68,6 +68,32 @@ class Pantry:
             self.models, self.app = models, app
             return {"freed": freed, "previous": previous, "current": app}
 
+    async def release(self) -> dict:
+        async with self.lock:
+            # Require the bridge: /free alone acknowledges a request, not released memory.
+            async with self.session.get(f"{COMFYUI_URL}/riverfield-memory/status", timeout=ClientTimeout(total=5)) as r:
+                if r.status != 200:
+                    raise web.HTTPConflict(text="Install Riverfield's memory bridge and restart ComfyUI")
+                state = await r.json()
+            if state["busy"]:
+                raise web.HTTPConflict(text="ComfyUI still has running or queued work")
+            async with self.session.post(f"{COMFYUI_URL}/free", json={"unload_models": True, "free_memory": True}, timeout=ClientTimeout(total=5)) as r:
+                r.raise_for_status()
+            deadline, stable = time.monotonic() + 45, 0
+            while time.monotonic() < deadline:
+                await asyncio.sleep(0.5)
+                async with self.session.get(f"{COMFYUI_URL}/riverfield-memory/status", timeout=ClientTimeout(total=5)) as r:
+                    r.raise_for_status()
+                    state = await r.json()
+                if state["busy"]:
+                    raise web.HTTPConflict(text="Another client submitted ComfyUI work during release")
+                stable = stable + 1 if not state["pending"] and state["loaded_models"] == 0 and state["reserved_bytes"] == 0 else 0
+                if stable >= 4:
+                    self.models, self.app = None, None
+                    self.frees += 1
+                    return {"released": True, "comfyui": state}
+            raise web.HTTPConflict(text="ComfyUI did not confirm released models and GPU allocator memory; refusing LLM reload")
+
 
 def authorized(request: web.Request) -> bool:
     if ALLOW_OPEN:
@@ -105,6 +131,10 @@ async def status(request: web.Request) -> web.Response:
     except Exception as e:  # ComfyUI may still be starting
         stats = {"error": str(e)}
     return web.json_response({"app": pantry.app, "models": pantry.models, "frees": pantry.frees, "comfyui": stats})
+
+
+async def release(request: web.Request) -> web.Response:
+    return web.json_response(await request.app["pantry"].release())
 
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "0.0.0.0", "[::1]")
@@ -169,6 +199,7 @@ def make_app() -> web.Application:
     app = web.Application(middlewares=[auth_mw], client_max_size=1024 ** 3)
     app.router.add_get("/health", health)
     app.router.add_post("/riverfield/prepare", prepare)
+    app.router.add_post("/riverfield/release", release)
     app.router.add_get("/riverfield/status", status)
     app.router.add_route("*", "/{tail:.*}", forward)
     app.on_startup.append(on_startup)

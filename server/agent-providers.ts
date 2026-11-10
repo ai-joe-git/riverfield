@@ -4,7 +4,7 @@ import {randomUUID} from "node:crypto";
 import {z} from "zod";
 import {atomic,type ChatMessage,type Attachment,type Call} from "./agent-store.ts";
 
-export const providerSchema=z.object({id:z.string().regex(/^[\w-]{1,100}$/).optional(),name:z.string().min(1).max(100),kind:z.enum(["openai","anthropic"]).default("openai"),location:z.enum(["local","remote"]),baseURL:z.string().url(),apiKey:z.string().max(1000).optional(),keyEnv:z.string().regex(/^[A-Z][A-Z0-9_]*$/).optional(),model:z.string().max(200).default(""),temperature:z.number().min(0).max(2).default(.7),tokenMode:z.enum(["native","custom"]).default("native"),maxTokens:z.number().int().min(32).max(2097152).default(8192),contextTokens:z.number().int().min(1024).max(4000000).default(32768),topP:z.number().min(0).max(1).optional(),toolMode:z.enum(["native","json"]).default("native"),vision:z.boolean().default(false)});
+export const providerSchema=z.object({id:z.string().regex(/^[\w-]{1,100}$/).optional(),name:z.string().min(1).max(100),kind:z.enum(["openai","anthropic"]).default("openai"),location:z.enum(["local","remote"]),baseURL:z.string().url(),apiKey:z.string().max(1000).optional(),keyEnv:z.string().regex(/^[A-Z][A-Z0-9_]*$/).optional(),model:z.string().max(200).default(""),temperature:z.number().min(0).max(2).default(.7),tokenMode:z.enum(["native","custom"]).default("native"),maxTokens:z.number().int().min(32).max(2097152).default(8192),contextTokens:z.number().int().min(1024).max(4000000).default(32768),topP:z.number().min(0).max(1).optional(),topK:z.number().int().min(0).optional(),minP:z.number().min(0).max(1).optional(),repeatPenalty:z.number().min(0).max(10).optional(),seed:z.number().int().optional(),runtimeProfile:z.string().regex(/^[\w-]{1,100}$/).optional(),toolMode:z.enum(["native","json"]).default("native"),vision:z.boolean().default(false)});
 export type ModelLimits={id:string;contextTokens:number|null;outputTokens:number|null};
 export type Provider=z.infer<typeof providerSchema>&{id:string;nativeLimits?:ModelLimits};
 const positive=(...values:any[])=>values.find(v=>typeof v==="number"&&Number.isSafeInteger(v)&&v>0&&v<=100000000)||null;
@@ -22,20 +22,22 @@ export class Providers {
   save(raw:unknown){const parsed=providerSchema.parse(raw),old=parsed.id?this.all().find(p=>p.id===parsed.id):undefined;
     const p:Provider={...parsed,id:parsed.id||randomUUID(),baseURL:validateEndpoint(parsed),apiKey:parsed.apiKey===undefined?old?.apiKey:parsed.apiKey};
     if(p.kind==="anthropic"&&p.toolMode==="json")throw new Error("Anthropic uses native tool calling; choose Native tools");
+    if(p.runtimeProfile&&(p.location!=="local"||p.kind!=="openai"||p.apiKey||p.keyEnv))throw new Error("Managed runtimes use a local OpenAI-compatible connection without API credentials");
     const rest=this.all().filter(v=>v.id!==p.id);atomic(this.path,[...rest,p]);this.cache.delete(p.id);return this.list().find(v=>v.id===p.id)!;}
   remove(id:string){atomic(this.path,this.all().filter(p=>p.id!==id));}
   key(p:Provider){return p.apiKey||(p.keyEnv?process.env[p.keyEnv]:"")||"";}
   redactText(s:string){for(const p of this.all()){const key=this.key(p);if(key)s=s.split(key).join("[redacted]");}return s;}
   redact(error:unknown){return this.redactText(error instanceof Error?error.message:String(error)).slice(0,2000);}
   async models(id:string,refresh=false):Promise<ModelLimits[]>{const cached=this.cache.get(id);if(!refresh&&cached&&Date.now()-cached.at<60000)return cached.models;const p=this.get(id),r=await this.doFetch(`${p.baseURL}/models`,{headers:headers(p,this.key(p)),redirect:"error",signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error(`Model list unavailable (${r.status}); enter a model name manually`);const d=await r.json() as any;if(!Array.isArray(d.data))throw new Error("Provider model endpoint did not return an OpenAI-compatible model list");const models:ModelLimits[]=d.data.filter((m:any)=>typeof m?.id==="string").map(modelLimits);this.cache.set(id,{at:Date.now(),models});return models;}
-  async resolve(id:string,model:string):Promise<Provider>{const p=this.get(id);let limits:ModelLimits|undefined;try{limits=(await this.models(id)).find(m=>m.id===model);}catch{/* Unknown limits stay unknown; no made-up cap based on a model name. */}return {...p,nativeLimits:limits,contextTokens:p.tokenMode==="native"&&limits?.contextTokens?limits.contextTokens:p.contextTokens};}
+  async resolve(id:string,model:string):Promise<Provider>{const p=this.get(id);if(p.runtimeProfile)return p;let limits:ModelLimits|undefined;try{limits=(await this.models(id)).find(m=>m.id===model);}catch{/* Unknown limits stay unknown; no made-up cap based on a model name. */}return {...p,nativeLimits:limits,contextTokens:p.tokenMode==="native"&&limits?.contextTokens?limits.contextTokens:p.contextTokens};}
   async limits(id:string,model:string){const p=await this.resolve(id,model);return {model,tokenMode:p.tokenMode,contextTokens:p.nativeLimits?.contextTokens||null,outputTokens:p.nativeLimits?.outputTokens||null,configuredMaxTokens:p.maxTokens,source:p.nativeLimits?.outputTokens?"model metadata":p.tokenMode==="native"&&p.kind==="openai"?"server default (output cap not advertised)":"configured fallback"};}
 }
 /** Reserve input/tool tokens within a shared context window, without pretending to tokenize exactly. */
 export function outputBudget(p:Provider,inputTokens:number){
   const requested=p.tokenMode==="native"?p.nativeLimits?.outputTokens||(p.kind==="anthropic"?p.maxTokens:undefined):p.maxTokens;
-  if(requested===undefined)return undefined;const context=Math.min(p.contextTokens,p.nativeLimits?.contextTokens||p.contextTokens);
+  const context=Math.min(p.contextTokens,p.nativeLimits?.contextTokens||p.contextTokens);
   const remaining=context-Math.ceil(inputTokens)-256;if(remaining<32)throw new Error("Model context is full; start a new conversation or increase its context allowance");
+  if(requested===undefined)return undefined;
   return Math.max(32,Math.min(requested,p.nativeLimits?.outputTokens||requested,remaining));
 }
 const headers=(p:Provider,key:string):Record<string,string>=>({"content-type":"application/json",...(p.kind==="anthropic"?{"anthropic-version":"2023-06-01",...(key?{"x-api-key":key}:{})}:key?{authorization:`Bearer ${key}`}:{})});
@@ -86,7 +88,7 @@ export async function complete(p:Provider,key:string,model:string,system:string,
   }else{
     const history=messages.map(m=>jsonMode?{role:m.role==="tool"?"user":m.role,content:m.role==="tool"?`Actual tool result (${m.callId}): ${m.content}`:content(m,p,files)}:
       m.role==="tool"?{role:"tool",tool_call_id:m.callId,content:m.content}:m.role==="assistant"?{role:"assistant",content:m.content||null,...(m.calls?.length?{tool_calls:m.calls.map(c=>({id:c.id,type:"function",function:{name:c.name,arguments:JSON.stringify(c.arguments)}}))}:{})}:{role:"user",content:content(m,p,files)});
-    path="chat/completions";payload={model,messages:[{role:"system",content:instruction},...history],temperature:p.temperature,max_tokens:p.maxTokens,stream:true,...(p.topP!==undefined?{top_p:p.topP}:{}),...(!jsonMode?{tools:tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:toolSchema(t.inputSchema)}})),tool_choice:"auto"}:{})};
+    path="chat/completions";payload={model,messages:[{role:"system",content:instruction},...history],temperature:p.temperature,max_tokens:p.maxTokens,stream:true,...(p.topP!==undefined?{top_p:p.topP}:{}),...(p.topK!==undefined?{top_k:p.topK}:{}),...(p.minP!==undefined?{min_p:p.minP}:{}),...(p.repeatPenalty!==undefined?{repeat_penalty:p.repeatPenalty}:{}),...(p.seed!==undefined?{seed:p.seed}:{}),...(!jsonMode?{tools:tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:toolSchema(t.inputSchema)}})),tool_choice:"auto"}:{})};
   }
   let imageAllowance=0;
   const estimatedText=JSON.stringify({...payload,max_tokens:undefined},(_key,value)=>{if(value?.type==="image_url"||(value?.type==="image"&&value.source?.type==="base64")){imageAllowance+=8192;return {type:"image",note:"vision input estimated separately"};}return value;});

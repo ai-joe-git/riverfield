@@ -1,6 +1,7 @@
 import {el,icon,toast} from "./util.js";
 import {button,safe,field,select,modal,tokens,errorText,providerSettings,modelPicker} from "./agent-controls.js";
 import {createTimeline,mediaIndex} from "./agent-timeline.js";
+import {projectSettings} from "./agent-project.js";
 
 async function api(path="",method="GET",body){const r=await fetch(`/api/agent${path}`,{method,headers:body instanceof FormData?{}:{"content-type":"application/json"},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data;}
 /** DOM-only Markdown: raw HTML and remote image embeds are never interpreted. */
@@ -83,7 +84,8 @@ export function agentView({home=false}={}){
   if(mediaBadge)mediaBadge.textContent=mediaItems.length||"";
   if(busy())header.querySelectorAll("select").forEach(e=>e.disabled=true);
  }
- function conversationSettings(){const d=modal("Conversation controls","Keep the agent focused. You control tools and autonomy.");let instructions=c.instructions,maxSteps=c.maxSteps,autonomy=c.mode;const enabled=new Set(c.enabledTools.length?c.enabledTools:tools.map(t=>t.name));
+  function conversationSettings(){const d=modal("Conversation controls","Keep the agent focused. You control tools and autonomy.");let instructions=c.instructions,maxSteps=c.maxSteps,autonomy=c.mode;const enabled=new Set(c.enabledTools.length?c.enabledTools:tools.map(t=>t.name));
+   d.append(button("Project & consistency",()=>projectSettings(c,project=>patch({project})),"btn lime"));
   d.append(field("Additional instructions",instructions,v=>instructions=v,"textarea"),select("Autonomy",autonomy,[["ask","Ask before running"],["auto","Auto"],["read-only","Read-only"]],v=>autonomy=v),field("Maximum agent steps per turn",maxSteps,v=>maxSteps=v,"number"),el("div",{class:"ag-tool-toggles"},...tools.map(t=>el("label",{class:"ag-tool-toggle"},el("input",{type:"checkbox",checked:enabled.has(t.name),onchange:e=>e.target.checked?enabled.add(t.name):enabled.delete(t.name)}),el("span",{},t.name)))),el("p",{class:"ag-privacy-note"},"The selected model and tool permissions still apply. Local engines are independently managed; Riverfield will not kill or unload them. Other clients can bypass the studio queue."),button("Save controls",safe(async()=>{if(!enabled.size)throw new Error("Enable at least one tool or use read-only mode");await patch({instructions,maxSteps,mode:autonomy,enabledTools:[...enabled]});d.close();}),"btn lime"));d.showModal();}
  function preview(a,inDrawer=false){const type=kind(a);
   if(type==="image"||a.mime?.startsWith("image/"))return el("img",{src:a.url,alt:a.name,loading:"lazy",decoding:"async"});

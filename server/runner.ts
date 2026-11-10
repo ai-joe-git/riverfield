@@ -3,6 +3,7 @@
 import { Comfy } from "@comfyorg/sdk";
 import type { App, Input } from "./registry.ts";
 import { isFileInput, modelKey } from "./registry.ts";
+import {validateH3} from "./h3-plan.ts";
 
 export type FileValue = { bytes: Uint8Array; name: string; type?: string };
 export type Values = Record<string, unknown>;
@@ -108,6 +109,7 @@ export function resolveValues(app: App, values: Values): Values {
       out[input.id] = coerce(input, v);
     }
   }
+  if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
   return out;
 }
 
@@ -298,6 +300,13 @@ export class Runner {
     if (res.status === 404 || res.status === 405) return { freed: false, skipped: true };
     if (!res.ok) throw new Error(`gateway /riverfield/prepare answered ${res.status}`);
     return (await res.json()) as { freed: boolean };
+  }
+
+  /** A managed LLM must not be loaded on top of cached media models. No silent 404 fallback. */
+  async release(signal?:AbortSignal):Promise<void>{
+    const response=await this.doFetch(`${this.baseUrl}/riverfield/release`,{method:"POST",headers:{"content-type":"application/json",...(this.token?{authorization:`Bearer ${this.token}`}:{})},body:"{}",signal:AbortSignal.any([AbortSignal.timeout(60000),...(signal?[signal]:[])])});
+    if(!response.ok)throw new Error(`Cannot safely release ComfyUI models (${response.status}). Update/restart the Riverfield gateway and memory bridge before loading the managed agent.`);
+    const result=await response.json() as any;if(result.released!==true)throw new Error("ComfyUI did not confirm model release; native model was not loaded");
   }
 
   /** Does the backend ship this node class? Asked once per class, cached for the process. */

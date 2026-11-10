@@ -18,6 +18,7 @@ import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 import { fileURLToPath } from "node:url";
 import { promptGuidance } from "./prompt-guidance.ts";
+import {planH3,segmentRequest} from "../server/h3-plan.ts";
 
 const BASE = (process.env.RIVERFIELD_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
@@ -54,6 +55,10 @@ async function manifest(id: string,base=BASE): Promise<Any> {
 /** The same multipart the web UI posts: one field per input, files by path. */
 async function form(id: string, values: Any, files: Any, preset?: string,base=BASE): Promise<FormData> {
   const app = await manifest(id,base);
+  const inputs=new Map<string,Any>(app.inputs.map((input:Any)=>[input.id,input]));
+  for(const key of [...Object.keys(values),...Object.keys(files)])if(!inputs.has(key))throw new Error(`Unknown input ${key} for ${id}; read get_app instead of guessing parameter names`);
+  for(const key of Object.keys(files))if(!["image","video","audio"].includes(inputs.get(key)?.type))throw new Error(`${key} is not a file input`);
+  for(const key of Object.keys(values))if(["image","video","audio"].includes(inputs.get(key)?.type))throw new Error(`Pass ${key} in files, not values`);
   const fd = new FormData();
   for (const inp of app.inputs as Any[]) {
     const path = files[inp.id];
@@ -95,6 +100,8 @@ const fail = (e: unknown) => ({
 export function build(base=BASE): McpServer {
   const call=(path:string,init?:RequestInit)=>api(path,init,base);
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
+
+  server.registerTool("plan_segments",{title:"Build aligned H3 segment windows",description:"Pure planning, no GPU work. Construct valid Material Planner segment_windows for H3 Director apps, including Pika. Each prompt is one segment; images/audios are zero-based file slots. Copy the returned segment_windows unchanged into run_app. Does not choose a video engine.",inputSchema:segmentRequest.shape,annotations:{readOnlyHint:true}},async args=>{try{return text(planH3(args));}catch(e){return fail(e);}});
 
   server.registerTool("list_apps", {
     title: "List RiverField apps",

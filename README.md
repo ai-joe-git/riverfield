@@ -170,7 +170,12 @@ user message → your chosen LLM → MCP tool discovery → get_app (manifest + 
   JSON tool protocol as a fallback, incremental streaming of text and tool activity, bounded step limits,
   cancellation, and honest errors. A tool that was not run is never reported as done. Repeating the same
   non-polling tool call with identical arguments in one turn stops the turn instead of looping; `job`,
-  `wait_job`, `history`, `gpu` and `cancel_job` remain repeatable.
+  `wait_job`, `history`, `gpu`, `cancel_job` and project-state operations remain repeatable.
+- **Managed GGUF runtime.** Optional llama.cpp Vulkan process ownership, model-scoped profiles,
+  55 structured controls plus searchable build-specific expert options, and automatic LLM/media
+  memory handoff. External local/remote API connections stay available. Durable project references,
+  explicit engine locks and H3 preflight constrain common agent mistakes. See
+  [runtime setup, safety and limitations](docs/native-runtime.md).
 - **Anti-hallucination guardrails.** The agent must `get_app` before `run_app`; tool arguments are validated
   against the live MCP schema; file paths are scoped to History, your uploads and examples; `run_app` carries
   an idempotency key so a retry cannot silently pay for a second generation; native video dialogue is never

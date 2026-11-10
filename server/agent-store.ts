@@ -2,6 +2,7 @@ import {mkdirSync,readdirSync,readFileSync,writeFileSync,renameSync,existsSync,r
 import {join,resolve,relative,isAbsolute,extname} from "node:path";
 import {randomUUID} from "node:crypto";
 import {hydrateMedia} from "./agent-media.ts";
+import type {AgentProject} from "./agent-project.ts";
 
 export type Call={id:string;name:string;arguments:Record<string,unknown>};
 export type ChatMessage={id:string;role:"user"|"assistant"|"tool";content:string;calls?:Call[];callId?:string;attachments?:string[];created:string};
@@ -9,7 +10,7 @@ export type ToolRecord=Call&{status:"proposed"|"approved"|"running"|"done"|"erro
 export type Attachment={id:string;name:string;path:string;mime:string;url:string};
 export type ArtifactOrigin={messageId:string;toolCallId?:string;turnId?:string;jobId?:string;inferred?:boolean;unknown?:boolean};
 export type Artifact=Attachment&{type:string;job?:string;app?:string;seconds?:number;metadata?:unknown;origin?:ArtifactOrigin;created?:string};
-export type Conversation={id:string;title:string;created:string;updated:string;provider:string;model:string;instructions:string;mode:"ask"|"auto"|"read-only";maxSteps:number;enabledTools:string[];messages:ChatMessage[];tools:ToolRecord[];attachments:Attachment[];artifacts:Artifact[];jobs:string[];jobStates:Record<string,any>;status:"idle"|"running"|"approval"|"failed"|"canceled"|"interrupted";error?:string;warnings:string[];runId?:string};
+export type Conversation={id:string;title:string;created:string;updated:string;provider:string;model:string;instructions:string;mode:"ask"|"auto"|"read-only";maxSteps:number;enabledTools:string[];messages:ChatMessage[];tools:ToolRecord[];attachments:Attachment[];artifacts:Artifact[];jobs:string[];jobStates:Record<string,any>;status:"idle"|"running"|"approval"|"failed"|"canceled"|"interrupted";error?:string;warnings:string[];runId?:string;project?:AgentProject};
 export const identifier=(s:string)=>{if(!/^[a-zA-Z0-9_-]{1,100}$/.test(s)||["__proto__","constructor","prototype"].includes(s))throw new Error("Invalid identifier");return s;};
 export function within(root:string,path:string){const base=realpathSync(root),file=realpathSync(resolve(root,path)),rel=relative(base,file);if(rel.startsWith("..")||isAbsolute(rel))throw new Error("File outside permitted scope");return file;}
 export function atomic(path:string,data:unknown){const temp=`${path}.tmp`;writeFileSync(temp,JSON.stringify(data,null,2),{mode:0o600});renameSync(temp,path);chmodSync(path,0o600);}

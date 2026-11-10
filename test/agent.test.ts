@@ -20,13 +20,13 @@ const definitions:ToolDefinition[]=[
 const text=(data:any)=>({content:[{type:"text",text:JSON.stringify(data)}]});
 const call=(name:string,args:any={})=>({text:"",calls:[{id:"model-reuses-this-id",name,arguments:args}]});
 async function settled(a:RiverfieldAgent,id:string){for(let i=0;i<500;i++){const c=a.store.get(id);if(c.status!=="running")return c;await new Promise(r=>setTimeout(r,10));}throw new Error("Agent timeout");}
-function setup(dir:string,replies:any[],handler?:(name:string,args:any)=>Promise<any>){
- let step=0;const calls:any[]=[];
+function setup(dir:string,replies:any[],handler?:(name:string,args:any)=>Promise<any>,prepareNative?:ConstructorParameters<typeof RiverfieldAgent>[5]){
+ let step=0;const calls:any[]=[],requests:any[]=[];
  const connection=():McpConnection=>({tools:async()=>definitions,call:async(name,args)=>{calls.push({name,args});return handler?handler(name,args):text(name==="get_app"?{id:args.app,inputs:[]}:name==="run_app"?{id:"job-a",app:args.app,status:"succeeded"}:{id:args.id,status:"succeeded",outputs:[]});},close:async()=>{}});
- const completion=async(...args:Parameters<typeof complete>)=>{const reply=replies[step++]||{text:"Done",calls:[]};if(reply instanceof Error)throw reply;args[8](reply.text||"");return reply;};
- const a=new RiverfieldAgent(dir,process.cwd(),new InferenceQueue().run,connection,completion);
+ const completion=async(...args:Parameters<typeof complete>)=>{requests.push(args);const reply=replies[step++]||{text:"Done",calls:[]};if(reply instanceof Error)throw reply;args[8](reply.text||"");return reply;};
+ const queue=new InferenceQueue(),a=new RiverfieldAgent(dir,process.cwd(),queue.run,connection,completion,prepareNative);
  const p=a.providers.save({name:"Test local",location:"local",baseURL:"http://127.0.0.1:8080/v1",model:"fixture"});
- const c=a.store.create(p.id,"fixture");return {a,c,calls,steps:()=>step,connection};
+ const c=a.store.create(p.id,"fixture");return {a,c,calls,steps:()=>step,connection,requests,queue};
 }
 test("providers are server-side, redacted and protected; endpoint labels are enforced",()=>{
  const dir=temporary();try{const s=new AgentStore(dir),p=new Providers(s.dir);const v=p.save({name:"OpenAI",location:"remote",baseURL:"https://api.openai.com/v1",apiKey:"PRIVATE-TEST-KEY",model:"test"});
@@ -119,6 +119,24 @@ test("a succeeded generation still cannot be submitted twice in one turn",async(
  a.message(x.c.id,{text:"make the scene"});const c=await settled(a,x.c.id);
  assert.equal(c.status,"failed");assert.match(c.error||"",/already submitted/i);
  assert.equal(x.calls.filter(c=>c.name==="run_app").length,1);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
+test("lost generation retries remain bounded, including after a successful retry",async()=>{
+ for(const second of ["lost","succeeded"]){const dir=temporary();let a:RiverfieldAgent|undefined;try{let jobs=0;
+ const x=setup(dir,[call("get_app",{app:"z-image"}),...Array.from({length:3},()=>call("run_app",{app:"z-image",values:{prompt:"x"}}))],async(name,args)=>text(name==="get_app"?{id:args.app,inputs:[]}:{id:`job-${++jobs}`,app:args.app,status:jobs===1?"lost":second}));a=x.a;a.edit(x.c.id,{mode:"auto"});a.message(x.c.id,{text:"make it"});const c=await settled(a,x.c.id);assert.equal(c.status,"failed");assert.equal(x.calls.filter(t=>t.name==="run_app").length,2);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}}
+});
+test("project_state is local and persisted; model updates cannot change user engine locks",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[call("project_state",{action:"update",state:{summary:"Keep cast and locations",references:[],scenes:[],activeScene:""}}),{text:"Plan recorded",calls:[]}]);a=x.a;a.edit(x.c.id,{mode:"auto",project:{brief:"Black Mirror style, vertical",summary:"",references:[],scenes:[],activeScene:"",lock:{section:"video",app:"pika-studio-director",values:{adapter:"ref2va"}}}});a.message(x.c.id,{text:"plan the scenes"});const c=await settled(a,x.c.id);assert.equal(c.project?.summary,"Keep cast and locations");assert.equal(c.project?.lock.app,"pika-studio-director");assert.equal(x.calls.filter(t=>t.name==="project_state").length,0);assert.match(x.requests.at(-1)[3],/Black Mirror style, vertical/);assert.match(x.requests.at(-1)[3],/Keep cast and locations/);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
+test("read-only project writes and user-locked video substitutions cannot dispatch",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[call("project_state",{action:"update",state:{summary:"no",references:[],scenes:[],activeScene:""}}),{text:"No update",calls:[]}]);a=x.a;a.edit(x.c.id,{mode:"read-only"});a.message(x.c.id,{text:"inspect"});let c=await settled(a,x.c.id);assert.equal(c.tools[0].status,"error");assert.match(c.tools[0].error||"",/read-only/);assert.equal(x.calls.length,0);await a.close();
+ const y=setup(dir,[call("get_app",{app:"h3-r2v"}),call("run_app",{app:"h3-r2v",values:{prompt:"x"}}),{text:"Use Pika instead",calls:[]}],async()=>text({id:"h3-r2v",section:"video",inputs:[]}));a=y.a;a.edit(y.c.id,{mode:"auto",project:{brief:"",summary:"",references:[],scenes:[],activeScene:"",lock:{section:"video",app:"pika-studio-director",values:{}}}});a.message(y.c.id,{text:"make it"});c=await settled(a,y.c.id);assert.equal(y.calls.filter(t=>t.name==="run_app").length,0);assert.match(c.tools.find(t=>t.name==="run_app")?.error||"",/locked video engine/);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
+test("managed provider preparation occurs inside the shared GPU slot before completion",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{let prepared=0;const x=setup(dir,[{text:"Ready",calls:[]}],undefined,async(p)=>{prepared++;assert.ok(x.queue.snapshot().active?.label.startsWith("Agent"));return {...p,baseURL:"http://127.0.0.1:45678/v1",model:"riverfield-fixture",contextTokens:4096,temperature:.3};});a=x.a;const p=a.providers.get(x.c.provider);a.providers.save({...p,runtimeProfile:"fixture"});a.message(x.c.id,{text:"hello"});const c=await settled(a,x.c.id);assert.equal(c.status,"idle");assert.equal(prepared,1);assert.equal(x.requests[0][0].baseURL,"http://127.0.0.1:45678/v1");assert.equal(x.requests[0][2],"riverfield-fixture");assert.equal(x.requests[0][0].contextTokens,4096);
  }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
 });
 test("restart marks uncertain dispatches and reconnects known jobs without resubmitting generation",async()=>{

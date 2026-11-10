@@ -35,6 +35,10 @@ import { discoverModels } from "./model-discovery.ts";
 import { build as studioMcpServer } from "../mcp/server.ts";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {MediaTools} from "./media.ts";
+import {NativeRuntime} from "./native-runtime.ts";
+import {complete,type Provider} from "./agent-providers.ts";
+import {projectTool} from "./agent-project.ts";
+import {parseNativeHelp} from "./native-options.ts";
 
 const root = repoRoot();
 const { apps, problems } = loadRegistry(root);
@@ -75,10 +79,21 @@ const history = new History(join(outDir, "history"), {
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
 const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
 const mcpURL=process.env.RIVERFIELD_AGENT_MCP_URL||`${studioURL}/mcp`;
-const agent=new RiverfieldAgent(outDir,root,inference.run,()=>new StudioMcp(mcpURL));
+const native=new NativeRuntime(join(outDir,"native-runtime"));
+const nativeLoads=new Set<AbortController>();
+const prepareNative=async(p:Provider,signal:AbortSignal)=>{
+  if(!p.runtimeProfile){await native.unload();return p;}
+  const profile=native.get(p.runtimeProfile!);
+  if(native.status().phase!=="ready"||native.status().profile!==profile.id){
+    if(process.env.COMFY_BASE_URL&&["127.0.0.1","localhost","[::1]"].includes(new URL(process.env.COMFY_BASE_URL).hostname))await getRunner().release(signal);
+  }
+  return {...p,...await native.load(profile.id,signal)};
+};
+const agent=new RiverfieldAgent(outDir,root,inference.run,()=>new StudioMcp(mcpURL),complete,prepareNative);
 const media=new MediaTools(outDir,root);
 function localAccess(req:IncomingMessage){
   if(!["127.0.0.1","::1","::ffff:127.0.0.1"].includes(req.socket.remoteAddress||""))throw new InputError("Agent configuration and embedded MCP require a local connection");
+  if(!["127.0.0.1","localhost","[::1]"].includes(new URL(`http://${req.headers.host}`).hostname))throw new InputError("Use a localhost URL for local studio controls");
   if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host)throw new InputError("Cross-origin studio requests are not permitted");
 }
 
@@ -211,6 +226,7 @@ function startRun(app: App, values: Values, preset?: string,requestKey?:string) 
   void (async () => {
     try {
       await inference.run(app.name, async () => {
+        await native.unload();
         const job = await getRunner().submit(app, values, preset);
         const following = history.follow(entry, job);
         if(controller.signal.aborted) await history.cancel(entry.id);
@@ -304,19 +320,35 @@ const server = createServer(async (req, res) => {
       if(area==="agent"){
         localAccess(req);if(guard.hosted)return send(res,403,{error:"Agent provider settings are disabled on public hosted demos"});
         const body=async()=>await (await toRequest(req,22)).json();
+        if(id==="runtime"){
+          if(req.method==="GET"&&!sub)return send(res,200,native.catalogue());
+          if(req.method==="GET"&&sub==="binaries")return send(res,200,{binaries:native.binaries()});
+          if(req.method==="POST"&&sub==="scan"){const raw=await body() as any;if(typeof raw.directory!=="string")throw new InputError("Expected a local directory");return send(res,200,{files:native.scan(raw.directory)});}
+          if(req.method==="POST"&&sub==="help"){const raw=await body() as any;if(typeof raw.executable!=="string")throw new InputError("Expected llama-server path");const help=await native.help(raw.executable);return send(res,200,{help,options:parseNativeHelp(help)});}
+          if(req.method==="POST"&&sub==="inspect"){const raw=await body() as any;if(typeof raw.path!=="string")throw new InputError("Expected GGUF path");return send(res,200,native.inspect(raw.path));}
+          if(req.method==="POST"&&sub==="profiles")return send(res,201,await native.save(await body()));
+          if(req.method==="DELETE"&&sub==="profiles"&&arg){if(agent.providers.list().some(p=>p.runtimeProfile===arg))throw new InputError("Delete its managed provider connection first");native.remove(arg);return send(res,200,{removed:true});}
+          if(req.method==="POST"&&sub==="unload"){for(const controller of nativeLoads)controller.abort(new Error("Native model loading canceled by user"));native.cancelLoading();await inference.run("Unload native agent",()=>native.unload());return send(res,200,native.status());}
+          if(req.method==="POST"&&sub==="load"){const raw=await body() as any;const id=String(raw.profile||"");native.get(id);const controller=new AbortController();nativeLoads.add(controller);try{await inference.run("Load native agent",()=>prepareNative({runtimeProfile:id} as Provider,controller.signal),controller.signal);}finally{nativeLoads.delete(controller);}return send(res,200,native.status());}
+        }
         if(id==="providers"){
           if(req.method==="GET"&&!sub)return send(res,200,{providers:agent.providers.list()});
-          if(req.method==="POST"&&!sub)return send(res,201,agent.providers.save(await body()));
-          if(req.method==="GET"&&arg==="models")return send(res,200,{models:await agent.providers.models(sub,url.searchParams.get("refresh")==="1")});
-          if(req.method==="GET"&&arg==="limits")return send(res,200,await agent.providers.limits(sub,url.searchParams.get("model")||agent.providers.get(sub).model));
+          if(req.method==="POST"&&!sub){const raw=await body() as any;if(raw.runtimeProfile){const p=native.get(String(raw.runtimeProfile));Object.assign(raw,{location:"local",kind:"openai",baseURL:"http://127.0.0.1:1/v1",model:`riverfield-${p.id}`,contextTokens:Math.floor(Number(p.options.contextSize||32768)/Number(p.options.parallel||1))});}return send(res,201,agent.providers.save(raw));}
+          if(req.method==="GET"&&arg==="models"){const p=agent.providers.get(sub);return send(res,200,{models:p.runtimeProfile?[{id:`riverfield-${p.runtimeProfile}`,contextTokens:native.provider(p.runtimeProfile).contextTokens,outputTokens:null}]:await agent.providers.models(sub,url.searchParams.get("refresh")==="1")});}
+          if(req.method==="GET"&&arg==="limits"){const p=agent.providers.get(sub);return send(res,200,p.runtimeProfile?{model:`riverfield-${p.runtimeProfile}`,contextTokens:native.provider(p.runtimeProfile).contextTokens,outputTokens:null,source:"managed GGUF profile"}:await agent.providers.limits(sub,url.searchParams.get("model")||p.model));}
           if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}
         }
         if(id==="discover"&&req.method==="GET")return send(res,200,{servers:await discoverModels()});
-        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:await client.tools()});}finally{await client.close();}}
+        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:[...(await client.tools()).filter(t=>t.name!=="project_state"),projectTool]});}finally{await client.close();}}
         if(id==="conversations"){
           if(!sub&&req.method==="GET")return send(res,200,{conversations:agent.list()});
           if(!sub&&req.method==="POST"){const raw=await body() as any;return send(res,201,agent.store.create(typeof raw.provider==="string"?raw.provider:"",typeof raw.model==="string"?raw.model:""));}
-          if(sub&&!arg){if(req.method==="GET")return send(res,200,agent.get(sub));if(req.method==="PATCH")return send(res,200,agent.edit(sub,await body()));if(req.method==="DELETE"){await agent.remove(sub);return send(res,200,{removed:true});}}
+          if(sub&&!arg){if(req.method==="GET")return send(res,200,agent.get(sub));if(req.method==="PATCH"){
+            const raw=await body() as any,lock=raw.project?.lock;
+            if(lock?.app){const app=byId.get(lock.app);if(!app||app.section!==lock.section)throw new InputError("Project lock must name an app from the selected studio");for(const [key,value] of Object.entries(lock.values||{})){const input=app.inputs.find(i=>i.id===key);if(!input||isFileInput(input))throw new InputError(`Unknown/non-parameter locked input ${key}`);if(input.type==="select"&&!input.options?.some(o=>o.value===value))throw new InputError(`Locked ${key} is not a supported option`);}}
+            else if(lock&&Object.keys(lock.values||{}).length)throw new InputError("Choose an app before locking its input values");
+            return send(res,200,agent.edit(sub,raw));
+          }if(req.method==="DELETE"){await agent.remove(sub);return send(res,200,{removed:true});}}
           if(arg==="events"&&req.method==="GET"){
             const c=agent.get(sub);res.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-store",connection:"keep-alive","x-accel-buffering":"no"});
             const event=(type:string,value:unknown)=>res.write(`event: ${type}\ndata: ${JSON.stringify(value)}\n\n`);event("state",c);
@@ -460,3 +492,7 @@ const port = Number(process.env.PORT ?? 3000);
 const host = process.env.RIVERFIELD_HOST || "127.0.0.1";
 server.listen(port, host, () => console.log(`riverfield on http://${host}:${port} (${apps.length} apps)`
   + (guard.passcode ? " · passcode required" : "") + (guard.maxRunsPerDay ? ` · ${guard.maxRunsPerDay} runs a day` : "")));
+
+let closing=false;
+async function shutdown(){if(closing)return;closing=true;server.close();for(const controller of nativeLoads)controller.abort();native.cancelLoading();try{await agent.close();}finally{await native.close();process.exit(0);}}
+process.once("SIGTERM",()=>void shutdown());process.once("SIGINT",()=>void shutdown());

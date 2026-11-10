@@ -26,7 +26,8 @@ test("native limits use explicit per-model output metadata: 1M, 262K, 131K",asyn
 test("context alone is not invented as a native output cap; unknown OpenAI defaults are delegated to the server",async()=>{
  assert.equal(modelLimits({id:"unknown",context_length:1048576}).outputTokens,null);
  const dir=mkdtempSync("/tmp/opencode/agent-limits-");try{const providers=new Providers(new AgentStore(dir).dir),saved=providers.save({name:"Unknown",location:"local",baseURL:"http://localhost:8080/v1"}),p=providers.get(saved.id);let payload:any;
- await complete(p,"","unknown","system",[],[],[],new AbortController().signal,()=>{},(async(_url,init)=>{payload=JSON.parse(init!.body as string);return response();}) as typeof fetch);assert.equal(payload.max_tokens,undefined);
+  await complete(p,"","unknown","system",[],[],[],new AbortController().signal,()=>{},(async(_url,init)=>{payload=JSON.parse(init!.body as string);return response();}) as typeof fetch);assert.equal(payload.max_tokens,undefined);
+  assert.throws(()=>outputBudget(p,p.contextTokens),/context is full/,"delegating output capacity does not waive the input context bound");
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 test("custom caps above 32K remain available and are bounded by context, without consuming the whole history allowance",()=>{

@@ -48,7 +48,7 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
   try {
     const tools = await client.tools();
     const names = tools.map((t) => t.name);
-    for (const expected of ["list_apps", "get_app", "run_app", "job", "wait_job", "cancel_job", "history", "gpu", "examples", "media"])
+    for (const expected of ["list_apps", "get_app", "run_app", "job", "wait_job", "cancel_job", "history", "gpu", "examples", "media","plan_segments"])
       assert.ok(names.includes(expected), `MCP must expose ${expected}`);
     assert.ok(!names.includes("autoshorts"), "AutoShorts must no longer be an MCP tool");
 
@@ -58,6 +58,9 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     const described = resultData(await client.call("get_app", { app: "z-image" }));
     assert.ok(described.prompting?.rules?.length, "get_app must return workflow prompting guidance");
     assert.ok(described.inputs[0].id === "prompt");
+
+    const plan=resultData(await client.call("plan_segments",{seconds:5,prompts:["Arrival","Exit"]}));assert.equal(plan.frames,209);assert.equal(received.length,0,"pure planning never submits a job");
+    const invalid=await client.call("run_app",{app:"z-image",values:{prompt:"x",invented_model:"turbo"}});assert.equal(invalid.isError,true);assert.match(JSON.stringify(invalid),/Unknown input invented_model/);assert.equal(received.length,0,"invented parameters cannot be silently ignored");
 
     await client.call("run_app", { app: "z-image", values: { prompt: "a grandmother" }, request_id: "conv:tool" });
     assert.equal(received.at(-1).request_id, "conv:tool", "run_app must forward the idempotency key");

@@ -162,6 +162,9 @@ def serve(comfy: Path, comfy_args: list[str], port: int) -> None:
     signal.signal(signal.SIGTERM, stop)
     if not proxy:
         sys.exit("comfy-api-proxy is not installed here: run setup first, in this same environment")
+    bridge = comfy / "custom_nodes" / "riverfield-memory-bridge"
+    bridge.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "local" / "riverfield-memory-bridge" / "__init__.py", bridge / "__init__.py")
     procs = []
     try:
         cmd = [sys.executable, "main.py", "--listen", "127.0.0.1", "--port", "8188", "--disable-auto-launch",

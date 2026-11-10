@@ -174,3 +174,23 @@
 @media(max-width:540px) { .ag-drawer { width:100%; border-left:0; }.ag-drawer-grid { grid-template-columns:1fr 1fr; }.ag-header { padding:0 12px; height:65px; }.ag-main { grid-template-rows:65px minmax(0,1fr) auto; }.ag-heading h1 { display:none; }.ag-header-actions .ag-round { width:28px; }.ag-model-label > span { max-width:130px; }.ag-model-chip { padding:8px; }.ag-model-chip .i { width:12px; }.ag-mode-label { display:none; }.ag-header .ag-field select { max-width:85px; font-size:10px; }.ag-chat { padding:20px 18px; }.ag-footer { padding:5px 15px 14px; }.ag-workspace.is-empty .ag-footer { padding-bottom:22px; }.ag-welcome { padding:20px 0 0; }.ag-welcome h2 { font-size:40px; letter-spacing:-1.8px; }.ag-welcome-orb { width:46px; height:46px; border-radius:15px; margin-bottom:20px; }.ag-eyebrow { font-size:7px; letter-spacing:1.4px; }.ag-starters { margin-top:20px; gap:5px; }.ag-starter { font-size:10px; padding:9px; }.ag-starter .i { display:none; }.ag-welcome > p { font-size:12px; max-width:280px; }.ag-composer-note { font-size:8px; }.ag-composer-meta { font-size:9px; }.ag-form-row { flex-wrap:wrap; }.ag-workspace { min-height:520px; }.ag-settings { padding:20px; } }
 @media(max-height:800px) and (min-width:541px) { .ag-welcome-orb { width:45px; height:45px; border-radius:15px; margin-bottom:15px; }.ag-welcome { padding:15px 0 0; }.ag-welcome h2 { font-size:46px; margin:13px 0; }.ag-starters { margin-top:18px; }.ag-workspace.is-empty .ag-footer { padding-bottom:22px; } }
 @media(prefers-reduced-motion:reduce) { .ag-thinking i,.ag-tool.running .ag-tool-dot { animation:none; }.ag-composer { transition:none; } }
+/* Managed GGUF inspector: model-scoped controls, not a second workspace. */
+.ag-native-runtime { width:min(1040px,94vw); }
+.ag-runtime-status { display:flex; flex-wrap:wrap; gap:12px; padding:16px; border:1px solid var(--line,#343434); border-radius:12px; margin-bottom:18px; }
+.ag-runtime-status .ag-error { flex-basis:100%; }
+.ag-runtime-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:18px 0; }
+.ag-runtime-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.ag-runtime-grid input[type=checkbox] { width:20px; height:20px; }
+.ag-runtime-grid small { color:#999; font-size:11px; overflow-wrap:anywhere; }
+.ag-runtime-log { white-space:pre-wrap; overflow-wrap:anywhere; max-height:360px; overflow:auto; padding:14px; font-size:12px; background:#131313; border-radius:10px; }
+.ag-runtime-pane { min-height:180px; }
+.ag-option-unsupported>span { color:#cfad7a; }
+.ag-native-help-options { max-height:380px; overflow:auto; margin-top:12px; }
+.ag-native-help-option { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #333; }
+.ag-native-help-option span { flex:1; min-width:0; }
+.ag-native-help-option small { display:block; color:#aaa; font-size:11px; }
+.ag-native-help-option input[type=checkbox] { width:18px; height:18px; }
+.ag-native-help-option input:not([type=checkbox]) { width:150px; }
+.ag-native-help-option input:not([type=checkbox]) { border:1px solid #ffffff0a; border-radius:8px; padding:8px; color:#d6dce7; background:#24272f; }
+.ag-native-runtime .ag-dialog-actions { flex-wrap:wrap; margin-top:16px; }
+@media(max-width:620px) { .ag-runtime-grid { grid-template-columns:1fr; } }

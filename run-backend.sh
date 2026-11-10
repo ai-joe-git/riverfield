@@ -82,6 +82,9 @@ wait_http() {  # url, timeout
 }
 
 echo "== ComfyUI :$COMFY_PORT (ROCm 10.1, gfx1151)"
+# Acknowledge /free completion before Riverfield reloads its managed llama.cpp model.
+mkdir -p "$COMFYUI/custom_nodes/riverfield-memory-bridge"
+cp "$RIVERFIELD_DIR/local/riverfield-memory-bridge/__init__.py" "$COMFYUI/custom_nodes/riverfield-memory-bridge/__init__.py"
 # Attention : plus de --use-split-cross-attention global. Ce mode calcule la matrice
 # d'attention complète (O(tokens²) par tête) : à 8 s de vidéo H3 il demande des centaines de
 # Go et tue la machine (runs "lost" à 0.8 MP / 8 s). Le plantage SDPA de ROCm 10.1 ne concerne
