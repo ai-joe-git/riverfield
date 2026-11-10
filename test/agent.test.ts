@@ -103,6 +103,24 @@ test("polling tools may legitimately repeat with the same id in one turn",async(
  assert.equal(c.status,"idle");assert.equal(x.calls.filter(c=>c.name==="wait_job").length,2);
  }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
 });
+test("a lost generation can be retried with the same arguments in one turn",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{let jobs=0;
+ const x=setup(dir,[call("get_app",{app:"z-image"}),call("run_app",{app:"z-image",values:{prompt:"x"}}),call("run_app",{app:"z-image",values:{prompt:"x"}}),{text:"Retried after the backend loss",calls:[]}],
+  async(name,args)=>text(name==="get_app"?{id:"z-image",inputs:[]}:{id:`job-${++jobs}`,app:args.app,status:jobs===1?"lost":"failed"}));a=x.a;a.edit(x.c.id,{mode:"auto"});
+ a.message(x.c.id,{text:"make the scene"});const c=await settled(a,x.c.id);
+ assert.equal(c.status,"idle");assert.equal(x.calls.filter(c=>c.name==="run_app").length,2,"a lost job is not a duplicate generation");
+ assert.equal(c.tools.filter(t=>t.name==="run_app").length,2);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
+test("a succeeded generation still cannot be submitted twice in one turn",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{
+ const x=setup(dir,[call("get_app",{app:"z-image"}),call("run_app",{app:"z-image",values:{prompt:"x"}}),call("run_app",{app:"z-image",values:{prompt:"x"}}),{text:"must not run",calls:[]}],
+  async(name,args)=>text(name==="get_app"?{id:"z-image",inputs:[]}:{id:"job-1",app:args.app,status:"succeeded",outputs:[]}));a=x.a;a.edit(x.c.id,{mode:"auto"});
+ a.message(x.c.id,{text:"make the scene"});const c=await settled(a,x.c.id);
+ assert.equal(c.status,"failed");assert.match(c.error||"",/already submitted/i);
+ assert.equal(x.calls.filter(c=>c.name==="run_app").length,1);
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
 test("restart marks uncertain dispatches and reconnects known jobs without resubmitting generation",async()=>{
  const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[]);a=x.a;const c=x.c;c.status="running";c.jobs=["owned-job"];c.tools=[{id:"pending",name:"run_app",arguments:{app:"z-image"},status:"running"}];a.store.save(c);await a.close();
  const calls:any[]=[];a=new RiverfieldAgent(dir,process.cwd(),new InferenceQueue().run,()=>({tools:async()=>definitions,call:async(name,args)=>{calls.push(name);return text(name==="history"?{runs:[{id:"owned-job",app:"z-image",status:"succeeded"}]}:{id:args.id,status:"succeeded",outputs:[]});},close:async()=>{}}));

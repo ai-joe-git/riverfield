@@ -10,6 +10,8 @@ import {artifactOrigin,mergeJob} from "./agent-media.ts";
 
 const READ=new Set(["list_apps","get_app","job","wait_job","history","gpu","examples"]);
 const DONE=new Set(["succeeded","failed","canceled","expired","lost"]);
+// A lost/expired job never produced an artifact: retrying the exact same generation is legitimate.
+const RETRYABLE=new Set(["lost","expired"]);
 // Polling/status tools may legitimately be called repeatedly with the same arguments.
 const REPEATABLE=new Set(["job","wait_job","history","gpu","cancel_job"]);
 const stable=(v:any):string=>JSON.stringify(v&&typeof v==="object"?Array.isArray(v)?v.map(x=>JSON.parse(stable(x))):Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(stable(v[k]))])):v??null);
@@ -89,7 +91,8 @@ export class RiverfieldAgent {
       const values=(record.arguments.values||{}) as Record<string,unknown>;
       if(values.advanced_timeline_json)throw new Error("Use segment_windows and scoped file inputs instead of embedding unscoped file paths in raw timeline JSON");
       for(const [key,value] of Object.entries(values))if(/filename_prefix/i.test(key)&&typeof value==="string"&&(value.includes("..")||/^[/\\]/.test(value)))throw new Error("Output prefixes must be relative and must not traverse directories");
-      if(c.tools.some(t=>t.id!==record.id&&t.name==="run_app"&&t.status==="done"&&t.turn===record.turn&&stable(t.arguments)===stable(record.arguments)))throw new Error("This exact generation was already submitted in this user turn. Inspect its job/history instead of paying for another one.");
+      const previous=c.tools.find(t=>t.id!==record.id&&t.name==="run_app"&&t.status==="done"&&t.turn===record.turn&&stable(t.arguments)===stable(record.arguments));
+      if(previous&&!RETRYABLE.has(c.jobStates[previous.job||""]?.status||""))throw new Error("This exact generation was already submitted in this user turn. Inspect its job/history instead of paying for another one.");
     }
     if(t.name==="cancel_job"&&!c.jobs.includes(String(record.arguments.id)))throw new Error("The agent can cancel only jobs created by this conversation");
     if(t.name==="media"){for(const path of [record.arguments.path,...((record.arguments.paths as string[])||[])])if(path)this.permitFile(c,String(path));}
@@ -102,9 +105,17 @@ export class RiverfieldAgent {
       if(record.status==="denied"){this.text(c,"tool","User declined this tool. Do not retry it without a new request.",record.id);this.save(c);return true;}
       if(record.turn&&!REPEATABLE.has(record.name)){
         const prior=c.tools.find(t=>t.id!==record.id&&t.name===record.name&&t.status==="done"&&t.turn===record.turn&&stable(t.arguments)===stable(record.arguments));
-        if(prior){record.status="error";record.error=`Repeated ${record.name} call with identical arguments; the previous result was already returned in this turn.`;
-          this.text(c,"tool",`Stopped to avoid a loop: ${record.name} was already called with identical arguments in this turn. Reuse the previous result; do not repeat the call.`,record.id);this.save(c);
-          throw new StopTurn(`Stopped to avoid a loop: the model repeated ${record.name} with identical arguments after receiving its result. Reuse the earlier result, switch to a stronger model, or enable the explicit JSON tool protocol.`);}
+        // A generation whose job was lost/expired may be retried with the same arguments.
+        const retry=record.name==="run_app"&&Boolean(prior?.job)&&RETRYABLE.has(c.jobStates[prior!.job!]?.status||"");
+        if(prior&&!retry){
+          const reason=record.name==="run_app"
+            ? `this exact generation was already submitted in this user turn${prior.job?` (job ${prior.job})`:""}; inspect its job/history instead of paying for another one`
+            : `the model repeated ${record.name} with identical arguments after receiving its result; reuse the earlier result, switch to a stronger model, or enable the explicit JSON tool protocol`;
+          const head=record.name==="run_app"?"Stopped to avoid paying twice":"Stopped to avoid a loop";
+          record.status="error";record.error=`Repeated ${record.name} call with identical arguments.`;
+          this.text(c,"tool",`${head}: ${reason}.`,record.id);this.save(c);
+          throw new StopTurn(`${head}: ${reason}.`);
+        }
       }
       this.validate(c,t,record);
       const mutating=!(READ.has(t.name)||t.annotations?.readOnlyHint===true||(t.name==="media"&&record.arguments.operation==="probe"));

@@ -212,7 +212,7 @@ test("file names are checked before touching the disk", () => {
 });
 
 test("a poll that cannot reach the backend is retried; a backend answer that the job is gone is not", async () => {
-  const { waitPatiently, isTransient } = await import("../server/history.ts");
+  const { waitPatiently, isTransient, patienceFor } = await import("../server/history.ts");
   let calls = 0;
   const flaky = { async wait() { calls++; if (calls < 3) throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } }); } };
   const log: string[] = [];
@@ -228,4 +228,6 @@ test("a poll that cannot reach the backend is retried; a backend answer that the
   assert.equal(isTransient(proxy), true);
   assert.equal(isTransient(new Error("job x not terminal after 10ms (status=running)")), false);
   assert.equal(isTransient(Object.assign(new Error("bad request"), { httpStatus: 400 })), false);
+  assert.equal(patienceFor(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }), 600_000), 120_000, "a dead local port is given up faster than a cold start");
+  assert.equal(patienceFor(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } }), 600_000), 600_000);
 });

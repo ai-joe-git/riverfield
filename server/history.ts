@@ -163,6 +163,13 @@ export function isTransient(e: unknown): boolean {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** A refused local connection will not heal by waiting: the backend process is gone. Keep the long patience for
+ * cold starts and network timeouts, but give a refused port two minutes before declaring the job lost. */
+export function patienceFor(e: unknown, patience: number): number {
+  const err = e as { message?: string; cause?: { code?: string } };
+  return /ECONNREFUSED/i.test(`${err?.message ?? ""} ${err?.cause?.code ?? ""}`) ? Math.min(patience, 2 * 60 * 1000) : patience;
+}
+
 /** job.wait() stops at the first poll that fails to reach the backend; a backend waking up (the Modal container's cold
  * start) drops one or two, so the wait is picked up again, for up to `patience` of continuous failures, before the
  * run is called lost. */
@@ -178,7 +185,7 @@ export async function waitPatiently(job: { wait(timeoutMs?: number): Promise<unk
     } catch (e) {
       if (!isTransient(e) || Date.now() >= deadline) throw e;
       firstFailure ??= Date.now();
-      if (Date.now() - firstFailure > patience) throw e;
+      if (Date.now() - firstFailure > patienceFor(e, patience)) throw e;
       failures++;
       const pause = Math.min(15_000, 2_000 * failures);
       log(`poll failed (${(e as Error).message}); trying again in ${pause / 1000}s`);
@@ -361,8 +368,9 @@ export class History {
       return entry;
     }
     if (waitError) {
+      const detail = (waitError as Error).message;
       entry.status = "lost";
-      entry.error = { message: `lost track of the job: ${(waitError as Error).message}` };
+      entry.error = { message: `lost track of the job: ${detail}${/ECONNREFUSED|fetch failed/i.test(detail) ? " (backend unreachable; it may have stopped or been killed)" : ""}` };
     } else {
       entry.status = normStatus(job.status);
       if (entry.status === "succeeded") {
