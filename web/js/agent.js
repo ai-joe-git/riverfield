@@ -1,5 +1,5 @@
 import {el,icon,toast} from "./util.js";
-import {button,safe,field,select,modal,tokens,providerSettings,modelPicker} from "./agent-controls.js";
+import {button,safe,field,select,modal,tokens,errorText,providerSettings,modelPicker} from "./agent-controls.js";
 
 async function api(path="",method="GET",body){const r=await fetch(`/api/agent${path}`,{method,headers:body instanceof FormData?{}:{"content-type":"application/json"},body:body===undefined?undefined:body instanceof FormData?body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error||`HTTP ${r.status}`);return data;}
 /** DOM-only Markdown: raw HTML and remote image embeds are never interpreted. */
@@ -75,7 +75,7 @@ export function agentView({home=false}={}){
    }chat.append(bubble);
   }
   if(busy())chat.append(el("div",{class:"ag-thinking"},el("i",{}),"Working with your studio…"));
-  if(c.error)chat.append(el("div",{class:"ag-error",role:"alert"},icon("info"),el("span",{},c.error)));
+  if(c.error)chat.append(el("div",{class:"ag-error",role:"alert"},icon("info"),el("span",{},errorText(c.error))));
   if(c.jobs.length||c.tools.some(t=>t.status==="uncertain"))chat.append(el("section",{class:"ag-jobs"},el("header",{},el("b",{},"Studio activity"),button("Refresh",safe(async()=>{c=await api(`/conversations/${c.id}/jobs`,"POST",{});drawChat();}),"ag-text-button")),...c.jobs.map(id=>{const j=c.jobStates[id]||{};return el("div",{},el("span",{},j.app||"Studio job"),el("small",{},j.status||"unknown"),j.progress?.value!=null?el("progress",{max:1,value:j.progress.value}):null,el("a",{href:"#/library",title:id},id.slice(-8)),j.error?el("span",{class:"ag-error"},j.error.message||String(j.error)):null);})));
   if(c.artifacts.length)chat.append(el("section",{class:"ag-gallery"},...c.artifacts.map(artifact)));
   if(["failed","interrupted","canceled"].includes(c.status))chat.append(button(el("span",{},icon("redo")," Continue safely"),safe(()=>api(`/conversations/${c.id}/continue`,"POST",{})),"ag-retry",{title:"Continue without repeating completed tools"}));

@@ -46,7 +46,7 @@
 .ag-header .ag-field select { background:transparent; border:0; color:#999da8; font-size:11px; max-width:155px; padding:8px; }
 .ag-mode-label { font-size:11px; color:#8b909d; margin:0 5px; }
 .ag-header[data-queue]:not([data-queue=""])::after { content:attr(data-queue); position:absolute; top:calc(var(--top) + 62px); right:32px; color:#9fb9de; font-size:10px; }
-.ag-chat { overflow:auto; padding:32px max(30px,calc((100% - 800px)/2)); min-height:0; scrollbar-width:thin; scrollbar-color:#393b44 transparent; }
+.ag-chat { overflow:auto; padding:32px max(30px,calc((100% - 800px)/2)); min-height:0; min-width:0; scrollbar-width:thin; scrollbar-color:#393b44 transparent; }
 .ag-message { margin:0 0 38px; overflow-wrap:anywhere; font-size:14px; }
 .ag-message-author { display:flex; align-items:center; gap:7px; color:#959aa8; font-size:10px; font-weight:500; margin:0 0 11px; }
 .ag-message-author .i { width:15px; color:#b4c9e8; }
@@ -76,7 +76,8 @@
 .ag-tool pre { font-size:11px; color:#a3adbf; white-space:pre-wrap; max-height:280px; overflow:auto; line-height:1.7; }
 .ag-tool-body > details > summary { color:#9cabc4; font-size:11px; cursor:pointer; padding:6px 0; }
 .ag-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-.ag-error { color:#d6a09b; background:#251b1f; border:1px solid #6b414333; padding:14px 17px; border-radius:12px; margin:18px 0; font-size:12px; line-height:1.7; display:flex; align-items:start; gap:10px; white-space:pre-wrap; }
+.ag-error { color:#d6a09b; background:#251b1f; border:1px solid #6b414333; padding:14px 17px; border-radius:12px; margin:18px 0; font-size:12px; line-height:1.7; display:flex; align-items:start; gap:10px; white-space:pre-wrap; min-width:0; overflow-wrap:anywhere; }
+.ag-error > span { min-width:0; }
 .ag-error .i { flex-shrink:0; margin-top:3px; }
 .ag-retry { display:inline-flex; border:1px solid #ffffff10; border-radius:18px; color:#c6cdda; background:#23262d; padding:10px 15px; font-size:12px; }
 .ag-retry > span { display:flex; align-items:center; gap:9px; }

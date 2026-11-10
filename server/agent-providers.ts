@@ -60,6 +60,14 @@ function content(message:ChatMessage,p:Provider,files:Attachment[]):Content{
 }
 export type Completion={text:string;calls:Call[]};
 const truncated=(p:Provider)=>p.tokenMode==="custom"?"Custom output budget reached; choose Native maximum or raise the custom limit. Partial tool calls were not executed.":"Provider reached its output/context limit. Continue the response or shorten the request; partial tool calls were not executed.";
+function httpError(status:number,raw:string,p:Provider,key:string){
+  let message=raw,code="";
+  try{const data=JSON.parse(raw),error=data?.error??data;if(typeof error==="string")message=error;else if(typeof error?.message==="string"){message=error.message;if(typeof error.code==="string")code=error.code;}}catch{/* Plain-text errors are valid too. */}
+  const detail=message.split(key||"\0").join("[redacted]").slice(0,800),safeCode=code.split(key||"\0").join("[redacted]").slice(0,100);
+  // Memory, auth and availability failures do not imply unsupported tools.
+  const toolRejected=[400,422].includes(status)&&p.kind==="openai"&&p.toolMode==="native"&&/(?:tools?|tool_choice|function[_ -]?calling)/i.test(message)&&/(?:not supported|unsupported|not allowed|does not support|unknown (?:parameter|field)|unrecognized)/i.test(message);
+  return `Provider HTTP ${status}${safeCode?` (${safeCode})`:""}: ${detail}${toolRejected?" Select the explicit JSON tool protocol in provider settings if this model does not support native tools.":""}`;
+}
 export async function complete(p:Provider,key:string,model:string,system:string,messages:ChatMessage[],tools:ToolDefinition[],files:Attachment[],signal:AbortSignal,delta:(text:string)=>void,doFetch:typeof fetch=fetch):Promise<Completion>{
   if(!model)throw new Error("Choose a model before sending a message");
   if(p.location==="remote"&&!key)throw new Error("Configure this remote provider's API key server-side");
@@ -85,7 +93,7 @@ export async function complete(p:Provider,key:string,model:string,system:string,
   if(budget===undefined)delete payload.max_tokens;else payload.max_tokens=budget;
   const connecting=new AbortController(),timer=setTimeout(()=>connecting.abort(new Error("Provider connection timed out")),30000);
   const r=await doFetch(`${p.baseURL}/${path}`,{method:"POST",headers:headers(p,key),body:JSON.stringify(payload),signal:AbortSignal.any([signal,connecting.signal]),redirect:"error"}).finally(()=>clearTimeout(timer));
-  if(!r.ok){const detail=(await r.text()).slice(0,800).split(key||"\0").join("[redacted]");throw new Error(`Provider HTTP ${r.status}: ${detail}${p.kind==="openai"&&p.toolMode==="native"?". If this model rejects tools, select the explicit JSON tool protocol in provider settings.":""}`);}
+  if(!r.ok)throw new Error(httpError(r.status,await r.text(),p,key));
   if(!r.body||!r.headers.get("content-type")?.includes("text/event-stream"))throw new Error("Provider did not return an SSE stream; streaming chat/tool support is required");
   let text="",finished=false;const calls=new Map<number,{id:string;name:string;args:string}>();
   for await(const e of sse(r.body)){

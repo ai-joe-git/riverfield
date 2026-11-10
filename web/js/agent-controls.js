@@ -2,6 +2,13 @@ import {el,toast,icon} from "./util.js";
 export const safe=fn=>async(...args)=>{try{return await fn(...args);}catch(e){toast(e.message,{error:true});}};
 export const button=(text,action,cls="btn ghost",extra={})=>el("button",{type:"button",class:cls,onclick:action,...extra},text);
 export const tokens=n=>n?new Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:1}).format(n):"Server default";
+/** Read older persisted JSON errors without rewriting conversation history. */
+export function errorText(text){
+ const prefix=/^Provider HTTP (\d+): /.exec(text||"");if(!prefix)return text;
+ const raw=text.slice(prefix[0].length).replace(/\. If this model rejects tools, select the explicit JSON tool protocol in provider settings\.$/,"");
+ try{const error=JSON.parse(raw)?.error;if(typeof error?.message==="string")return `Provider HTTP ${prefix[1]}${typeof error.code==="string"?` (${error.code})`:""}: ${error.message}`;}catch{}
+ return text;
+}
 export function field(label,value,change,type="text"){const input=el(type==="textarea"?"textarea":"input",{type:type==="textarea"?null:type,value:value??"","aria-label":label,autocomplete:"off",step:type==="number"?"any":null});input.oninput=()=>change(type==="number"?Number(input.value):input.value);return el("label",{class:"ag-field"},el("span",{},label),input);}
 export function select(label,value,options,change){return el("label",{class:"ag-field"},el("span",{},label),el("select",{"aria-label":label,onchange:e=>change(e.target.value)},...options.map(([id,name])=>el("option",{value:id,selected:String(id)===String(value)},name))));}
 export function modal(title,subtitle=""){

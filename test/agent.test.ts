@@ -40,6 +40,17 @@ test("provider schema adaptation preserves properties named pattern while removi
  const adapted=toolSchema(original);assert.ok(adapted.properties.pattern);assert.equal(adapted.properties.pattern.pattern,undefined);assert.equal(adapted.properties.counts.propertyNames,undefined);assert.equal(original.properties.pattern.pattern,"a");
 });
 function stream(events:any[]){return new Response(new ReadableStream({start(controller){const bytes=new TextEncoder().encode(events.map(e=>`data: ${JSON.stringify(e)}\n\n`).join(""));for(let i=0;i<bytes.length;i+=7)controller.enqueue(bytes.slice(i,i+7));controller.close();}}),{headers:{"content-type":"text/event-stream"}});}
+test("provider HTTP errors explain memory failures without unrelated tool advice or raw budgets",async()=>{
+ const dir=temporary();try{const providers=new Providers(new AgentStore(dir).dir),p=providers.get(providers.save({name:"Fixture",location:"local",baseURL:"http://localhost:41969/v1",model:"fixture"}).id);
+ const failures=[
+  {status:503,body:JSON.stringify({error:{code:"RUNTIME_MEMORY_PRESSURE",message:"Model needs 14.6 GiB; 13.9 GiB available. PRIVATE-KEY",memoryBudget:{requestedBytes:15644569061}}}),match:/503 \(RUNTIME_MEMORY_PRESSURE\): Model needs 14.6 GiB; 13.9 GiB available. \[redacted\]/,hint:false},
+  {status:401,body:JSON.stringify({error:{message:"Invalid API key PRIVATE-KEY"}}),match:/401: Invalid API key \[redacted\]/,hint:false},
+  {status:503,body:"Backend unavailable",match:/503: Backend unavailable/,hint:false},
+  {status:400,body:JSON.stringify({error:{message:"tools is not supported for this model"}}),match:/400: tools is not supported/,hint:true},
+ ];
+ for(const f of failures)await assert.rejects(()=>complete(p,"PRIVATE-KEY","fixture","system",[],[],[],new AbortController().signal,()=>{},(async()=>new Response(f.body,{status:f.status})) as typeof fetch),(error:Error)=>{assert.match(error.message,f.match);assert.equal(error.message.includes("JSON tool protocol"),f.hint);assert.ok(!error.message.includes("memoryBudget"));assert.ok(!error.message.includes("PRIVATE-KEY"));return true;});
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 test("OpenAI-compatible native tools stream UTF-8 text and incremental function arguments",async()=>{
  const dir=temporary();try{const p=new Providers(new AgentStore(dir).dir),config=p.get(p.save({name:"Local",location:"local",baseURL:"http://localhost:8080/v1",model:"m"}).id);let request:any;let deltas="";
  const result=await complete(config,"","m","system",[],definitions,[],new AbortController().signal,d=>deltas+=d,(async(_url,init)=>{request=JSON.parse(init!.body as string);return stream([{choices:[{delta:{content:"Été "}}]},{choices:[{delta:{tool_calls:[{index:0,id:"c",function:{name:"get_app",arguments:'{"app":'}}]}}]},{choices:[{delta:{tool_calls:[{index:0,function:{arguments:'"z-image"}'}}]},finish_reason:"tool_calls"}]}]);}) as typeof fetch);
