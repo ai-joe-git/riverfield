@@ -1,0 +1,25 @@
+{
+  "$schema":"../../schema/app.schema.json",
+  "id":"qwen-image-edit-turbo",
+  "name":"Qwen Image Edit Turbo",
+  "section":"image",
+  "pack":"qwen",
+  "status":"ready",
+  "summary":"Generic instruction editing with genuine Qwen-Image 2.1 Turbo: one source image, official eight-step sigmas, CFG 1, no acceleration LoRA.",
+  "workflow":"workflow.api.json",
+  "source":{"template":"https://github.com/Comfy-Org/workflow_templates/blob/main/templates/image_qwen_image_2_1_turbo_image_edit.json","comfyui":"0.43.0","notes":"Minimal official Turbo edit path. Reuses the image encoder/cache pattern inspected in character-angles, without its batch prompts, base checkpoint or Turbo+ patch. Euler, CFG 1 and the nine official sigma values (eight steps) are fixed."},
+  "outputs":[{"node":"472","type":"image","label":"Edited image"}],
+  "models":[
+    {"repo":"Comfy-Org/Qwen-Image-2.1","file":"diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors","dir":"diffusion_models","gb":6.76,"phase":"denoise","license":"Apache-2.0"},
+    {"repo":"Comfy-Org/Qwen-Image-2.1","file":"text_encoders/qwen3vl_8b_int8_convrot.safetensors","dir":"text_encoders","gb":8,"phase":"encode","license":"Apache-2.0"},
+    {"repo":"Comfy-Org/Qwen-Image-2.1","file":"vae/qwen_image_2.1_vae_bf16.safetensors","dir":"vae","gb":0.3,"phase":"decode","license":"Apache-2.0"}
+  ],
+  "inputs":[
+    {"id":"image","type":"image","label":"Source image","required":true,"limits":{"max_mb":60},"bind":[{"node":"473","field":"image"}]},
+    {"id":"instruction","type":"textarea","label":"Edit instruction","required":true,"default":"Edit <image1>: preserve identity, pose, clothing and composition. Correct only the requested details.","bind":[{"node":"452","field":"prompt"}]},
+    {"id":"negative_prompt","type":"textarea","label":"Negative prompt","default":"","bind":[{"node":"452","field":"negative_prompt"}]},
+    {"id":"resolution","type":"slider","label":"Resolution budget","default":1024,"min":0,"max":2048,"step":32,"help":"Aspect is preserved. 1024 is the default pixel budget; 0 keeps source dimensions rounded to a multiple of 32.","bind":[{"node":"452","field":"resolution"}]},
+    {"id":"seed","type":"seed","label":"Seed","default":-1,"bind":[{"node":"504","field":"noise_seed"}]}
+  ],
+  "layout":"sidebar"
+}

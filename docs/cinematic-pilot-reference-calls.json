@@ -1,0 +1,30 @@
+[
+  {
+    "name": "run_app",
+    "arguments": {
+      "app": "moss-turbo",
+      "values": {
+        "prompt": "Photorealistic casting reference sheet on a plain light-grey background. Four clearly separated views of THE SAME adult French male game-show contestant: front head-and-shoulders, three-quarter head-and-shoulders, profile head-and-shoulders, and full-body standing. These are identity views of one fictional individual, not four different people. Age 35, slim build, narrow oval face, brown eyes, slightly prominent ears, short curly dark-brown hair, clean shaven. Consistent face, hair, body proportions and wardrobe in every view: mustard-yellow crew-neck sweater over a pale-blue collared shirt, charcoal trousers, plain white low-top trainers, no logos. Slightly nervous but natural expression, shoulders a little tense. Neutral realistic studio lighting and natural skin texture. All four views fit entirely inside the image, full-body view includes both shoes. No environment, furniture, game-show set, props, text, labels, logos or decorative borders.",
+        "rewrite": false,
+        "aspect": "1:1 (Square)",
+        "steps": 8,
+        "cfg": 1.5,
+        "seed": 43121
+      }
+    }
+  },
+  {
+    "name": "run_app",
+    "arguments": {
+      "app": "moss-turbo",
+      "values": {
+        "prompt": "Photorealistic EMPTY small French television game-show studio, mockumentary production design. Vertical portrait composition from the camera position for a medium shot of a future contestant, but NO person is present. A modest cobalt-blue curved backdrop with narrow warm-white vertical light strips, a small unbranded waist-height grey contestant podium near the lower centre, matte dark-grey floor and a few realistic cable runs at the far edge. Preserve open space above and behind the podium for a single standing contestant to be added later. Soft practical overhead studio lighting, slightly mundane behind-the-scenes realism rather than glamorous spectacle. One coherent room, physically plausible architecture, no collage, panels or reference-sheet layout. Absolutely no people, faces, bodies, audience, crew, silhouettes, mannequins or reflections of people. No writing, numbers, logos or readable screens.",
+        "rewrite": false,
+        "aspect": "9:16 (Portrait Widescreen)",
+        "steps": 8,
+        "cfg": 1.5,
+        "seed": 43122
+      }
+    }
+  }
+]

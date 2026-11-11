@@ -45,7 +45,7 @@ export function agentView({home=false}={}){
   resume:()=>safe(async()=>{await api(`/conversations/${c.id}/continue`,"POST",{});})(),
   answer:payload=>safe(async()=>{await api(`/conversations/${c.id}/answers`,"POST",payload);})(),
   production:()=>safe(async()=>{await productionSettings({api,id:c.id,onSaved:async()=>{c=await api(`/conversations/${c.id}`);draw();}});})(),
-  pilot:artifact=>safe(async()=>{await api(`/conversations/${c.id}/production`,"POST",{pilot:artifact});toast("Pilot approved — the remaining scenes are unlocked");})(),
+  pilot:artifact=>safe(async()=>{await api(`/conversations/${c.id}/production`,"POST",{pilot:artifact});toast("Pilot review recorded — further generation needs separate authorization");})(),
   start:text=>safe(async()=>{await api(`/conversations/${c.id}/messages`,"POST",{text});})(),
   onIndex:items=>{mediaItems=items;if(mediaBadge)mediaBadge.textContent=items.length||"";if(drawerOpen)drawDrawer();},
  });

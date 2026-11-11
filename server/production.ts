@@ -3,8 +3,8 @@ import {now,type Conversation} from "./agent-store.ts";
 import type {ToolDefinition} from "./agent-providers.ts";
 
 /**
- * Pre-production gate: a clickable interview, a user-approved plan, and a pilot clip.
- * The model may draft the plan but never approve it: approval is a studio action.
+ * Optional legacy production bookkeeping and clickable clarification questions.
+ * Plan approval is a studio action, separate from authorization of inference jobs.
  */
 
 const choice=z.strictObject({label:z.string().trim().min(1).max(80),description:z.string().trim().max(300).optional()});
@@ -68,7 +68,7 @@ export type EngineApp={id:string;name:string;section:string;status?:string;input
 
 export const askTool:ToolDefinition={
  name:"ask_user",
- description:"Ask the user clickable multiple-choice questions and pause until they answer. Use for pre-production choices (format, genre/style, runtime, video app/model, reference app, language). Options must be concrete and short. The user can always add free text or skip. Do not generate anything while questions are pending.",
+  description:"Ask only essential missing questions and pause until the user answers. Options must be concrete and short. The user can add free text or skip. Do not repeat questions when creative choices were delegated. Do not generate while questions are pending.",
  inputSchema:{type:"object",properties:{questions:z.toJSONSchema(questionInput.shape.questions,{io:"input"})},required:["questions"],additionalProperties:false},
 };
 /** The model may echo server-owned fields back from a get; accept them and strip them when drafting. */
@@ -82,7 +82,7 @@ function productionInputSchema(){
 }
 export const productionTool:ToolDefinition={
  name:"production_plan",
- description:"Read or draft the production plan: format, style, platform, runtime, aspect, sound, video engine, image engine, locked values, treatment and a scene script with per-scene prompts, seconds, dialogue lines and reference labels. Draft it after the production interview. The user approves it in the studio; this tool cannot approve it, and no video may be generated before approval. Total scene seconds must cover the requested runtime.",
+  description:"Optional legacy structured production notes, only when the user requests them. Not required for generation: prefer a concise screenplay and explicit conversational approval of exact intended arguments. This tool can read or draft notes but cannot approve them or authorize inference. Plan engines and values are bookkeeping, not utility-operation locks.",
  inputSchema:{type:"object",properties:{action:{type:"string",enum:["get","update"]},plan:productionInputSchema()},required:["action"],additionalProperties:false},
 };
 

@@ -10,7 +10,7 @@ export async function productionSettings({api,id,onSaved}){
  if(!view.production){toast("No production plan yet. Ask the agent to prepare one.");return;}
  const p=structuredClone(view.production),apps=view.apps||[];
  const video=apps.filter(a=>a.section==="video"),image=apps.filter(a=>a.section==="image");
- const d=modal("Production plan","Review the script, runtime and engines. Nothing is generated until you approve this plan.");
+  const d=modal("Production plan","Optional script and runtime notes. Generation authorization is separate; review exact tool arguments before running.");
  const issues=el("section",{class:"ag-production-issues"}),facts=el("div",{class:"ag-plan-facts"}),scenes=el("div",{class:"ag-plan-scenes"}),dialogueNote=el("p",{class:"ag-privacy-note"});
  let locked=JSON.stringify(p.lockedValues||{},null,2);
  const drawIssues=v=>{const list=v?.issues||[];issues.className=`ag-production-issues${list.length?" bad":" good"}`;issues.replaceChildren(el("b",{},list.length?"Not ready for approval":"Ready for approval"),...list.map(x=>el("p",{},x)));};
@@ -26,11 +26,11 @@ export async function productionSettings({api,id,onSaved}){
    else parts.push(el("small",{},"No dialogue"));
    return el("article",{class:"ag-plan-scene"},...parts);
   }));
-  dialogueNote.textContent=p.sound==="dialogue"?"Dialogue mode: every scene must contain its spoken lines. The studio rejects a video that omits them.":"Non-dialogue sound plan.";
+   dialogueNote.textContent=p.sound==="dialogue"?"Dialogue notes: keep spoken lines in the native video prompt. File metadata alone cannot verify speech.":"Non-dialogue sound plan.";
  };
  const body=()=>{try{p.lockedValues=JSON.parse(locked||"{}");}catch{throw new Error("Locked input values must be valid JSON");}return p;};
  const save=button("Save draft",safe(async()=>{const v=await api(`/conversations/${id}/production`,"POST",{plan:body()});Object.assign(p,v.production||{});dialogueNote.textContent="Draft saved. Review the checks below, then approve.";drawIssues(v);draw();await onSaved?.();}),"ag-text-button");
- const approve=button("Approve & lock plan",safe(async()=>{
+  const approve=button("Approve notes",safe(async()=>{
   await api(`/conversations/${id}/production`,"POST",{plan:body()});
   const v=await api(`/conversations/${id}/production`,"POST",{approve:true});
   drawIssues(v);await onSaved?.();toast("Production plan approved");d.close();
@@ -45,11 +45,11 @@ export async function productionSettings({api,id,onSaved}){
    select("Video engine",p.engine,engineOptions(p,"engine",video,"video"),v=>p.engine=v),
    select("Reference image engine",p.imageEngine,engineOptions(p,"imageEngine",image,"image"),v=>p.imageEngine=v),
    el("details",{class:"ag-advanced"},el("summary",{},"Locked engine values (JSON)"),field("Locked input values",locked,v=>locked=v,"textarea"),
-    el("p",{class:"ag-privacy-note"},"These exact values are enforced on every generation once the plan is approved. Use input names and values from the app.")),
+     el("p",{class:"ag-privacy-note"},"Recipe notes only; these do not authorize jobs or block separately approved utilities. Use actual app input names and values.")),
    field("Treatment / arc",p.treatment,v=>p.treatment=v,"textarea"),
    dialogueNote),
   el("h3",{},"Approved script"),scenes,
-  el("p",{class:"ag-privacy-note"},"The agent cannot change this plan's approval. Editing it here puts it back in draft; approve again before generation. To rewrite scenes, ask the agent in the chat."),
+   el("p",{class:"ag-privacy-note"},"The agent cannot approve these notes. Editing resets their review status, not job permissions. To rewrite scenes, ask in chat."),
   el("div",{class:"ag-dialog-actions ag-plan-actions"},button("Ask the agent for changes",()=>{d.close();toast("Describe the changes you want in the chat.");},"ag-text-button"),save,approve));
  drawIssues(view);draw();d.showModal();
 }

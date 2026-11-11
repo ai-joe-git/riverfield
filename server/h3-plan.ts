@@ -1,10 +1,14 @@
 import {z} from "zod";
 
 const legal=(length:number)=>Number.isInteger(length)&&length>=5&&length<=3592&&(length-5)%17===0;
-export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:z.array(z.number().int().min(0).max(8)).default([]),audios:z.array(z.number().int().min(0).max(2)).default([])});
+const imageSlots=z.array(z.number().int().min(0).max(8)).max(9),audioSlots=z.array(z.number().int().min(0).max(2)).max(3);
+export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150).describe("Requested duration of EACH generated segment, not total story duration"),total_seconds:z.number().positive().optional().describe("Optional total timeline duration to validate, including overlap"),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:imageSlots.default([]),audios:audioSlots.default([]),segment_images:z.array(imageSlots).max(64).optional(),segment_audios:z.array(audioSlots).max(64).optional()});
 /** Same frame geometry as the Material Planner. Arithmetic belongs in code, not in an LLM. */
-export function planH3(raw:unknown){const {seconds,prompts,images,audios}=segmentRequest.parse(raw);const length=Math.min(3592,5+17*Math.max(0,Math.round((seconds*24-5)/17)));const seam=[0,1,...Array.from({length:Math.max(0,Math.floor((length-6)/17)+1)},(_,i)=>5+17*i)].filter(n=>n<length).reduce((best,n)=>Math.abs(n-39)<Math.abs(best-39)?n:best,0);const stride=length-seam;
- const windows=prompts.map((prompt,i)=>({start:i*stride,end:i*stride+length,prompt,images:[...images],audios:[...audios]}));return {segment_windows:JSON.stringify({windows,videos:[],audios:[]}),frames:windows.at(-1)!.end,seconds:windows.at(-1)!.end/24,segmentFrames:length,overlapFrames:seam};}
+export function planH3(raw:unknown){const {seconds,total_seconds,prompts,images,audios,segment_images,segment_audios}=segmentRequest.parse(raw);const length=Math.min(3592,5+17*Math.max(0,Math.round((seconds*24-5)/17)));const seam=[0,1,...Array.from({length:Math.max(0,Math.floor((length-6)/17)+1)},(_,i)=>5+17*i)].filter(n=>n<length).reduce((best,n)=>Math.abs(n-39)<Math.abs(best-39)?n:best,0);const stride=length-seam;
+ for(const [name,slots] of [["segment_images",segment_images],["segment_audios",segment_audios]] as const)if(slots&&slots.length!==prompts.length)throw new Error(`${name} must have one entry per prompt`);
+ const windows=prompts.map((prompt,i)=>({start:i*stride,end:i*stride+length,prompt,images:[...(segment_images?.[i]??images)],audios:[...(segment_audios?.[i]??audios)]})),total=windows.at(-1)!.end/24;
+ if(total_seconds!==undefined&&Math.abs(total-total_seconds)>.5)throw new Error(`${prompts.length} segments of ${seconds}s overlap to ${total.toFixed(2)}s, not total_seconds=${total_seconds}. Change segment duration or prompt count; seconds is per segment.`);
+ return {segment_windows:JSON.stringify({windows,videos:[],audios:[]}),frames:windows.at(-1)!.end,seconds:total,segmentSeconds:length/24,segmentFrames:length,overlapFrames:seam};}
 
 /** Reject invalid plans before recording/queueing a GPU job. Do not silently rewrite user timelines. */
 export function validateH3(values:Record<string,unknown>){

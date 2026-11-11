@@ -4,6 +4,7 @@ import { Comfy } from "@comfyorg/sdk";
 import type { App, Input } from "./registry.ts";
 import { isFileInput, modelKey } from "./registry.ts";
 import {validateH3} from "./h3-plan.ts";
+import {validatePikaValues} from "./pika-prompt.ts";
 
 export type FileValue = { bytes: Uint8Array; name: string; type?: string };
 export type Values = Record<string, unknown>;
@@ -110,6 +111,7 @@ export function resolveValues(app: App, values: Values): Values {
     }
   }
   if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
+  if(app.id==="pika-studio-director"&&!out.advanced_timeline_json){try{validatePikaValues(out);}catch(e){throw new InputError((e as Error).message);}}
   return out;
 }
 

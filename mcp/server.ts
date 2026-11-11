@@ -101,7 +101,7 @@ export function build(base=BASE): McpServer {
   const call=(path:string,init?:RequestInit)=>api(path,init,base);
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
 
-  server.registerTool("plan_segments",{title:"Build aligned H3 segment windows",description:"Pure planning, no GPU work. Construct valid Material Planner segment_windows for H3 Director apps, including Pika. Each prompt is one segment; images/audios are zero-based file slots. Copy the returned segment_windows unchanged into run_app. Does not choose a video engine.",inputSchema:segmentRequest.shape,annotations:{readOnlyHint:true}},async args=>{try{return text(planH3(args));}catch(e){return fail(e);}});
+  server.registerTool("plan_segments",{title:"Build aligned H3 segment windows",description:"Pure arithmetic, no GPU work. seconds is the duration of EACH segment, NOT total story duration. Optional total_seconds validates total duration including overlaps. Each prompt is one segment. segment_images/segment_audios provide one ordered slot list per prompt; images/audios are fallback lists. Slots are zero-based; selected order defines local Picture/Audio labels. Copy returned segment_windows unchanged into run_app. Does not choose an engine.",inputSchema:segmentRequest.shape,annotations:{readOnlyHint:true}},async args=>{try{return text(planH3(args));}catch(e){return fail(e);}});
 
   server.registerTool("list_apps", {
     title: "List RiverField apps",
