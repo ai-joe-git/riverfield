@@ -199,6 +199,9 @@
 .ag-questions header small { color:#8ba4c9; font-size:9px; letter-spacing:1.6px; }
 .ag-questions h2 { font-family:inherit; font-size:20px; letter-spacing:-.5px; margin:6px 0; color:#f0f2f6; }
 .ag-questions header p { color:#8d97a9; font-size:11.5px; line-height:1.7; margin:0 0 6px; }
+.ag-question-progress { display:flex; align-items:center; gap:14px; color:#9aa5b7; font-size:11px; margin:16px 0 8px; }
+.ag-question-progress progress { flex:1; height:5px; accent-color:#a4bfff; }
+.ag-question-original { color:#8d97a9; font-size:11px; margin:0 0 16px; }
 .ag-question { padding:14px 0; border-top:1px solid #ffffff0a; }
 .ag-question > b { display:block; color:#d9dee8; font-size:12px; font-weight:550; }
 .ag-question > p { color:#9aa5b7; font-size:11.5px; line-height:1.6; margin:5px 0 10px; }

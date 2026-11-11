@@ -1,5 +1,6 @@
 import {el,icon} from "./util.js";
 import {button,errorText} from "./agent-controls.js";
+import {parseChoiceQuestions,choiceReply,createQuestionForm} from "./agent-questions.js";
 
 /** Reconcile without moving nodes already in order (moving a video can interrupt playback). */
 export function reconcile(parent,nodes){let cursor=parent.firstChild;for(const node of nodes){if(node===cursor)cursor=cursor.nextSibling;else parent.insertBefore(node,cursor);}const keep=new Set(nodes);for(const child of [...parent.childNodes])if(!keep.has(child))child.remove();}
@@ -34,30 +35,9 @@ export function createTimeline({chat,markdown,card,welcome,approve,refresh,resum
   if(e.approval!==approval){e.approval=approval;e.actions.replaceChildren();if(approval){e.node.open=true;e.actions.append(button("Approve execution",()=>approve(call.id,true),"btn lime"),button("Decline",()=>approve(call.id,false),"ag-text-button"));}}
   return e.node;
  }
- function questionCard(pending){
-  const key=JSON.stringify(pending);if(key===questionKey&&questionNode)return questionNode;questionKey=key;
-  const chosen=new Map(pending.questions.map(q=>[q.id,new Set()])),others=new Map();
-  const root=el("section",{class:"ag-questions","aria-label":"Questions before production"},
-   el("header",{},el("small",{},"YOUR BRIEF"),el("h2",{},"A few choices before production"),el("p",{},"The agent will not generate anything until you answer and it has your approved plan.")));
-  for(const q of pending.questions){
-   const group=el("div",{class:"ag-question"},el("b",{},q.header),el("p",{},q.question)),chips=el("div",{class:"ag-choices"});
-   for(const o of q.options){
-    const chip=button(el("span",{},o.label,o.description?el("small",{},o.description):null),()=>{
-     const set=chosen.get(q.id);if(q.multiple){set.has(o.label)?set.delete(o.label):set.add(o.label);}else{set.clear();set.add(o.label);}
-     for(const other of chips.children)other.setAttribute("aria-pressed",String(set.has(other.dataset.label)));
-    },"ag-choice",{"aria-pressed":"false"});
-    chip.dataset.label=o.label;chips.append(chip);
-   }
-   const other=el("input",{class:"ag-other",placeholder:"Other / details (optional)",autocomplete:"off","aria-label":`${q.header}: other answer`});
-   others.set(q.id,other);group.append(chips,other);root.append(group);
-  }
-  const submit=button("Continue with these choices",()=>{
-   const notes=pending.questions.map(q=>{const text=others.get(q.id).value.trim();return text?`${q.header}: ${text}`:"";}).filter(Boolean).join("\n");
-   answer({answers:Object.fromEntries([...chosen].map(([id,set])=>[id,[...set]])),notes});
-  },"btn lime");
-  root.append(el("div",{class:"ag-question-actions"},submit,button("You decide — choose sensible defaults",()=>answer({skip:true}),"ag-text-button")),
-   el("p",{class:"ag-privacy-note"},"Free text is attached to your answers. You can still change the plan before approving it."));
-  questionNode=root;return root;
+  function questionCard(pending){
+   const key=JSON.stringify(pending);if(key===questionKey&&questionNode)return questionNode;questionKey=key;
+   questionNode=createQuestionForm(pending.questions,answer);return questionNode;
  }
  function productionCard(c){
   const p=c.production,draft=p.status!=="approved";
@@ -100,7 +80,12 @@ export function createTimeline({chat,markdown,card,welcome,approve,refresh,resum
   const nodes=[];
   for(const m of c.messages){const media=grouped.get(m.id)||[];if(m.role==="tool"&&!media.length)continue;if(m.role==="assistant"&&!m.content?.trim()&&!m.calls?.length&&!media.length)continue;
    let e=entries.get(m.id);if(!e){const body=el("div",{}),attachments=el("div",{class:"ag-message-attachments"}),tools=el("div",{}),outputs=el("div",{class:"ag-inline-media"}),studio=m.kind==="studio",node=el("article",{class:`ag-message ${m.role}${studio?" studio":""}`,"data-message":m.id},el("div",{class:"ag-message-author"},studio?icon("info"):m.role==="user"?"You":icon("spark"),studio?"Studio check":m.role==="assistant"?"Riverfield":m.role==="tool"?"Studio output":""),body,attachments,tools,outputs);e={node,body,attachments,tools,outputs};entries.set(m.id,e);resize.observe(node);}
-   if(e.content!==m.content){e.content=m.content;e.body.replaceChildren(...(m.content?[markdown(m.content)]:[]));}
+    const interactive=m.role==="assistant"&&m===c.messages.at(-1)&&c.status==="idle"&&!m.calls?.length;
+    const contentKey=JSON.stringify([m.content,interactive]);
+    if(e.contentKey!==contentKey){e.contentKey=contentKey;const questions=interactive?parseChoiceQuestions(m.content||""):[];
+     if(questions.length){const original=el("details",{class:"ag-question-original"},el("summary",{},"Original message"),markdown(m.content));e.body.replaceChildren(createQuestionForm(questions,payload=>start(choiceReply(questions,payload))),original);}
+     else e.body.replaceChildren(...(m.content?[markdown(m.content)]:[]));
+    }
    const attachmentSignature=JSON.stringify(m.attachments||[]);if(e.attachmentSignature!==attachmentSignature){e.attachmentSignature=attachmentSignature;e.attachments.replaceChildren(...(m.attachments||[]).map(id=>{const a=c.attachments.find(a=>a.id===id);return a?el("a",{href:a.url,target:"_blank",rel:"noopener",class:"ag-inline-attachment"},a.mime.startsWith("image/")?el("img",{src:a.url,alt:a.name,loading:"lazy"}):icon("layers"),a.name):null;}).filter(Boolean));}
    reconcile(e.tools,(m.calls||[]).map(call=>tool(call,c,records)));
    reconcile(e.outputs,media.map(getCard));nodes.push(e.node);

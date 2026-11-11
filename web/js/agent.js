@@ -19,7 +19,7 @@ export function markdown(text){
 const starters=[
  ["image","Build a character","Help me design a consistent character reference sheet. Discover suitable image apps first and ask me about the character before generating."],
  ["film","Direct a scene","Help me plan a cinematic scene. Explore the available video workflows and their reference requirements before running anything."],
- ["spark","Make a micro-drama","I want a short vertical drama. Ask me the production questions first (format, genre, runtime, video app, image app), then draft the full scene plan for my approval before generating anything."],
+  ["spark","Make a micro-drama","I want a short vertical drama. Use ask_user to show clickable choices for essential missing details (format, genre, runtime, language). Choose the cinematic engines yourself: moss-turbo references, pika-studio-director video, qwen-image-edit-turbo only for corrections. Then present a concise screenplay for my approval. Do not generate anything yet."],
  ["layers","Find the right tool","Show me the image, video and audio tools available in my studio and help me choose what to use."],
 ];
 const kind=a=>a.type||(a.mime||"").split("/")[0]||"file";
