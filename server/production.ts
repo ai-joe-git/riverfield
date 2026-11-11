@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {now,type Conversation} from "./agent-store.ts";
 import type {ToolDefinition} from "./agent-providers.ts";
+import {resolveApp} from "./app-reference.ts";
 
 /**
  * Optional legacy production bookkeeping and clickable clarification questions.
@@ -66,26 +67,17 @@ export type Production=z.infer<typeof productionSchema>;
 
 export type EngineApp={id:string;name:string;section:string;status?:string;inputs:Array<{id:string;type:string;options?:Array<{value:unknown}>}>};
 
+export function resolveProduction(p:Production,apps:EngineApp[],imageApps:string[]=[]):Production{
+ const canonical=(value:string)=>{try{return resolveApp(apps,value).id;}catch{return value;}};
+ const used=[...new Set(imageApps)].filter(id=>apps.some(a=>a.id===id&&a.section==="image"));
+ return {...p,engine:canonical(p.engine),imageEngine:p.imageEngine?canonical(p.imageEngine):used.length===1?used[0]:""};
+}
+
 export const askTool:ToolDefinition={
  name:"ask_user",
   description:"Ask only essential missing questions and pause until the user answers. Options must be concrete and short. The user can add free text or skip. Do not repeat questions when creative choices were delegated. Do not generate while questions are pending.",
  inputSchema:{type:"object",properties:{questions:z.toJSONSchema(questionInput.shape.questions,{io:"input"})},required:["questions"],additionalProperties:false},
 };
-/** The model may echo server-owned fields back from a get; accept them and strip them when drafting. */
-function productionInputSchema(){
- const schema:any=z.toJSONSchema(productionContent,{io:"input"});
- Object.assign(schema.properties,{
-  status:{type:"string",enum:["draft","approved"]},approvedAt:{type:"string"},approvedToolCount:{type:"number"},pilot:{type:"object"},
- });
- Object.assign(schema.properties.scenes.items.properties,{status:{type:"string"},job:{type:"string"}});
- return schema;
-}
-export const productionTool:ToolDefinition={
- name:"production_plan",
-  description:"Optional legacy structured production notes, only when the user requests them. Not required for generation: prefer a concise screenplay and explicit conversational approval of exact intended arguments. This tool can read or draft notes but cannot approve them or authorize inference. Plan engines and values are bookkeeping, not utility-operation locks.",
- inputSchema:{type:"object",properties:{action:{type:"string",enum:["get","update"]},plan:productionInputSchema()},required:["action"],additionalProperties:false},
-};
-
 export function parseQuestions(raw:unknown){
  const parsed=questionInput.parse(raw);
  if(new Set(parsed.questions.map(q=>q.id)).size!==parsed.questions.length)throw new Error("Question ids must be unique");
@@ -147,7 +139,8 @@ export function structuralIssues(p:Production){
 export function approvalIssues(p:Production,apps?:EngineApp[]){
  const issues=structuralIssues(p);
  if(apps){
-  const engine=apps.find(a=>a.id===p.engine);
+   p=resolveProduction(p,apps);
+   const engine=apps.find(a=>a.id===p.engine);
   if(!engine)issues.push(`The planned video engine ${JSON.stringify(p.engine)} is not installed in this studio.`);
   else{
    if(engine.section!=="video")issues.push(`${engine.name} is not a video app. Choose the video engine that will produce the scenes.`);
@@ -163,7 +156,6 @@ export function approvalIssues(p:Production,apps?:EngineApp[]){
    if(!image)issues.push(`The planned reference image engine ${JSON.stringify(p.imageEngine)} is not installed in this studio.`);
    else if(image.section!=="image")issues.push(`${image.name} is not an image app.`);
   }
-  if(!p.imageEngine)issues.push("Choose the image engine that will build the character/location references.");
  }
  return issues;
 }

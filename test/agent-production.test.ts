@@ -11,15 +11,15 @@ const text=(data:any)=>({content:[{type:"text",text:JSON.stringify(data)}]});
 const call=(name:string,args:any={})=>({text:"",calls:[{id:"model-id",name,arguments:args}]});
 async function settled(a:RiverfieldAgent,id:string){for(let i=0;i<500;i++){const c=a.store.get(id);if(c.status!=="running")return c;await new Promise(r=>setTimeout(r,10));}throw new Error("Agent timeout");}
 function setup(replies:any[]){
- const dir=mkdtempSync("/tmp/opencode/riverfield-production-test-"),calls:any[]=[];
+ const dir=mkdtempSync("/tmp/opencode/riverfield-production-test-"),calls:any[]=[],catalogs:ToolDefinition[][]=[];
  const definitions:ToolDefinition[]=["get_app","run_app","job","cancel_job"].map(name=>({name,inputSchema:{type:"object"}}));
  const connection=():McpConnection=>({tools:async()=>definitions,call:async(name,args)=>{calls.push({name,args});return text(name==="get_app"?{id:args.app,section:"video",inputs:[]}:name==="run_app"?{id:"job-1",app:args.app,status:"succeeded",outputs:[]}:{id:args.id,status:"succeeded",outputs:[]});},close:async()=>{}});
  let step=0;
- const completion=async(...args:Parameters<typeof complete>)=>{const reply=replies[step++]||{text:"Done",calls:[]};args[8](reply.text||"");return reply;};
+ const completion=async(...args:Parameters<typeof complete>)=>{catalogs.push(args[5]);const reply=replies[step++]||{text:"Done",calls:[]};args[8](reply.text||"");return reply;};
  const a=new RiverfieldAgent(dir,process.cwd(),new InferenceQueue().run,connection,completion);
  const p=a.providers.save({name:"Fixture",location:"local",baseURL:"http://127.0.0.1:8080/v1",model:"fixture"});
  const c=a.store.create(p.id,"fixture");
- return {a,c,calls,cleanup:async()=>{await a.close();rmSync(dir,{recursive:true,force:true});}};
+ return {a,c,calls,catalogs,cleanup:async()=>{await a.close();rmSync(dir,{recursive:true,force:true});}};
 }
 
 test("conversational video requests need normal tool approval, not a mandatory production schema",async()=>{
@@ -57,4 +57,21 @@ test("duplicate GPU calls in the same user turn are stopped",async()=>{
 test("ask_user remains optional and resumes with the user's actual answers",async()=>{
  const x=setup([call("ask_user",{questions:[{id:"language",header:"Language",question:"Dialogue language?",options:[{label:"French"},{label:"English"}]}]})]);
  try{x.a.message(x.c.id,{text:"Ask the missing essential question"});let c=await settled(x.a,x.c.id);assert.equal(c.status,"question");await x.a.answer(c.id,{answers:{language:["French"]}});c=await settled(x.a,c.id);assert.equal(c.status,"idle");assert.equal(c.interview?.answers[0].selected[0],"French");assert.equal(x.calls.length,0);}finally{await x.cleanup();}
+});
+test("the model receives no legacy production schema to repeatedly rewrite",async()=>{
+ const x=setup([]);
+ try{
+  x.a.message(x.c.id,{text:"Prepare a concise proposal"});assert.equal((await settled(x.a,x.c.id)).status,"idle");assert.equal(x.calls.length,0);
+  assert.ok(!x.catalogs[0].some(t=>t.name==="production_plan"));assert.ok(x.catalogs[0].some(t=>t.name==="ask_user"));
+ }finally{await x.cleanup();}
+});
+test("a display-name run reuses the inspected canonical manifest before approval and dispatch",async()=>{
+ const x=setup([call("run_app",{app:"Pika Studio Director",values:{seed:42}})]);
+ try{
+  const saved=x.a.store.get(x.c.id);saved.tools.push({id:"known-pika",name:"get_app",arguments:{app:"pika-studio-director"},status:"done",result:text({id:"pika-studio-director",name:"Pika Studio Director",section:"video",inputs:[]})});x.a.store.save(saved);
+  x.a.message(saved.id,{text:"Propose one pilot"});let c=await settled(x.a,saved.id);
+  assert.equal(c.status,"approval");assert.equal(c.tools.at(-1)!.arguments.app,"pika-studio-director");assert.equal(x.calls.length,0);
+  x.a.approve(c.id,c.tools.at(-1)!.id,true);c=await settled(x.a,c.id);
+  assert.equal(c.status,"idle");assert.equal(x.calls[0].args.app,"pika-studio-director");
+ }finally{await x.cleanup();}
 });

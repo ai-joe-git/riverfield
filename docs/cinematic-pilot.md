@@ -7,7 +7,7 @@ Preflight checks prompt sections, dialogue syntax/length, declared speakers, loc
 ## Stage 1 — references (awaiting authorization)
 
 The exact two proposed MCP calls are in [cinematic-pilot-reference-calls.json](cinematic-pilot-reference-calls.json).
-They create one square four-view character sheet and one separate empty portrait studio, both with MOSS at eight steps. The square sheet is an identity reference, not the video aspect.
+They create one landscape 16:9 character sheet (large detailed face portrait on the left, aligned full-body front/profile/back views on the right) and one separate empty portrait studio, both with MOSS at eight steps. The landscape sheet is an identity reference, not the video aspect.
 
 After authorization, retrieve the real outputs and display both for review. Inspect the images before discussing identity or suitability. Do not generate a combined reference. If a correction is needed, separately propose a `qwen-image-edit-turbo` call with the actual source path and the requested edit.
 

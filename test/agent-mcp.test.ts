@@ -58,12 +58,14 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     const described = resultData(await client.call("get_app", { app: "z-image" }));
     assert.ok(described.prompting?.rules?.length, "get_app must return workflow prompting guidance");
     assert.ok(described.inputs[0].id === "prompt");
+    const named=resultData(await client.call("get_app",{app:"Z Image"}));assert.equal(named.id,"z-image");
 
     const plan=resultData(await client.call("plan_segments",{seconds:5,prompts:["Arrival","Exit"]}));assert.equal(plan.frames,209);assert.equal(received.length,0,"pure planning never submits a job");
     const invalid=await client.call("run_app",{app:"z-image",values:{prompt:"x",invented_model:"turbo"}});assert.equal(invalid.isError,true);assert.match(JSON.stringify(invalid),/Unknown input invented_model/);assert.equal(received.length,0,"invented parameters cannot be silently ignored");
 
     await client.call("run_app", { app: "z-image", values: { prompt: "a grandmother" }, request_id: "conv:tool" });
     assert.equal(received.at(-1).request_id, "conv:tool", "run_app must forward the idempotency key");
+    const namedRun=await client.call("run_app",{app:"Z Image",values:{prompt:"named app"}});assert.ok(!namedRun.isError);assert.equal(received.at(-1).prompt,"named app");
 
     const job = resultData(await client.call("job", { id: "job-1" }));
     assert.equal(job.status, "succeeded");

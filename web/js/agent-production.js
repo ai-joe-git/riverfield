@@ -2,7 +2,7 @@ import {el,toast} from "./util.js";
 import {modal,field,select,button,safe} from "./agent-controls.js";
 
 const clock=n=>{const m=Math.floor(n/60),s=Math.round(n%60);return m?`${m}:${String(s).padStart(2,"0")}`:`${Math.round(n*10)/10}s`;};
-const engineOptions=(p,key,apps,label)=>{const options=apps.map(a=>[a.id,`${a.name}${a.status==="draft"?" · draft":""}`]);if(p[key]&&!apps.some(a=>a.id===p[key]))options.unshift([p[key],`${p[key]} · not installed`]);if(!options.length)options.push(["",`No ${label} app found`]);return options;};
+const engineOptions=(p,key,apps,label)=>{const options=apps.map(a=>[a.id,`${a.name}${a.status==="draft"?" · draft":""}`]);if(p[key]&&!apps.some(a=>a.id===p[key]))options.unshift([p[key],`${p[key]} · not installed`]);if(!p[key])options.unshift(["",`Choose ${label} app (optional notes)`]);return options;};
 
 /** Review dialog: the plan cannot be approved by the model, only here. */
 export async function productionSettings({api,id,onSaved}){

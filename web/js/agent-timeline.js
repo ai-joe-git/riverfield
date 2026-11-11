@@ -44,29 +44,29 @@ export function createTimeline({chat,markdown,card,welcome,approve,refresh,resum
   const generated=p.scenes.filter(s=>s.status==="generated"),produced=generated.reduce((sum,s)=>sum+s.seconds,0);
   const pilotScene=p.scenes.find(s=>s.job),video=pilotScene?c.artifacts.find(a=>a.job===pilotScene.job):undefined;
   const actions=el("div",{class:"ag-actions"}),complete=produced+0.5>=p.durationSeconds;
-  if(draft)actions.append(button("Review & approve plan",()=>production(c),"btn lime"));
+   if(draft)actions.append(button("Review saved notes",()=>production(c),"ag-text-button"));
   else{
    actions.append(button("Review production",()=>production(c),"ag-text-button"));
    if(!p.pilot?.approved){
     if(video){
-     actions.append(el("span",{class:"ag-pilot-note"},"Pilot clip ready. Approve it to unlock the remaining scenes."),button("Approve pilot clip",()=>pilot(video.id),"btn lime"));
+      actions.append(el("span",{class:"ag-pilot-note"},"Pilot clip ready for review. Further generation needs separate authorization."),button("Record pilot approval",()=>pilot(video.id),"btn lime"));
     }else if(p.scenes.some(s=>s.status==="failed")){
      actions.append(el("span",{class:"ag-pilot-note"},"The pilot clip failed. Retry it or revise the plan before continuing."),
       button("Retry the pilot clip",()=>start("The pilot clip failed. Retry the first approved scene once with its exact prompt and dialogue, then stop for my pilot review."),"btn lime"));
     }else if(p.scenes.some(s=>s.status==="generating"||s.job)){
      actions.append(el("span",{class:"ag-pilot-note"},"The pilot clip is rendering. Approve it here when it is ready."));
     }else{
-     actions.append(el("span",{class:"ag-pilot-note"},"The plan is locked. The agent will build the references and one pilot clip, then stop for your review."),
-      button("Start the pilot clip",()=>start("The production plan is approved. Build the canonical references and generate the pilot clip for the first approved scene, then stop for my pilot review."),"btn lime"));
+      actions.append(el("span",{class:"ag-pilot-note"},"These are saved notes, not permission to launch inference."),
+       button("Prepare a pilot proposal",()=>start("Use the saved notes as context. Show the existing references and exact intended arguments for ONE pilot for my review. Do not generate anything yet."),"btn lime"));
     }
    }else{
     actions.append(el("span",{class:"ag-production-ok"},"Pilot approved"));
-    if(!complete)actions.append(button("Continue the remaining scenes",()=>start("The pilot clip is approved. Produce the remaining approved scenes with their exact prompts and dialogue, then report produced versus planned runtime."),"btn lime"));
+     if(!complete)actions.append(button("Prepare the next scene",()=>start("The pilot has been reviewed. Propose the next scene and exact intended arguments for my approval. Do not generate anything yet."),"ag-text-button"));
    }
   }
   return el("section",{class:`ag-production${draft?" draft":""}`,"aria-label":"Production plan"},
-   el("header",{},el("div",{},el("small",{},"PRODUCTION PLAN"),el("h3",{},`${p.format} · ${p.style}`),el("p",{},`${p.platform} · ${p.language} · ${p.aspect} · ${clock(p.durationSeconds)} requested · ${p.sound}`)),
-    el("span",{class:`ag-production-status${draft?"":" approved"}`},draft?"Waiting for your approval":"Approved")),
+    el("header",{},el("div",{},el("small",{},"SAVED PRODUCTION NOTES"),el("h3",{},`${p.format} · ${p.style}`),el("p",{},`${p.platform} · ${p.language} · ${p.aspect} · ${clock(p.durationSeconds)} requested · ${p.sound}`)),
+     el("span",{class:`ag-production-status${draft?"":" approved"}`},draft?"Draft notes":"Reviewed notes")),
    el("div",{class:"ag-production-progress"},el("progress",{max:Math.max(0.1,p.durationSeconds),value:Math.min(produced,p.durationSeconds)}),el("span",{},`${generated.length}/${p.scenes.length} scenes · ${clock(produced)} of ${clock(p.durationSeconds)}`)),
    el("div",{class:"ag-production-facts"},el("span",{},`Video ${p.engine}`),p.imageEngine?el("span",{},`Images ${p.imageEngine}`):null,p.model?el("span",{},`Model ${p.model}`):null),
    actions);

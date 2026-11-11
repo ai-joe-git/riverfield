@@ -19,6 +19,7 @@ import { z } from "zod";
 import { fileURLToPath } from "node:url";
 import { promptGuidance } from "./prompt-guidance.ts";
 import {planH3,segmentRequest} from "../server/h3-plan.ts";
+import {resolveApp} from "../server/app-reference.ts";
 
 const BASE = (process.env.RIVERFIELD_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
@@ -47,9 +48,7 @@ async function apps(base=BASE): Promise<Any[]> {
 }
 
 async function manifest(id: string,base=BASE): Promise<Any> {
-  const app = (await apps(base)).find((a) => a.id === id);
-  if (!app) throw new Error(`unknown app "${id}" (see list_apps)`);
-  return app;
+  return resolveApp(await apps(base) as Array<Any&{id:string;name:string}>,id);
 }
 
 /** The same multipart the web UI posts: one field per input, files by path. */
@@ -159,9 +158,10 @@ export function build(base=BASE): McpServer {
     },
   }, async ({ app, values, files, preset,request_id }) => {
     try {
-      const fd = await form(app, values ?? {}, files ?? {}, preset,base);
+      const canonical=await manifest(app,base);
+      const fd = await form(canonical.id, values ?? {}, files ?? {}, preset,base);
       if(request_id)fd.append("request_id",request_id);
-      const entry = await call(`/api/apps/${encodeURIComponent(app)}/run`, { method: "POST", body: fd });
+      const entry = await call(`/api/apps/${encodeURIComponent(canonical.id)}/run`, { method: "POST", body: fd });
       return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created });
     } catch (e) { return fail(e); }
   });

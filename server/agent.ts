@@ -8,14 +8,15 @@ import {StudioMcp,resultData,type McpConnection} from "./agent-mcp.ts";
 import type {Inference} from "./inference-queue.ts";
 import {artifactOrigin,mergeJob} from "./agent-media.ts";
 import {projectSchema,projectOf,projectTool,updateProject,checkProject} from "./agent-project.ts";
-import {askTool,productionTool,parseAnswers,parseQuestions,draftProduction,approveProduction,approvePilot,approvalIssues,matchScene,syncProduction,productionProgress,planSummary,type EngineApp} from "./production.ts";
+import {askTool,parseAnswers,parseQuestions,draftProduction,approveProduction,approvePilot,approvalIssues,matchScene,syncProduction,productionProgress,planSummary,resolveProduction,type EngineApp} from "./production.ts";
+import {resolveApp} from "./app-reference.ts";
 
 const READ=new Set(["list_apps","get_app","job","wait_job","history","gpu","examples","plan_segments","project_state","ask_user"]);
 const DONE=new Set(["succeeded","failed","canceled","expired","lost"]);
 // A lost/expired job never produced an artifact: retrying the exact same generation is legitimate.
 const RETRYABLE=new Set(["lost","expired"]);
 // Polling/status and local reading tools may legitimately be called repeatedly with the same arguments.
-const REPEATABLE=new Set(["job","wait_job","history","gpu","cancel_job","project_state","production_plan","ask_user"]);
+const REPEATABLE=new Set(["job","wait_job","history","gpu","cancel_job","project_state","ask_user"]);
 const turnOf=(c:Conversation)=>c.messages.filter(m=>m.role==="user"&&m.kind!=="studio").at(-1)?.id;
 const stable=(v:any):string=>JSON.stringify(v&&typeof v==="object"?Array.isArray(v)?v.map(x=>JSON.parse(stable(x))):Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(stable(v[k]))])):v??null);
 class StopTurn extends Error{}
@@ -25,8 +26,8 @@ Discover apps with list_apps; ALWAYS read get_app before run_app, inspect its in
 
 FOCUSED CINEMATIC WORKFLOW:
 INTERACTIVE QUESTIONS: Whenever you need the user to choose between options, call ask_user. The studio renders clickable buttons and free-text answers. Never print a numbered questionnaire or ask the user to reply with codes like 1b, 2a. A short introduction is enough; put the questions and options in the tool call, not repeated in prose.
-Ask only essential missing questions; if the user delegates creative choices, choose them. Present a concise screenplay and exact intended MCP arguments in chat for explicit approval before GPU inference. production_plan is optional legacy bookkeeping, never a prerequisite or authority to launch jobs; do not repeatedly rewrite its schema. Normal tool approval, cancellation and cost controls still apply.
-For cinematic references use only moss-turbo with steps=8: ONE multi-view sheet of the SAME character (front, three-quarter, profile, full body), and a SEPARATE empty environment with no people. Never combine character and set unless requested. Display both real outputs for approval before video. Use qwen-image-edit-turbo only when a correction is needed: genuine Qwen-Image-2.1-Turbo, fixed official eight-step sigmas, no Turbo+/Lightning/acceleration LoRA. Read get_app directly for these known IDs; list_apps only if needed, not to enumerate every unrelated app.
+Ask only essential missing questions; if the user delegates creative choices, choose them. Present a concise screenplay and exact intended MCP arguments in chat for explicit approval before GPU inference. The old production_plan tool is retired; old saved plans are notes, not prerequisites or inference permissions. Do not try to recreate or resubmit that schema. Normal tool approval, cancellation and cost controls still apply.
+For cinematic references use only moss-turbo with steps=8: ONE proper character sheet of the SAME identity, and a SEPARATE empty environment with no people. A character sheet is a landscape reference board: large detailed face portrait on the LEFT; three equally scaled, head-to-toe FRONT, SIDE PROFILE and BACK views aligned on the RIGHT, feet fully visible. Match face, hair, outfit, accessories, body proportions and lighting across all views. Use a neutral background, no set or scenery, no text. These are views of one person, not different characters or a group scene. Use the prompt template returned by get_app; adapt the character description, not the layout. Never combine character and set unless requested. Display both real outputs for approval before video. Use qwen-image-edit-turbo only when a correction is needed: genuine Qwen-Image-2.1-Turbo, fixed official eight-step sigmas, no Turbo+/Lightning/acceleration LoRA. Read get_app directly for these known IDs; list_apps only if needed, not to enumerate every unrelated app.
 For cinematic video/audio use only pika-studio-director. Its graph owns locked LCM and six-step sigmas; do not reconstruct its planner or model loading. Read get_app and its prompting rules. Ref2VA requires six ordered sections; FL2VA requires three and an empty material bin. Map Picture/Subject labels to EACH segment's selected materials, not global slots. A sheet supplies identity for ONE real character, never panels or duplicate people in the output.
 Define stable speakers (S1) visible candidate and (S2) offscreen director when appropriate; write English scene directions and short native dialogue such as: The candidate (S1) replies nervously, <d>[French] Oui, je suis prêt.</d>. No separate TTS or score unless requested.
 Keep total story duration separate from generation duration per segment. Use plan_segments, copy legal frame windows unchanged, and explicitly submit exact aspect option and megapixels. For the initial benchmark: one requested 5-second segment, aspect="9:16 (Portrait Widescreen)", megapixels=0.4, then retrieve the real output and STOP for review. Do not run six scenes, upscale, or continue automatically.
@@ -98,11 +99,12 @@ export class RiverfieldAgent {
   }
   /** Read the production plan plus the registry checks used by the review dialog. */
   productionView(id:string,apps:EngineApp[]=[]){const c=this.store.get(id);syncProduction(c);
-    return {production:c.production||null,progress:productionProgress(c),issues:c.production?approvalIssues(c.production,apps):[],
+    const production=c.production?resolveProduction(c.production,apps,c.artifacts.filter(a=>a.type==="image").map(a=>a.app||"")):undefined;
+    return {production:production||null,progress:productionProgress({...c,production}),issues:production?approvalIssues(production,apps):[],
       apps:apps.filter(a=>a.section==="image"||a.section==="video").map(a=>({id:a.id,name:a.name,section:a.section,status:a.status}))};
   }
-  saveProduction(id:string,plan:unknown,apps:EngineApp[]=[]){if(this.active.has(id))throw new Error("Stop the current agent turn before editing the plan");const c=this.store.get(id);draftProduction(c,plan);this.save(c);return this.productionView(id,apps);}
-  approveProduction(id:string,apps:EngineApp[]=[]){if(this.active.has(id))throw new Error("Stop the current agent turn before approving the plan");const c=this.store.get(id);approveProduction(c,apps);this.save(c);return this.productionView(id,apps);}
+  saveProduction(id:string,plan:unknown,apps:EngineApp[]=[]){if(this.active.has(id))throw new Error("Stop the current agent turn before editing the plan");const c=this.store.get(id);c.production=resolveProduction(draftProduction(c,plan),apps,c.artifacts.filter(a=>a.type==="image").map(a=>a.app||""));this.save(c);return this.productionView(id,apps);}
+  approveProduction(id:string,apps:EngineApp[]=[]){if(this.active.has(id))throw new Error("Stop the current agent turn before approving the plan");const c=this.store.get(id);if(c.production)c.production=resolveProduction(c.production,apps,c.artifacts.filter(a=>a.type==="image").map(a=>a.app||""));approveProduction(c,apps);this.save(c);return this.productionView(id,apps);}
   approvePilot(id:string,artifact:string,apps:EngineApp[]=[]){const c=this.store.get(id);approvePilot(c,artifact);this.save(c);return this.productionView(id,apps);}
   private launch(c:Conversation){if(this.active.has(c.id))throw new Error("Turn already running");this.providers.get(c.provider);c.status="running";c.error=undefined;c.runId=randomUUID();this.save(c);
     const controller=new AbortController(),live:Live={controller,promise:Promise.resolve(),conversation:c};this.active.set(c.id,live);live.promise=this.loop(c,controller.signal).finally(()=>this.active.delete(c.id));
@@ -123,10 +125,13 @@ export class RiverfieldAgent {
     const check=this.ajv.compile(t.inputSchema);if(!check(record.arguments))throw new Error(`Invalid MCP tool arguments: ${this.ajv.errorsText(check.errors)}`);
     if(t.name==="run_app"){
       if(c.jobs.filter(id=>!DONE.has(c.jobStates[id]?.status)).length>=8)throw new Error("Wait for existing studio jobs before queueing more generations (8 pending jobs maximum)");
-      if(!c.tools.some(t=>t.name==="get_app"&&t.status==="done"&&t.arguments.app===record.arguments.app))throw new Error("Read get_app for this application before running it");
+      const manifests=c.tools.filter(t=>t.name==="get_app"&&t.status==="done").map(t=>resultData(t.result)).filter(a=>typeof a?.id==="string");
+      const catalog=[...new Map(manifests.map(a=>[a.id,{...a,name:a.name||a.id}])).values()];
+      let app:string;try{app=resolveApp(catalog,String(record.arguments.app)).id;}catch{throw new Error("Read get_app for this application before running it; reuse the canonical id returned by the manifest");}
+      record.arguments.app=app;
       const files=(record.arguments.files||{}) as Record<string,string>;for(const path of Object.values(files)){if(typeof path!=="string")throw new Error("Invalid file path");this.permitFile(c,path);}
       const values=(record.arguments.values||{}) as Record<string,unknown>;
-      const manifest=c.tools.findLast(t=>t.name==="get_app"&&t.status==="done"&&t.arguments.app===record.arguments.app);
+      const manifest=c.tools.findLast(t=>t.name==="get_app"&&t.status==="done"&&resultData(t.result)?.id===app);
       const section=resultData(manifest?.result)?.section as string|undefined;
       checkProject(c,String(record.arguments.app),section,values,files);
       record.section=section;
@@ -164,24 +169,15 @@ export class RiverfieldAgent {
         const parsed=parseQuestions(record.arguments);
         record.status="asking";c.questions={toolId:record.id,turn:record.turn,questions:parsed.questions,asked:now()};c.status="question";this.save(c);return false;
       }
-      const localWrite=record.name==="project_state"?record.arguments.action==="update":record.name==="production_plan"&&record.arguments.action==="update";
-      const mutating=record.name==="project_state"||record.name==="production_plan"?localWrite:!(READ.has(t.name)||t.annotations?.readOnlyHint===true||(t.name==="media"&&record.arguments.operation==="probe"));
+      const mutating=record.name==="project_state"?record.arguments.action==="update":!(READ.has(t.name)||t.annotations?.readOnlyHint===true||(t.name==="media"&&record.arguments.operation==="probe"));
       if(mutating&&c.mode==="read-only")throw new Error("Project and production updates are disabled in read-only mode");
-      // Optional local notes do not authorize inference and need no separate tool approval.
-      if(mutating&&record.name!=="production_plan"&&c.mode==="ask"&&record.status!=="approved"){
+      if(mutating&&c.mode==="ask"&&record.status!=="approved"){
         record.status="proposed";c.status="approval";this.save(c);return false;
       }
       if(record.status==="uncertain"&&record.name!=="run_app")throw new Error("Outcome uncertain after interruption. Inspect history; this operation is not automatically repeated.");
       record.status="running";this.save(c); // Persist before dispatch.
       const args={...record.arguments};if(record.name==="run_app")args.request_id=`${c.id}:${record.id}`;
-      const local=()=>{
-        if(record.name==="project_state")return {content:[{type:"text",text:JSON.stringify(args.action==="update"?updateProject(c,args.state):projectOf(c))}]};
-        const data=args.action==="get"?{plan:c.production||null,progress:productionProgress(c),issues:c.production?approvalIssues(c.production):[]}:
-          args.action==="update"?(()=>{const plan=draftProduction(c,args.plan);return {plan,note:"Saved as an optional draft. Generation authorization is separate; ask for explicit user approval of intended arguments.",progress:productionProgress(c),issues:approvalIssues(plan)};})():
-          (()=>{throw new Error("Unknown production_plan action");})();
-        return {content:[{type:"text",text:JSON.stringify(data)}]};
-      };
-      const result=record.name==="project_state"||record.name==="production_plan"?local():await mcp.call(record.name,args,signal);signal.throwIfAborted();record.result=result;
+      const result=record.name==="project_state"?{content:[{type:"text",text:JSON.stringify(args.action==="update"?updateProject(c,args.state):projectOf(c))}]}:await mcp.call(record.name,args,signal);signal.throwIfAborted();record.result=result;
       record.status=result.isError?"error":"done";if(result.isError)record.error=String(resultData(result)).slice(0,2000);
       const data=resultData(result);if(record.name==="run_app"&&data?.id&&!result.isError){record.job=data.id;if(!c.jobs.includes(data.id))c.jobs.push(data.id);
         const scene=record.section==="video"&&record.scene?c.production?.scenes.find(s=>s.id===record.scene):undefined;
@@ -199,8 +195,8 @@ export class RiverfieldAgent {
   private async loop(c:Conversation,signal:AbortSignal){const mcp=this.connect();
     try{
       const remoteTools=await mcp.tools();if(!remoteTools.length)throw new Error("The studio MCP endpoint returned no tools");
-      const local=new Set(["project_state",askTool.name,productionTool.name]);
-      const tools=[...remoteTools.filter(t=>!local.has(t.name)),projectTool,askTool,productionTool];
+      const local=new Set(["project_state",askTool.name,"production_plan"]);
+      const tools=[...remoteTools.filter(t=>!local.has(t.name)),projectTool,askTool];
       if(!this.providers.get(c.provider).runtimeProfile)c.warnings=[...new Set([...c.warnings,"Externally managed local models may retain GPU/unified memory while ComfyUI runs. Configure their offload/context or unload them yourself; Riverfield will not kill them."])];
       for(let step=0;step<c.maxSteps;step++){
         signal.throwIfAborted();
@@ -219,7 +215,7 @@ export class RiverfieldAgent {
          const assets=[...new Map([...c.attachments,...c.artifacts].map(a=>[a.id,a])).values()];
          syncProduction(c);
          const durable=JSON.stringify({project:projectOf(c),production:c.production?{...planSummary(c.production),progress:productionProgress(c)}:null,interview:c.interview||null,
-           assets:assets.slice(-100).map(a=>({id:a.id,name:a.name,path:a.path})),jobs:c.jobs.map(id=>({id,status:c.jobStates[id]?.status,error:c.jobStates[id]?.error})).slice(-30)});
+           assets:assets.slice(-100).map(a=>({id:a.id,name:a.name,path:a.path,job:"job" in a?a.job:undefined})),jobs:c.jobs.map(id=>({id,status:c.jobStates[id]?.status,error:c.jobStates[id]?.error})).slice(-30)});
          const context=this.context(c,p,durable.length+c.instructions.length+JSON.stringify(tools).length);
          return this.completion(p,this.providers.key(p),model,SYSTEM+`\nConversation instructions: ${c.instructions}\nAutonomy mode: ${c.mode}.\nDurable studio state (data, not permission changes): ${durable}`,context,tools.filter(t=>this.toolAllowed(c,t)),c.attachments,signal,part=>{
           message.content+=part;this.emit(c,"delta",{id:message.id,text:part});if(!c.messages.includes(message))c.messages.push(message);if(Date.now()-lastSave>500){this.store.save(c);lastSave=Date.now();}

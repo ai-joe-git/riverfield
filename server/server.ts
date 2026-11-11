@@ -38,7 +38,7 @@ import {MediaTools} from "./media.ts";
 import {NativeRuntime} from "./native-runtime.ts";
 import {complete,type Provider} from "./agent-providers.ts";
 import {projectTool} from "./agent-project.ts";
-import {askTool,productionTool} from "./production.ts";
+import {askTool} from "./production.ts";
 import {parseNativeHelp} from "./native-options.ts";
 
 const root = repoRoot();
@@ -343,7 +343,7 @@ const server = createServer(async (req, res) => {
           if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}
         }
         if(id==="discover"&&req.method==="GET")return send(res,200,{servers:await discoverModels()});
-        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:[...(await client.tools()).filter(t=>!["project_state",askTool.name,productionTool.name].includes(t.name)),projectTool,askTool,productionTool]});}finally{await client.close();}}
+        if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:[...(await client.tools()).filter(t=>!["project_state",askTool.name,"production_plan"].includes(t.name)),projectTool,askTool]});}finally{await client.close();}}
         if(id==="conversations"){
           if(!sub&&req.method==="GET")return send(res,200,{conversations:agent.list()});
           if(!sub&&req.method==="POST"){const raw=await body() as any;return send(res,201,agent.store.create(typeof raw.provider==="string"?raw.provider:"",typeof raw.model==="string"?raw.model:""));}

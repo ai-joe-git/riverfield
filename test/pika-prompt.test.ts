@@ -60,6 +60,7 @@ test("proposed MOSS calls are two separate valid references at eight steps",()=>
  const calls=JSON.parse(readFileSync("docs/cinematic-pilot-reference-calls.json","utf8")),moss=loadRegistry(process.cwd()).apps.find(a=>a.id==="moss-turbo")!;
  assert.equal(calls.length,2);
  for(const call of calls){assert.equal(call.arguments.app,"moss-turbo");assert.equal(resolveValues(moss,call.arguments.values).steps,8);}
- assert.match(calls[0].arguments.values.prompt,/front.*three-quarter.*profile.*full-body/);
+ assert.equal(calls[0].arguments.values.aspect,"16:9 (Widescreen)");
+ assert.match(calls[0].arguments.values.prompt,/LEFT THIRD.*portrait.*RIGHT TWO THIRDS.*FRONT VIEW.*SIDE PROFILE.*BACK VIEW/);
  assert.match(calls[1].arguments.values.prompt,/EMPTY.*studio/);assert.match(calls[1].arguments.values.prompt,/Absolutely no people/);
 });

@@ -4,9 +4,9 @@
     "arguments": {
       "app": "moss-turbo",
       "values": {
-        "prompt": "Photorealistic casting reference sheet on a plain light-grey background. Four clearly separated views of THE SAME adult French male game-show contestant: front head-and-shoulders, three-quarter head-and-shoulders, profile head-and-shoulders, and full-body standing. These are identity views of one fictional individual, not four different people. Age 35, slim build, narrow oval face, brown eyes, slightly prominent ears, short curly dark-brown hair, clean shaven. Consistent face, hair, body proportions and wardrobe in every view: mustard-yellow crew-neck sweater over a pale-blue collared shirt, charcoal trousers, plain white low-top trainers, no logos. Slightly nervous but natural expression, shoulders a little tense. Neutral realistic studio lighting and natural skin texture. All four views fit entirely inside the image, full-body view includes both shoes. No environment, furniture, game-show set, props, text, labels, logos or decorative borders.",
+        "prompt": "Photorealistic character identity and wardrobe reference sheet, landscape 16:9 composition, plain light-grey background. THE SAME adult French male game-show contestant in every view: age 35, slim build, narrow oval face, brown eyes, slightly prominent ears, short curly dark-brown hair, clean shaven. Identical mustard-yellow crew-neck sweater over a pale-blue collared shirt, charcoal trousers and plain white low-top trainers in every view, no logos. LEFT THIRD: one large, highly detailed face and shoulders portrait, face unobstructed. RIGHT TWO THIRDS: three full-body standing views side by side, FRONT VIEW, SIDE PROFILE and BACK VIEW, aligned at the head and feet, identical scale, complete body and both shoes visible with margins. Match identity, face, hair, body proportions, outfit, colours and footwear across all views. Slightly nervous but natural expression, relaxed arms, consistent soft neutral studio lighting and natural skin texture. Multiple views of ONE fictional person, not different people or a group scene. No environment, furniture, game-show set, props, writing, labels, logos or decorative borders.",
         "rewrite": false,
-        "aspect": "1:1 (Square)",
+        "aspect": "16:9 (Widescreen)",
         "steps": 8,
         "cfg": 1.5,
         "seed": 43121
