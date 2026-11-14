@@ -1875,6 +1875,32 @@
       "measured_on": null
     },
     {
+      "id": "qwen-image-edit-turbo",
+      "name": "Qwen Image Edit Turbo",
+      "section": "image",
+      "pack": "qwen",
+      "status": "ready",
+      "whole_gb": 15.06,
+      "phases_gb": {
+        "encode": 8.0,
+        "denoise": 6.76,
+        "denoise2": 0.0,
+        "decode": 0.3,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 8.0,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "qwen3vl_8b_int8_convrot.safetensors",
+        "gb": 8
+      },
+      "verdict_24gb": "fits whole",
+      "modal_gpu": "L4 / A10G (24 GB)",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "music",
       "name": "Music",
       "section": "audio",
@@ -3518,17 +3544,17 @@
       "section": "video",
       "pack": "video-h3",
       "status": "ready",
-      "whole_gb": 51.53,
+      "whole_gb": 56.82,
       "phases_gb": {
         "encode": 27.14,
-        "denoise": 20.97,
+        "denoise": 26.13,
         "denoise2": 0.0,
-        "decode": 3.42,
+        "decode": 3.55,
         "aux": 0.0
       },
       "largest_phase": "encode",
       "largest_phase_gb": 27.14,
-      "optional_gb": 0,
+      "optional_gb": 28.33,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
@@ -3570,17 +3596,17 @@
       "section": "video",
       "pack": "video-h3",
       "status": "ready",
-      "whole_gb": 51.53,
+      "whole_gb": 56.82,
       "phases_gb": {
         "encode": 27.14,
-        "denoise": 20.97,
+        "denoise": 26.13,
         "denoise2": 0.0,
-        "decode": 3.42,
+        "decode": 3.55,
         "aux": 0.0
       },
       "largest_phase": "encode",
       "largest_phase_gb": 27.14,
-      "optional_gb": 0,
+      "optional_gb": 28.33,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
@@ -3684,7 +3710,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 28.09,
-      "optional_gb": 20.98,
+      "optional_gb": 28.33,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
@@ -3710,13 +3736,65 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 28.09,
-      "optional_gb": 20.98,
+      "optional_gb": 28.33,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
       },
       "verdict_24gb": "needs Modal",
       "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-image",
+      "name": "H3 Image",
+      "section": "image",
+      "pack": "image-h3",
+      "status": "ready",
+      "whole_gb": 66.58,
+      "phases_gb": {
+        "encode": 44.43,
+        "denoise": 20.98,
+        "denoise2": 0.0,
+        "decode": 1.17,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 44.43,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "A100 80GB / H100",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-image-edit",
+      "name": "H3 Image Edit",
+      "section": "image",
+      "pack": "image-h3",
+      "status": "ready",
+      "whole_gb": 66.58,
+      "phases_gb": {
+        "encode": 44.43,
+        "denoise": 20.98,
+        "denoise2": 0.0,
+        "decode": 1.17,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 44.43,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "A100 80GB / H100",
       "measured_peak_gb": null,
       "measured_on": null
     },

@@ -58,13 +58,13 @@ local or remote provider you choose; conversations live under `out/agent/`.
 
 | | |
 |---|---|
-| Apps | **148 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **151 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, **2 MiniMax H3 Image**, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Qwen Image Edit Turbo**, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Agent | **Riverfield Agent**: native chat with local (llama.cpp, Ollama, vLLM, LM Studio, Halogen) and remote (OpenAI, OpenRouter, Anthropic) providers, real MCP tool execution, streaming, approvals, media previews and persistence |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
-| Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
-| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples. Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
+| Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the H3 Image pair comes from ComfyUI's `image_minimax_h3_image_t2i.json` and `image_minimax_h3_image_edit.json`, flattened with `tools/ui2api.py`; the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
+| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples and the two H3 Image 4 MP examples (text-to-image and edit). Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
 | End to end | Run from the browser on 23 Oct, web UI → server → gateway on Modal → ComfyUI on an H100: `morph` 160.8 s from the button to the video (128.7 s of it on the GPU), `mixed-media` 149 s, `dub` 72 s. On 24 Oct through the hosted demo (`infra/web_app.py`, the same web app on Modal behind a passcode): `face-swap` 25.2 s on the GPU. The model-free smoke apps cover the same path in CI |
-| LoRA lab | 334 cases with fixed seeds: one showcase per app (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
+| LoRA lab | 334 cases with fixed seeds: one showcase for each app that has a lab case (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
 | CI | `.github/workflows/validate.yml` on every push: the manifest validator, the tests, the type check, the generated packs and VRAM map, and a CPU-only ComfyUI that accepts every workflow and the prompt of every lab case (about 3 minutes) |
 
 ## What RiverField adds
@@ -74,13 +74,16 @@ graph and a manifest.
 
 | App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
 |---|---|---|---|
-| `h3-video-turbo`, `h3-photo-turbo`, `extend-video-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA, `euler`, a 0.4–0.8 MP picker and a sampler choice | H3 int8 | 186 s for 2 s, 0.4 MP |
+| `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
+| `extend-video-turbo` | MiniMax H3 extend with the same 3-step turbo LoRA; steps, sampler and sparse-attention controls | H3 int8 | — |
+| `h3-image`, `h3-image-edit` | MiniMax **H3 Image** text-to-image and edit: 4 MP default, aspect/MP picker, 6 steps at CFG 1, sampler/scheduler, DiT/encoder/VAE pickers, Qwen3.8-27B prompt expansion; the edit app resizes its input to the target MP | H3 Image int8 | 481 s for 4.19 MP (t2i), 988 s for 4.18 MP (edit) |
 | `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
 | `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
 | `music-yue2`, `music-yue2-cover` | YuE2 songs and covers, 23-language vocals, from the user's own workflows | YuE2 3B | 22 s / 26 s |
 | `tts`, `tts-clone` | Chatterbox: 23 languages, voice cloning from 5 s | Chatterbox 500M | 4.1 s / 4.6 s |
 | `tts-omni`, `tts-omni-clone` | OmniVoice: voice design from attributes, cloning, 600+ languages | OmniVoice 0.6B | 4.1 s / 4.7 s |
 | `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
+| `qwen-image-edit-turbo` | Qwen Image 2.1 edit with the Turbo checkpoint: source image, instruction, negative prompt, resolution budget and seed | Qwen Image 2.1 int8 | — |
 | `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
 | `gaussian-splat` | A picture to a **Gaussian splat**: the native `.spz`, a `.glb` mesh and a turntable clip; BiRefNet cut-out, 65k–524k gaussians, sampling preview | Idol / TripoSplat | — |
 | `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
@@ -89,8 +92,8 @@ graph and a manifest.
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
-| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
-| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP and the same optional RelayVSR 2×/4× pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
+| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, sampling preset (Pika's 6-step ladder or a custom `BasicScheduler`), LoRA/DiT/VAE pickers, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
+| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP, the same sampling/LoRA/DiT/VAE controls and optional **RelayVSR 2×/4×** pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
 | `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment | MiniMax H3 int8 | — |
 | `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
@@ -278,8 +281,14 @@ Z-Image drew four apples, wrote the label Krea 2 left blank, kept the top-down v
 as a scene where Z-Image printed its keys on the sign. So `create-image`, `cinema-studio`, `ai-influencer` and `meme`
 run on Klein. BFL's 9B upsampler is a toggle in Create Image (on by default: it turns a short prompt into a full
 caption, about 8 s more). Z-Image stays for fast drafts and for the lab's reference photos, so earlier examples keep
-their inputs. MOSS-Image (Apache-2.0) is in as a draft for layout prompts. Fibo 2.0, trained on JSON prompts, needs a
+their inputs. MOSS-Image (Apache-2.0) is in for layout prompts. Fibo 2.0, trained on JSON prompts, needs a
 newer ComfyUI than the one pinned here and its weights are licensed for non-commercial use only.
+
+MiniMax **H3 Image** is the newest pair: one int8 checkpoint serves text-to-image (`h3-image`) and edit (`h3-image-edit`), at 4 MP by default, 6 steps and CFG 1, with Qwen3.8-27B prompt expansion and H3's own Qwen3-VL 32B text encoder. It is a separate **66.6 GB** pack (`image-h3`), 44.4 GB in its largest phase, so a 48 GB card is tight and an 80 GB card (A100/H100) or Modal is comfortable; the two 4 MP examples below were made locally on gfx1151. The edit app resizes the input photo to the chosen megapixel count before the single reference pass.
+
+![H3 Image 4 MP text-to-image example: a plush fox poster](web/examples/h3-image/card.jpg)
+
+![H3 Image Edit 4 MP example: a vintage taxi replaced by a pastel ice-cream truck](web/examples/h3-image-edit/card.jpg)
 
 ![Six prompts (a portrait, a product with text, counting, a JSON prompt, a poster, a watercolor) on Z-Image Turbo, FLUX 3 Klein with and without the upsampler, Krea 2 Turbo and MOSS-Image, with GPU seconds and peak VRAM under each](docs/media/image-models.jpg)
 
@@ -510,16 +519,15 @@ changes the passcode and locks out the old link once you redeploy.
 
 Any ComfyUI works as the backend: run `comfy-api-proxy` next to it and `python infra/gateway.py` in front, and point
 `COMFY_BASE_URL` at the gateway. Pointing it straight at a `comfy-api-proxy` (or another Comfy API v2 endpoint) works
-too; only the unload-between-apps step is skipped. An app marked `draft` (none is, today) stays locked in the UI and
+too; only the unload-between-apps step is skipped. An app marked `draft` (the four-chain `ltx-director-4seg`, today) stays locked in the UI and
 the CLI until you set `RIVERFIELD_DRAFTS=1` (or pass `--draft` to `npm run app`).
 
 ## The LoRA lab and the gallery
 
-`lab/cases.json` lists experiments: reference images, clips and a song are generated first, then every app and LoRA
-runs on them with a fixed seed. Each app has a *showcase* case, so one command makes an example of every app:
+`lab/cases.json` lists experiments: reference images, clips and a song are generated first, then the apps and LoRAs that have cases run on them with a fixed seed. Each app with a lab case has a *showcase* case, so one command makes an example of every app that has one:
 
 ```sh
-modal run --detach lab/lab_modal.py --showcase    # one example per app + the references they need (139 cases)
+modal run --detach lab/lab_modal.py --showcase    # one example for each app that has a lab case + the references they need (139 cases)
 modal run lab/lab_modal.py --pull <run_id>        # only if the terminal closed before the end: copy back and publish
 ```
 
@@ -555,11 +563,11 @@ at a time, saves the output to `<name>.log` and writes `<name>.done.json` with t
 `<name>.refused.json` with the reason. Your Modal login never leaves your machine.
 
 `--detach` keeps the GPU job running if the terminal closes; the run id is printed at the start. Missing models are
-downloaded first on a CPU container, so no GPU is billed while they arrive (the whole catalog is
+downloaded first on a CPU container, so no GPU is billed while they arrive (the models these cases load are
 104 files, about 355 GB). Then one GPU container runs the cases, recording time and peak VRAM, and keeps going when one fails;
 a case whose model could not be downloaded (say, a license not yet accepted) is skipped with the reason. Every output
 also gets small web versions (a card, a poster for videos, a web-sized copy). At the end the run is copied to
-`lab/results/<run_id>`, `review.html` is built there for rating, and `lab/publish.py` copies one example per app into
+`lab/results/<run_id>`, `review.html` is built there for rating, and `lab/publish.py` copies one example for each app that has a case into
 `web/examples/` (its output plus the reference files it was given): the web UI uses it as the app's card and video
 loop, in *Explore*, in each app's *Library* tab, and for *Load this example*, which puts the same inputs and settings in
 the form so you can run it again and compare.
