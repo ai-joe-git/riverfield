@@ -7,14 +7,14 @@ RiverField tourne par-dessus **ton** ComfyUI ROCm, pas sur Modal.
 | ComfyUI | `/home/zardoz/comfyui-vanilla-gfx1151/ComfyUI` (0.44.0, gfx1151) |
 | venv | `/home/zardoz/comfyui-vanilla-gfx1151/.venv-r101` (torch 2.14 + ROCm 10.1) |
 | Modèles | `ComfyUI/models` (les tiens) |
-| Backend | `:8188` ComfyUI · `:8189` comfy-api-proxy · `:8000` gateway |
+| Backend | `:8189` ComfyUI · `:8190` comfy-api-proxy · `:8000` gateway (voir `/tmp/opencode/riverfield/ports.env`) |
 | Web | `:3000` |
-| Dossier | `/home/zardoz/riverfield` |
+| Dossier | `/home/zardoz/freefield` |
 
 ## Démarrer
 
 ```sh
-cd ~/riverfield
+cd ~/freefield
 ./run-backend.sh        # terminal 1 : ComfyUI + proxy + gateway (Ctrl+C arrête tout)
 ./run-web.sh            # terminal 2 : http://127.0.0.1:3000
 ```
@@ -22,7 +22,7 @@ cd ~/riverfield
 En ligne de commande, sans navigateur :
 
 ```sh
-npm run apps                                            # liste des 120 apps
+npm run apps                                            # liste des 152 apps
 npm run app -- create-image --set prompt="..."          # une génération
 npm run app -- video --file image=photo.jpg --set duration=5
 ```
@@ -69,7 +69,7 @@ Le script recopie `comfy-nodes/riverfield-comfy-nodes` et réapplique les deux p
 sauvegarde `.orig-riverfield`). Le patch du proxy, lui, est déjà réappliqué à chaque
 démarrage par `run-backend.sh`.
 
-## Apps turbo MiniMax H3 (locales, survivent aux `git pull`)
+## Apps turbo MiniMax H3 (versionnées)
 
 Quatre clones des apps H3, avec un LoRA turbo et les réglages qui vont avec ; les apps
 d'origine restent intactes :
@@ -81,22 +81,43 @@ d'origine restent intactes :
 | `extend-video-turbo` | idem | 3 / `euler` | `extend-video` |
 | `reshoot-turbo` | `minimax_h3_ref2v_turbo_4step_v0.1` (remplace le 8-step) | 4 / `euler` | `reshoot` (8 steps) |
 
-Elles sont **hors git** : les dossiers `apps/*-turbo/` et `local/` sont listés dans
-`.git/info/exclude` (fichier local, non versionné), donc un `git pull` ne les touche jamais
-et `git status` reste propre.
+Elles sont **versionnées dans le dépôt** depuis le 13/11, avec `local/` : le `.git/info/exclude`
+local ne s'applique plus aux fichiers suivis. Un `git pull` les met donc à jour comme le reste
+du projet.
 
-De plus `h3-video-turbo` et `h3-photo-turbo` ont un **sélecteur de résolution en
-mégapixels**, branché sur le `ResolutionSelector` / l'`ImageScaleToTotalPixels`
-du workflow — exactement le réglage que ComfyUI expose. `extend-video-turbo` et
-`reshoot-turbo` n'en ont pas : la taille y vient du clip d'entrée.
+`h3-video-turbo` et `h3-photo-turbo` exposent **29 entrées** : prompt, format, résolution en
+mégapixels, durée, steps, sampler, LoRA et force, seed, encodeur, les 12 réglages SLA, l'upscale
+RelayVSR x2/x4 et sa force, le préfixe de sortie, le format et le codec. Le LoRA par défaut est
+`taomate_h3_3step_comfy.safetensors` ; les autres LoRA turbo installés (MiniMax 4/8-step, DMAD,
+PDMD 2/4-step, turbo v4, Pika Flex) sont dans le sélecteur. Le DiT et le VAE vidéo sont aussi
+choisissables (H3 FL2VA/Ref2VA, VAE int8/fp16/LynnReal Light).
 
-Plafond mesuré sur cette machine (112 Go) : **0.4 / 0.6 / 0.8 MP**. À 1,0 MP le run passe
-mais devient très lent (14 min sans finir pour 2 s), et à 1,5 MP c'est un OOM
-(`Tried to allocate 69.73 GiB`). C'est l'attention non-flash de ROCm : elle croît avec le
-carré de la résolution.
+`extend-video-turbo` (7 entrées) et `reshoot-turbo` (10 entrées) gardent la taille du clip
+d'entrée : ils exposent les steps, le sampler et les réglages SLA (leur LoRA reste celui du
+workflow), pas les sélecteurs de DiT/VAE.
 
-Les 4 turbo ont aussi un **choix de sampler** : `euler` (celui du LoRA turbo, par défaut) ou
-`res_multistep` (celui de l'app d'origine).
+Plafond mesuré sur cette machine (112 Go) pour la **vidéo** H3 : **0.4 / 0.6 / 0.8 MP**. À
+1,0 MP le run passe mais devient très lent (14 min sans finir pour 2 s), et à 1,5 MP c'est un
+OOM (`Tried to allocate 69.73 GiB`). C'est l'attention non-flash de ROCm : elle croît avec le
+carré de la résolution. Les apps H3 Image, elles, tournent à 4 MP (voir ci-dessous).
+
+## H3 Image (text-to-image et edit)
+
+Deux apps, `h3-image` et `h3-image-edit`, depuis les workflows ComfyUI
+`image_minimax_h3_image_t2i.json` et `image_minimax_h3_image_edit.json`, aplatis avec
+`tools/ui2api.py` :
+
+- **4 MP par défaut**, 6 steps, CFG 1, `euler` / `simple` ;
+- format et budget MP pour le t2i ; l'edit redimensionne la photo d'entrée au budget MP
+  (`scale total pixels`, multiple de 32) avant la passe de référence ;
+- expansion de prompt **Qwen3.8-27B w4a8** par défaut (Qwen3.5-9B w4a8 en option) ;
+- DiT H3 Image int8, encodeur Qwen3-VL 32B int8, VAE H3 Image fp16 (variantes NVFP4 /
+  Heretic / VAE int8 en option).
+
+Pack dédié `packs/image-h3.json` : **66,6 Go** (DiT 21,0 + encodeur 27,1 + PE 17,3 + VAE 1,2).
+Les deux exemples 4 MP de `web/examples/h3-image*` ont été générés ici : **2048×2048 en 481 s**
+(t2i, seed `217708594820076`) et **2720×1536 en 988 s** (edit, seed `573390858548243`), sur
+gfx1151. Le pack est complet dans `ComfyUI/models`.
 
 ## H3 SLA Attention (ROCm) dans les 4 workflows H3
 
@@ -127,7 +148,7 @@ reste sur 8000. Les ports retenus sont écrits dans `/tmp/opencode/riverfield/po
 `./start.sh` attend que le gateway et l'interface répondent et **échoue bruyamment** (code 1,
 15 dernières lignes du log) si l'un des deux ne vient pas, au lieu d'afficher « prêt ».
 
-## Menus et vignettes (overlay)
+## Audio : YuE2 (menus et vignettes)
 
 Deux apps ajoutées depuis les workflows ComfyUI maison (`audio_yue2_text2music.json` et
 `audio_yue2_music_cover.json`), converties en API par `tools/ui2api.py` :
@@ -153,13 +174,15 @@ python3 local/apply-overlay.py            # applique (appelé par ./start.sh)
 python3 local/apply-overlay.py --revert   # remet les fichiers upstream
 ```
 
-Il ajoute les 4 turbo dans les groupes *Create* / *Camera* du studio vidéo, et les 2 YuE2
-dans *Create* ; les vignettes viennent de `local/examples.json` (images/vidéos publiées
+Il ajoute les 4 turbo dans les groupes *Create* / *Camera* du studio vidéo, les 2 YuE2
+dans *Create*, et les 2 H3 Image dans *Image → Create* (`h3-image`) et *Image → VFX*
+(`h3-image-edit`) ; les vignettes viennent de `local/examples.json` (images/vidéos publiées
 dans `web/examples/<app>/`).
 
 Les vignettes de `h3-photo-turbo`, `extend-video-turbo` et `reshoot-turbo` réutilisent les
 médias de leur app d'origine (le champ `run` de l'exemple le dit) en attendant un run turbo
-maison ; `h3-video-turbo` et les deux YuE2 ont des médias réellement générés ici.
+maison ; `h3-video-turbo`, les deux YuE2, `h3-image` et `h3-image-edit` ont des médias
+réellement générés ici.
 
 ## Mettre à jour RiverField
 
@@ -173,14 +196,17 @@ C'est la seule commande à utiliser : un `git pull` direct échouerait sur les f
 modifiés par l'overlay.
 
 Le générateur `local/make-turbo-apps.py` reconstruit les quatre apps depuis les workflows
-upstream. **À relancer après chaque `git pull`** si RiverField change un graphe H3 :
+upstream et **préserve les contrôles locaux et les nœuds ajoutés** (`LOCAL_INPUT_IDS`,
+`preserve_local_controls()`), pour ne pas perdre les 29 entrées, les sélecteurs DiT/VAE/LoRA
+ni l'upscale RelayVSR. **À relancer après chaque `git pull`** si RiverField change un graphe H3 :
 
 ```sh
-cd ~/riverfield && python3 local/make-turbo-apps.py && npm run validate
+cd ~/freefield && python3 local/make-turbo-apps.py && npm run validate
 ```
 
-Les LoRA ne sont pas déclarés dans `models` (pas d'entrée Hub) : ils doivent être dans
-`ComfyUI/models/loras`, ce qui est le cas ici.
+Les LoRA turbo ne sont pas déclarés dans `models` (pas d'entrée Hub) : ils doivent être dans
+`ComfyUI/models/loras`, ce qui est le cas ici. Le LoRA CrossView de `reshoot-turbo`, lui, est
+déclaré via son dépôt.
 
 ## Identité visuelle (BlackRiver)
 
@@ -195,8 +221,8 @@ demande qu'un bloc.
 
 ## MCP : piloter RiverField par agent
 
-`mcp/server.ts` expose le studio en MCP (9 outils : `list_apps`, `get_app`, `run_app`, `job`,
-`wait_job`, `cancel_job`, `history`, `gpu`, `examples`). C'est un client de l'API web : aucun
+`mcp/server.ts` expose le studio en MCP (10 outils : `list_apps`, `get_app`, `run_app`, `job`,
+`wait_job`, `cancel_job`, `history`, `gpu`, `examples`, `media`). C'est un client de l'API web : aucun
 accès direct à ComfyUI.
 
 - **HTTP** : `./start.sh` lance le serveur avec l'app → `http://127.0.0.1:3010/mcp`
@@ -207,7 +233,7 @@ accès direct à ComfyUI.
 - `get_app` marque chaque entrée `file: true` (chemin absolu dans `run_app.files`) et
   `panel: true` (pilotée par un panneau web, mais acceptée par l'API), et renvoie les `notes`
   de l'app — c'est là que le format JSON du Material Planner de `studio-director` est décrit ;
-- tous les nouveaux apps (`studio-director`, `h3-r2v-flex`) sont exposés automatiquement ;
+- tous les nouveaux apps (`studio-director`, `h3-r2v-flex`, `h3-image`, `h3-image-edit`) sont exposés automatiquement ;
 - Détails, exemples curl et exemple « Studio Director » : `mcp/README.md`.
 
 Ports par défaut : app 3000, MCP 3010, gateway 8000, ComfyUI 8189, proxy 8190.
@@ -719,8 +745,9 @@ segment : segment 1 → image 1, segment 2 → images 1+2, plan `MINIMAX_H3_TIME
 ## Modèles
 
 `./download-packs.sh <pack> <pack> ...` télécharge dans l'ordre, s'arrête à 35 Go libres.
-Packs : `core image image-flux3 image-krea2 upscale image-qwen-edit image-moss
-video-ltx25 video-h3 video-wan video-wan-effects video-wan-camera video-scail audio relayvsr`.
+Packs : `3d audio audio-yue2 core gaussian-splat image image-flux3 image-h3 image-krea2
+image-moss image-qwen-edit qwen relayvsr tts upscale video-h3 video-ltx video-ltx25
+video-scail video-wan video-wan-camera video-wan-effects`.
 
 Les fichiers déjà présents (même nom, ou mêmes octets sous un autre nom) sont réutilisés.
 
@@ -734,10 +761,11 @@ Les fichiers déjà présents (même nom, ou mêmes octets sous un autre nom) so
 Pour finir le dernier pack (il restera ~15 Go libres) :
 
 ```sh
-cd ~/riverfield && ./download-packs.sh video-wan-camera
+cd ~/freefield && ./download-packs.sh video-wan-camera
 ```
 
-Taille totale de `ComfyUI/models` après installation : 576 Go.
+Taille totale de `ComfyUI/models` après installation : 644 Go. Le pack `image-h3` (66,6 Go)
+est complet ; les deux exemples 4 MP ont été produits avec.
 
 ### Fichiers « gated » (401 sans token Hugging Face)
 
@@ -747,7 +775,7 @@ Il faut accepter la licence sur huggingface.co puis :
 
 ```sh
 /home/zardoz/comfyui-vanilla-gfx1151/.venv-r101/bin/hf auth login
-cd ~/riverfield && ./download-packs.sh video-ltx25
+cd ~/freefield && ./download-packs.sh video-ltx25
 ```
 
 Sans ça : `vfx-*`, `reframe`, `genjutsu`, `mixed-media`, `sdr-hdr`, `dub`,

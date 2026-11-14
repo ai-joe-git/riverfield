@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # RiverField backend on the local ROCm ComfyUI.
 #
-#   ComfyUI :8188  (the install in /home/zardoz/comfyui-vanilla-gfx1151, started with the
-#                   same venv and the same flags as 15_RUN_COMFYUI_ROCM101.sh)
-#   comfy-api-proxy :8189   (Comfy API v2, no auth)
+#   ComfyUI :8189  (par défaut ; 8188 reste à ton ComfyUI de 15_RUN_COMFYUI_ROCM101.sh,
+#                   même venv et mêmes flags)
+#   comfy-api-proxy :8190   (Comfy API v2, no auth)
 #   gateway :8000           (RIVERFIELD_TOKEN, unloads the GPU when the app changes)
 #
 # Ctrl+C stops the three processes. Then, in another terminal: ./run-web.sh
@@ -13,7 +13,7 @@ RIVERFIELD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMFY_ROOT="/home/zardoz/comfyui-vanilla-gfx1151"
 COMFYUI="$COMFY_ROOT/ComfyUI"
 VENV="$COMFY_ROOT/.venv-r101"
-COMFY_PORT="${COMFY_PORT:-8189}"   # 8188 reste à ton ComfyUI de 15_RUN
+COMFY_PORT="${COMFY_PORT:-8189}"   # 8189 par défaut ; 8188 reste à ton ComfyUI de 15_RUN
 GATEWAY_PORT="${GATEWAY_PORT:-8000}"
 
 free_port() {  # le premier port libre à partir de $1 (ton ComfyUI de 15_RUN... occupe souvent 8188)
@@ -32,7 +32,7 @@ PORT_FILE="$LOG_DIR/ports.env"
 mkdir -p "$LOG_DIR"
 printf 'COMFY_PORT=%s\nPROXY_PORT=%s\nGATEWAY_PORT=%s\n' "$COMFY_PORT" "$PROXY_PORT" "$GATEWAY_PORT" > "$PORT_FILE"
 export COMFY_PORT PROXY_PORT GATEWAY_PORT
-[[ "$COMFY_PORT" != "8188" ]] && echo "== 8188 occupé (ton ComfyUI de 15_RUN ?) → RiverField démarre le sien sur :$COMFY_PORT"
+[[ "$COMFY_PORT" != "8189" ]] && echo "== 8189 occupé (ton ComfyUI de 15_RUN ?) → RiverField démarre le sien sur :$COMFY_PORT"
 
 set -a
 # shellcheck disable=SC1091
