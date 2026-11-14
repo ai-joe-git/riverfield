@@ -21,7 +21,7 @@
       "limits": {
         "max_mb": 500
       },
-      "help": "The clip at the resolution you want upscaled: the model multiplies it by its own factor, so a 480p input at x4 comes out at 1080p.",
+      "help": "Native source resolution. x2 doubles width and height (four times the pixels); x4 quadruples each dimension (sixteen times the pixels). Inspect real output dimensions rather than treating the factor as a megapixel multiplier.",
       "bind": [
         {
           "node": "1",

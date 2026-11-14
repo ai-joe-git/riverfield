@@ -1,0 +1,19 @@
+subject_definitions:
+<Subject 1> is Maya's visual identity from <Picture 1>, retaining her facial identity, hairstyle, navy coat, cream sweater and dark trousers.
+<Subject 2> is the hospital corridor environment from <Picture 2>, retaining the narrow hallway, dim fluorescent lighting, vending machine glow, plastic chairs and polished floor.
+
+summary:
+[reference generation] Maya answers her phone in the quiet hospital corridor and whispers in shock.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - retain her facial identity, hairstyle and clothing; show only one Maya, not character-sheet panels.
+<Subject 2> (appears in [Shot 1]): partially_preserved - retain corridor ambience and lighting while framing tighter on Maya.
+
+detailed_description:
+[Shot 1] Close-up on <Subject 1> (S1)'s face. Her phone rings; she jumps slightly, brings it to her ear and whispers, <d>[English] You're sure?</d> The fluorescent light above her flickers once. The camera remains fixed.
+
+overall_soundscape:
+A short digital phone ringtone, a slight breath, fabric rustle, a fluorescent buzz and vending-machine hum.
+
+non_diegetic_music:
+N/A

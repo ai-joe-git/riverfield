@@ -22,11 +22,11 @@ export async function loadCatalog() {
 
 /** Apps grouped like a store: a card can only sit in one row. */
 export const CATEGORIES = [
-  { id: "create", apps: ["create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
+  { id: "create", apps: ["create-image", "h3-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
   { id: "identity", apps: ["character", "character-3", "character-angles", "speak", "talking", "recast", "motion-transfer", "genjutsu", "dub", "character-swap", "face-swap"] },
   { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reshoot-turbo", "reframe", "extend-video", "extend-video-turbo", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
   { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-video", "relayvsr-upscale", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
-  { id: "vfx", apps: ["effects", "morph", "edit", "inpaint", "vfx-clean-plate", "vfx-day-to-night", "vfx-water"] },
+  { id: "vfx", apps: ["effects", "morph", "edit", "h3-image-edit", "inpaint", "vfx-clean-plate", "vfx-day-to-night", "vfx-water"] },
   { id: "ads", apps: ["product-shot", "poster", "packshot", "macro-scene", "macro-product", "giant-product", "billboard", "graffiti-ad", "fridge-ad", "ugc-shot",
     "asmr-product", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad"] },
   { id: "portraits", apps: ["ai-influencer", "ai-influencer-photo", "photodump", "headshot", "commercial-faces", "style-snap", "skin-enhancer", "outfit-vending", "glitter-sticker", "fashion-factory", "try-on", "outfit-swap", "outfit-shot"] },

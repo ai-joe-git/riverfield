@@ -39,7 +39,10 @@ import {NativeRuntime} from "./native-runtime.ts";
 import {complete,type Provider} from "./agent-providers.ts";
 import {projectTool} from "./agent-project.ts";
 import {askTool} from "./production.ts";
-import {parseNativeHelp} from "./native-options.ts";
+import {inputErrorBody} from "./input-error.ts";
+import {defaultDirectorForm} from "./director-form.ts";
+import {directorDurations,planDirectorSegments} from "./h3-plan.ts";
+import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 
 const root = repoRoot();
 const { apps, problems } = loadRegistry(root);
@@ -126,6 +129,7 @@ const runnable = (a: App) => Boolean(a.workflowPath) && (a.status === "ready" ||
 
 function publicApp(a: App) {
   return {
+    requestExample:a.id==="pika-studio-director"?JSON.parse(readFileSync(join(a.dir,"request-example.json"),"utf8")):null,
     id: a.id, name: a.name, section: a.section, summary: a.summary ?? "", status: a.status, pack: a.pack,
     runnable: runnable(a),
     layout: a.layout ?? null,
@@ -327,8 +331,10 @@ const server = createServer(async (req, res) => {
         if(id==="runtime"){
           if(req.method==="GET"&&!sub)return send(res,200,native.catalogue());
           if(req.method==="GET"&&sub==="binaries")return send(res,200,{binaries:native.binaries()});
+          if(req.method==="GET"&&sub==="library")return send(res,200,native.library(url.searchParams.get("refresh")==="1"));
+          if(req.method==="GET"&&sub==="draft-settings")return send(res,200,native.draftSettings(url.searchParams.get("model")||""));
           if(req.method==="POST"&&sub==="scan"){const raw=await body() as any;if(typeof raw.directory!=="string")throw new InputError("Expected a local directory");return send(res,200,{files:native.scan(raw.directory)});}
-          if(req.method==="POST"&&sub==="help"){const raw=await body() as any;if(typeof raw.executable!=="string")throw new InputError("Expected llama-server path");const help=await native.help(raw.executable);return send(res,200,{help,options:parseNativeHelp(help)});}
+          if(req.method==="POST"&&sub==="help"){const raw=await body() as any;if(typeof raw.executable!=="string")throw new InputError("Expected llama-server path");const help=await native.help(raw.executable);return send(res,200,{help,options:parseNativeHelp(help),speculativeTypes:speculativeTypes(help)});}
           if(req.method==="POST"&&sub==="inspect"){const raw=await body() as any;if(typeof raw.path!=="string")throw new InputError("Expected GGUF path");return send(res,200,native.inspect(raw.path));}
           if(req.method==="POST"&&sub==="profiles")return send(res,201,await native.save(await body()));
           if(req.method==="DELETE"&&sub==="profiles"&&arg){if(agent.providers.list().some(p=>p.runtimeProfile===arg))throw new InputError("Delete its managed provider connection first");native.remove(arg);return send(res,200,{removed:true});}
@@ -343,6 +349,7 @@ const server = createServer(async (req, res) => {
           if(req.method==="DELETE"&&sub){agent.providers.remove(sub);return send(res,200,{removed:true});}
         }
         if(id==="discover"&&req.method==="GET")return send(res,200,{servers:await discoverModels()});
+        if(id==="director-options"&&req.method==="GET"){const eight=planDirectorSegments({prompts:Array(8).fill("Timing only")});return send(res,200,{form:defaultDirectorForm(),durations:[...directorDurations(),{segments:8,label:`${eight.seconds.toFixed(2)} s (8 segments)`}]});}
         if(id==="tools"&&req.method==="GET"){const client=new StudioMcp(mcpURL);try{return send(res,200,{tools:[...(await client.tools()).filter(t=>!["project_state",askTool.name,"production_plan"].includes(t.name)),projectTool,askTool]});}finally{await client.close();}}
         if(id==="conversations"){
           if(!sub&&req.method==="GET")return send(res,200,{conversations:agent.list()});
@@ -368,6 +375,18 @@ const server = createServer(async (req, res) => {
           }
           if(arg==="files"&&parts[5]&&(req.method==="GET"||req.method==="HEAD")){const c=agent.store.get(sub);return sendFile(req,res,agent.store.file(c,parts[5]),"private, no-cache");}
           if(req.method==="POST"){
+            if(arg==="director"){
+              const raw=await body() as any;
+              if(raw.action==="start")return send(res,200,agent.startDirector(sub));
+              if(raw.action==="choose")return send(res,200,agent.chooseDirector(sub,String(raw.key),String(raw.value||""),String(raw.target||"")));
+              if(raw.action==="say")return send(res,200,await agent.sayDirector(sub,String(raw.text||""),raw.attachments||[]));
+              if(raw.action==="prepare")return send(res,200,await agent.prepareDirector(sub));
+              if(raw.action==="references")return send(res,202,await agent.referenceDirector(sub));
+              if(raw.action==="save")return send(res,200,agent.saveDirector(sub,raw.form));
+              if(raw.action==="write")return send(res,200,await agent.writeDirector(sub,String(raw.field)));
+              if(raw.action==="run")return send(res,202,await agent.runDirector(sub,String(raw.kind),Number(raw.index||0),String(raw.instruction||"")));
+              throw new InputError("Unknown Director action");
+            }
             if(arg==="messages")return send(res,202,agent.message(sub,await body()));
             if(arg==="answers")return send(res,202,await agent.answer(sub,await body()));
             if(arg==="production"){
@@ -384,7 +403,7 @@ const server = createServer(async (req, res) => {
             if(arg==="upload"){
               const f=(await (await toRequest(req,22)).formData()).get("file");if(!f||typeof f==="string")throw new InputError("Upload a file");const c=agent.store.get(sub);if(c.status==="running")throw new InputError("Wait for the current turn before uploading");return send(res,201,agent.store.upload(c,new Uint8Array(await f.arrayBuffer()),f.name,f.type));
             }
-            if(arg==="reuse"){const c=agent.store.get(sub),raw=await body() as any,a=[...c.artifacts,...c.attachments].find(a=>a.id===raw.artifact);if(!a)throw new InputError("Unknown artifact");if(c.status==="running")throw new InputError("Wait for current turn");if(!c.attachments.some(x=>x.id===a.id))c.attachments.push(a);agent.store.save(c);return send(res,200,a);}
+            if(arg==="reuse"){const c=agent.store.get(sub),raw=await body() as any,a=[...c.artifacts,...c.attachments].find(a=>a.id===raw.artifact);if(!a)throw new InputError("Unknown artifact");if(c.status==="running")throw new InputError("Wait for current turn");if(raw.audio===true){const result=await media.run({operation:"audio",path:a.path}),output=result.outputs?.[0],current=agent.store.get(sub);if(!output)throw new InputError("No soundtrack was extracted");if(current.status==="running")throw new InputError("Wait for current turn before attaching the extracted soundtrack");return send(res,201,agent.store.upload(current,new Uint8Array(readFileSync(output.path)),`${a.name.replace(/\.[^.]+$/,"")}-soundtrack.wav`,"audio/wav"));}if(!c.attachments.some(x=>x.id===a.id))c.attachments.push(a);agent.store.save(c);return send(res,200,a);}
           }
         }
         return send(res,404,{error:"Unknown Agent route"});
@@ -492,6 +511,7 @@ const server = createServer(async (req, res) => {
     if (file.startsWith(webRoot) && existsSync(file) && statSync(file).isFile()) return sendFile(req, res, file);
     return send(res, 404, { error: "not found" });
   } catch (e) {
+    if(e instanceof InputError){const body=inputErrorBody(e);if(req.url?.startsWith("/api/agent")){body.error=agent.providers.redact(e);body.issues=body.issues.map(i=>({...i,message:agent.providers.redactText(i.message)}));}return send(res,400,body);}
     const status = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : e instanceof InputError || req.url?.startsWith("/api/agent") ? 400 : 500;
     if (status === 500) console.error(e);
     return send(res, status, { error: req.url?.startsWith("/api/agent")?agent.providers.redact(e):(e as Error).message });

@@ -40,6 +40,20 @@ RESOLUTIONS = [
     {"value": 0.8, "label": "0.8 MP"},
 ]
 
+# Inputs added locally after the turbo variants were first generated. A rebuild from the
+# upstream base app must not drop them: the UI, LoRA picker, SLA options and optional
+# RelayVSR upscale live only in the generated turbo apps.
+LOCAL_INPUT_IDS = {
+    "resolution", "aspect", "duration", "steps", "sampler", "seed",
+    "unet_name", "vae_name",
+    "lora_name", "lora_strength", "clip_name", "sla", "sla_detail",
+    "sla_block_size", "sla_min_seq_len", "sla_dense_last_steps",
+    "sla_protect_audio", "sla_stabilize_motion", "sla_h3_cache",
+    "sla_reference_protection", "sla_dense_steps", "sla_dense_backend",
+    "sla_disable_fp16_accum", "upscale", "upscale_detail",
+    "filename_prefix", "format", "codec",
+}
+
 VARIANTS = [
     {
         "base": "h3-video",
@@ -265,6 +279,49 @@ def save(variant: dict, manifest: dict, workflow: dict) -> None:
                                               encoding="utf-8")
 
 
+def preserve_local_controls(variant: dict, manifest: dict, workflow: dict) -> None:
+    """Keep the local UI/workflow additions when rebuilding from the upstream base app."""
+    folder = APPS / variant["id"]
+    app_path, wf_path = folder / "app.json", folder / "workflow.api.json"
+    if not app_path.exists() or not wf_path.exists():
+        return
+    old_manifest = json.loads(app_path.read_text(encoding="utf-8"))
+    old_workflow = json.loads(wf_path.read_text(encoding="utf-8"))
+    old_inputs = {i["id"]: i for i in old_manifest.get("inputs", [])}
+    generated = {i["id"]: i for i in manifest["inputs"]}
+    desired = [i["id"] for i in old_manifest.get("inputs", [])]
+    merged, used = [], set()
+    for input_id in desired:
+        if input_id in LOCAL_INPUT_IDS and input_id in old_inputs:
+            merged.append(old_inputs[input_id])
+        elif input_id in generated:
+            merged.append(generated[input_id])
+        used.add(input_id)
+    merged.extend(i for i in manifest["inputs"] if i["id"] not in used)
+    manifest["inputs"] = merged
+
+    # Keep the local notes and the extra models (RelayVSR, optional encoders).
+    for key in ("notes", "source", "credits"):
+        if key in old_manifest:
+            manifest[key] = old_manifest[key]
+    known = {(m["dir"], Path(m["file"]).name) for m in manifest.get("models", [])}
+    for model in old_manifest.get("models", []):
+        key = (model["dir"], Path(model["file"]).name)
+        if key not in known:
+            manifest.setdefault("models", []).append(model)
+            known.add(key)
+
+    # Keep the optional RelayVSR nodes and the CreateVideo wiring.
+    if "vsr_decode" in old_workflow:
+        for node_id in ("vsr_unet", "vsr_cond", "vsr_sampler", "vsr_vae", "vsr_decode"):
+            if node_id in old_workflow:
+                workflow[node_id] = old_workflow[node_id]
+        old_create = next((k for k, n in old_workflow.items() if n.get("class_type") == "CreateVideo"), None)
+        new_create = next((k for k, n in workflow.items() if n.get("class_type") == "CreateVideo"), None)
+        if old_create and new_create:
+            workflow[new_create]["inputs"]["images"] = old_workflow[old_create]["inputs"]["images"]
+
+
 def main() -> None:
     for variant in VARIANTS:
         manifest, workflow = load(variant["base"])
@@ -279,6 +336,7 @@ def main() -> None:
                 prefix = node["inputs"].get("filename_prefix", "")
                 if prefix.startswith("riverfield/"):
                     node["inputs"]["filename_prefix"] = prefix.replace(variant["base"], variant["id"])
+        preserve_local_controls(variant, manifest, workflow)
         save(variant, manifest, workflow)
         print(f"✓ apps/{variant['id']}  ({variant['lora']}, {variant['steps']} steps, euler)")
     print("\nles apps d'origine ne sont pas touchées ; relancer ce script après un git pull.")

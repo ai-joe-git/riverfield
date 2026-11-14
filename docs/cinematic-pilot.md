@@ -15,15 +15,15 @@ After authorization, retrieve the real outputs and display both for review. Insp
 
 Concise screenplay: one nervous contestant stands at the podium. The offscreen director says “On la refait.” The contestant replies “Oui, je suis prêt.” He forces a small smile. No narrator or music; no second visible person.
 
-Use `plan_segments` with `seconds: 5`, `total_seconds: 5`, one six-section Ref2VA prompt, and `segment_images: [[0, 1]]`. Local Picture 1 is the approved character sheet; Picture 2 is the approved empty environment. Define Subject 1 as the single contestant, Subject 2 as the environment, S1 as the visible contestant and S2 as the offscreen director. The native dialogue lines are:
+Use `plan_segments` with one six-section Ref2VA prompt and `segment_images: [[0, 1]]`. The native stable profile owns duration and overlap; do not supply custom seconds. Local Picture 1 is the approved character sheet; Picture 2 is the approved empty environment. Define Subject 1 as the single contestant, Subject 2 as the environment, S1 as the visible contestant and S2 as the offscreen director. The native dialogue lines are:
 
 ```text
 The offscreen director (S2) says firmly, <d>[French] On la refait.</d>
 Then the candidate (S1) replies nervously, <d>[French] Oui, je suis prêt.</d>
 ```
 
-The legal window is `[0,124)` at 24 fps (5.1667 seconds after H3 rounding). Do not invent a 120-frame boundary or change the requested aspect. Preserve the returned JSON string unchanged.
+The native window is `[0,175)` at 24 fps (~7.29 seconds), with 39-frame overlap for subsequent windows. Do not invent boundaries or change the requested aspect. Preserve the returned JSON string unchanged.
 
-Before video inference, show the complete intended `run_app` arguments, including the real approved file paths. Use `pika-studio-director`, `flex_mode: ref2va`, exact `aspect: "9:16 (Portrait Widescreen)"`, `megapixels: 0.4`, `duration: 5`, `segment_count: 1`, `video_audio: true`, and a fixed seed. Keep the workflow's LCM/six-step recipe untouched. Do not fabricate paths now: the references have not been generated.
+Before video inference, show the complete intended `run_app` arguments, including the real approved file paths. Use `pika-studio-director`, `flex_mode: ref2va`, exact `aspect: "9:16 (Portrait Widescreen)"`, `megapixels: 0.4`, native `duration: 7.3`, `segment_count: 1`, `video_audio: true`, and a fixed seed. Keep the workflow's LCM/six-step recipe untouched. Do not fabricate paths now: the references have not been generated.
 
 Retrieve the succeeded job's real output, verify dimensions/duration/audio presence, and stop for review. Metadata does not prove identity, dialogue correctness or lip sync. No remaining scenes or upscale are authorized. RelayVSR is unchanged and available for separately authorized utility work.

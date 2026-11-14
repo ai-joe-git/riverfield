@@ -1,9 +1,10 @@
 {
   "pack": "qwen",
   "apps": [
-    "character-angles"
+    "character-angles",
+    "qwen-image-edit-turbo"
   ],
-  "download_gb": 28.3,
+  "download_gb": 35.06,
   "needs_hf_token": false,
   "custom_nodes": [],
   "models": [
@@ -20,6 +21,18 @@
       ]
     },
     {
+      "repo": "Comfy-Org/Qwen-Image-2.1",
+      "file": "diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 6.76,
+      "name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "qwen-image-edit-turbo"
+      ]
+    },
+    {
       "repo": "Comfy-Org/Qwen-Image",
       "file": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
       "dir": "text_encoders",
@@ -28,7 +41,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
-        "character-angles"
+        "character-angles",
+        "qwen-image-edit-turbo"
       ]
     },
     {
@@ -40,7 +54,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
-        "character-angles"
+        "character-angles",
+        "qwen-image-edit-turbo"
       ]
     }
   ]

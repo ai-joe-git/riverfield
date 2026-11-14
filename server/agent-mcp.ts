@@ -11,3 +11,11 @@ export class StudioMcp implements McpConnection {
   async close(){await this.ready.catch(()=>{});await this.client.close();}
 }
 export function resultData(result:any):any{if(result?.structuredContent)return result.structuredContent;const texts=(result?.content||[]).filter((b:any)=>b.type==="text").map((b:any)=>b.text).join("\n");try{return JSON.parse(texts);}catch{return texts||result;}}
+
+/** Stable deterministic failures exclude generated wording and input values. */
+export function validationFailure(result:any):{signature:string;message:string}|undefined{
+ if(!result?.isError)return;
+ const data=resultData(result);
+ if(data?.status===400){const issues=Array.isArray(data.issues)?data.issues:[];return {signature:JSON.stringify([data.code||"HTTP_400",[...new Set(issues.map((i:any)=>`${i.code}:${i.field}`))].sort()]),message:String(data.error||"Invalid inputs")};}
+ if(typeof data==="string"){const legacy=/^(?:Error:\s*)?400\s+([\s\S]+)$/.exec(data);if(legacy)return {signature:legacy[1],message:legacy[1]};}
+}

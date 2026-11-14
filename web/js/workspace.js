@@ -712,7 +712,8 @@ function sideField(app, inp, f, ui, rerender) {
   return el("label", { class: "field" }, el("span", { class: "lbl" }, inp.label, inp.required ? null : el("small", {}, t("ws.optional"))), box, help);
 }
 
-const isAdvanced = (inp) => inp.type === "seed" || /negative/.test(inp.id);
+const isAdvanced = (inp) => inp.type === "seed" || /negative/.test(inp.id)
+  || /^sla_(block_size|min_seq_len|dense_last_steps|protect_audio|stabilize_motion|h3_cache|reference_protection|dense_steps|dense_backend|disable_fp16_accum)$/.test(inp.id);
 
 function presetField(app, f) {
   const opts = [{ id: "", label: t("ws.preset.none") }, ...app.presets];

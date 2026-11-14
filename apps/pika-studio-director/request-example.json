@@ -1,0 +1,18 @@
+{
+  "app": "pika-studio-director",
+  "files": {
+    "image1": "/home/zardoz/freefield/out/history/20261111-014530867-35e3/out-01.png",
+    "image2": "/home/zardoz/freefield/out/history/20261111-014532395-9497/out-01.png"
+  },
+  "values": {
+    "flex_mode": "ref2va",
+    "aspect": "9:16 (Portrait Widescreen)",
+    "megapixels": 0.4,
+    "duration": 7.3,
+    "start_seconds": 0,
+    "segment_count": 1,
+    "video_audio": true,
+    "seed": 42,
+    "segment_windows": "{\"windows\":[{\"start\":0,\"end\":175,\"prompt\":\"subject_definitions:\\n<Subject 1> is Alex's visual identity from <Picture 1>, retaining his facial identity, hairstyle and clothing.\\n<Subject 2> is the apartment environment from <Picture 2>, retaining the room layout, desk, furnishings and lighting.\\n\\nsummary:\\n[reference generation] Alex sends an email at his apartment desk and quietly expresses relief in one continuous shot.\\n\\nretention_analysis:\\n<Subject 1> (appears in [Shot 1]): fully_preserved - retain his facial identity, hairstyle and clothing, but show only one man, not the character-sheet panels.\\n<Subject 2> (appears in [Shot 1]): fully_preserved - retain the room layout, desk, furnishings and lighting while adding Alex to the scene.\\n\\ndetailed_description:\\n[Shot 1] <Subject 1> (S1) sits at the desk in <Subject 2>. He clicks Send, exhales, leans back and quietly says, <d>[English] Done.</d> Show exactly one Alex, without character-sheet panels or alternative views. The camera remains fixed.\\n\\noverall_soundscape:\\nQuiet apartment room tone, a trackpad click, a soft exhale and a subtle chair creak.\\n\\nnon_diegetic_music:\\nN/A\",\"images\":[0,1],\"audios\":[]}],\"videos\":[],\"audios\":[]}"
+  }
+}

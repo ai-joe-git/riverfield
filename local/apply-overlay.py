@@ -51,6 +51,16 @@ MENU = [
         ' "smooth", "reshoot", "reshoot-turbo", "video-remove-bg"',
         "vtab.edit",
     ),
+    (
+        '"create-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo"',
+        '"create-image", "h3-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo"',
+        "cat.create.image",
+    ),
+    (
+        '"effects", "morph", "edit", "inpaint", "vfx-clean-plate"',
+        '"effects", "morph", "edit", "h3-image-edit", "inpaint", "vfx-clean-plate"',
+        "cat.vfx.image",
+    ),
 ]
 
 

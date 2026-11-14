@@ -27,14 +27,14 @@ const verified=a=>{const m=a.metadata||{},parts=[a.app,a.job?`job ${a.job}`:null
 
 export function agentView({home=false}={}){
  let conversations=[],providers=[],tools=[],c=null,stream=null,disposed=false,draft="",pending=[],sending=false,selectedProvider="",selectedModel="",limits=null,limitKey="",sideOpen=!home&&window.innerWidth>850,opening=0;
- let mediaItems=[],drawerOpen=false,drawerFilter="all",headerSignature="",sidebarSignature="",footerSignature="",mediaBadge=null;
+  let mediaItems=[],drawerOpen=false,drawerFilter="all",headerSignature="",sidebarSignature="",footerSignature="",mediaBadge=null,guidedPending=false;
  const root=el("div",{class:"ag-workspace"}),sidebar=el("aside",{class:"ag-sidebar","aria-label":"Conversations"}),header=el("header",{class:"ag-header"}),chat=el("section",{class:"ag-chat","aria-label":"Conversation"}),footer=el("footer",{class:"ag-footer"});
  const jump=button(el("span",{},icon("chevD"),"Jump to latest"),()=>timeline.jumpLatest(),"ag-jump",{"aria-label":"Jump to latest message"});
  jump.hidden=true;
  const drawer=el("aside",{class:"ag-drawer",hidden:true,"aria-label":"Conversation media"});
  const main=el("div",{class:"ag-main"},header,el("div",{class:"ag-chat-wrap"},chat,jump,drawer),footer);
  root.append(sidebar,main);
- const busy=()=>c?.status==="running",currentProvider=()=>c?.provider||selectedProvider,currentModel=()=>c?.model||selectedModel;
+  const busy=()=>c?.status==="running"||guidedPending,currentProvider=()=>c?.provider||selectedProvider,currentModel=()=>c?.model||selectedModel;
  const ico=(name,label,fn)=>button(icon(name),fn,"ag-round",{"aria-label":label,title:label});
  const remember=()=>{try{localStorage.setItem("riverfield.agent.provider",currentProvider());if(c)localStorage.setItem("riverfield.agent.conversation",c.id);}catch{}};
  const timeline=createTimeline({
@@ -46,7 +46,8 @@ export function agentView({home=false}={}){
   answer:payload=>safe(async()=>{await api(`/conversations/${c.id}/answers`,"POST",payload);})(),
   production:()=>safe(async()=>{await productionSettings({api,id:c.id,onSaved:async()=>{c=await api(`/conversations/${c.id}`);draw();}});})(),
   pilot:artifact=>safe(async()=>{await api(`/conversations/${c.id}/production`,"POST",{pilot:artifact});toast("Pilot review recorded — further generation needs separate authorization");})(),
-  start:text=>safe(async()=>{await api(`/conversations/${c.id}/messages`,"POST",{text});})(),
+   start:text=>safe(async()=>{await api(`/conversations/${c.id}/messages`,"POST",{text});})(),
+   directorAction:payload=>directorAction(payload),directorBusy:()=>guidedPending,
   onIndex:items=>{mediaItems=items;if(mediaBadge)mediaBadge.textContent=items.length||"";if(drawerOpen)drawDrawer();},
  });
  async function loadLimits(){const id=currentProvider(),model=currentModel(),key=`${id}:${model}`;limitKey=key;limits=null;if(!id||!model)return;
@@ -54,17 +55,19 @@ export function agentView({home=false}={}){
  }
  async function reloadProviders(){providers=(await api("/providers")).providers;if(!providers.some(p=>p.id===selectedProvider)){selectedProvider=providers[0]?.id||"";selectedModel=providers[0]?.model||"";}await loadLimits();draw();}
  const settings=()=>providerSettings({api,providers,selected:currentProvider(),onSaved:reloadProviders});
- const picker=()=>modelPicker({api,providers,provider:currentProvider(),model:currentModel(),onManage:settings,onSelect:async(provider,model)=>{selectedProvider=provider;selectedModel=model;if(c)c=await api(`/conversations/${c.id}`,"PATCH",{provider,model});remember();await loadLimits();draw();}});
+  const picker=()=>modelPicker({api,providers,provider:currentProvider(),model:currentModel(),onManage:settings,onProvidersChanged:reloadProviders,onSelect:async(provider,model)=>{selectedProvider=provider;selectedModel=model;if(c)c=await api(`/conversations/${c.id}`,"PATCH",{provider,model});remember();await loadLimits();draw();}});
  async function loadList(){conversations=(await api("/conversations")).conversations;drawSidebar();}
  function classes(){root.className=`ag-workspace${home?" is-home":""}${!c?.messages.length?" is-empty":""}${sideOpen?"":" side-closed"}`;}
  function closeDrawer(){drawerOpen=false;drawer.hidden=true;}
- async function open(id){const request=++opening;stream?.close();closeDrawer();const data=await api(`/conversations/${id}`);if(disposed||request!==opening)return;c=data;pending=[];draft="";limits=null;mediaItems=[];if(window.innerWidth<=850)sideOpen=false;remember();draw();connectEvents(id);void loadLimits();}
+  async function open(id){const request=++opening;stream?.close();closeDrawer();const data=await api(`/conversations/${id}`);if(disposed||request!==opening)return;c=data;pending=[];draft="";limits=null;mediaItems=[];if(window.innerWidth<=850)sideOpen=false;remember();draw();connectEvents(id);void loadLimits();}
  async function create(){const request=++opening;stream?.close();closeDrawer();const provider=currentProvider()||providers[0]?.id||"",model=currentModel()||providers.find(p=>p.id===provider)?.model||"";const data=await api("/conversations","POST",{provider,model});if(disposed||request!==opening)return;c=data;pending=[];draft="";mediaItems=[];if(window.innerWidth<=850)sideOpen=false;remember();await loadList();if(disposed||request!==opening)return;draw();connectEvents(c.id);void loadLimits();}
- async function ensure(){if(c)return;const text=draft;await create();draft=text;}
+  async function ensure(){if(c)return;const text=draft;await create();draft=text;}
+   async function directorAction(payload){if(guidedPending)return false;let ok=false;guidedPending=true;drawHeader();drawFooter();timeline.update(c);try{c=await api(`/conversations/${c.id}/director`,"POST",payload);if(payload.action==="choose"&&payload.key==="bind")pending=pending.filter(id=>id!==payload.value);ok=true;}catch(e){toast(e.message,{error:true});c=await api(`/conversations/${c.id}`);}finally{guidedPending=false;draw();void loadList();}timeline.jumpLatest();return ok;}
+  async function showDirector(){if(!c||(!c.director&&["approval","question","running"].includes(c.status)))await create();if(!c.director)await directorAction({action:"start"});else timeline.jumpLatest();}
  function connectEvents(id){stream?.close();stream=new EventSource(`/conversations/${id}/events`.replace(/^\//,"/api/agent/"));
-  stream.addEventListener("state",e=>{if(disposed||c?.id!==id)return;c=JSON.parse(e.data);classes();drawHeader();timeline.update(c);drawFooter();void loadList();});
+   stream.addEventListener("state",e=>{if(disposed||c?.id!==id)return;c=JSON.parse(e.data);classes();drawHeader();timeline.update(c);drawFooter();void loadList();});
   stream.addEventListener("delta",e=>{if(disposed||c?.id!==id)return;const d=JSON.parse(e.data);let m=c.messages.find(m=>m.id===d.id);if(!m){m={id:d.id,role:"assistant",content:"",created:new Date().toISOString()};c.messages.push(m);}m.content+=d.text;classes();timeline.update(c);});
-  stream.addEventListener("jobs",e=>{if(disposed||c?.id!==id)return;Object.assign(c,JSON.parse(e.data));timeline.update(c);});
+   stream.addEventListener("jobs",e=>{if(disposed||c?.id!==id)return;Object.assign(c,JSON.parse(e.data));timeline.update(c);});
   stream.addEventListener("queue",e=>{if(disposed||c?.id!==id)return;const d=JSON.parse(e.data);header.dataset.queue=d.position==null?"":`Waiting in studio queue · ${d.position}`;});
  }
  async function patch(body){c=await api(`/conversations/${c.id}`,"PATCH",body);draw();}
@@ -78,11 +81,12 @@ export function agentView({home=false}={}){
  function headerButton(name,label,action,extra={},badge=false){return button(el("span",{},icon(name),el("span",{class:"ag-tool-label"},label),badge?el("span",{class:"ag-media-badge"}):null),action,"ag-header-button",{"aria-label":label,title:label,...extra});}
  function drawHeader(){const p=providers.find(p=>p.id===currentProvider()),mode=c?.mode||"ask",native=p?.tokenMode!=="custom";
   const budget=limits?.outputTokens&&native?`${tokens(limits.outputTokens)} max`:!native&&p?`${tokens(p.maxTokens)} custom`:limits?.source==="configured fallback"?`${tokens(limits.configuredMaxTokens)} fallback`:limits?"Server-native budget":"Native budget";
-  const modelLabel=currentModel()||"Choose a model",signature=JSON.stringify([c?.id,c?.title,c?.status,mode,budget,modelLabel,p?.location,p?.name,limits?.source,sideOpen]);
+   const modelLabel=(p?.runtimeProfile?p.name:currentModel())||"Choose a model",signature=JSON.stringify([c?.id,c?.title,c?.status,mode,budget,modelLabel,p?.location,p?.name,limits?.source,sideOpen,!!c?.director]);
   if(signature===headerSignature)return;headerSignature=signature;
   header.replaceChildren(el("div",{class:"ag-header-left"},!sideOpen?ico("menu","Show conversations",()=>{sideOpen=true;classes();drawHeader();}):null,el("div",{class:"ag-heading"},el("h1",{},"Agent"),el("span",{},c?.title||"Your creative workspace"))),
    el("div",{class:"ag-header-actions"},button(el("span",{class:"ag-model-label"},el("i",{class:`ag-connection-dot ${p?.location||""}`}),el("span",{},modelLabel),el("small",{},budget),icon("chevD")),picker,"ag-model-chip",{"aria-label":"Choose model",title:`${p?.name||"Configure a connection"} · ${limits?.source||"Native maximum"}` ,disabled:busy()}),
-    c?select("Autonomy",mode,[["ask","Ask before running"],["auto","Auto"],["read-only","Read-only"]],safe(v=>patch({mode:v}))):el("span",{class:"ag-mode-label"},"Ask before running"),
+     c?.director?el("span",{class:"ag-mode-label"},"Writer only · code-controlled tools"):c?select("Autonomy",mode,[["ask","Ask before running"],["auto","Auto"],["read-only","Read-only"]],safe(v=>patch({mode:v}))):el("span",{class:"ag-mode-label"},"Ask before running"),
+     button("Pika Director",safe(showDirector),"ag-header-button",{disabled:busy()}),
     c?headerButton("layers","Media",openMedia,{},true):null,
     c?headerButton("ext","Export",exportMenu):null,
     c?ico("sliders","Conversation settings",safe(conversationSettings)):ico("sliders","Provider settings",settings),
@@ -100,12 +104,13 @@ export function agentView({home=false}={}){
   if(type==="audio"||a.mime?.startsWith("audio/"))return inDrawer?el("span",{class:"ag-tile-audio"},icon("volume")):el("audio",{src:a.url,controls:true,preload:"metadata"});
   return el("span",{class:"ag-tile-file"},icon("layers"),a.name);
  }
- function useInChat(a){return safe(async()=>{const item=await api(`/conversations/${c.id}/reuse`,"POST",{artifact:a.id});if(!pending.includes(item.id))pending.push(item.id);if(!c.attachments.some(x=>x.id===item.id))c.attachments.push(item);drawFooter(true);toast("Attached to your next message");})();}
+  function useInChat(a,audioOnly=false){return safe(async()=>{const item=await api(`/conversations/${c.id}/reuse`,"POST",{artifact:a.id,audio:audioOnly});if(!pending.includes(item.id))pending.push(item.id);if(!c.attachments.some(x=>x.id===item.id))c.attachments.push(item);drawFooter(true);toast(audioOnly?"Soundtrack attached (24 kHz mono, CPU extraction). Choose an audio-capable model before sending.":"Attached to your next message");})();}
  function mediaCard(a){const type=kind(a),media=preview(a),info=el("small",{},verified(a)),node=el("article",{class:"ag-media","data-artifact":a.id},media,info,el("div",{class:"ag-actions"}));
-  const actions=node.querySelector(".ag-actions");actions.append(el("a",{href:a.url,download:a.name,class:"ag-text-button"},"Download"),a.job?el("a",{href:a.app?`#/app/${a.app}/history`:"#/library",class:"ag-text-button"},"History"):null,button("Use in chat",()=>useInChat(a),"ag-text-button",{disabled:busy()}));
+   const actions=node.querySelector(".ag-actions");actions.append(el("a",{href:a.url,download:a.name,class:"ag-text-button"},"Download"),a.job?el("a",{href:a.app?`#/app/${a.app}/history`:"#/library",class:"ag-text-button"},"History"):null,button("Use in chat",()=>useInChat(a),"ag-text-button",{disabled:busy()}),kind(a)==="video"?button("Use soundtrack in chat",()=>useInChat(a,true),"ag-text-button",{disabled:busy()}):null);
   return {node,update(next){if(info.textContent!==verified(next))info.textContent=verified(next);const b=busy();const buttonEl=actions.querySelector("button");if(buttonEl&&buttonEl.disabled!==b)buttonEl.disabled=b;}};
  }
- function welcome(){return el("div",{class:"ag-welcome"},el("div",{class:"ag-welcome-orb"},icon("spark")),el("span",{class:"ag-eyebrow"},"YOUR IDEAS. YOUR MODELS. YOUR STUDIO."),el("h2",{},"What will you create",el("br"),el("em",{},"next?")),el("p",{},"Start with an idea. Your agent finds the tools, prepares the work, and brings it to life."),el("div",{class:"ag-starters"},...starters.map(([name,label,text])=>button(el("span",{},icon(name),label),()=>{draft=text;drawFooter(true);footer.querySelector("textarea")?.focus();},"ag-starter"))),el("a",{href:"#/explore",class:"ag-explore-link"},"Or explore the studio ",icon("chevR")));}
+  function welcome(){if(c?.director)return el("div",{class:"ag-welcome"},el("h2",{},"Pika Director chat"),el("p",{},"Questions and buttons stay in the conversation. The model writes the story; the code handles the tools."),button("Start in chat",safe(showDirector),"btn lime"));return generalWelcome();}
+  function generalWelcome(){return el("div",{class:"ag-welcome"},el("div",{class:"ag-welcome-orb"},icon("spark")),el("span",{class:"ag-eyebrow"},"YOUR IDEAS. YOUR MODELS. YOUR STUDIO."),el("h2",{},"What will you create",el("br"),el("em",{},"next?")),el("p",{},"Start with an idea. Your agent finds the tools, prepares the work, and brings it to life."),el("div",{class:"ag-starters"},...starters.map(([name,label,text])=>button(el("span",{},icon(name),label),()=>{if(name==="film"||name==="spark"){void safe(showDirector)();return;}draft=text;drawFooter(true);footer.querySelector("textarea")?.focus();},"ag-starter"))),el("a",{href:"#/explore",class:"ag-explore-link"},"Or explore the studio ",icon("chevR")));}
  function openMedia(){if(!c)return;drawerOpen=true;drawer.hidden=false;drawDrawer();}
  function drawDrawer(){if(!drawerOpen)return;const counts={all:mediaItems.length,image:mediaItems.filter(a=>kind(a)==="image").length,video:mediaItems.filter(a=>kind(a)==="video").length,audio:mediaItems.filter(a=>kind(a)==="audio").length};
   const filters=el("div",{class:"ag-drawer-filters"},...["all","image","video","audio"].map(k=>button(`${k==="all"?"All":k==="image"?"Images":k==="video"?"Videos":"Audio"}${counts[k]?` ${counts[k]}`:""}`,()=>{drawerFilter=k;drawDrawer();},`ag-filter${drawerFilter===k?" active":""}`,{"aria-pressed":String(drawerFilter===k)})));
@@ -123,19 +128,21 @@ export function agentView({home=false}={}){
  function openViewer(a){const d=modal(a.name,verified(a)||kind(a)),body=preview(a);d.append(el("div",{class:"ag-viewer"},body),el("div",{class:"ag-viewer-actions"},el("a",{href:a.url,download:a.name,class:"btn lime"},"Download"),a.job?el("a",{href:a.app?`#/app/${a.app}/history`:"#/library",class:"btn ghost"},"Open in History"):null,button("Use in chat",()=>useInChat(a),"btn ghost"),button("Jump to message",()=>{d.close();closeDrawer();timeline.jump(a.messageId);},"btn ghost",{disabled:!a.messageId})),el("p",{class:"ag-privacy-note"},"Metadata is read from the produced file. An audio stream or duration does not verify spoken words, identity or visual fidelity."));d.showModal();}
  function exportMenu(){const d=modal("Export conversation","Markdown for reading and sharing, JSON for replay or analysis.");let details=true;const links=el("div",{class:"ag-export-links"}),update=()=>{links.replaceChildren(el("a",{class:"btn lime",href:`/api/agent/conversations/${c.id}/export?format=markdown&details=${details?1:0}`,download:`riverfield-${c.id}.md`},"Download Markdown"),el("a",{class:"btn ghost",href:`/api/agent/conversations/${c.id}/export?format=json&details=${details?1:0}`,download:`riverfield-${c.id}.json`},"Download JSON"));};
   d.append(el("div",{class:"ag-export-options"},el("label",{class:"ag-simple-check"},el("input",{type:"checkbox",checked:true,onchange:e=>{details=e.target.checked;update();}}),el("span",{},"Include tool arguments and results")),el("p",{class:"ag-privacy-note"},"Exports include conversations, tool activity, job IDs and media links. API keys, credentials and provider configuration are never included.")),links,el("p",{class:"ag-privacy-note"},"Media links point to this Riverfield instance. A portable ZIP is not generated; use the original files from History for offline archives."));update();d.showModal();}
- const submit=safe(async()=>{if(sending||busy()||c?.status==="approval"||c?.status==="question")return;if(!draft.trim()&&!pending.length)return;if(!currentProvider()){settings();return;}sending=true;
+   const submit=safe(async()=>{if(sending||busy()||c?.status==="approval"||c?.status==="question")return;if(!draft.trim()&&!pending.length)return;if(c?.director){if(await directorAction({action:"say",text:draft,attachments:[...pending]})){draft="";pending=[];drawFooter(true);}return;}if(!currentProvider()){settings();return;}sending=true;
   try{await ensure();await api(`/conversations/${c.id}`,"PATCH",{model:c.model});await api(`/conversations/${c.id}/messages`,"POST",{text:draft,attachments:pending});draft="";pending=[];c=await api(`/conversations/${c.id}`);drawHeader();timeline.update(c);}finally{sending=false;drawFooter(true);}
  });
- function drawFooter(force=false){const p=providers.find(p=>p.id===currentProvider()),signature=JSON.stringify([c?.id,busy(),sending,c?.status,p?.location,p?.tokenMode,limits?.outputTokens,pending]);
+   function drawFooter(force=false){const p=providers.find(p=>p.id===currentProvider()),signature=JSON.stringify([c?.id,busy(),sending,c?.status,p?.location,p?.tokenMode,limits?.outputTokens,pending,c?.director?.chatStep]);
   if(!force&&signature===footerSignature){const current=footer.querySelector("textarea");if(current&&current!==document.activeElement&&draft&&current.value!==draft)current.value=draft;return;}footerSignature=signature;
   const old=footer.querySelector("textarea"),focused=old===document.activeElement,start=old?.selectionStart;footer.replaceChildren();
-  const composer=el("textarea",{"aria-label":"Message Riverfield Agent",placeholder:c?.status==="question"?"Answer the questions above to continue…":"Describe your next idea…",rows:2,value:draft,disabled:busy()||sending||c?.status==="approval"||c?.status==="question"});
+   const guidedText=c?.director&&["brief","story","draft","references","render","edit","editReference"].includes(c.director.chatStep);
+    const composer=el("textarea",{"aria-label":"Message Riverfield Agent",placeholder:c?.director?(guidedText?c.director.chatStep==="brief"?"Describe your story…":["edit","editReference"].includes(c.director.chatStep)?"Describe the requested change…":"Ask about your project…":"Choose a button above, or use the defaults…"):c?.status==="question"?"Answer the questions above to continue…":"Describe your next idea…",rows:2,value:draft,disabled:(!!c?.director&&!guidedText)||busy()||sending||c?.status==="approval"||c?.status==="question"});
   composer.oninput=()=>{draft=composer.value;composer.style.height="auto";composer.style.height=Math.min(220,composer.scrollHeight)+"px";};composer.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();void submit();}};
-  const upload=el("input",{type:"file",hidden:true,multiple:true,accept:"image/png,image/jpeg,image/webp,video/mp4,video/webm,audio/*,.txt",onchange:safe(async()=>{await ensure();for(const file of upload.files){const fd=new FormData();fd.set("file",file);const item=await api(`/conversations/${c.id}/upload`,"POST",fd);c.attachments.push(item);pending.push(item.id);}drawFooter(true);})});
+   const upload=el("input",{type:"file",hidden:true,multiple:true,accept:"image/png,image/jpeg,image/webp,video/mp4,video/webm,audio/*,.txt",onchange:safe(async()=>{await ensure();for(const file of upload.files){const fd=new FormData();fd.set("file",file);const item=await api(`/conversations/${c.id}/upload`,"POST",fd);c.attachments.push(item);pending.push(item.id);}timeline.update(c);drawFooter(true);})});
   const fileChips=el("div",{class:"ag-attachments"},...pending.map(id=>{const a=c?.attachments.find(a=>a.id===id);return button(`${a?.name||id} ×`,()=>{pending=pending.filter(x=>x!==id);drawFooter(true);},"ag-file-chip");}));
   footer.append(el("div",{class:"ag-composer"},upload,fileChips,composer,el("div",{class:"ag-compose-actions"},ico("plus","Attach files",()=>upload.click()),el("span",{class:`ag-composer-meta ${p?.location||""}`},el("i",{class:"ag-connection-dot"}),p?.location==="remote"?"Remote provider":p?"Local connection":"Choose a model to begin",limits?.outputTokens?` · ${tokens(limits.outputTokens)} ${p?.tokenMode==="custom"?"native cap":"max"}`:""),busy()?button(icon("stop"),safe(()=>api(`/conversations/${c.id}/stop`,"POST",{})),"ag-send is-stop",{"aria-label":"Stop agent and related jobs",title:"Stop agent and related jobs"}):button("↑",submit,"ag-send",{"aria-label":"Send message",disabled:sending||c?.status==="approval"||c?.status==="question"}))),
    el("small",{class:"ag-composer-note"},p?.location==="remote"?"Remote · messages, enabled images and tool results leave this machine.":"Your studio stays in your hands. Review expensive tool calls before running."));
-  footer.querySelector('button[aria-label="Attach files"]').disabled=busy()||sending;
+   footer.querySelector('button[aria-label="Attach files"]').disabled=busy()||sending;
+   if(c?.director){const send=footer.querySelector('.ag-send:not(.is-stop)');if(send)send.disabled=!guidedText;}
   if(focused&&!composer.disabled){composer.focus();composer.setSelectionRange(start??draft.length,start??draft.length);}
  }
  function draw(){if(disposed)return;classes();drawSidebar();drawHeader();timeline.update(c);drawFooter();}

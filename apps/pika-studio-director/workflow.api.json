@@ -142,7 +142,7 @@
     "class_type": "ResolutionSelector",
     "inputs": {
       "aspect_ratio": "16:9 (Widescreen)",
-      "megapixels": 0.8,
+      "megapixels": 0.4,
       "multiple": 32
     },
     "_meta": {
@@ -156,7 +156,7 @@
         "40",
         0
       ],
-      "sparsity_ratio": 0.9,
+      "sparsity_ratio": 0.85,
       "block_size": "64",
       "min_seq_len": 8192,
       "dense_last_steps": 0,

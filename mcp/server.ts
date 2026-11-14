@@ -18,8 +18,10 @@ import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 import { fileURLToPath } from "node:url";
 import { promptGuidance } from "./prompt-guidance.ts";
-import {planH3,segmentRequest} from "../server/h3-plan.ts";
+import {planDirectorSegments,directorRequest,directorValues,directorDurations,DIRECTOR_DEFAULTS,DIRECTOR_MANAGED_INPUTS,DIRECTOR_DELIVERY} from "../server/h3-plan.ts";
 import {resolveApp} from "../server/app-reference.ts";
+import {InputError,inputErrorBody} from "../server/input-error.ts";
+import {normalizeRunInputs} from "../server/run-inputs.ts";
 
 const BASE = (process.env.RIVERFIELD_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
@@ -29,6 +31,7 @@ const OUT = process.env.RIVERFIELD_OUT || join(ROOT, "out");
 const DONE = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 
 type Any = Record<string, any>;
+class StudioHttpError extends Error{status:number;body:any;constructor(status:number,body:any,message:string){super(message);this.status=status;this.body=body;}}
 
 async function api(path: string, init?: RequestInit, base=BASE): Promise<any> {
   const res = await fetch(base + path, init);
@@ -37,7 +40,7 @@ async function api(path: string, init?: RequestInit, base=BASE): Promise<any> {
   try { body = text ? JSON.parse(text) : null; } catch { body = text; }
   if (!res.ok) {
     const why = body && typeof body === "object" && (body.error || body.message);
-    throw new Error(`${res.status} ${why || String(text).slice(0, 300)}`);
+    throw new StudioHttpError(res.status,body,`${res.status} ${why || String(text).slice(0, 300)}`);
   }
   return body;
 }
@@ -48,22 +51,25 @@ async function apps(base=BASE): Promise<Any[]> {
 }
 
 async function manifest(id: string,base=BASE): Promise<Any> {
-  return resolveApp(await apps(base) as Array<Any&{id:string;name:string}>,id);
+  const app=resolveApp(await apps(base) as Array<Any&{id:string;name:string}>,id);
+  // Request recipes are distinct from historical gallery previews, which predate current validation.
+  if(app.requestExample){const recipe=app.requestExample;return {...app,example:{values:directorValues(recipe.values),inputs:Object.entries(recipe.files||{}).map(([id,full])=>({id,full})),note:"Validated native-default request example; not a claim of generated output"}};}
+  return app;
 }
 
 /** The same multipart the web UI posts: one field per input, files by path. */
 async function form(id: string, values: Any, files: Any, preset?: string,base=BASE): Promise<FormData> {
   const app = await manifest(id,base);
   const inputs=new Map<string,Any>(app.inputs.map((input:Any)=>[input.id,input]));
-  for(const key of [...Object.keys(values),...Object.keys(files)])if(!inputs.has(key))throw new Error(`Unknown input ${key} for ${id}; read get_app instead of guessing parameter names`);
-  for(const key of Object.keys(files))if(!["image","video","audio"].includes(inputs.get(key)?.type))throw new Error(`${key} is not a file input`);
-  for(const key of Object.keys(values))if(["image","video","audio"].includes(inputs.get(key)?.type))throw new Error(`Pass ${key} in files, not values`);
+   for(const key of [...Object.keys(values),...Object.keys(files)])if(!inputs.has(key))throw new InputError(`Unknown input ${key} for ${id}; read get_app instead of guessing parameter names`);
+  for(const key of Object.keys(files))if(!["image","video","audio"].includes(inputs.get(key)?.type))throw new InputError(`${key} is not a file input`);
+  for(const key of Object.keys(values))if(["image","video","audio"].includes(inputs.get(key)?.type))throw new InputError(`Pass ${key} in files, not values`);
   const fd = new FormData();
   for (const inp of app.inputs as Any[]) {
     const path = files[inp.id];
     if (path) {
       const abs = resolve(String(path));
-      if (!existsSync(abs)) throw new Error(`files.${inp.id}: no file at ${abs}`);
+      if (!existsSync(abs)) throw new InputError(`files.${inp.id}: no file at ${abs}`,[{code:"MISSING_FILE",field:`files.${inp.id}`,message:`No file at ${abs}`}]);
       fd.append(inp.id, new Blob([readFileSync(abs)]), basename(abs));
       continue;
     }
@@ -91,16 +97,16 @@ function local(entry: Any): Any {
 const text = (v: unknown) => ({
   content: [{ type: "text" as const, text: typeof v === "string" ? v : JSON.stringify(v, null, 2) }],
 });
-const fail = (e: unknown) => ({
-  content: [{ type: "text" as const, text: `Error: ${e instanceof Error ? e.message : String(e)}` }],
-  isError: true,
-});
+const fail = (e: unknown) => {
+ const data=e instanceof InputError?inputErrorBody(e):e instanceof StudioHttpError?{...((e.body&&typeof e.body==="object")?e.body:{}),error:e.body?.error||e.message,status:e.status,code:e.body?.code||"HTTP_ERROR",retryable:e.status>=500}:undefined;
+ return {content:[{type:"text" as const,text:data?JSON.stringify(data):`Error: ${e instanceof Error?e.message:String(e)}`}],...(data?{structuredContent:data}:{}),isError:true};
+};
 
 export function build(base=BASE): McpServer {
   const call=(path:string,init?:RequestInit)=>api(path,init,base);
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
 
-  server.registerTool("plan_segments",{title:"Build aligned H3 segment windows",description:"Pure arithmetic, no GPU work. seconds is the duration of EACH segment, NOT total story duration. Optional total_seconds validates total duration including overlaps. Each prompt is one segment. segment_images/segment_audios provide one ordered slot list per prompt; images/audios are fallback lists. Slots are zero-based; selected order defines local Picture/Audio labels. Copy returned segment_windows unchanged into run_app. Does not choose an engine.",inputSchema:segmentRequest.shape,annotations:{readOnlyHint:true}},async args=>{try{return text(planH3(args));}catch(e){return fail(e);}});
+  server.registerTool("plan_segments",{title:"Use native Director segments",description:"Stable Pika geometry/material assignment, no GPU. Segment length and interleaving are fixed native defaults: 175 frames at 24 fps, 39-frame overlap. Do NOT calculate durations or change these values. total_seconds is an approximate STORY target: omit prompts initially to get the required count/windows, then write exactly that many prompts. ready=false returns no runnable segment_windows; adapt the script, not the technical settings. Complete prompts pass through unchanged; this tool does not write/validate Pika prose. images/audios are zero-based slots; segment_images/segment_audios specify ordered inputs for each segment. Use get_app/examples for the Ref2VA/FL2VA text and copy the returned segment_windows unchanged.",inputSchema:directorRequest.shape,annotations:{readOnlyHint:true}},async args=>{try{return text(planDirectorSegments(args));}catch(e){return fail(e);}});
 
   server.registerTool("list_apps", {
     title: "List RiverField apps",
@@ -136,11 +142,13 @@ export function build(base=BASE): McpServer {
           file: ["image", "video", "audio"].includes(i.type),
           // managed by a custom panel in the web UI; still settable from here (e.g. segment_windows)
           panel: Boolean(i.hidden),
+          ...(a.id==="pika-studio-director"&&(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)?{agentManaged:true}:{}),
         })),
         presets: (a.presets ?? []).map((p: Any) => ({ id: p.id, label: p.label })),
         outputs: a.outputs, models: (a.models ?? []).map((m: Any) => m.name),
         notes: a.notes ?? a.source?.notes ?? null, source: a.source ?? null,
         prompting: promptGuidance(a as any),
+        ...(a.id==="pika-studio-director"?{agentDefaults:DIRECTOR_DEFAULTS,actualDurations:directorDurations(),delivery:DIRECTOR_DELIVERY,effectiveTechnicalDefaults:Object.fromEntries(a.inputs.filter((i:Any)=>(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)).map((i:Any)=>[i.id,i.default])),agentWritableInputs:a.inputs.filter((i:Any)=>!(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)&&!["advanced_timeline_json","segment_prompts"].includes(i.id)).map((i:Any)=>i.id)}:{}),
         example: a.example ? { values: a.example.values, inputs: a.example.inputs } : null,
       });
     } catch (e) { return fail(e); }
@@ -159,7 +167,9 @@ export function build(base=BASE): McpServer {
   }, async ({ app, values, files, preset,request_id }) => {
     try {
       const canonical=await manifest(app,base);
-      const fd = await form(canonical.id, values ?? {}, files ?? {}, preset,base);
+      if(canonical.id==="pika-studio-director"&&values?.advanced_timeline_json)throw new InputError("Automated Pika uses native Director segments; raw advanced_timeline_json is reserved for manual editing");
+      const normalized=normalizeRunInputs(canonical as any,values??{},files??{});
+      const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values, normalized.files, preset,base);
       if(request_id)fd.append("request_id",request_id);
       const entry = await call(`/api/apps/${encodeURIComponent(canonical.id)}/run`, { method: "POST", body: fd });
       return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created });

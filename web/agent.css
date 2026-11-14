@@ -176,6 +176,21 @@
 @media(prefers-reduced-motion:reduce) { .ag-thinking i,.ag-tool.running .ag-tool-dot { animation:none; }.ag-composer { transition:none; } }
 /* Managed GGUF inspector: model-scoped controls, not a second workspace. */
 .ag-native-runtime { width:min(1040px,94vw); }
+.ag-model-library { width:min(1120px,94vw); max-height:88vh; }
+.ag-model-library[open] { display:flex; flex-direction:column; overflow:hidden; }
+.ag-model-library > .ag-dialog-head,.ag-library-controls,.ag-model-library > .ag-privacy-note { flex-shrink:0; }
+.ag-library-controls { display:flex; align-items:end; gap:12px; padding-bottom:8px; }
+.ag-library-controls .ag-field { flex:1; margin:0; }
+.ag-library-results { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:14px; overflow-y:auto; min-height:0; padding:4px 6px 10px 0; }
+.ag-library-card { min-width:0; border:1px solid #ffffff13; background:#23262d; border-radius:14px; padding:18px; }
+.ag-library-card header { margin-bottom:14px; }.ag-library-card h3 { font-size:17px; margin:0 0 6px; overflow-wrap:anywhere; }
+.ag-library-card header small,.ag-library-selection > small { display:block; color:#9aa8bd; font-size:11px; overflow-wrap:anywhere; }
+.ag-library-card .ag-field { margin:10px 0; }.ag-library-card select { width:100%; min-width:0; }
+.ag-library-card-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+.ag-library-paths { margin-top:12px; font-size:11px; color:#929fb4; }.ag-library-paths code { display:block; overflow-wrap:anywhere; margin-top:8px; }
+.ag-library-selection { border:1px solid #9bb7e22c; background:#1b2130; border-radius:14px; padding:18px; }.ag-library-selection h3 { margin:0; }.ag-library-selection p { overflow-wrap:anywhere; }.ag-library-selection button { margin:12px 8px 0 0; }
+.ag-runtime-advanced-paths { padding:12px 0; color:#9aa8bd; }.ag-runtime-advanced-paths > .ag-field { margin-top:12px; }
+@media(max-width:720px){.ag-library-results{grid-template-columns:1fr}.ag-library-controls{align-items:stretch;flex-direction:column}.ag-model-library{max-height:90vh}.ag-library-card{padding:14px}}
 .ag-runtime-status { display:flex; flex-wrap:wrap; gap:12px; padding:16px; border:1px solid var(--line,#343434); border-radius:12px; margin-bottom:18px; }
 .ag-runtime-status .ag-error { flex-basis:100%; }
 .ag-runtime-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:18px 0; }
@@ -184,6 +199,10 @@
 .ag-runtime-grid small { color:#999; font-size:11px; overflow-wrap:anywhere; }
 .ag-runtime-log { white-space:pre-wrap; overflow-wrap:anywhere; max-height:360px; overflow:auto; padding:14px; font-size:12px; background:#131313; border-radius:10px; }
 .ag-runtime-pane { min-height:180px; }
+.ag-runtime-pane > button { margin:6px 8px 6px 0; }
+.ag-blackriver-draft { border:1px solid #9bb7e22c; background:#1b2130; border-radius:12px; padding:14px; margin-bottom:16px; }
+.ag-blackriver-draft small { display:block; color:#9aa8bd; margin-bottom:10px; overflow-wrap:anywhere; }
+.ag-model-option > small { display:block; overflow-wrap:anywhere; }
 .ag-option-unsupported>span { color:#cfad7a; }
 .ag-native-help-options { max-height:380px; overflow:auto; margin-top:12px; }
 .ag-native-help-option { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #333; }
@@ -202,6 +221,11 @@
 .ag-question-progress { display:flex; align-items:center; gap:14px; color:#9aa5b7; font-size:11px; margin:16px 0 8px; }
 .ag-question-progress progress { flex:1; height:5px; accent-color:#a4bfff; }
 .ag-question-original { color:#8d97a9; font-size:11px; margin:0 0 16px; }
+.ag-director-chat { min-width:0; }
+.ag-director-chat > button { margin:6px 8px 6px 0; }
+.ag-chat-reference { margin:14px 0; min-width:0; }
+.ag-chat-reference img { display:block; width:100%; max-height:320px; object-fit:contain; background:#111; border-radius:10px; margin:8px 0; }
+.ag-director-chat details { overflow-wrap:anywhere; }
 .ag-question { padding:14px 0; border-top:1px solid #ffffff0a; }
 .ag-question > b { display:block; color:#d9dee8; font-size:12px; font-weight:550; }
 .ag-question > p { color:#9aa5b7; font-size:11.5px; line-height:1.6; margin:5px 0 10px; }

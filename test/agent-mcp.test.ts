@@ -60,7 +60,7 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     assert.ok(described.inputs[0].id === "prompt");
     const named=resultData(await client.call("get_app",{app:"Z Image"}));assert.equal(named.id,"z-image");
 
-    const plan=resultData(await client.call("plan_segments",{seconds:5,prompts:["Arrival","Exit"]}));assert.equal(plan.frames,209);assert.equal(received.length,0,"pure planning never submits a job");
+    const plan=resultData(await client.call("plan_segments",{prompts:["Arrival","Exit"]}));assert.equal(plan.frames,311);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,39);assert.equal(received.length,0,"pure planning never submits a job");
     const invalid=await client.call("run_app",{app:"z-image",values:{prompt:"x",invented_model:"turbo"}});assert.equal(invalid.isError,true);assert.match(JSON.stringify(invalid),/Unknown input invented_model/);assert.equal(received.length,0,"invented parameters cannot be silently ignored");
 
     await client.call("run_app", { app: "z-image", values: { prompt: "a grandmother" }, request_id: "conv:tool" });

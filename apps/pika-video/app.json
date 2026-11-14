@@ -10,7 +10,7 @@
   "source": {
     "template": "video_pika_h3_flex_fl2va.json",
     "comfyui": "0.43.0",
-    "notes": "ComfyUI's Pika H3 Flex fl2va template, flattened from its 'Image to Video (Pika H3 Flex)' subgraph. Local additions: H3SLAAttentionROCM (0.85 sparsity, bypassable), a ResolutionSelector instead of the first picture's raw size (0.98 MP default), and an optional RelayVSR x2/x4 pass (the same DIT + Flash VAE as the RelayVSR Upscale app) that is bypassed when set to None. The lcm sampler and the 6-step Pika sigma ladder are untouched."
+    "notes": "ComfyUI's Pika H3 Flex fl2va template, flattened from its 'Image to Video (Pika H3 Flex)' subgraph. Local additions: H3SLAAttentionROCM (0.85 sparsity, bypassable), a ResolutionSelector instead of the first picture's raw size (0.98 MP default), and an optional RelayVSR x2/x4 pass (the same DIT + Flash VAE as the RelayVSR Upscale app) that is bypassed when set to None. The lcm sampler and the 6-step Pika sigma ladder are untouched. Local controls: sampling mode (Pika 6-step ladder or custom BasicScheduler), steps, sampler, LoRA picker (Pika Flex default; turbo LoRAs switch to their own step count and sampler), DiT and video VAE pickers, SLA sparsity/block/dense options."
   },
   "inputs": [
     {
@@ -151,6 +151,275 @@
       ]
     },
     {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model (DiT)",
+      "default": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "label": "MiniMax H3 FL2VA int8 — default, matches this graph"
+        },
+        {
+          "value": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "label": "MiniMax H3 Ref2VA int8 — reference-to-video, not this graph"
+        },
+        {
+          "value": "minimax_h3_image_pruned_int8_convrot.safetensors",
+          "label": "MiniMax H3 Image int8 — image generation, not this graph"
+        }
+      ],
+      "help": "The diffusion transformer. FL2VA is the checkpoint this graph's conditioning expects; the Ref2VA and Image checkpoints are H3 siblings for other tasks and will not produce a valid clip here.",
+      "bind": [
+        {
+          "node": "140:127",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "H3 video VAE int8 — default, 3.2 GB"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "H3 video VAE fp16 — 5.2 GB, higher precision"
+        },
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "H3 LynnReal Light VAE int8 — 2.1 GB, lighter/faster"
+        }
+      ],
+      "help": "The video VAE that decodes the sampled latent. int8 is the default on this GPU; fp16 is heavier and higher precision; LynnReal Light is the smallest and fastest.",
+      "bind": [
+        {
+          "node": "140:119",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "sampling",
+      "type": "select",
+      "label": "Sampling",
+      "default": "pika",
+      "options": [
+        {
+          "value": "pika",
+          "label": "Pika 6-step ladder (shipped)",
+          "sets": [
+            {
+              "node": "140:125",
+              "field": "sigmas",
+              "value": [
+                "140:143",
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "value": "custom",
+          "label": "Custom steps + sampler",
+          "sets": [
+            {
+              "node": "140:125",
+              "field": "sigmas",
+              "value": [
+                "140:160",
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "help": "The Pika ladder is the shipped 6-step lcm schedule. Custom uses the Steps and Sampler below through a BasicScheduler; picking a turbo LoRA switches to Custom automatically."
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 2,
+      "max": 30,
+      "step": 1,
+      "default": 6,
+      "help": "Only used with Custom sampling; the Pika ladder is fixed at 6 steps. Picking a LoRA above sets its trained step count.",
+      "bind": [
+        {
+          "node": "140:160",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "lcm",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        }
+      ],
+      "help": "lcm is what the Pika LoRA and its sigma ladder were built for. euler is what the TaoMate 3-step LoRA expects.",
+      "bind": [
+        {
+          "node": "140:123",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_name",
+      "type": "select",
+      "label": "LoRA",
+      "default": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+      "options": [
+        {
+          "value": "pika_h3_flex_fl2va_v1_bf16.safetensors",
+          "label": "Pika H3 Flex FL2VA v1 — default, 6-step ladder",
+          "sync": {
+            "steps": 6,
+            "sampler": "lcm",
+            "sampling": "pika"
+          }
+        },
+        {
+          "value": "taomate_h3_3step_comfy.safetensors",
+          "label": "TaoMate H3 3-step — fastest, 3-step",
+          "sync": {
+            "steps": 3,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+          "label": "MiniMax H3 FL2V turbo 4-step v1.2 768p",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+          "label": "MiniMax H3 FL2V turbo 8-step v1.0",
+          "sync": {
+            "steps": 8,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+          "label": "MiniMax H3 DMAD 4-step",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_pdmd_2step_lora_avg_rank_38_bf16.safetensors",
+          "label": "MiniMax H3 PDMD 2-step",
+          "sync": {
+            "steps": 2,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_pdmd_4step_lora_avg_rank_57_bf16.safetensors",
+          "label": "MiniMax H3 PDMD 4-step",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_turbo_v4_step600_ema_comfyui.safetensors",
+          "label": "MiniMax H3 turbo v4 step600 EMA (4-step)",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        }
+      ],
+      "help": "The LoRA patched onto the diffusion model. Picking a turbo LoRA also sets its trained step count and sampler; the files live in ComfyUI/models/loras.",
+      "bind": [
+        {
+          "node": "140:134",
+          "field": "lora_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_strength",
+      "type": "slider",
+      "label": "LoRA strength",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.05,
+      "default": 1,
+      "help": "1.0 is the trained strength. Lower blends the base model back in; higher pushes the LoRA look harder.",
+      "bind": [
+        {
+          "node": "140:134",
+          "field": "strength_model"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",
@@ -221,11 +490,195 @@
       "max": 0.95,
       "step": 0.05,
       "default": 0.85,
-      "help": "Fraction of key blocks skipped. 0.85 is the shipped default the SLA turbo LoRA was distilled against; 0.90 is ~15% faster.",
+      "help": "Fraction of key blocks skipped. 0.85 is the shipped default the SLA turbo LoRA was distilled against; 0.90 is about 15% faster.",
       "bind": [
         {
           "node": "sla",
           "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "sla_block_size",
+      "type": "select",
+      "label": "SLA block size",
+      "default": "64",
+      "options": [
+        {
+          "value": "32",
+          "label": "32 — finest, best for speech"
+        },
+        {
+          "value": "64",
+          "label": "64 — balanced (default)"
+        },
+        {
+          "value": "128",
+          "label": "128 — fastest, video only"
+        }
+      ],
+      "help": "How many sequence tokens share one key selection. 64 is the ROCm node's default; 32 is finer and better for speech, 128 is faster but can make audio robotic.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "block_size"
+        }
+      ]
+    },
+    {
+      "id": "sla_min_seq_len",
+      "type": "number",
+      "label": "SLA min sequence length",
+      "min": 0,
+      "max": 1000000,
+      "step": 1024,
+      "default": 8192,
+      "help": "Sequences shorter than this stay dense. Lower it only when you know the clip is long enough to benefit.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "min_seq_len"
+        }
+      ]
+    },
+    {
+      "id": "sla_dense_last_steps",
+      "type": "slider",
+      "label": "SLA dense last steps",
+      "min": 0,
+      "max": 8,
+      "step": 1,
+      "default": 0,
+      "help": "Run the last N sampling steps at full attention. 0 matches the turbo LoRA's distillation setup; 1 can recover fine detail for a little more time.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "dense_last_steps"
+        }
+      ]
+    },
+    {
+      "id": "sla_protect_audio",
+      "type": "toggle",
+      "label": "SLA protect audio",
+      "default": true,
+      "help": "Always attend audio and language-token blocks. Turn it off only for turbo-style uniform sparsity.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "protect_audio"
+        }
+      ]
+    },
+    {
+      "id": "sla_stabilize_motion",
+      "type": "toggle",
+      "label": "SLA stabilize motion",
+      "default": false,
+      "help": "Bias block selection toward the previous step to reduce faint double-exposure on fast motion. Uses more VRAM.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "stabilize_motion"
+        }
+      ]
+    },
+    {
+      "id": "sla_h3_cache",
+      "type": "toggle",
+      "label": "H3 cache",
+      "default": false,
+      "help": "Apply the H3 block-stack residual cache before SLA (fixed settings).",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "h3_cache"
+        }
+      ]
+    },
+    {
+      "id": "sla_reference_protection",
+      "type": "toggle",
+      "label": "SLA protect video refs",
+      "default": false,
+      "help": "Protect image/video reference blocks in Light mode. Only matters for reference-driven graphs.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "reference_protection"
+        }
+      ]
+    },
+    {
+      "id": "sla_dense_steps",
+      "type": "text",
+      "label": "SLA dense steps",
+      "default": "",
+      "help": "Explicit 0-based step indices to force dense, for example '0,1' or '0-2'. Blank means none.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "dense_steps"
+        }
+      ]
+    },
+    {
+      "id": "sla_dense_backend",
+      "type": "select",
+      "label": "SLA dense backend",
+      "default": "comfy_kitchen",
+      "options": [
+        {
+          "value": "comfy_kitchen",
+          "label": "comfy_kitchen (default)"
+        },
+        {
+          "value": "pytorch",
+          "label": "pytorch (reference, no quantization)"
+        },
+        {
+          "value": "auto",
+          "label": "auto (whatever is active)"
+        },
+        {
+          "value": "sage:auto",
+          "label": "sage:auto"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_cuda",
+          "label": "sage:qk_int8_pv_fp16_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_triton",
+          "label": "sage:qk_int8_pv_fp16_triton"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda",
+          "label": "sage:qk_int8_pv_fp8_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda++",
+          "label": "sage:qk_int8_pv_fp8_cuda++"
+        }
+      ],
+      "help": "Kernel used on dense fall-through steps. comfy_kitchen is the fast default; pytorch is the exact reference.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "dense_backend"
+        }
+      ]
+    },
+    {
+      "id": "sla_disable_fp16_accum",
+      "type": "toggle",
+      "label": "SLA disable fp16 accumulation",
+      "default": true,
+      "help": "Force off the reduced-precision matmul reduction path. Recommended on H3.",
+      "bind": [
+        {
+          "node": "sla",
+          "field": "disable_fp16_accum"
         }
       ]
     },
@@ -463,6 +916,24 @@
       "gb": 0.13,
       "phase": "decode",
       "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
       "optional": true
     }
   ]

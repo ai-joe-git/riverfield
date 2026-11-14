@@ -1,6 +1,7 @@
 import {el,icon} from "./util.js";
 import {button,errorText} from "./agent-controls.js";
 import {parseChoiceQuestions,choiceReply,createQuestionForm} from "./agent-questions.js";
+import {directorChat} from "./agent-director-chat.js";
 
 /** Reconcile without moving nodes already in order (moving a video can interrupt playback). */
 export function reconcile(parent,nodes){let cursor=parent.firstChild;for(const node of nodes){if(node===cursor)cursor=cursor.nextSibling;else parent.insertBefore(node,cursor);}const keep=new Set(nodes);for(const child of [...parent.childNodes])if(!keep.has(child))child.remove();}
@@ -14,7 +15,7 @@ export function mediaIndex(c){
  return [...unique.values()].sort((a,b)=>a.order-b.order||(a.created||"").localeCompare(b.created||""));
 }
 const clock=n=>{const m=Math.floor(n/60),s=Math.round(n%60);return m?`${m}:${String(s).padStart(2,"0")}`:`${Math.round(n*10)/10}s`;};
-export function createTimeline({chat,markdown,card,welcome,approve,refresh,resume,jumpButton,onIndex,answer,production,pilot,start}){
+export function createTimeline({chat,markdown,card,welcome,approve,refresh,resume,jumpButton,onIndex,answer,production,pilot,start,directorAction,directorBusy=()=>false}){
  let conversation="",entries=new Map(),cards=new Map(),toolNodes=new Map(),frame=0,next=null,follow=true,anchor=null,lastIndex="";
  let questionNode=null,questionKey="",shownQuestion="",lastStatus="";
  const tail=el("div",{class:"ag-timeline-tail"}),jobs=el("section",{class:"ag-jobs"}),jobNodes=new Map();let tailSignature="";
@@ -74,7 +75,7 @@ export function createTimeline({chat,markdown,card,welcome,approve,refresh,resum
  function render(c){
   const id=c?.id||"welcome";if(id!==conversation){conversation=id;entries.clear();cards.clear();toolNodes.clear();jobNodes.clear();tailSignature="";lastIndex="";follow=true;anchor=null;questionNode=null;questionKey="";shownQuestion="";lastStatus="";chat.replaceChildren();}
   const wasBottom=follow&&bottom();if(!wasBottom&&!anchor)anchor=capture();
-  if(!c?.messages.length){if(!chat.querySelector(".ag-welcome"))chat.replaceChildren(welcome());return;}
+   if(!c?.messages.length&&!c?.director){const mode="general",shown=chat.querySelector(".ag-welcome");if(!shown||shown.dataset.mode!==mode){const node=welcome();node.dataset.mode=mode;chat.replaceChildren(node);}return;}
   const records=new Map(c.tools.map(t=>[t.id,t])),grouped=new Map(),seen=new Set();
   for(const a of c.artifacts){if(seen.has(a.path||a.id))continue;seen.add(a.path||a.id);const id=a.origin?.messageId||c.messages.find(m=>m.calls?.some(x=>x.id===a.origin?.toolCallId))?.id||c.messages.find(m=>m.role==="assistant")?.id||c.messages[0]?.id;if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(a);}
   const nodes=[];
@@ -91,18 +92,20 @@ export function createTimeline({chat,markdown,card,welcome,approve,refresh,resum
    reconcile(e.outputs,media.map(getCard));nodes.push(e.node);
   }
   const planSignature=c.production?[c.production.status,c.production.approvedAt,c.production.pilot?.approved,c.production.scenes.map(s=>`${s.id}:${s.status}`).join(",")]:null;
-  const signature=JSON.stringify([c.status,c.error,c.jobStates,c.tools.some(t=>t.status==="uncertain"),c.questions,planSignature,(c.warnings||[]).slice(-3)]);
+   const signature=JSON.stringify([c.status,c.error,c.jobStates,c.tools.some(t=>t.status==="uncertain"),c.questions,planSignature,c.director,c.artifacts.map(a=>a.id),c.attachments.map(a=>a.id),directorBusy(),(c.warnings||[]).slice(-3)]);
   if(tailSignature!==signature){tailSignature=signature;const items=[];
    if(c.status==="running")items.push(el("div",{class:"ag-thinking"},el("i",{}),"Working with your studio…"));
    if(c.error)items.push(el("div",{class:"ag-error",role:"alert"},icon("info"),el("span",{},errorText(c.error))));
-   if(c.status==="question"&&c.questions)items.push(questionCard(c.questions));
+    if(c.status==="question"&&c.questions)items.push(questionCard(c.questions));
+    if(c.director)items.push(directorChat(c,{act:directorAction,markdown,busy:c.status==="running"||directorBusy()}));
    if(c.production)items.push(productionCard(c));
    if(c.jobs.length||c.tools.some(t=>t.status==="uncertain")){
     const head=jobs.querySelector("header")||el("header",{},el("b",{},"Studio activity"),button("Refresh",refresh,"ag-text-button")),rows=[head];
     for(const id of c.jobs){const j=c.jobStates[id]||{};let row=jobNodes.get(id);if(!row){row=el("div",{"data-job":id});jobNodes.set(id,row);}const sig=JSON.stringify(j);if(row.dataset.signature!==sig){row.dataset.signature=sig;row.replaceChildren(el("span",{},j.app||"Studio job"),el("small",{},j.status||"unknown"),...(["succeeded","failed","canceled","expired","lost"].includes(j.status)||j.progress?.value==null?[]:[el("progress",{max:1,value:j.progress.value})]),el("a",{href:"#/library",title:id},id.slice(-8)),...(j.error?[el("span",{class:"ag-error"},j.error.message||String(j.error))]:[]));}rows.push(row);}reconcile(jobs,rows);items.push(jobs);
    }
    if(c.warnings?.length)items.push(el("section",{class:"ag-warning"},...c.warnings.slice(-3).map(w=>el("p",{},w))));
-   if(["failed","interrupted","canceled"].includes(c.status))items.push(button(el("span",{},icon("redo")," Continue safely"),resume,"ag-retry",{title:"Continue without repeating completed tools"}));
+    const validationBlocked=c.error?.includes("deterministic input validation")||c.error?.startsWith("Stopped recovery:");
+    if(["failed","interrupted","canceled"].includes(c.status)&&!validationBlocked&&!c.director)items.push(button(el("span",{},icon("redo")," Continue safely"),resume,"ag-retry",{title:"Continue without repeating completed tools"}));
    reconcile(tail,items);
   }
   nodes.push(tail);reconcile(chat,nodes);

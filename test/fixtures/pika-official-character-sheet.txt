@@ -1,0 +1,20 @@
+subject_definitions:
+<Subject 1> is the single wolf identity shown in the different views of Picture 2, retaining its recognizable face, coat markings and build.
+<Subject 2> is the stylized 3D CG treatment of Picture 1; its depicted cast and layout are not target content.
+
+summary:
+[reference generation] One instance of <Subject 1>, rendered with <Subject 2>, guards a small vial in a coherent alley scene.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): attribute_transfer - transfer the selected wolf identity into the target scene; use the different views as identity evidence only.
+<Subject 2> (appears in [Shot 1]): attribute_transfer - apply the reference's stylized form, shading and colour treatment to the target scene.
+
+detailed_description:
+The video uses the stylized 3D CG treatment of <Subject 2>.
+[Shot 1] A medium-wide shot establishes a single alley space with exactly one wolf, <Subject 1>, and a small vial beside its front paws. <Subject 1> lowers its head toward the vial and shifts its body protectively around it, keeping the vial close while watching the alley entrance. Keep the face and vial readable against the background. The camera holds this scene throughout. The character-sheet panels, alternate views, labels and borders are not displayed.
+
+overall_soundscape:
+Quiet alley ambience, light paw contact and soft breathing.
+
+non_diegetic_music:
+N/A

@@ -26,9 +26,31 @@ test("six-section Ref2VA pilot binds one character sheet and one empty environme
 test("missing sections, bad dialogue, unknown speakers and unbound labels are rejected",()=>{
  for(const [bad,pattern] of [[pilot.replace("summary:","overview:"),/sections/],[pilot.replace("[French] On", "On"),/language/],[pilot.replace("director (S2) says","director (S3) says"),/Unknown speaker/],[pilot.replace("<Picture 2>","<Picture 3>"),/unbound/],[pilot.replace("<Subject 2> is","<Subject 4> is"),/Subject 2 is not defined/]] as const)assert.match(validatePikaPrompt(bad,ctx).join(";"),pattern);
 });
-test("missing native dialogue tags and speech too long for the window are rejected",()=>{
+test("missing native dialogue tags are rejected, but advisory word budgets are not hard engine limits",()=>{
  assert.match(validatePikaPrompt(pilot.replace(/<d>|<\/d>/g,""),ctx).join(";"),/native.*tags/);
- assert.match(validatePikaPrompt(pilot.replace("Oui, je suis prêt.",Array(30).fill("oui").join(" ")),ctx).join(";"),/too long/);
+ assert.deepEqual(validatePikaPrompt(pilot.replace("Oui, je suis prêt.",Array(30).fill("oui").join(" ")),ctx),[]);
+});
+test("name-colon dialogue and leaked section headings are rejected before dispatch",()=>{
+ const leaked=pilot.replace("<d>[French] Oui, je suis prêt.</d>","\nClara: That was my favorite mug.");
+ assert.match(validatePikaPrompt(leaked,ctx).join(";"),/name-colon|native <d>/);
+ const labelled=pilot.replace("detailed_description:\n","detailed_description:\n[Visual Directions] ");
+ assert.match(validatePikaPrompt(labelled,ctx).join(";"),/headings/);
+});
+test("official upstream Ref2VA prompts accept nested Picture roles, optional task/shot markers and audio relationships",()=>{
+ // Source: Pika-Labs/Pika-H3-Flex examples/prompts and docs/prompt-guidance.md, examples 5–7.
+ for(const [file,pictures,videos,audios] of [["ref2va",1,0,0],["ref2va-mixed",1,1,2],["character-sheet",2,0,0],["audio-excerpt",1,0,2],["voice-reference",2,0,1]] as const){
+  const prompt=readFileSync(`test/fixtures/pika-official-${file}.txt`,"utf8");assert.deepEqual(validatePikaPrompt(prompt,{...ctx,pictures,videos,audios}),[],file);
+ }
+});
+test("Alex binds two real image slots and introduces S1 inline using the official English dialogue syntax",()=>{
+ const payload=JSON.parse(readFileSync("apps/pika-studio-director/request-example.json","utf8")),w=JSON.parse(payload.values.segment_windows).windows[0];
+ assert.deepEqual(validatePikaPrompt(w.prompt,ctx),[]);assert.equal((w.end-w.start-5)%17,0);assert.deepEqual(w.images,[0,1]);
+ assert.equal(payload.values.aspect,"9:16 (Portrait Widescreen)");assert.equal(payload.values.megapixels,.4);
+ assert.match(w.prompt,/<Subject 1> \(appears in \[Shot 1\]\): fully_preserved/);assert.match(w.prompt,/<Subject 2> \(appears in \[Shot 1\]\): fully_preserved/);
+ assert.match(w.prompt,/<Subject 1> \(S1\).*<d>\[English\] Done\.<\/d>/);
+ const file={bytes:new Uint8Array([1]),name:"ref.png"};assert.doesNotThrow(()=>validatePikaValues({...payload.values,image1:file,image2:file}));
+ assert.throws(()=>validatePikaValues({...payload.values,image1:file}),/supplied files/);
+ const unbound=JSON.parse(payload.values.segment_windows);unbound.windows[0].images=[0,2];assert.throws(()=>validatePikaValues({...payload.values,image1:file,image2:file,segment_windows:JSON.stringify(unbound)}),/supplied files/);
 });
 test("FL2VA uses three sections and an empty material bin",()=>{
  const prompt="integrated_multimodal_description:\n[Shot 1] An empty studio.\noverall_soundscape:\nRoom tone.\nnon_diegetic_music:\nN/A";

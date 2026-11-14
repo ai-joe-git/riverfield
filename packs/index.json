@@ -110,6 +110,14 @@
     "download_gb": 17.76,
     "needs_hf_token": true
   },
+  "image-h3": {
+    "apps": [
+      "h3-image",
+      "h3-image-edit"
+    ],
+    "download_gb": 66.58,
+    "needs_hf_token": false
+  },
   "image-krea2": {
     "apps": [
       "style-reference",
@@ -139,9 +147,10 @@
   },
   "qwen": {
     "apps": [
-      "character-angles"
+      "character-angles",
+      "qwen-image-edit-turbo"
     ],
-    "download_gb": 28.3,
+    "download_gb": 35.06,
     "needs_hf_token": false
   },
   "relayvsr": {
@@ -193,7 +202,7 @@
       "reshoot-turbo",
       "studio-director"
     ],
-    "download_gb": 109.74,
+    "download_gb": 114.95,
     "needs_hf_token": false
   },
   "video-ltx": {

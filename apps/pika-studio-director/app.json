@@ -327,7 +327,7 @@
       "label": "Global prompt",
       "required": false,
       "default": "",
-      "help": "Used for the current generation window and reused by every segment whose own prompt is empty.",
+      "help": "Used by every segment when ALL segment prompts are empty. Finite sampling requires a local prompt for every segment once any local prompt is supplied.",
       "bind": [
         {
           "node": "rfplan",
@@ -380,7 +380,7 @@
       "label": "Segment prompts",
       "required": false,
       "default": "",
-      "help": "One prompt per segment, one per line. Empty lines fall back to the global prompt.",
+      "help": "Legacy line-split field. For Pika's multi-line six-section prompts use global_prompt for the whole prompt or segment_windows for per-segment prompts; do not put them here.",
       "bind": [
         {
           "node": "rfplan",
@@ -515,8 +515,8 @@
       "min": 0.1,
       "max": 2.0,
       "step": 0.1,
-      "default": 0.8,
-      "help": "0.8 MP ≈ 1184×672 at 16:9. The Pika template ships 0.98.",
+      "default": 0.4,
+      "help": "Economical native pixel budget: 0.4 MP before any separate RelayVSR upscale. Final dimensions are rounded to the selected multiple.",
       "bind": [
         {
           "node": "41",
@@ -605,7 +605,7 @@
       "min": 0.8,
       "max": 0.95,
       "step": 0.05,
-      "default": 0.9,
+      "default": 0.85,
       "help": "Sparsity (higher = faster). 0.9 is what the Pika template uses; 0.85 keeps more exact blocks.",
       "bind": [
         {
@@ -618,7 +618,7 @@
       "id": "filename_prefix",
       "type": "text",
       "label": "File name prefix",
-      "default": "riverfield/studio-director",
+      "default": "riverfield/pika-studio-director",
       "bind": [
         {
           "node": "29",

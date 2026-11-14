@@ -413,5 +413,20 @@
     "_meta": {
       "title": "VSR Decode"
     }
+  },
+  "140:160": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "sla",
+        0
+      ],
+      "steps": 6,
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "Custom Sigmas"
+    }
   }
 }

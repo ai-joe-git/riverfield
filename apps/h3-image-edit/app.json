@@ -1,0 +1,374 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-image-edit",
+  "name": "H3 Image Edit",
+  "section": "image",
+  "pack": "image-h3",
+  "status": "ready",
+  "summary": "Edit a photo with MiniMax H3 Image: 4 MP reference-conditioned edits, prompt expansion, aspect-preserving resize.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "image_minimax_h3_image_edit.json",
+    "comfyui": "0.45.0",
+    "notes": "Official ComfyUI image_minimax_h3_image_edit template. The input photo is resized to the target megapixel area (4 MP by default) and scaled to a multiple of 32; the Qwen3.8-27B prompt-expansion model turns the edit instruction into a detailed target description. Turn expansion off to send the instruction verbatim."
+  },
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Photo to edit",
+      "required": true,
+      "help": "The source photo. It is resized to the target megapixel area, preserving aspect ratio, before the model sees it.",
+      "bind": [
+        {
+          "node": "45",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Edit instruction",
+      "required": true,
+      "default": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
+      "help": "What to change. With expansion on, this instruction is rewritten into a detailed description of the target image.",
+      "bind": [
+        {
+          "node": "43",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "expand",
+      "type": "toggle",
+      "label": "Expand the prompt",
+      "default": true,
+      "help": "Use the Qwen3.8-27B prompt-expansion model to rewrite the prompt into a detailed caption before drawing. Turn it off to use the prompt verbatim.",
+      "bind": [
+        {
+          "node": "61",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 1,
+      "max": 16,
+      "step": 0.5,
+      "default": 4,
+      "help": "Target megapixels. H3 Image works from about 4 MP to 20 MP and is tuned for 4–20 MP; 4 MP is the default.",
+      "bind": [
+        {
+          "node": "56",
+          "field": "resize_type.megapixels"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 6,
+      "help": "H3 Image is a 6-step distilled model; more steps usually do not help.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "Euler — default"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "Euler ancestral"
+        },
+        {
+          "value": "heun",
+          "label": "Heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "DPM 2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "DPM 2 ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "LMS"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "DPM++ 2M"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "DPM++ 2M SDE"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "DPM++ 3M SDE"
+        },
+        {
+          "value": "ddpm",
+          "label": "DDPM"
+        },
+        {
+          "value": "lcm",
+          "label": "LCM"
+        },
+        {
+          "value": "uni_pc",
+          "label": "UniPC"
+        }
+      ],
+      "help": "The KSampler sampler. Euler is the prepared workflow's default.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "select",
+      "label": "Scheduler",
+      "default": "simple",
+      "options": [
+        {
+          "value": "simple",
+          "label": "Simple — default"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "karras",
+          "label": "Karras"
+        },
+        {
+          "value": "exponential",
+          "label": "Exponential"
+        },
+        {
+          "value": "sgm_uniform",
+          "label": "SGM uniform"
+        },
+        {
+          "value": "ddim_uniform",
+          "label": "DDIM uniform"
+        },
+        {
+          "value": "beta",
+          "label": "Beta"
+        },
+        {
+          "value": "linear_quadratic",
+          "label": "Linear quadratic"
+        },
+        {
+          "value": "kl_optimal",
+          "label": "KL optimal"
+        }
+      ],
+      "help": "The KSampler scheduler. Simple is the prepared workflow's default.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "scheduler"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model (DiT)",
+      "default": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_image_pruned_int8_convrot.safetensors",
+          "label": "MiniMax H3 Image int8 — default"
+        }
+      ],
+      "help": "The H3 Image diffusion transformer. Add another H3 Image checkpoint to ComfyUI/models/diffusion_models to expose it here.",
+      "bind": [
+        {
+          "node": "29",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B int8 — default"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 — Blackwell GPU only"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B Ultra Heretic int8 — community"
+        }
+      ],
+      "help": "The H3 text encoder. The int8 file is the default; NVFP4 needs a Blackwell GPU; the heretic file is an uncensored community variant.",
+      "bind": [
+        {
+          "node": "30",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Image VAE",
+      "default": "minimax_h3_image_vae_fp16.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_image_vae_fp16.safetensors",
+          "label": "H3 Image VAE fp16 — default"
+        },
+        {
+          "value": "p-h3-image_vae_int8_convrot.safetensors",
+          "label": "H3 Image VAE int8 — community"
+        }
+      ],
+      "help": "The H3 Image VAE that decodes the latent. The fp16 file is the official decoder; the int8 file is a community variant.",
+      "bind": [
+        {
+          "node": "31",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "pe_model",
+      "type": "select",
+      "label": "Prompt-expansion model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8-27B w4a8 — default, reference PE model"
+        },
+        {
+          "value": "qwen3.5_9b_w4a8_gptq.safetensors",
+          "label": "Qwen3.5-9B w4a8 — lighter and faster"
+        }
+      ],
+      "help": "The prompt-expansion model. Qwen3.8-27B is the reference PE model; Qwen3.5-9B is lighter and faster.",
+      "bind": [
+        {
+          "node": "35",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/h3-image-edit",
+      "help": "Where ComfyUI writes the PNG under its output folder.",
+      "bind": [
+        {
+          "node": "9",
+          "field": "filename_prefix"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "9",
+      "type": "image",
+      "label": "Edited image"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.98,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "vae/minimax_h3_image_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 1.17,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "credits": [
+    "MiniMax H3 Image and Qwen3.8-27B prompt expansion by MiniMax and Comfy-Org (MiniMax H3 Community License)",
+    "Qwen3.5-9B prompt upsampler by the Qwen team (Apache-2.0)"
+  ],
+  "test": {
+    "image": "test/vintage_yellow_taxi.png",
+    "prompt": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
+    "expand": false,
+    "resolution": 4,
+    "steps": 6,
+    "seed": 42
+  }
+}

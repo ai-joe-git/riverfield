@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the cafe interior from Picture 1, retaining its counter, doorway and warm lighting.
+<Audio 1> supplies a doorbell recording; use only its 2.00–3.00 second excerpt.
+<Audio 2> is loose inspiration for a relaxed jazz score.
+
+summary:
+[reference generation + audio reuse + audio reference] A visitor enters <Subject 1>. Reuse the selected bell excerpt from <Audio 1> and generate footsteps, room ambience and a new jazz score.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - retain the defined cafe features.
+<Audio 1>: partially_copy - reuse only the selected bell excerpt, mixed with new sound.
+<Audio 2>: weak_reference - use only the broad relaxed-jazz character; compose a different melody, rhythm and arrangement.
+
+detailed_description:
+The video is live-action.
+[Shot 1] A fixed wide shot shows <Subject 1>'s doorway and counter. A visitor pushes the door open. At that moment, play the selected excerpt from <Audio 1> once. The visitor walks to the counter with clearly audible footsteps and stops. Keep the doorway and counter visible throughout.
+
+overall_soundscape:
+Newly generated quiet cafe ambience and footsteps, with the copied bell excerpt synchronized to the door opening.
+
+non_diegetic_music:
+A newly composed, relaxed jazz score loosely inspired by <Audio 2>, with sparse piano and soft brushed drums. Do not copy the source melody or recording.

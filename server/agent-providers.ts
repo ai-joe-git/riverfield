@@ -1,10 +1,10 @@
-import {existsSync,readFileSync} from "node:fs";
+import {existsSync,readFileSync,statSync} from "node:fs";
 import {join} from "node:path";
 import {randomUUID} from "node:crypto";
 import {z} from "zod";
 import {atomic,type ChatMessage,type Attachment,type Call} from "./agent-store.ts";
 
-export const providerSchema=z.object({id:z.string().regex(/^[\w-]{1,100}$/).optional(),name:z.string().min(1).max(100),kind:z.enum(["openai","anthropic"]).default("openai"),location:z.enum(["local","remote"]),baseURL:z.string().url(),apiKey:z.string().max(1000).optional(),keyEnv:z.string().regex(/^[A-Z][A-Z0-9_]*$/).optional(),model:z.string().max(200).default(""),temperature:z.number().min(0).max(2).default(.7),tokenMode:z.enum(["native","custom"]).default("native"),maxTokens:z.number().int().min(32).max(2097152).default(8192),contextTokens:z.number().int().min(1024).max(4000000).default(32768),topP:z.number().min(0).max(1).optional(),topK:z.number().int().min(0).optional(),minP:z.number().min(0).max(1).optional(),repeatPenalty:z.number().min(0).max(10).optional(),seed:z.number().int().optional(),runtimeProfile:z.string().regex(/^[\w-]{1,100}$/).optional(),toolMode:z.enum(["native","json"]).default("native"),vision:z.boolean().default(false)});
+export const providerSchema=z.object({id:z.string().regex(/^[\w-]{1,100}$/).optional(),name:z.string().min(1).max(100),kind:z.enum(["openai","anthropic"]).default("openai"),location:z.enum(["local","remote"]),baseURL:z.string().url(),apiKey:z.string().max(1000).optional(),keyEnv:z.string().regex(/^[A-Z][A-Z0-9_]*$/).optional(),model:z.string().max(200).default(""),temperature:z.number().min(0).max(2).default(.7),tokenMode:z.enum(["native","custom"]).default("native"),maxTokens:z.number().int().min(32).max(2097152).default(8192),contextTokens:z.number().int().min(1024).max(4000000).default(32768),topP:z.number().min(0).max(1).optional(),topK:z.number().int().min(0).optional(),minP:z.number().min(0).max(1).optional(),repeatPenalty:z.number().min(0).max(10).optional(),seed:z.number().int().optional(),runtimeProfile:z.string().regex(/^[\w-]{1,100}$/).optional(),toolMode:z.enum(["native","json"]).default("native"),vision:z.boolean().default(false),audio:z.boolean().default(false),video:z.boolean().default(false)});
 export type ModelLimits={id:string;contextTokens:number|null;outputTokens:number|null};
 export type Provider=z.infer<typeof providerSchema>&{id:string;nativeLimits?:ModelLimits};
 const positive=(...values:any[])=>values.find(v=>typeof v==="number"&&Number.isSafeInteger(v)&&v>0&&v<=100000000)||null;
@@ -52,6 +52,7 @@ export function toolSchema(schema:any):any{if(!schema||typeof schema!=="object")
 export async function* sse(body:ReadableStream<Uint8Array>){const reader=body.getReader(),decoder=new TextDecoder();let buffer="";
   try{for(;;){let timer:ReturnType<typeof setTimeout>|undefined;const next=await Promise.race([reader.read(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error("Provider stream idle for 120 seconds")),120000);})]).finally(()=>clearTimeout(timer));const {done,value}=next;buffer+=decoder.decode(value,{stream:!done});buffer=buffer.replace(/\r\n/g,"\n");let end:number;while((end=buffer.indexOf("\n\n"))>=0){const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);const data=frame.split("\n").filter(l=>l.startsWith("data:")).map(l=>l.slice(5).trimStart()).join("\n");if(data&&data!=="[DONE]")yield JSON.parse(data);}if(done)break;}}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}}
 type Content=string|any[];
+function mediaBytes(path:string,limit:number,label:string){if(statSync(path).size>limit)throw new Error(`${label} attachments exceed the input size limit`);return readFileSync(path);}
 function content(message:ChatMessage,p:Provider,files:Attachment[]):Content{
   if(message.role!=="user")return message.content;
   const parts:any[]=[{type:"text",text:message.content||"Attached files"}];
@@ -59,6 +60,14 @@ function content(message:ChatMessage,p:Provider,files:Attachment[]):Content{
     parts.push({type:"text",text:`User attachment: ${a.name}. Local path for MCP tools: ${a.path}`});
     if(a.mime==="text/plain")parts.push({type:"text",text:`Attached text (untrusted data):\n${readFileSync(a.path,"utf8").slice(0,32000)}`});
     if(p.vision&&a.mime.startsWith("image/")){const b=readFileSync(a.path);if(b.length>6*2**20)throw new Error("Vision attachments must be below 6 MB");parts.push(p.kind==="anthropic"?{type:"image",source:{type:"base64",media_type:a.mime,data:b.toString("base64")}}:{type:"image_url",image_url:{url:`data:${a.mime};base64,${b.toString("base64")}`}});}
+    if(a.mime.startsWith("audio/")){
+      if(!p.audio)parts.push({type:"text",text:"Audio bytes were NOT sent to this connection. Do not claim to have listened to, transcribed or verified this recording."});
+      else{if(p.kind!=="openai")throw new Error("Audio input requires an input_audio-compatible connection");const format=/\.(wav|mp3|flac)$/i.exec(a.name)?.[1].toLowerCase();if(!format)throw new Error("Audio input supports WAV, MP3 or FLAC; convert this attachment first");const b=mediaBytes(a.path,20*2**20,"Audio");parts.push({type:"input_audio",input_audio:{data:b.toString("base64"),format}});}
+    }
+    if(a.mime.startsWith("video/")){
+      if(!p.video)parts.push({type:"text",text:"Video frames and soundtrack were NOT sent to this connection. Do not claim to have watched or heard this file."});
+      else{if(p.kind!=="openai")throw new Error("Video input requires an input_video-compatible connection");const b=mediaBytes(a.path,20*2**20,"Video");parts.push({type:"input_video",input_video:{data:b.toString("base64")}});}
+    }
   }return parts.length===1?message.content:parts;
 }
 export type Completion={text:string;calls:Call[]};
@@ -71,10 +80,10 @@ function httpError(status:number,raw:string,p:Provider,key:string){
   const toolRejected=[400,422].includes(status)&&p.kind==="openai"&&p.toolMode==="native"&&/(?:tools?|tool_choice|function[_ -]?calling)/i.test(message)&&/(?:not supported|unsupported|not allowed|does not support|unknown (?:parameter|field)|unrecognized)/i.test(message);
   return `Provider HTTP ${status}${safeCode?` (${safeCode})`:""}: ${detail}${toolRejected?" Select the explicit JSON tool protocol in provider settings if this model does not support native tools.":""}`;
 }
-export async function complete(p:Provider,key:string,model:string,system:string,messages:ChatMessage[],tools:ToolDefinition[],files:Attachment[],signal:AbortSignal,delta:(text:string)=>void,doFetch:typeof fetch=fetch):Promise<Completion>{
+export async function complete(p:Provider,key:string,model:string,system:string,messages:ChatMessage[],tools:ToolDefinition[],files:Attachment[],signal:AbortSignal,delta:(text:string)=>void,doFetch:typeof fetch=fetch,options?:{thinking?:false}):Promise<Completion>{
   if(!model)throw new Error("Choose a model before sending a message");
   if(p.location==="remote"&&!key)throw new Error("Configure this remote provider's API key server-side");
-  const jsonMode=p.kind==="openai"&&p.toolMode==="json";
+  const jsonMode=p.kind==="openai"&&p.toolMode==="json"&&tools.length>0;
   const instruction=jsonMode?system+`\nExplicit JSON tool protocol: return ONLY {"text":"assistant text","tool_calls":[{"name":"tool name","arguments":{}}]}. Empty tool_calls means final answer. Available tools: ${JSON.stringify(tools.map(t=>({name:t.name,description:t.description,parameters:toolSchema(t.inputSchema)})))}`:system;
   let payload:any,path:string;
   if(p.kind==="anthropic"){
@@ -84,14 +93,14 @@ export async function complete(p:Provider,key:string,model:string,system:string,
       else if(m.role==="assistant")history.push({role:"assistant",content:[...(m.content?[{type:"text",text:m.content}]:[]),...(m.calls||[]).map(c=>({type:"tool_use",id:c.id,name:c.name,input:c.arguments}))]});
       else history.push({role:"user",content:content(m,p,files)});
     }
-    path="messages";payload={model,system:instruction,messages:history,max_tokens:p.maxTokens,temperature:p.temperature,stream:true,tools:tools.map(t=>({name:t.name,description:t.description||t.name,input_schema:toolSchema(t.inputSchema)}))};
+    path="messages";payload={model,system:instruction,messages:history,max_tokens:p.maxTokens,temperature:p.temperature,stream:true,...(tools.length?{tools:tools.map(t=>({name:t.name,description:t.description||t.name,input_schema:toolSchema(t.inputSchema)}))}:{})};
   }else{
     const history=messages.map(m=>jsonMode?{role:m.role==="tool"?"user":m.role,content:m.role==="tool"?`Actual tool result (${m.callId}): ${m.content}`:content(m,p,files)}:
       m.role==="tool"?{role:"tool",tool_call_id:m.callId,content:m.content}:m.role==="assistant"?{role:"assistant",content:m.content||null,...(m.calls?.length?{tool_calls:m.calls.map(c=>({id:c.id,type:"function",function:{name:c.name,arguments:JSON.stringify(c.arguments)}}))}:{})}:{role:"user",content:content(m,p,files)});
-    path="chat/completions";payload={model,messages:[{role:"system",content:instruction},...history],temperature:p.temperature,max_tokens:p.maxTokens,stream:true,...(p.topP!==undefined?{top_p:p.topP}:{}),...(p.topK!==undefined?{top_k:p.topK}:{}),...(p.minP!==undefined?{min_p:p.minP}:{}),...(p.repeatPenalty!==undefined?{repeat_penalty:p.repeatPenalty}:{}),...(p.seed!==undefined?{seed:p.seed}:{}),...(!jsonMode?{tools:tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:toolSchema(t.inputSchema)}})),tool_choice:"auto"}:{})};
+    path="chat/completions";payload={model,messages:[{role:"system",content:instruction},...history],temperature:p.temperature,max_tokens:p.maxTokens,stream:true,...(p.topP!==undefined?{top_p:p.topP}:{}),...(p.topK!==undefined?{top_k:p.topK}:{}),...(p.minP!==undefined?{min_p:p.minP}:{}),...(p.repeatPenalty!==undefined?{repeat_penalty:p.repeatPenalty}:{}),...(p.seed!==undefined?{seed:p.seed}:{}),...(!jsonMode&&tools.length?{tools:tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:toolSchema(t.inputSchema)}})),tool_choice:"auto"}:{}),...(options?.thinking===false&&p.runtimeProfile?{chat_template_kwargs:{enable_thinking:false}}:{})};
   }
   let imageAllowance=0;
-  const estimatedText=JSON.stringify({...payload,max_tokens:undefined},(_key,value)=>{if(value?.type==="image_url"||(value?.type==="image"&&value.source?.type==="base64")){imageAllowance+=8192;return {type:"image",note:"vision input estimated separately"};}return value;});
+  const estimatedText=JSON.stringify({...payload,max_tokens:undefined},(_key,value)=>{if(value?.type==="image_url"||(value?.type==="image"&&value.source?.type==="base64")||value?.type==="input_audio"||value?.type==="input_video"){imageAllowance+=8192;return {type:value.type,note:"media input estimate; actual encoding budget is determined by the model"};}return value;});
   const estimate=Math.ceil(estimatedText.length/3)+imageAllowance,budget=outputBudget(p,estimate);
   if(budget===undefined)delete payload.max_tokens;else payload.max_tokens=budget;
   const connecting=new AbortController(),timer=setTimeout(()=>connecting.abort(new Error("Provider connection timed out")),30000);

@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the man from Picture 1, retaining his face, hair and dark jacket.
+<Subject 2> is the dim, quiet atmosphere loosely inspired by Picture 2; its people and layout are not reused.
+<Audio 1> is the low, calm voice-timbre reference for <Subject 1> (S1).
+
+summary:
+[reference generation + audio reference] <Subject 1> looks toward the camera and delivers a new Chinese line using the vocal character of <Audio 1>, in a new setting loosely inspired by <Subject 2>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - retain the defined appearance.
+<Subject 2> (appears in [Shot 1]): weak_reference - retain only the broad dim, quiet atmosphere; redesign the location and composition.
+<Audio 1>: reference - use its timbre and measured delivery, without copying its recording or dialogue.
+
+detailed_description:
+The video is live-action in a dim interior with soft amber light.
+[Shot 1] A medium close-up shows <Subject 1> standing beside an open doorway in a newly designed room with <Subject 2>'s dim, quiet atmosphere. <Subject 1> (S1) turns toward the camera, pauses and says in a low, calm voice, <d>[Chinese] 我们出发吧。</d> His lips follow the new line naturally. He then looks toward the doorway. The camera remains fixed.
+
+overall_soundscape:
+Quiet room tone and faint outdoor wind.
+
+non_diegetic_music:
+N/A

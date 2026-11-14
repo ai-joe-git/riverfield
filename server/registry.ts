@@ -7,7 +7,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 
 export type Bind = { node: string; field: string; template?: string };
 export type SetField = { node: string; field: string; value: unknown };
-export type Option = { value: unknown; label: string; sets?: SetField[] };
+export type Option = { value: unknown; label: string; sets?: SetField[]; sync?:Record<string,unknown> };
 export type Input = {
   id: string;
   type: "text" | "textarea" | "number" | "slider" | "select" | "toggle" | "seed" | "image" | "video" | "audio";

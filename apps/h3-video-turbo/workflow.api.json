@@ -180,7 +180,7 @@
     "class_type": "CreateVideo",
     "inputs": {
       "images": [
-        "140:122",
+        "vsr_decode",
         0
       ],
       "audio": [
@@ -290,6 +290,92 @@
     },
     "_meta": {
       "title": "Load LoRA (3-step turbo)"
+    }
+  },
+  "vsr_unet": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "RelayVSR DIT"
+    }
+  },
+  "vsr_cond": {
+    "class_type": "RelayVSRConditioning",
+    "inputs": {
+      "model": [
+        "vsr_unet",
+        0
+      ],
+      "images": [
+        "140:122",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "RelayVSR Conditioning"
+    }
+  },
+  "vsr_sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "vsr_unet",
+        0
+      ],
+      "positive": [
+        "vsr_cond",
+        0
+      ],
+      "negative": [
+        "vsr_cond",
+        0
+      ],
+      "latent_image": [
+        "vsr_cond",
+        1
+      ],
+      "seed": 0,
+      "steps": 1,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "RelayVSR Sampler"
+    }
+  },
+  "vsr_vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "relayvsr_flash_vae_x2_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "RelayVSR Flash VAE"
+    }
+  },
+  "vsr_decode": {
+    "class_type": "VSRDecode",
+    "inputs": {
+      "vae": [
+        "vsr_vae",
+        0
+      ],
+      "samples": [
+        "vsr_sampler",
+        0
+      ],
+      "images": [
+        "140:122",
+        0
+      ],
+      "detail": 1
+    },
+    "_meta": {
+      "title": "VSR Decode"
     }
   }
 }

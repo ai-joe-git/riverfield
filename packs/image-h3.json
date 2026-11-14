@@ -1,0 +1,64 @@
+{
+  "pack": "image-h3",
+  "apps": [
+    "h3-image",
+    "h3-image-edit"
+  ],
+  "download_gb": 66.58,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.98,
+      "name": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-image",
+        "h3-image-edit"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "name": "qwen3.8_27b_w4a8.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-image",
+        "h3-image-edit"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-image",
+        "h3-image-edit"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "vae/minimax_h3_image_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 1.17,
+      "name": "minimax_h3_image_vae_fp16.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-image",
+        "h3-image-edit"
+      ]
+    }
+  ]
+}

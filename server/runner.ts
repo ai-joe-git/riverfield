@@ -5,6 +5,8 @@ import type { App, Input } from "./registry.ts";
 import { isFileInput, modelKey } from "./registry.ts";
 import {validateH3} from "./h3-plan.ts";
 import {validatePikaValues} from "./pika-prompt.ts";
+import {InputError} from "./input-error.ts";
+export {InputError} from "./input-error.ts";
 
 export type FileValue = { bytes: Uint8Array; name: string; type?: string };
 export type Values = Record<string, unknown>;
@@ -16,7 +18,6 @@ export type Settable = {
   json?: Record<string, unknown>;
 };
 
-export class InputError extends Error {}
 
 function isFileValue(v: unknown): v is FileValue {
   return typeof v === "object" && v !== null && (v as FileValue).bytes instanceof Uint8Array;
@@ -84,6 +85,13 @@ export function textValues(app: App, values: Values): Values {
 
 /** Fill defaults, coerce types, check required fields. File inputs pass through as FileValue. */
 export function resolveValues(app: App, values: Values): Values {
+  if(app.id==="relayvsr-upscale"){
+    values={...values};
+    for(const [source,target] of [["unet_name","vae_name"],["vae_name","unet_name"]])if(values[source]!==undefined&&values[target]===undefined){
+      const option=app.inputs.find(i=>i.id===source)?.options?.find(o=>o.value===values[source]);
+      if(option?.sync?.[target]!==undefined)values[target]=option.sync[target];
+    }
+  }
   const out: Values = {};
   for (const input of app.inputs) {
     let v = values[input.id];
@@ -111,7 +119,11 @@ export function resolveValues(app: App, values: Values): Values {
     }
   }
   if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
-  if(app.id==="pika-studio-director"&&!out.advanced_timeline_json){try{validatePikaValues(out);}catch(e){throw new InputError((e as Error).message);}}
+  if(app.id==="pika-studio-director"&&!out.advanced_timeline_json)validatePikaValues(out);
+  if(app.id==="relayvsr-upscale"){
+    const paired=app.inputs.find(i=>i.id==="unet_name")?.options?.find(o=>o.value===out.unet_name)?.sync?.vae_name;
+    if(paired!==out.vae_name)throw new InputError("RelayVSR DIT and Flash VAE must use the same upscale factor",[{code:"RELAY_MODEL_PAIR",field:"vae_name",message:`Use ${String(paired)} with ${String(out.unet_name)}`}]);
+  }
   return out;
 }
 
@@ -306,7 +318,11 @@ export class Runner {
 
   /** A managed LLM must not be loaded on top of cached media models. No silent 404 fallback. */
   async release(signal?:AbortSignal):Promise<void>{
-    const response=await this.doFetch(`${this.baseUrl}/riverfield/release`,{method:"POST",headers:{"content-type":"application/json",...(this.token?{authorization:`Bearer ${this.token}`}:{})},body:"{}",signal:AbortSignal.any([AbortSignal.timeout(60000),...(signal?[signal]:[])])});
+    const response=await this.doFetch(`${this.baseUrl}/riverfield/release`,{method:"POST",headers:{"content-type":"application/json",...(this.token?{authorization:`Bearer ${this.token}`}:{})},body:"{}",signal:AbortSignal.any([AbortSignal.timeout(60000),...(signal?[signal]:[])])}).catch(error=>{
+      if(signal?.aborted)throw error;
+      const code=typeof error?.cause?.code==="string"?` (${error.cause.code})`:"";
+      throw new Error(`Cannot contact the media backend at ${new URL(this.baseUrl).origin}${code}. Start or reconnect the Riverfield backend, then retry writing. Memory release was not confirmed; the managed writer was not loaded.`);
+    });
     if(!response.ok){let detail=await response.text();try{const body=JSON.parse(detail);detail=String(body.error||body.message||"");}catch{/* Gateway conflicts may be plain text. */}detail=detail.split(this.token||"\0").join("[redacted]").slice(0,500);throw new Error(`Cannot safely release ComfyUI models (${response.status}): ${detail||"update/restart the Riverfield gateway and memory bridge before loading the managed agent"}`);}
     const result=await response.json() as any;if(result.released!==true)throw new Error("ComfyUI did not confirm model release; native model was not loaded");
   }

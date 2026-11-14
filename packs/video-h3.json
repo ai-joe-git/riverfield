@@ -17,7 +17,7 @@
     "reshoot-turbo",
     "studio-director"
   ],
-  "download_gb": 109.74,
+  "download_gb": 114.95,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -73,6 +73,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-photo-turbo",
+        "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
       ]
@@ -86,6 +88,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-photo-turbo",
+        "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
       ]
@@ -201,8 +205,10 @@
       "license": "Apache-2.0",
       "used_by": [
         "h3-long-shot",
+        "h3-photo-turbo",
         "h3-r2v",
         "h3-r2v-flex",
+        "h3-video-turbo",
         "pika-studio-director",
         "pika-text-to-video",
         "pika-video",
@@ -245,9 +251,28 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "h3-long-shot",
+        "h3-photo-turbo",
         "h3-r2v",
+        "h3-video-turbo",
         "pika-studio-director",
+        "pika-text-to-video",
+        "pika-video",
         "studio-director"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "name": "minimax_h3_video_vae_fp16.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-photo-turbo",
+        "h3-video-turbo",
+        "pika-text-to-video",
+        "pika-video"
       ]
     },
     {
@@ -281,6 +306,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-photo-turbo",
+        "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
       ]
@@ -294,6 +321,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-photo-turbo",
+        "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
       ]

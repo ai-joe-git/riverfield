@@ -8,7 +8,39 @@ export function planH3(raw:unknown){const {seconds,total_seconds,prompts,images,
  for(const [name,slots] of [["segment_images",segment_images],["segment_audios",segment_audios]] as const)if(slots&&slots.length!==prompts.length)throw new Error(`${name} must have one entry per prompt`);
  const windows=prompts.map((prompt,i)=>({start:i*stride,end:i*stride+length,prompt,images:[...(segment_images?.[i]??images)],audios:[...(segment_audios?.[i]??audios)]})),total=windows.at(-1)!.end/24;
  if(total_seconds!==undefined&&Math.abs(total-total_seconds)>.5)throw new Error(`${prompts.length} segments of ${seconds}s overlap to ${total.toFixed(2)}s, not total_seconds=${total_seconds}. Change segment duration or prompt count; seconds is per segment.`);
- return {segment_windows:JSON.stringify({windows,videos:[],audios:[]}),frames:windows.at(-1)!.end,seconds:total,segmentSeconds:length/24,segmentFrames:length,overlapFrames:seam};}
+ return {segment_windows:JSON.stringify({windows,videos:[],audios:[]}),frames:windows.at(-1)!.end,seconds:total,segmentSeconds:length/24,segmentFrames:length,overlapFrames:seam,promptValidation:"not_performed"};}
+
+/** Stable Agent/MCP profile. Manual Director timelines and other H3 apps remain editable. */
+export const DIRECTOR_DEFAULTS={segmentSeconds:7.3,segmentFrames:175,overlapFrames:39,fps:24} as const;
+export const DIRECTOR_MANAGED_INPUTS=["duration","start_seconds","clip_name","detail","multiple","sla","format","codec","filename_prefix"] as const;
+export const DIRECTOR_DELIVERY={app:"relayvsr-upscale",defaultScale:"x2",options:["off","x2","x4"],separateRun:true,requiresSucceededVideo:true,pixelAreaMultipliers:{x2:4,x4:16}} as const;
+export function directorDurations(){return [1,2,3,5].map(segments=>{
+ const plan=planH3({seconds:DIRECTOR_DEFAULTS.segmentSeconds,prompts:Array(segments).fill("Timing only")});
+ return {segments,frames:plan.frames,seconds:plan.seconds,label:`${plan.seconds.toFixed(2)} s (${segments} ${segments===1?"segment":"segments"})`,description:"Native Director duration, including overlaps. Other story targets can be entered as free text."};
+});}
+export const directorRequest=segmentRequest.omit({seconds:true}).extend({total_seconds:z.number().positive().optional().describe("Approximate desired story duration; selects a native segment count, never an exact-duration rejection"),prompts:z.array(z.string().trim().min(1).max(12000)).max(64).default([]).describe("One complete prompt per native window; omit initially to obtain the required count")});
+export function planDirectorSegments(raw:unknown){
+ const args=directorRequest.parse(raw),{fps,segmentFrames,overlapFrames}=DIRECTOR_DEFAULTS;
+ const count=args.total_seconds===undefined?Math.max(1,args.prompts.length):Math.max(1,Math.min(64,1+Math.round((args.total_seconds*fps-segmentFrames)/(segmentFrames-overlapFrames))));
+ const geometry=planH3({seconds:DIRECTOR_DEFAULTS.segmentSeconds,prompts:Array(count).fill("Pending prompt")});
+ const base={...geometry,requestedSeconds:args.total_seconds??null,requiredPrompts:count,defaults:DIRECTOR_DEFAULTS};
+ if(args.prompts.length!==count){const {segment_windows,...metadata}=base;return {...metadata,segment_windows:undefined,ready:false,windows:JSON.parse(segment_windows).windows.map((w:any)=>({...w,prompt:""})),receivedPrompts:args.prompts.length,note:`Write exactly ${count} segment prompts for the native windows. Do not change segment duration or overlap. Requested story duration is approximate.`};}
+ const plan=planH3({...args,seconds:DIRECTOR_DEFAULTS.segmentSeconds,total_seconds:undefined});
+ return {...base,...plan,ready:true};
+}
+
+/** Normalize only the automated Pika path, BEFORE approval, without changing creative text/materials. */
+export function directorValues(values:Record<string,unknown>,files?:Record<string,unknown>):Record<string,unknown>{
+ const out={...values,duration:DIRECTOR_DEFAULTS.segmentSeconds,start_seconds:0};
+ if(values.flex_mode===undefined&&files!==undefined)(out as Record<string,unknown>).flex_mode=Object.entries(files).some(([key,value])=>/^(image|video)\d+$/.test(key)&&value)?"ref2va":"fl2va";
+ // Actual manifest defaults own technical settings, not the model.
+ for(const key of DIRECTOR_MANAGED_INPUTS)if(key!=="duration"&&key!=="start_seconds")delete (out as Record<string,unknown>)[key];
+ if(!values.segment_windows)return out;
+ let spec:any;try{spec=typeof values.segment_windows==="string"?JSON.parse(values.segment_windows):values.segment_windows;}catch{return out;}
+ if(!Array.isArray(spec?.windows)||!spec.windows.length||spec.windows.length>64)return out;
+ const geometry=JSON.parse(planH3({seconds:DIRECTOR_DEFAULTS.segmentSeconds,prompts:spec.windows.map(()=>"Pending prompt")}).segment_windows);
+ return {...out,segment_count:spec.windows.length,segment_windows:JSON.stringify({...spec,windows:spec.windows.map((w:any,i:number)=>({...w,start:geometry.windows[i].start,end:geometry.windows[i].end}))})};
+}
 
 /** Reject invalid plans before recording/queueing a GPU job. Do not silently rewrite user timelines. */
 export function validateH3(values:Record<string,unknown>){
