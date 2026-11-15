@@ -267,8 +267,8 @@ export class RiverfieldAgent {
     }catch(e){c.status=controller.signal.aborted?"canceled":"failed";c.error=this.providers.redact(e);this.save(c);throw e;}finally{this.active.delete(id);}};
     const promise=task();live.promise=promise.then(()=>{},()=>{});await promise;return c;
   }
-  /** Character sheets are identity boards; H3 ref2va reproduces their panel layout.
-   * Crop each actor reference to the large face portrait before video dispatch. */
+  /** Ref2VA treats an actor sheet as `attribute_transfer` identity evidence, but a
+   * face crop is the hard guard against reproducing its panel layout. */
   private async prepareVideoReferences(c:Conversation,files:Record<string,string>){
     const actors=c.director?.actors.length||0;if(!actors)return;
     const dir=join(this.store.dir,"derived",c.id);mkdirSync(dir,{recursive:true,mode:0o700});
