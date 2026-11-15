@@ -58,6 +58,12 @@ All managed local inference shares the existing FIFO studio queue:
 5. Load the GGUF, read effective context when advertised, and replay the persisted
    conversation/project state. Reloading loses the process's KV cache, not the chat.
 
+The LLM reloads on the next agent request after media work; it is not kept resident
+while idle. Changing a conversation's provider or model unloads the previous managed
+runtime immediately, including when switching to an external or remote provider. The
+power and play buttons beside the agent model picker unload or reload the managed
+runtime on demand.
+
 Restart the local backend using `./run-backend.sh` or
 `python tools/local_backend.py serve …` to install the small memory-acknowledgement
 bridge. For a separately managed ComfyUI, copy
@@ -71,10 +77,12 @@ Other clients can still submit work outside Riverfield's queue; there is no glob
 cross-application GPU lock.
 
 External local and remote API providers remain supported. Riverfield never kills or
-unloads their servers. **Unload the previous BlackRiver-managed model yourself when
-migrating**, otherwise it will remain resident alongside Riverfield's workloads.
-The weights-plus-OS-reserve check is only a lower bound: context, tensors and video
-workspace can still exceed memory; this is not an OOM guarantee.
+unloads their servers; switching to one unloads Riverfield's own managed runtime, but
+the external engine must be unloaded through its own control. **Unload the previous
+BlackRiver-managed model yourself when migrating**, otherwise it will remain resident
+alongside Riverfield's workloads. The weights-plus-OS-reserve check is only a lower
+bound: context, tensors and video workspace can still exceed memory; this is not an
+OOM guarantee.
 
 ## Agent consistency
 

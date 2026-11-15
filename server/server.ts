@@ -96,6 +96,14 @@ const prepareNative=async(p:Provider,signal:AbortSignal)=>{
   }
   return {...p,...await native.load(profile.id,signal)};
 };
+/** Stop the managed LLM without waiting behind unrelated GPU work when it is already idle. */
+async function unloadNative(label="Unload native agent"){
+  const pendingLoad=nativeLoads.size>0;
+  for(const controller of nativeLoads)controller.abort(new Error("Native model loading canceled by user"));
+  native.cancelLoading();
+  if(!pendingLoad&&native.status().phase==="unloaded")return native.status();
+  return inference.run(label,()=>native.unload());
+}
 const agent=new RiverfieldAgent(outDir,root,inference.run,()=>new StudioMcp(mcpURL),complete,prepareNative);
 const media=new MediaTools(outDir,root);
 function localAccess(req:IncomingMessage){
@@ -338,7 +346,7 @@ const server = createServer(async (req, res) => {
           if(req.method==="POST"&&sub==="inspect"){const raw=await body() as any;if(typeof raw.path!=="string")throw new InputError("Expected GGUF path");return send(res,200,native.inspect(raw.path));}
           if(req.method==="POST"&&sub==="profiles")return send(res,201,await native.save(await body()));
           if(req.method==="DELETE"&&sub==="profiles"&&arg){if(agent.providers.list().some(p=>p.runtimeProfile===arg))throw new InputError("Delete its managed provider connection first");native.remove(arg);return send(res,200,{removed:true});}
-          if(req.method==="POST"&&sub==="unload"){for(const controller of nativeLoads)controller.abort(new Error("Native model loading canceled by user"));native.cancelLoading();await inference.run("Unload native agent",()=>native.unload());return send(res,200,native.status());}
+          if(req.method==="POST"&&sub==="unload"){const raw=await body().catch(()=>({})) as any,providerId=typeof raw?.provider==="string"?raw.provider:"";if(providerId&&!agent.providers.get(providerId).runtimeProfile)throw new InputError("Riverfield unloads only its integrated GGUF runtime; use the external engine's own unload control");await unloadNative();return send(res,200,native.status());}
           if(req.method==="POST"&&sub==="load"){const raw=await body() as any;const id=String(raw.profile||"");native.get(id);const controller=new AbortController();nativeLoads.add(controller);try{await inference.run("Load native agent",()=>prepareNative({runtimeProfile:id} as Provider,controller.signal),controller.signal);}finally{nativeLoads.delete(controller);}return send(res,200,native.status());}
         }
         if(id==="providers"){
@@ -358,7 +366,12 @@ const server = createServer(async (req, res) => {
             const raw=await body() as any,lock=raw.project?.lock;
             if(lock?.app){const app=byId.get(lock.app);if(!app||app.section!==lock.section)throw new InputError("Project lock must name an app from the selected studio");for(const [key,value] of Object.entries(lock.values||{})){const input=app.inputs.find(i=>i.id===key);if(!input||isFileInput(input))throw new InputError(`Unknown/non-parameter locked input ${key}`);if(input.type==="select"&&!input.options?.some(o=>o.value===value))throw new InputError(`Locked ${key} is not a supported option`);}}
             else if(lock&&Object.keys(lock.values||{}).length)throw new InputError("Choose an app before locking its input values");
-            return send(res,200,agent.edit(sub,raw));
+            const before=agent.store.get(sub),oldProvider=before.provider,oldModel=before.model,edited=agent.edit(sub,raw);
+            const changed=(typeof raw.provider==="string"&&raw.provider!==oldProvider)||(typeof raw.model==="string"&&raw.model!==oldModel);
+            const configs=agent.providers.list(),nextProvider=typeof raw.provider==="string"?raw.provider:oldProvider;
+            const managedChange=!!(configs.find(p=>p.id===oldProvider)?.runtimeProfile||configs.find(p=>p.id===nextProvider)?.runtimeProfile);
+            if(changed&&managedChange)await unloadNative("Unload previous agent model");
+            return send(res,200,edited);
           }if(req.method==="DELETE"){await agent.remove(sub);return send(res,200,{removed:true});}}
           if(arg==="events"&&req.method==="GET"){
             const c=agent.get(sub);res.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-store",connection:"keep-alive","x-accel-buffering":"no"});

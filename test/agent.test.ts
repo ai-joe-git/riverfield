@@ -157,6 +157,15 @@ test("restart marks uncertain dispatches and reconnects known jobs without resub
  assert.equal(a.store.get(c.id).status,"interrupted");const recovered=await a.refreshJobs(c.id);assert.equal(recovered.tools[0].status,"done");assert.equal(recovered.jobStates["owned-job"].status,"succeeded");assert.ok(!calls.includes("run_app"));
  }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
 });
+test("switching to a remote provider prepares/unloads the managed runtime before the completion",async()=>{
+ const dir=temporary();try{const prepared:any[]=[];
+  const x=setup(dir,[{text:"Done",calls:[]}],undefined,async p=>{prepared.push(p);return p;});
+  const remote=x.a.providers.save({name:"Remote",location:"remote",baseURL:"https://api.example.com/v1",apiKey:"test",model:"remote-model"});
+  const c=x.a.store.create(remote.id,"remote-model");x.a.message(c.id,{text:"hello"});
+  assert.equal((await settled(x.a,c.id)).status,"idle");
+  assert.equal(prepared.length,1);assert.equal(prepared[0].location,"remote");assert.equal(prepared[0].id,remote.id);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 test("shared GPU slot is released before MCP work; a local agent waits behind media jobs",async()=>{
  const dir=temporary();const queue=new InferenceQueue();let finish!:()=>void;const media=queue.run("existing media job",()=>new Promise<void>(r=>finish=r));let invoked=false;
  const a=new RiverfieldAgent(dir,process.cwd(),queue.run,()=>({tools:async()=>definitions,call:async()=>text({}),close:async()=>{}}),async()=>{invoked=true;return {text:"Finished",calls:[]};});

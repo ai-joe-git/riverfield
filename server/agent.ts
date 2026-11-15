@@ -424,7 +424,7 @@ export class RiverfieldAgent {
         // Never retain a GPU queue slot while invoking MCP or waiting for media jobs.
         // Snapshot context before adding this response; deltas must not feed back into their own request.
         let completion:Completion;
-        const request=async()=>{if(p.runtimeProfile){if(!this.prepareNative)throw new Error("Managed runtime is unavailable");p=await this.prepareNative(p,signal);model=p.model;}else if(p.location==="local"&&this.prepareNative)p=await this.prepareNative(p,signal);
+        const request=async()=>{if(p.runtimeProfile){if(!this.prepareNative)throw new Error("Managed runtime is unavailable");p=await this.prepareNative(p,signal);model=p.model;}else if(this.prepareNative)p=await this.prepareNative(p,signal);
          const assets=[...new Map([...c.attachments,...c.artifacts].map(a=>[a.id,a])).values()];
          syncProduction(c);
           const durable=JSON.stringify({project:projectOf(c),production:c.production?{...planSummary(c.production),progress:productionProgress(c)}:null,interview:c.interview||null,directorTiming:{defaults:DIRECTOR_DEFAULTS,actualDurations:directorDurations()},

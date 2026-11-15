@@ -26,7 +26,7 @@ const kind=a=>a.type||(a.mime||"").split("/")[0]||"file";
 const verified=a=>{const m=a.metadata||{},parts=[a.app,a.job?`job ${a.job}`:null,m.width&&m.height?`${m.width} × ${m.height}`:null,Number.isFinite(m.duration)&&m.duration>0?`${m.duration.toFixed(1)}s`:null,m.audio?"audio stream present":null].filter(Boolean);return parts.join(" · ");};
 
 export function agentView({home=false}={}){
- let conversations=[],providers=[],tools=[],c=null,stream=null,disposed=false,draft="",pending=[],sending=false,selectedProvider="",selectedModel="",limits=null,limitKey="",sideOpen=!home&&window.innerWidth>850,opening=0;
+ let conversations=[],providers=[],tools=[],c=null,stream=null,disposed=false,draft="",pending=[],sending=false,selectedProvider="",selectedModel="",limits=null,limitKey="",sideOpen=!home&&window.innerWidth>850,opening=0,nativeLoading=false;
   let mediaItems=[],drawerOpen=false,drawerFilter="all",headerSignature="",sidebarSignature="",footerSignature="",mediaBadge=null,guidedPending=false;
  const root=el("div",{class:"ag-workspace"}),sidebar=el("aside",{class:"ag-sidebar","aria-label":"Conversations"}),header=el("header",{class:"ag-header"}),chat=el("section",{class:"ag-chat","aria-label":"Conversation"}),footer=el("footer",{class:"ag-footer"});
  const jump=button(el("span",{},icon("chevD"),"Jump to latest"),()=>timeline.jumpLatest(),"ag-jump",{"aria-label":"Jump to latest message"});
@@ -55,7 +55,9 @@ export function agentView({home=false}={}){
  }
  async function reloadProviders(){providers=(await api("/providers")).providers;if(!providers.some(p=>p.id===selectedProvider)){selectedProvider=providers[0]?.id||"";selectedModel=providers[0]?.model||"";}await loadLimits();draw();}
  const settings=()=>providerSettings({api,providers,selected:currentProvider(),onSaved:reloadProviders});
-  const picker=()=>modelPicker({api,providers,provider:currentProvider(),model:currentModel(),onManage:settings,onProvidersChanged:reloadProviders,onSelect:async(provider,model)=>{selectedProvider=provider;selectedModel=model;if(c)c=await api(`/conversations/${c.id}`,"PATCH",{provider,model});remember();await loadLimits();draw();}});
+  const unloadAgent=async()=>{const p=providers.find(x=>x.id===currentProvider());if(!p?.runtimeProfile)throw new Error("Riverfield unloads only its integrated GGUF runtime; use the external engine's own unload control");await api("/runtime/unload","POST",{provider:p.id});toast("Agent model unloaded from GPU");};
+  const loadAgent=async()=>{const p=providers.find(x=>x.id===currentProvider());if(!p?.runtimeProfile)throw new Error("Riverfield loads only its integrated GGUF runtime; use the external engine's own control");if(nativeLoading)return;nativeLoading=true;drawHeader();try{toast("Loading agent model… This can take several minutes.");await api("/runtime/load","POST",{profile:p.runtimeProfile});toast("Agent model loaded");}finally{nativeLoading=false;drawHeader();}};
+  const picker=()=>modelPicker({api,providers,provider:currentProvider(),model:currentModel(),onManage:settings,onProvidersChanged:reloadProviders,onSelect:async(provider,model)=>{const changed=provider!==currentProvider()||model!==currentModel();selectedProvider=provider;selectedModel=model;if(c)c=await api(`/conversations/${c.id}`,"PATCH",{provider,model});else if(changed)await api("/runtime/unload","POST",{});remember();await loadLimits();draw();}});
  async function loadList(){conversations=(await api("/conversations")).conversations;drawSidebar();}
  function classes(){root.className=`ag-workspace${home?" is-home":""}${!c?.messages.length?" is-empty":""}${sideOpen?"":" side-closed"}`;}
  function closeDrawer(){drawerOpen=false;drawer.hidden=true;}
@@ -81,10 +83,12 @@ export function agentView({home=false}={}){
  function headerButton(name,label,action,extra={},badge=false){return button(el("span",{},icon(name),el("span",{class:"ag-tool-label"},label),badge?el("span",{class:"ag-media-badge"}):null),action,"ag-header-button",{"aria-label":label,title:label,...extra});}
  function drawHeader(){const p=providers.find(p=>p.id===currentProvider()),mode=c?.mode||"ask",native=p?.tokenMode!=="custom";
   const budget=limits?.outputTokens&&native?`${tokens(limits.outputTokens)} max`:!native&&p?`${tokens(p.maxTokens)} custom`:limits?.source==="configured fallback"?`${tokens(limits.configuredMaxTokens)} fallback`:limits?"Server-native budget":"Native budget";
-   const modelLabel=(p?.runtimeProfile?p.name:currentModel())||"Choose a model",signature=JSON.stringify([c?.id,c?.title,c?.status,mode,budget,modelLabel,p?.location,p?.name,limits?.source,sideOpen,!!c?.director]);
+   const modelLabel=(p?.runtimeProfile?p.name:currentModel())||"Choose a model",signature=JSON.stringify([c?.id,c?.title,c?.status,mode,budget,modelLabel,p?.location,p?.name,!!p?.runtimeProfile,nativeLoading,limits?.source,sideOpen,!!c?.director]);
   if(signature===headerSignature)return;headerSignature=signature;
   header.replaceChildren(el("div",{class:"ag-header-left"},!sideOpen?ico("menu","Show conversations",()=>{sideOpen=true;classes();drawHeader();}):null,el("div",{class:"ag-heading"},el("h1",{},"Agent"),el("span",{},c?.title||"Your creative workspace"))),
    el("div",{class:"ag-header-actions"},button(el("span",{class:"ag-model-label"},el("i",{class:`ag-connection-dot ${p?.location||""}`}),el("span",{},modelLabel),el("small",{},budget),icon("chevD")),picker,"ag-model-chip",{"aria-label":"Choose model",title:`${p?.name||"Configure a connection"} · ${limits?.source||"Native maximum"}` ,disabled:busy()}),
+     p?.runtimeProfile?button(icon("power"),safe(unloadAgent),"ag-round",{"aria-label":"Unload agent model from GPU",title:"Unload agent model from GPU",disabled:busy()}):null,
+     p?.runtimeProfile?button(icon("play"),safe(loadAgent),"ag-round ag-load-agent",{"aria-label":"Load agent model on GPU",title:nativeLoading?"Loading agent model…":"Load agent model on GPU",disabled:busy()||nativeLoading}):null,
      c?.director?el("span",{class:"ag-mode-label"},"Writer only · code-controlled tools"):c?select("Autonomy",mode,[["ask","Ask before running"],["auto","Auto"],["read-only","Read-only"]],safe(v=>patch({mode:v}))):el("span",{class:"ag-mode-label"},"Ask before running"),
      button("Pika Director",safe(showDirector),"ag-header-button",{disabled:busy()}),
     c?headerButton("layers","Media",openMedia,{},true):null,
