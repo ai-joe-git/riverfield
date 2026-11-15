@@ -90,7 +90,7 @@ graph and a manifest.
 | `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, optional **reference sheet** (Ingredients IC-LoRA held on every frame), 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP; 192 s for 2.28 s with a sheet |
 | `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional | MiniMax H3 | 264 s for 2 s, 4 steps |
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
-| `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
+| `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count. Leave the bin empty for **pure text-to-video** (FL2VA DiT + Pika Flex FL2VA LoRA) | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
 | `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, sampling preset (Pika's 6-step ladder or a custom `BasicScheduler`), LoRA/DiT/VAE pickers, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
 | `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP, the same sampling/LoRA/DiT/VAE controls and optional **RelayVSR 2×/4×** pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
@@ -469,9 +469,10 @@ same workflows as on Modal.
 - **Director** apps (`studio-director`, `pika-studio-director`, `ltx-director`) open a **Material Planner** on the right: a media bin
   with thumbnails and drop targets, a frame-accurate timeline whose GEN windows snap to `5+17n` frames, trimmable
   video/audio clips with edit-style snapping (neighbours, zero, playhead) and a live drop preview, per-segment prompts,
-  ordered `<Picture N>` / `<Audio N>` references, a global prompt and the Generate button. The technical column on the
-  left keeps the model/sampler controls, or only the safe ones in the locked Pika app. `layout: "director"` in
-  `app.json` is what selects this layout; the panel is `web/js/director.js`.
+  ordered `<Picture N>` / `<Audio N>` references, a global prompt and the Generate button. With no media in the bin the
+  timeline runs **pure text-to-video**; references to a picture or audio whose file is gone are dropped automatically.
+  The technical column on the left keeps the model/sampler controls, or only the safe ones in the locked Pika app.
+  `layout: "director"` in `app.json` is what selects this layout; the panel is `web/js/director.js`.
 - Every app has **History** (what you generated with it), **Library** (the lab example, *Load this example*) and
   **How it works** (models and licenses, VRAM by phase, the download and terminal commands, and *Download the
   workflow*: drop it on ComfyUI's canvas to open the app as nodes and chain it with others).

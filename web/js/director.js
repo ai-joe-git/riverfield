@@ -53,6 +53,26 @@ function mediaOf(app, f, type) {
   }).filter(Boolean);
 }
 
+/** Drop references to media slots that have no uploaded file: files do not survive a reload. */
+export function pruneMedia(st, app, f) {
+  const has = (type, index) => {
+    const slot = slotsOf(app, type)[index];
+    return Boolean(slot && f.files[slot.id]);
+  };
+  let changed = false;
+  for (const w of st.windows) {
+    const images = (w.images || []).filter((i) => has("image", i));
+    const audios = (w.audios || []).filter((i) => has("audio", i));
+    if (images.length !== (w.images || []).length) { w.images = images; changed = true; }
+    if (audios.length !== (w.audios || []).length) { w.audios = audios; changed = true; }
+  }
+  const videos = st.videos.filter((v) => has("video", v.index));
+  const audios = st.audios.filter((a) => has("audio", a.index));
+  if (videos.length !== st.videos.length) { st.videos = videos; changed = true; }
+  if (audios.length !== st.audios.length) { st.audios = audios; changed = true; }
+  return changed;
+}
+
 /** Duration/size of a dropped file, read once from a throwaway media element. */
 function probe(url, type) {
   return new Promise((resolve) => {
@@ -73,6 +93,7 @@ function probe(url, type) {
 
 export function directorView(app, f, { onSubmit, onDirty }) {
   const st = stateFor(app, f);
+  if (pruneMedia(st, app, f)) persistState(app, f, st);
   let selected = 0;
   let zoom = Number(store.get("dir.zoom")) || 70;
   let drag = null;
@@ -178,6 +199,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   }
 
   function changed() {
+    pruneMedia(st, app, f);
     persistState(app, f, st);
     onDirty?.();
     draw();
@@ -204,6 +226,14 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     if (x?.url) URL.revokeObjectURL(x.url);
     delete f.files[slot];
     meta.delete(slot);
+    const type = slot.replace(/\d+$/, "");
+    const index = Number(slot.replace(/\D/g, "")) - 1;
+    for (const w of st.windows) {
+      if (type === "image") w.images = (w.images || []).filter((i) => i !== index);
+      if (type === "audio") w.audios = (w.audios || []).filter((i) => i !== index);
+    }
+    if (type === "video") st.videos = st.videos.filter((v) => v.index !== index);
+    if (type === "audio") st.audios = st.audios.filter((a) => a.index !== index);
   }
 
   // ---------------------------------------------------------------- media bin
@@ -333,7 +363,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     }
 
     return el("section", { class: "dir-bin-sec" },
-      el("h4", {}, icon(MEDIA[type].icon), MEDIA[type].label, extra, el("span", { class: "dir-count" }, `${list.length}/${MEDIA[type].slots}`)),
+      el("h4", {}, icon(MEDIA[type].icon), MEDIA[type].label, extra, el("span", { class: "dir-count" }, `${list.length}/${slotsOf(app, type).length}`)),
       el("div", { class: "dir-media-list" }, ...items), drop, input);
   }
 
@@ -682,7 +712,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
           ? (imgs.some((m) => !w.images.includes(m.index))
             ? el("div", { class: "dir-chips" }, ...imgs.filter((m) => !w.images.includes(m.index)).map((m) => addChip("image", m)))
             : el("span", { class: "dim" }, "all pictures assigned"))
-          : el("span", { class: "dim" }, "none — drop pictures in the bin"),
+          : el("span", { class: "dim" }, "none — optional, pure text-to-video"),
         el("span", { class: "dir-assign-lbl" }, "Add audio"),
         auds.length
           ? (auds.some((m) => !w.audios.includes(m.index))
