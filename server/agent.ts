@@ -1,6 +1,8 @@
-import {randomUUID} from "node:crypto";
-import {readFileSync,existsSync,statSync} from "node:fs";
+import {randomUUID,createHash} from "node:crypto";
+import {readFileSync,existsSync,statSync,mkdirSync} from "node:fs";
 import {join,resolve,extname,relative} from "node:path";
+import {execFile} from "node:child_process";
+import {promisify} from "node:util";
 import {Ajv2020} from "ajv/dist/2020.js";
 import {AgentStore,now,within,type Conversation,type ToolRecord,type ChatMessage} from "./agent-store.ts";
 import {Providers,complete,type Provider,type Completion,type ToolDefinition} from "./agent-providers.ts";
@@ -17,6 +19,7 @@ import {InputError,inputErrorBody} from "./input-error.ts";
 import {directorFormSchema,defaultDirectorForm,compileDirectorRun,creativeField,blankSegment,formAsset,duplicateDirectorActors,validateDirectorCast,invalidateDirectorReference,invalidateDirectorOutput,normalizeDirectorDialogue,assignStoryCastNames} from "./director-form.ts";
 import {directorFieldIssues,directorContentIssues,validateDirectorContent,repairDialogueSound} from "./director-content.ts";
 
+const execFileAsync=promisify(execFile);
 const READ=new Set(["list_apps","get_app","job","wait_job","history","gpu","examples","plan_segments","project_state","ask_user"]);
 const DONE=new Set(["succeeded","failed","canceled","expired","lost"]);
 // A lost/expired job never produced an artifact: retrying the exact same generation is legitimate.
@@ -242,7 +245,9 @@ export class RiverfieldAgent {
       const request=async()=>{const ready=this.prepareNative?await this.prepareNative(stored,controller.signal):stored,p={...ready,model:ready.runtimeProfile?ready.model:c.model||ready.model};
         const f=c.director!,scenarioTask=path==="scenario",context=[`The user's idea is: ${f.brief}`,`There are exactly ${f.actors.length} configured people and ${f.count} short story beats. Do not copy these instructions into the story.`,`The only allowed cast slots are: ${f.actors.map((a,i)=>`${i+1}. ${a.name}: ${a.description||"appearance not written yet"}`).join("; ")}`,`Spoken dialogue uses ${f.language}.`];
         if(f.scenario.trim())context.push(`The ${scenarioTask?"previous draft to revise":"approved story"} is:\n${f.scenario}`);
-        if(!scenarioTask){if(f.environment.trim())context.push(`The established empty set is:\n${f.environment}`);if(f.segments.some(s=>s.action.trim()))context.push(`The current visual beats are:\n${f.segments.map((s,i)=>`${i+1}. ${s.action}`).join("\n")}`);}
+        if(!scenarioTask){if(f.environment.trim())context.push(`The established empty set is:\n${f.environment}`);if(f.segments.some(s=>s.action.trim()))context.push(`The current visual beats are:\n${f.segments.map((s,i)=>`${i+1}. ${s.action}`).join("\n")}`);
+          const currentDialogue=/^segments\.(\d+)\.dialogue\.(\d+)$/.exec(path),used=f.segments.map((s,i)=>{const lines=s.dialogue.map((d,j)=>d.trim()&&!(currentDialogue&&Number(currentDialogue[1])===i&&Number(currentDialogue[2])===j)?`${f.actors[j]?.name||`S${j+1}`}: ${d}`:"").filter(Boolean).join(" | ");return lines?`${i+1}. ${lines}`:"";}).filter(Boolean).join("\n");
+          if(used)context.push(`Dialogue already written for the other beats (do not repeat a line; use SILENT if this beat has no new line):\n${used}`);}
         const prompt=`${context.join("\n\n")}\n\nTask: ${field.task}\nRequested revision: ${instruction}${correction?`\nCorrection required: ${correction}`:""}`;
         return this.completion(p,this.providers.key(p),p.model||c.model,"You are a writing assistant filling ONE text field. Return only the requested creative text. No JSON, no tools, no headings, no XML, no technical settings. Keep exactly the configured number of distinct character slots and one consistent location. Identify each slot from the approved story; never merge slots or duplicate another slot when naming or describing cast. Placeholder or erroneous repeated names are not the intended story roles. Do not add extra people beyond the configured slots. Visual directions contain no spoken words: dialogue is a separate field. The story/scenario field uses plain quoted prose, not <d> tags; native tags belong only in the compiled shot description. Visual directions and reference descriptions must be English; spoken words use the requested language. Pika/H3 prompt contract: Ref2VA uses subject_definitions, summary, retention_analysis, detailed_description, overall_soundscape, non_diegetic_music; FL2VA uses integrated_multimodal_description, overall_soundscape, non_diegetic_music. Refer to referenced people as <Subject N> and give each a stable speaker ID (S1), (S2), ...; every line is attributed to its own speaker with <d>[Language] exact words</d> inside the shot description, never in overall_soundscape. Keep identity and delivery outside the tags. Stage every speaking character on camera with face and mouth visible; name who performs each action in order. Keep one clear action per shot, put it before the constraints, and never hide or turn away a speaker. overall_soundscape is ambience, physical sounds and non-verbal human sounds only.",[{id:randomUUID(),role:"user",content:prompt,created:now()}],[],[],controller.signal,()=>{},undefined,{thinking:false});};
       let result=await this.inference("Director · writing",request,controller.signal);if(result.calls.length)throw new Error("The writer cannot call tools");if(!result.text.trim())throw new Error("The writer returned no text");
@@ -262,17 +267,43 @@ export class RiverfieldAgent {
     }catch(e){c.status=controller.signal.aborted?"canceled":"failed";c.error=this.providers.redact(e);this.save(c);throw e;}finally{this.active.delete(id);}};
     const promise=task();live.promise=promise.then(()=>{},()=>{});await promise;return c;
   }
+  /** Character sheets are identity boards; H3 ref2va reproduces their panel layout.
+   * Crop each actor reference to the large face portrait before video dispatch. */
+  private async prepareVideoReferences(c:Conversation,files:Record<string,string>){
+    const actors=c.director?.actors.length||0;if(!actors)return;
+    const dir=join(this.store.dir,"derived",c.id);mkdirSync(dir,{recursive:true,mode:0o700});
+    for(let i=0;i<actors;i++){
+      const key=`image${i+1}`,source=files[key];if(!source||!existsSync(source))continue;
+      let magic:Buffer;try{magic=readFileSync(source).subarray(0,8);}catch{continue;}
+      const png=magic[0]===0x89&&magic[1]===0x50&&magic[2]===0x4e&&magic[3]===0x47;
+      const jpg=magic[0]===0xff&&magic[1]===0xd8;
+      if(!png&&!jpg)continue;
+      const artifact=c.artifacts.find(a=>a.path===source);
+      // Only the actor's own generated/corrected sheet is a multi-view board.
+      // A reused portrait or an arbitrary attachment must reach the video unchanged.
+      if(!artifact?.job||!c.tools.some(t=>t.job===artifact.job&&t.guidedTarget===`actor:${i}`))continue;
+      const id=artifact.id||createHash("sha1").update(source).digest("hex").slice(0,16);
+      const dest=join(dir,`${id}-face.png`);
+      try{
+        if(!existsSync(dest)||statSync(dest).mtimeMs<statSync(source).mtimeMs)await execFileAsync("ffmpeg",["-y","-loglevel","error","-i",source,"-vf","crop=iw*0.36:ih:0:0","-frames:v","1",dest],{timeout:60000});
+        if(existsSync(dest))files[key]=dest;
+      }catch{
+        this.text(c,"assistant",`Could not crop ${c.director?.actors[i]?.name||`Picture ${i+1}`} to a single face for the video reference; the original sheet will be used.`);
+      }
+    }
+  }
   /** Human button -> code-built arguments -> existing approval/execution/queue/history path. */
   async runDirector(id:string,action:string,index=0,instruction=""){
     const c=this.store.get(id);if(!c.director||this.active.has(id)||["approval","question"].includes(c.status))throw new Error("Pika chat is unavailable or busy");
     if(c.mode==="read-only")throw new Error("Generation is disabled in read-only mode");
     const repairs=normalizeDirectorDialogue(c.director);
-    if(repairs.length){invalidateDirectorOutput(c.director);c.director.promptsStale=true;this.save(c);this.text(c,"assistant",`Repaired the saved text before rendering: ${repairs.join(" ")}`);throw new Error("The saved text had spoken lines or section headings in the visual fields. It has been repaired; prepare the shot prompts again before rendering.");}
+    if(repairs.length){invalidateDirectorOutput(c.director);c.director.promptsStale=true;this.save(c);this.text(c,"assistant",`Repaired the saved text before rendering: ${repairs.join(" ")}`);throw new Error("The saved text had misrouted or repeated spoken lines. It has been repaired; prepare the shot prompts again before rendering.");}
     const compiled=compileDirectorRun(c,action,index,instruction),previous=c.tools.findLast(t=>t.guidedTarget===compiled.target);
     if(previous&&(previous.status==="running"||previous.status==="uncertain"||(previous.job&&!DONE.has(c.jobStates[previous.job]?.status))))throw new Error("A job already exists for this item. Wait for it or cancel it before retrying.");
     const controller=new AbortController(),mcp=this.connect();
     c.status="running";c.error=undefined;this.save(c);const live:Live={controller,conversation:c,promise:Promise.resolve()};this.active.set(id,live);
     const task=async()=>{try{
+      if(action==="video"&&compiled.app==="pika-studio-director"&&c.director?.mode==="ref2va")await this.prepareVideoReferences(c,compiled.files);
       const tools=await mcp.tools(),discovery:ToolRecord={id:randomUUID(),name:"get_app",arguments:{app:compiled.app},status:"approved",turn:randomUUID()};
       c.tools.push(discovery);c.messages.push({id:randomUUID(),role:"assistant",content:"",calls:[{id:discovery.id,name:discovery.name,arguments:discovery.arguments}],created:now()});await this.execute(c,discovery,tools,mcp,controller.signal);
       if(discovery.status!=="done")throw new Error(discovery.error||"Application unavailable");
@@ -291,6 +322,7 @@ export class RiverfieldAgent {
   private permitFile(c:Conversation,path:string){
     const actual=resolve(path);if(c.attachments.some(a=>a.path===actual)||c.artifacts.some(a=>a.path===actual)){within(this.out,actual);return;}
     try{within(join(this.root,"web/examples"),actual);if(/\.(png|jpg|jpeg|webp|mp4|webm|wav|mp3|flac|ogg)$/i.test(actual))return;}catch{}
+    try{within(join(this.store.dir,"derived"),actual);if(/\.(png|jpg|jpeg|webp)$/i.test(actual))return;}catch{}
     throw new Error("File permission denied. Attach the file or retrieve an actual output using history/job first.");
   }
   private validate(c:Conversation,t:ToolDefinition,record:ToolRecord){

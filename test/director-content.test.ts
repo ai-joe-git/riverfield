@@ -18,6 +18,12 @@ test("a role word in apposition to a configured name is not an extra person",()=
  f.scenario="Arthur waits at the table with his friend.";
  assert.throws(()=>validateDirectorContent(f),/Unassigned person/);
 });
+test("a line already used in another beat is rejected before it is repeated",()=>{
+ const f=form();f.segments.push({action:"Arthur waits in the chair.",dialogue:["","",""],sound:"Quiet room tone.",music:"N/A"});
+ f.segments[0].dialogue[0]="Right. Tomorrow.";f.segments[1].dialogue[0]="Right. Tomorrow.";
+ assert.ok(directorFieldIssues(f,"segments.1.dialogue.0","Right. Tomorrow.").some(i=>/already used in segment 1/.test(i.message)));
+ f.segments[1].dialogue[0]="SILENT";assert.equal(directorFieldIssues(f,"segments.1.dialogue.0","SILENT").length,0);
+});
 test("native beats reject lengthy actions, sound essays and overlong dialogue",()=>{
  const f=form();assert.ok(directorFieldIssues(f,"segments.0.action",Array(71).fill("motion").join(" ")).length);assert.ok(directorFieldIssues(f,"segments.0.sound",Array(46).fill("sound").join(" ")).length);assert.ok(directorFieldIssues(f,"segments.0.dialogue.0","one two three four five six seven eight nine").length);assert.equal(directorFieldIssues(f,"segments.0.dialogue.0","SILENT").length,0);
 });

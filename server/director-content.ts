@@ -49,6 +49,11 @@ export function directorFieldIssues(f:DirectorForm,field:string,value:string):Di
   const screenSource=value.replace(/question mark/gi,"SYMBOL");
   if([...screenSource.matchAll(screenText)].some(m=>!negative(screenSource,m.index!)))add("Do not request readable screen text; use blank or abstract displays and spoken dialogue instead");
  }
+ const dialogue=/^segments\.(\d+)\.dialogue\.(\d+)$/.exec(field);
+ if(dialogue){
+  const si=Number(dialogue[1]),ai=Number(dialogue[2]),key=value.trim().toLowerCase();
+  if(key&&key!=="silent")for(let j=0;j<f.segments.length;j++)if(j!==si&&(f.segments[j].dialogue[ai]||"").trim().toLowerCase()===key){add(`This line is already used in segment ${j+1}; write a new line or SILENT for this beat`);break;}
+ }
  if(/^segments\.\d+\.action$/.test(field)&&words(value)>70)add("A native segment needs one concise action and one camera instruction (maximum 70 words)");
  if(/^segments\.\d+\.sound$/.test(field)&&words(value)>45)add("Keep sound descriptions concise (maximum 45 words)");
  if(/^segments\.\d+\.dialogue\.\d+$/.test(field)&&value.trim()!=="SILENT"&&words(value)>8)add("Use at most eight spoken words per character per segment");

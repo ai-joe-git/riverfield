@@ -1,6 +1,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {mkdtempSync,rmSync,mkdirSync,writeFileSync} from "node:fs";
+import {mkdtempSync,rmSync,mkdirSync,writeFileSync,existsSync} from "node:fs";
+import {execFileSync} from "node:child_process";
 import {join} from "node:path";
 import {defaultDirectorForm,compileDirectorRun,creativeField,duplicateDirectorActors,formAsset,normalizeDirectorDialogue,assignStoryCastNames} from "../server/director-form.ts";
 import {AgentStore,type Conversation} from "../server/agent-store.ts";
@@ -19,12 +20,21 @@ function ready(c:Conversation,dir:string){
 function fixture(failFirstWrite=false,reply?:(prompt:string)=>string){
  const dir=mkdtempSync("/tmp/opencode/riverfield-guided-"),calls:any[]=[],requests:Parameters<typeof complete>[]=[];
  const connection=()=>({tools:async()=>["get_app","run_app","job","cancel_job"].map(name=>({name,inputSchema:{type:"object"}})),call:async(name:string,args:any)=>{calls.push({name,args});if(name==="get_app"){const a=apps.find(a=>a.id===args.app)!;return text({id:a.id,name:a.name,section:a.section,inputs:a.inputs});}return text({id:"job-guided",app:args.app,status:"succeeded",outputs:[]});},close:async()=>{}});
- const completion=async(...args:Parameters<typeof complete>)=>{requests.push(args);if(failFirstWrite&&requests.length===1)throw new Error("Writer connection unavailable");return {text:reply?reply(args[4][0].content):"Maya waits quietly by the window.",calls:[]};};
+ const completion=async(...args:Parameters<typeof complete>)=>{requests.push(args);if(failFirstWrite&&requests.length===1)throw new Error("Writer connection unavailable");const prompt=args[4][0].content;return {text:reply?reply(prompt):(/Write ONLY the words spoken/.test(prompt)?"SILENT":"Maya waits quietly by the window."),calls:[]};};
  const a=new RiverfieldAgent(dir,process.cwd(),new InferenceQueue().run,connection,completion),p=a.providers.save({name:"Fixture",location:"local",baseURL:"http://127.0.0.1:1/v1",model:"fixture"}),c=a.store.create(p.id,"fixture");
  return {a,c,dir,calls,requests,cleanup:async()=>{await a.close();rmSync(dir,{recursive:true,force:true});}};
 }
 test("misrouted dialogue is moved out of the visual action without inventing text",()=>{
  const dir=mkdtempSync("/tmp/opencode/riverfield-normalize-");try{const c=new AgentStore(join(dir,"agent")).create(),f=ready(c,dir);f.actors[0].name="Clara";f.segments[0].dialogue[0]="";f.scenario="[Visual Directions]\nClara waits in the corridor.\n[Dialogue]\nClara: That was my favorite mug.";f.segments[0].action="[Visual Directions] Static medium shot.\nClara: That was my favorite mug.";const changes=normalizeDirectorDialogue(f);assert.equal(f.segments[0].dialogue[0],"That was my favorite mug.");assert.doesNotMatch(f.segments[0].action,/Clara:|\[Dialogue\]/);assert.match(f.scenario,/Clara waits in the corridor/);assert.doesNotMatch(f.scenario,/\[Visual Directions\]|\[Dialogue\]/);assert.ok(changes.some(c=>/Moved Clara/.test(c)));}finally{rmSync(dir,{recursive:true,force:true});}
+});
+test("consecutive repeated dialogue is cleared and the silent beat gets room tone",()=>{
+ const f=defaultDirectorForm();f.actors[0]={name:"Maya",description:"An adult woman in a navy coat",asset:""};
+ f.segments[0].dialogue[0]="Right. Tomorrow.";
+ f.segments.push({action:"Maya waits in the corridor.",dialogue:["Right. Tomorrow.","",""],sound:"Live on-camera speech with natural room tone and quiet ambience.",music:"N/A"});
+ const changes=normalizeDirectorDialogue(f);
+ assert.equal(f.segments[1].dialogue[0],"");
+ assert.equal(f.segments[1].sound,"Quiet natural room tone.");
+ assert.ok(changes.some(c=>/repeated line from segment 2/.test(c)));
 });
 test("placeholder cast slots take their names from the approved story",()=>{
  const dir=mkdtempSync("/tmp/opencode/riverfield-cast-");try{
@@ -45,7 +55,7 @@ test("a saved name-colon line is repaired before rendering and blocks the old pr
 test("guided compiler owns models, file slots, geometry, native prompt sections and dialogue tags",()=>{
  const dir=mkdtempSync("/tmp/opencode/riverfield-form-");try{const c=new AgentStore(join(dir,"agent")).create(),f=ready(c,dir),moss=compileDirectorRun(c,"actor");assert.equal(moss.app,"moss-turbo");assert.equal(moss.values.steps,8);assert.equal(moss.values.rewrite,false);assert.match(String(moss.values.prompt),/LEFT THIRD.*RIGHT TWO THIRDS/);
   const qwen=compileDirectorRun(c,"edit",0,"Remove the ring");assert.equal(qwen.app,"qwen-image-edit-turbo");assert.equal(qwen.files.image,c.artifacts[0].path);
-  f.count=2;f.segments.push(structuredClone(f.segments[0]));const pika=compileDirectorRun(c,"video"),windows=JSON.parse(String(pika.values.segment_windows)).windows;assert.equal(pika.app,"pika-studio-director");assert.deepEqual(Object.keys(pika.files),["image1","image2"]);assert.deepEqual(windows.map((w:any)=>[w.start,w.end,w.images]),[[0,175,[0,1]],[136,311,[0,1]]]);assert.match(windows[0].prompt,/<d>\[French\] Vous êtes sûr \?<\/d>/);assert.match(windows[0].prompt,/<Subject 1> \(S1\) says/);
+  f.count=2;f.segments.push(structuredClone(f.segments[0]));f.segments[1].dialogue[0]="";const pika=compileDirectorRun(c,"video"),windows=JSON.parse(String(pika.values.segment_windows)).windows;assert.equal(pika.app,"pika-studio-director");assert.deepEqual(Object.keys(pika.files),["image1","image2"]);assert.deepEqual(windows.map((w:any)=>[w.start,w.end,w.images]),[[0,175,[0,1]],[136,311,[0,1]]]);assert.match(windows[0].prompt,/<d>\[French\] Vous êtes sûr \?<\/d>/);assert.match(windows[0].prompt,/<Subject 1> \(S1\) says/);
   const values:any={...pika.values};for(const key of Object.keys(pika.files))values[key]={bytes:new Uint8Array([1]),name:"ref.png"};assert.doesNotThrow(()=>resolveValues(apps.find(a=>a.id===pika.app)!,values));
   assert.throws(()=>creativeField(f,"relay"),/creative fields/);assert.throws(()=>creativeField(f,"actors.0.asset"),/creative fields/);
  }finally{rmSync(dir,{recursive:true,force:true});}
@@ -82,6 +92,16 @@ test("a sound field that contradicts a spoken line is repaired before saving",as
 });
 test("guided run builds actual app arguments in code with no model completion",async()=>{
  const x=fixture();try{const f=ready(x.c,x.dir);x.a.store.save(x.c);x.a.saveDirector(x.c.id,f);const c=await x.a.runDirector(x.c.id,"video");assert.equal(c.status,"idle");assert.equal(x.requests.length,0);assert.deepEqual(x.calls.map(c=>c.name),["get_app","run_app"]);assert.equal(x.calls[1].args.app,"pika-studio-director");assert.deepEqual(Object.keys(x.calls[1].args.files),["image1","image2"]);assert.equal(c.tools.at(-1)!.guidedTarget,"video");assert.equal(c.tools.at(-1)!.standalone,true);
+ }finally{await x.cleanup();}
+});
+test("video references crop character sheets to the face portrait before dispatch",async()=>{
+ const x=fixture();try{
+  const f=ready(x.c,x.dir);execFileSync("ffmpeg",["-y","-loglevel","error","-f","lavfi","-i","color=c=gray:s=100x100","-frames:v","1",join(x.dir,"actor.png")]);
+  x.c.tools.push({id:"actor-job",name:"run_app",arguments:{app:"moss-turbo"},status:"done",guidedTarget:"actor:0",job:"actor-done"});x.c.artifacts[0].job="actor-done";
+  x.a.store.save(x.c);
+  await x.a.runDirector(x.c.id,"video");
+  const files=x.calls[1].args.files as Record<string,string>;
+  assert.match(files.image1,/-face\.png$/);assert.notEqual(files.image1,x.c.artifacts[0].path);assert.equal(files.image2,x.c.artifacts[1].path);assert.ok(existsSync(files.image1));
  }finally{await x.cleanup();}
 });
 test("role binding follows the current successful app output, without asking the model for asset IDs",()=>{
