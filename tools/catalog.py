@@ -57,6 +57,8 @@ def build_packs(apps: list[dict]) -> dict[str, dict]:
         p = packs[a["pack"]]
         p["apps"].append(a["id"])
         for m in a.get("models", []):
+            if m.get("local"):
+                continue
             key = f"{m['dir']}/{basename(m['file'])}"
             entry = p["models"].setdefault(key, {**{k: m[k] for k in ("repo", "file", "dir", "gb")},
                                                  "name": basename(m["file"]), "gated": bool(m.get("gated")),

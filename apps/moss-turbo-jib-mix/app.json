@@ -1,0 +1,135 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "moss-turbo-jib-mix",
+  "name": "MOSS Turbo Jib Mix",
+  "section": "image",
+  "pack": "image-moss",
+  "status": "ready",
+  "higgsfield_feature": "Create Image",
+  "rating": "18+",
+  "rating_note": "Uncensored Jib Mix V2 checkpoint: mature and explicit output is allowed.",
+  "summary": "The 8-step MOSS turbo LoRA on the Jib Mix V2 checkpoint: realistic, uncensored images in 8 to 15 steps, with mature output allowed.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "image_moss_image_t2i_turbo.json (ComfyUI user workflow)",
+    "comfyui": "0.42.0",
+    "notes": "MOSS Turbo's graph with the diffusion model swapped for Jib_Mix_Moss_V2_H_int8_00001_.safetensors. The Jib Mix V2 checkpoint is uncensored; the MOSS 8-step turbo LoRA, the 9B qwen text encoder, the small flux2 VAE, the rewrite branch and the skip-layer guidance branch are unchanged."
+  },
+  "inputs": [
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "Cinematic night street photograph: a model in an exaggerated balloon-sleeve white wool coat walking toward camera under a huge illuminated theatre marquee, wet asphalt with long reflections, warm tungsten glow against cold blue night, anamorphic flare, 35mm film grain, low angle",
+      "bind": [
+        { "node": "18:17", "field": "value" }
+      ]
+    },
+    {
+      "id": "rewrite",
+      "type": "toggle",
+      "label": "Rewrite the prompt",
+      "default": true,
+      "help": "The original workflow passes your text through the 9B qwen as a prompt engineer first. On: fuller prompts, one more model pass. Off: your words go straight to the image model.",
+      "bind": [
+        { "node": "18:16", "field": "switch" }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Format",
+      "default": "1:1 (Square)",
+      "options": [
+        { "value": "1:1 (Square)", "label": "1:1" },
+        { "value": "2:3 (Portrait Photo)", "label": "2:3" },
+        { "value": "3:2 (Photo)", "label": "3:2" },
+        { "value": "3:4 (Portrait Standard)", "label": "3:4" },
+        { "value": "4:3 (Standard)", "label": "4:3" },
+        { "value": "9:16 (Portrait Widescreen)", "label": "9:16" },
+        { "value": "16:9 (Widescreen)", "label": "16:9" },
+        { "value": "21:9 (Ultrawide)", "label": "21:9" }
+      ],
+      "bind": [
+        { "node": "19", "field": "aspect_ratio" }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 15,
+      "step": 1,
+      "default": 8,
+      "help": "The turbo LoRA is trained for 8 steps; 10 to 15 recover detail at a little cost.",
+      "bind": [
+        { "node": "18:7", "field": "steps" }
+      ]
+    },
+    {
+      "id": "cfg",
+      "type": "slider",
+      "label": "Guidance",
+      "min": 1.0,
+      "max": 1.8,
+      "step": 0.05,
+      "default": 1.1,
+      "help": "How hard the prompt is followed. Jib Mix V2 sits naturally around 1.1; 1.5 to 1.8 pushes the words harder.",
+      "bind": [
+        { "node": "18:7", "field": "cfg" }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        { "node": "18:7", "field": "seed" }
+      ]
+    }
+  ],
+  "outputs": [
+    { "node": "9", "type": "image", "label": "Picture" }
+  ],
+  "models": [
+    {
+      "repo": "local/jib-mix",
+      "file": "diffusion_models/Jib_Mix_Moss_V2_H_int8_00001_.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.41,
+      "phase": "denoise",
+      "license": "Civitai model 3016339",
+      "local": true
+    },
+    {
+      "repo": "Comfy-Org/MOSS-Image",
+      "file": "text_encoders/qwen3.5_9b_w4a8_gptq.safetensors",
+      "dir": "text_encoders",
+      "gb": 7.34,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MOSS-Image",
+      "file": "vae/flux2-vae_small.safetensors",
+      "dir": "vae",
+      "gb": 0.25,
+      "phase": "decode",
+      "license": "Apache-2.0"
+    }
+  ],
+  "credits": [
+    "MOSS-Image by OpenMOSS (Apache-2.0)",
+    "Jib Mix Moss Realistic V2 by J1B (Civitai model 3016339, local file)",
+    "MOSS_8_STEPS_lora_latest (community LoRA, local file)"
+  ],
+  "notes": "Jib Mix Moss Realistic V2 is an uncensored MOSS-Image checkpoint. It is a local file, not in the image-moss pack: keep Jib_Mix_Moss_V2_H_int8_00001_.safetensors in ComfyUI/models/diffusion_models and MOSS_8_STEPS_lora_latest.safetensors in ComfyUI/models/loras. The graph is MOSS Turbo's: 8 steps, er_sde / simple, guidance 1.0 to 1.8, rewrite on by default. The 18+ badge is a content warning: mature and explicit output is allowed.",
+  "test": {
+    "prompt": "a red bicycle against a white wall, studio light",
+    "steps": 8
+  }
+}

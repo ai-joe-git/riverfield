@@ -1875,6 +1875,32 @@
       "measured_on": null
     },
     {
+      "id": "moss-turbo-jib-mix",
+      "name": "MOSS Turbo Jib Mix",
+      "section": "image",
+      "pack": "image-moss",
+      "status": "ready",
+      "whole_gb": 13.0,
+      "phases_gb": {
+        "encode": 7.34,
+        "denoise": 5.41,
+        "denoise2": 0.0,
+        "decode": 0.25,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 7.34,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "qwen3.5_9b_w4a8_gptq.safetensors",
+        "gb": 7.34
+      },
+      "verdict_24gb": "fits whole",
+      "modal_gpu": "L4 / A10G (24 GB)",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "qwen-image-edit-turbo",
       "name": "Qwen Image Edit Turbo",
       "section": "image",
@@ -3513,6 +3539,58 @@
       "measured_on": null
     },
     {
+      "id": "h3-flf2v-flash",
+      "name": "H3 First and Last Frame Flash",
+      "section": "video",
+      "pack": "video-h3-flash",
+      "status": "ready",
+      "whole_gb": 45.79,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 15.9,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 23.71,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-i2v-flash",
+      "name": "H3 Image to Video Flash",
+      "section": "video",
+      "pack": "video-h3-flash",
+      "status": "ready",
+      "whole_gb": 45.79,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 15.9,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 23.71,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "h3-photo",
       "name": "H3 Photo to Video",
       "section": "video",
@@ -3565,6 +3643,58 @@
       "measured_on": null
     },
     {
+      "id": "h3-r2v-flash",
+      "name": "H3 Reference to Video Flash",
+      "section": "video",
+      "pack": "video-h3-flash",
+      "status": "ready",
+      "whole_gb": 46.19,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 16.3,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 23.71,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-studio-director-flash",
+      "name": "Flash H3 Studio Director",
+      "section": "video",
+      "pack": "video-h3-flash",
+      "status": "ready",
+      "whole_gb": 46.19,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 16.3,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 32.23,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "h3-video",
       "name": "H3 Video",
       "section": "video",
@@ -3589,6 +3719,32 @@
       "modal_gpu": "L40S (48 GB), by phases",
       "measured_peak_gb": 48.33,
       "measured_on": "H100 · 20261024-172353-h100"
+    },
+    {
+      "id": "h3-video-flash",
+      "name": "H3 Video Flash",
+      "section": "video",
+      "pack": "video-h3-flash",
+      "status": "ready",
+      "whole_gb": 45.79,
+      "phases_gb": {
+        "encode": 27.14,
+        "denoise": 15.9,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "encode",
+      "largest_phase_gb": 27.14,
+      "optional_gb": 23.71,
+      "biggest_file": {
+        "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "gb": 27.14
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), by phases",
+      "measured_peak_gb": null,
+      "measured_on": null
     },
     {
       "id": "h3-video-turbo",

@@ -137,8 +137,9 @@ const runnable = (a: App) => Boolean(a.workflowPath) && (a.status === "ready" ||
 
 function publicApp(a: App) {
   return {
-    requestExample:a.id==="pika-studio-director"?JSON.parse(readFileSync(join(a.dir,"request-example.json"),"utf8")):null,
+    requestExample:(()=>{const p=join(a.dir,"request-example.json");return existsSync(p)?JSON.parse(readFileSync(p,"utf8")):null})(),
     id: a.id, name: a.name, section: a.section, summary: a.summary ?? "", status: a.status, pack: a.pack,
+    rating: a.rating ?? null, rating_note: a.rating_note ?? null,
     runnable: runnable(a),
     layout: a.layout ?? null,
     panel_title: a.panel_title ?? null,
@@ -152,7 +153,7 @@ function publicApp(a: App) {
     outputs: a.outputs.map((o) => ({ type: o.type, label: o.label ?? null })),
     models: a.models.map((m) => ({
       name: m.file.split("/").pop(), repo: m.repo, gb: m.gb, license: m.license ?? null,
-      gated: Boolean(m.gated), optional: Boolean(m.optional), phase: m.phase,
+      gated: Boolean(m.gated), optional: Boolean(m.optional), local: Boolean(m.local), phase: m.phase,
     })),
     vram: vram.has(a.id) ? {
       whole_gb: vram.get(a.id)!.whole_gb, largest_phase_gb: vram.get(a.id)!.largest_phase_gb,

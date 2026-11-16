@@ -1,0 +1,401 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors",
+      "patcher": "legacy"
+    },
+    "class_type": "HyperFlowINT8Loader",
+    "_meta": {
+      "title": "HyperFlow INT8 Loader",
+      "cnr_id": "comfyui-hyperflow-int8-nodes",
+      "aux_id": "BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "ver": "0.1.4"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Text encoder (type minimax)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Video VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Audio VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "5": {
+    "inputs": {
+      "prompt": "\nsubject_definitions:\n\n<Subject 1> is the mysterious futuristic chamber shown in <Picture 1>. A perfectly symmetrical, nearly black rectangular room with smooth dark walls, a polished reflective floor, and a single tall rectangular doorway centered on the far wall. The doorway has a thin icy-blue illuminated border surrounding an opaque, almost liquid-black surface. Cold blue light stretches across the reflective floor. Preserve the precise minimalist architecture, doorway geometry, reflections, and eerie empty atmosphere.\n\n<Subject 2> is the young adult blond man in <Picture 2>, with a broad, heavyset build, short tousled blond hair, pale complexion, blue eyes and a neutral expression. He wears a vivid turquoise polo shirt, tan knee-length shorts, a black belt, white socks with dark stripes and chunky black loafers. Preserve his distinctive face, proportions, hairstyle and exact outfit.\n\n<Subject 3> is the young blonde woman in <Picture 3>, with long wavy blonde hair, expressive brown eyes, delicate features, gold hoop earrings and colorful butterfly hair clips. She wears an oversized bright yellow sweater, short black skirt, vivid pink tights and chunky black lace-up platform boots. Preserve her facial identity, hairstyle, hair accessories, body proportions and complete outfit.\n\n<Subject 4> is the slender middle-aged man in <Picture 4>, with swept-back brown hair streaked with grey, a narrow expressive face, pronounced eyes and a slightly nervous appearance. He wears a purple retro windbreaker with turquoise sleeves and accents, a white T-shirt, faded blue jeans and white sneakers. Preserve his exact facial identity, clothing, proportions and hairstyle.\n\n<Subject 5> is a technologically generated duplicate of <Subject 3>. She has the EXACT same face, hair, butterfly clips, yellow sweater, black skirt, pink tights, boots and body proportions as <Subject 3>. Her only difference is behavioral: unnaturally calm, perfectly controlled movements and a faint, unsettlingly polite smile. She is a physically separate person, not a transformation of the original woman.\n\nsummary:\n\n[reference generation] A 15-second live-action psychological science-fiction thriller titled \"THE REPLACEMENT\". Three ordinary people, <Subject 2>, <Subject 3> and <Subject 4>, stand before the mysterious doorway inside <Subject 1>. When <Subject 3> approaches the black surface, her reflection begins moving independently. An identical replacement, <Subject 5>, emerges from the doorway while the original remains outside. The replacement delivers one chilling sentence, and the other characters realize that the technology is not merely showing a reflection. Four restrained cinematic shots with precise dramatic escalation and a disturbing final beat.\n\nretention_analysis:\n\n<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - The dark symmetrical chamber, centered rectangular doorway, thin blue illumination and reflective black floor remain visually consistent throughout.\n\n<Subject 2> (appears in [Shot 1], [Shot 3], [Shot 4]): fully_preserved - Exact reference facial identity, blond hairstyle, turquoise polo, tan shorts, striped socks, black loafers and heavyset proportions.\n\n<Subject 3> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - Exact reference identity, butterfly clips, long blonde hair, yellow sweater, black skirt, pink tights and black platform boots.\n\n<Subject 4> (appears in [Shot 1], [Shot 3], [Shot 4]): fully_preserved - Exact reference identity, grey-streaked hair, purple and turquoise windbreaker, blue jeans, white sneakers and slender proportions.\n\n<Subject 5> (appears in [Shot 3], [Shot 4]): attribute_transfer - Duplicate the entire visible identity and clothing of <Subject 3>, while changing only facial expression and behavior. Both individuals remain separately visible.\n\ndetailed_description:\n\nThe target video is a premium live-action psychological science-fiction thriller, grounded and disturbing rather than action-driven. Clinical, near-black cinematography, cold blue practical lighting, subtle film grain, realistic skin, immaculate production design, restrained performances and deliberate visual composition. The atmosphere feels like an expensive, unsettling anthology television episode about identity and technological replacement.\n\n[Shot 1] 0.0–3.5s — THE WAITING ROOM.\n\nA symmetrical wide shot establishes <Subject 1>, the dark minimalist chamber with its enormous centered black doorway outlined in cold blue light. Three people stand several meters in front of the door, seen from behind at a slight three-quarter angle. On the left stands <Subject 2>, the heavyset blond young man in his turquoise polo and tan shorts. In the middle stands <Subject 3>, the blonde woman in her vivid yellow sweater and pink tights. On the right stands <Subject 4>, the older slender man in his purple and turquoise windbreaker.\n\nTheir strangely colorful everyday clothing contrasts sharply with the sterile futuristic architecture.\n\nThe camera pushes forward slowly with small amplitude. Nobody speaks. The door appears dormant, its black interior reflecting almost no light.\n\nSuddenly, the blue outline emits one gentle pulse.\n\n<Subject 3> takes a cautious step toward it. <Subject 2> glances nervously at <Subject 4>, who remains completely motionless.\n\n[Shot 2] At 00:03.500 — THE REFLECTION.\n\nHard cut to a medium close-up from the side of <Subject 3> standing directly before the black doorway.\n\nHer face is illuminated by the thin blue border. She raises her right hand slowly toward the dark surface.\n\nA realistic reflection of her face gradually appears within the black glass.\n\nBut something is wrong.\n\nHer reflection raises its hand BEFORE the real woman does.\n\nThe real woman abruptly stops moving.\n\nHer reflection does not stop.\n\nIt completes the movement and presses its palm against the inside of the glass.\n\nThe original woman stares in disbelief. Her breath catches. The reflected face begins forming a tiny, unnatural smile while her real face remains frightened and completely still.\n\nThe camera makes a slow, subtle push toward the two almost identical faces.\n\nA soft electronic click breaks the silence.\n\n[Shot 3] At 00:07.000 — THE REPLACEMENT.\n\nHard cut to a medium-wide three-quarter view of the doorway.\n\nThe black surface silently ripples like thick liquid glass.\n\n<Subject 3> instinctively takes two steps backward, keeping her eyes fixed on it.\n\nAn identical young blonde woman, <Subject 5>, steps forward out of the dark doorway and into the room.\n\nHer appearance is completely identical to the original: the same blonde waves, butterfly hair clips, yellow sweater, black skirt, neon-pink tights and heavy platform boots.\n\nThe two women stand facing each other.\n\nThe original woman is visibly terrified.\n\nThe duplicate appears perfectly relaxed.\n\nBehind them, <Subject 2> instinctively backs away, his mouth slightly open. <Subject 4> stares at the newcomer without blinking.\n\nThe camera remains stable and allows the impossible duplication to register clearly. There is no explosive portal effect, smoke or dramatic transformation. The replacement simply walks out as if this were an ordinary procedure.\n\n[Shot 4] At 00:11.000 — THE BETTER VERSION.\n\nHard cut to a tight, carefully composed medium shot of the two identical women standing face-to-face. The dark doorway and its cold blue border remain visible behind the duplicate.\n\n<Subject 3> stands frozen, breathing shallowly, her eyes widening as she studies her own face.\n\n<Subject 5> calmly adjusts one butterfly hair clip, using the exact familiar gesture of the original woman.\n\nShe looks directly into the original woman's eyes.\n\nWith a gentle, reassuring, almost customer-service smile, <Subject 5> (S1), speaking in a soft, natural young female voice with unnerving emotional detachment, says:\n\n<d>[English] They won't know the difference.</d>\n\nA brief silence.\n\nThe camera makes a small lateral movement, revealing <Subject 2> and <Subject 4> behind them.\n\n<Subject 2> looks between the two identical women, completely unable to tell which one is real.\n\n<Subject 4> slowly turns his head toward the duplicate.\n\nInstead of looking frightened, he gives her a tiny, knowing smile.\n\nThe duplicate returns the exact same smile.\n\nThe blue light around the doorway pulses once.\n\nThe original woman notices the exchange.\n\nHer expression changes from confusion to pure dread.\n\nAt 14.6 seconds, hard cut to absolute black.\n\nHold black until 15.0 seconds.\n\nNo title cards, no explanatory text, no additional characters, no exaggerated horror expressions. The final revelation must feel quiet, plausible and deeply disturbing.\n\noverall_soundscape:\n\nExtremely restrained, realistic sound design. A quiet low-frequency ventilation hum and faint electrical resonance fill the chamber. Soft shoe movements echo over the polished floor. The door emits a delicate electromagnetic pulse at approximately 2.5 seconds. During the reflection anomaly, a tiny glass-like electronic click is heard, followed by almost complete silence. As the duplicate emerges, the black surface produces a subtle viscous displacement sound, accompanied by two precise footsteps on the reflective floor. Natural breathing and clothing movement remain audible. The duplicate's spoken line is intimate, clearly articulated and completely free of robotic voice effects. At the final blue-light pulse, a short deep electrical tone sounds before the cut to black.\n\nnon_diegetic_music:\n\nMinimalist premium psychological-thriller scoring. A barely audible deep analog synthesizer drone begins beneath the opening shot. Slowly introduce an irregular, unsettling two-note pattern built from detuned synthetic tones and a very distant low cello texture. No conventional melody, no rhythmic percussion, no orchestral trailer impacts. The score becomes subtly more dissonant as the reflection moves independently. At the moment the duplicate emerges, introduce a brief sub-bass pressure swell, then reduce the music almost to silence. Leave the spoken line completely unobstructed. After the older man's knowing smile, one very low unresolved electronic note appears and is cut instantly at the final black frame.\n",
+      "width": [
+        "24",
+        0
+      ],
+      "height": [
+        "24",
+        1
+      ],
+      "length": [
+        "23",
+        1
+      ],
+      "ref_image_size": "match",
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "20",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "21",
+        0
+      ],
+      "ref_images.ref_image_2": [
+        "28",
+        0
+      ],
+      "ref_images.ref_image_3": [
+        "29",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "Prompt, size, length, references",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "6": {
+    "inputs": {
+      "steps": 6,
+      "model": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "HyperFlowSigmas",
+    "_meta": {
+      "title": "HyperFlow Sigmas (4 / 6 / 8 steps)",
+      "cnr_id": "comfyui-hyperflow-flash",
+      "aux_id": "Video-Rebirth/ComfyUI-HyperFlow-Flash",
+      "ver": "1.1.1"
+    }
+  },
+  "7": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Sampler (euler)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "8": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Seed",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "9": {
+    "inputs": {
+      "model": [
+        "26",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Guider (CFG 1, no negative prompt)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "10": {
+    "inputs": {
+      "noise": [
+        "8",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode video",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Decode audio",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "13": {
+    "inputs": {
+      "fps": 24.0,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none",
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Video + audio, 24 fps",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "14": {
+    "inputs": {
+      "filename_prefix": "riverfield/h3-r2v-flash",
+      "format": "mp4",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video-preview": "",
+      "video": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save MP4 (output/hyperflow/)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "20": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "<Picture 1>",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "21": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "<Picture 2>",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "23": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "25",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "24": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 1.0,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "25": {
+    "inputs": {
+      "value": 15.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "26": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "27": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "28": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "<Picture 3>",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "29": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "<Picture 3>",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  }
+}

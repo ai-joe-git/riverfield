@@ -4905,6 +4905,26 @@
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "local-20261031"
     },
+    "moss-turbo-jib-mix": {
+      "case": "moss-turbo-jib-mix-bridge",
+      "type": "image",
+      "card": "examples/moss-turbo-jib-mix/card.jpg",
+      "poster": null,
+      "full": "examples/moss-turbo-jib-mix/full.jpg",
+      "inputs": [],
+      "values": {
+        "prompt": "\nOpening frame of an epic, photorealistic, theatrical space-opera blockbuster.\n\nA colossal futuristic starship command bridge, perfectly intact and operating normally, in the absolute calm before an unexpected catastrophic event.\n\nWide symmetrical cinematic composition, camera positioned behind the central command station, looking toward a gigantic panoramic forward observation window revealing the silent darkness of deep space and thousands of distant stars.\n\nSeveral officers in sophisticated dark military uniforms are calmly working at their stations. One commanding officer stands confidently in the center, facing the enormous viewport. Everyone is relaxed and unaware of the impending danger.\n\nSophisticated dark titanium architecture, monumental structural columns, pristine illuminated control consoles, elegant cool blue instrument lighting, subtle ambient reflections, atmospheric depth, extraordinary architectural scale.\n\nAbsolutely beautiful, expensive-looking production design, realistic Hollywood science-fiction cinematography, IMAX-scale composition, dramatic but natural lighting, anamorphic lens, physically accurate materials, extraordinarily detailed.\n\nThe ship is completely stable. The atmosphere is quiet and controlled. The impending disaster has NOT started.\n\nNO explosions, NO sparks, NO emergency alarms, NO red warning lights, NO shaking, NO flying debris, NO smoke, NO distressed crew, NO gateway, NO warp effects, NO text.\n\n16:9 cinematic widescreen.\n",
+        "aspect": "16:9 (Widescreen)",
+        "steps": 8,
+        "cfg": 1.1,
+        "rewrite": false
+      },
+      "seed": 490142195328469,
+      "seconds": null,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261116-jib-mix"
+    },
     "image-to-3d": {
       "case": "image-to-3d-bicycle",
       "type": "model",
@@ -5495,7 +5515,219 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "local-20261113-h3-image-edit"
+    },
+    "h3-video-flash": {
+      "case": "h3-video-flash-cook",
+      "type": "video",
+      "card": "examples/h3-video-flash/card.mp4",
+      "poster": "examples/h3-video-flash/poster.jpg",
+      "full": "examples/h3-video-flash/full.mp4",
+      "inputs": [],
+      "values": {
+        "prompt": "\nintegrated_multimodal_description:\n\n[Shot 1] 0–15 seconds. Premium stylized 3D animated short film, Pixar-inspired character animation with polished Cinema 4D and Octane rendering, warm subsurface scattering through ears and fingertips, beautifully tactile materials, soft cinematic global illumination, and expressive squash-and-stretch acting. The animation has professional feature-film quality, precise comedic timing, clear character silhouettes, believable physical interactions and exaggerated but controlled facial expressions.\n\nA charming three-head-tall cartoon cook with a round expressive face, a tall oversized white chef's toque that leans slightly to one side, and a flour-dusted apron works at a stainless-steel counter in a cozy, warmly illuminated kitchen. A bamboo steamer releases delicate wisps of steam on the right. Behind him, a shallow pot of gently simmering broth rests on a gas burner. A wooden rolling pin sits on a shelf behind the cook. The camera holds a carefully composed medium-wide shot at counter height, showing the cook's upper body, the dumpling tray in the foreground, and the simmering pot behind him. Maintain coherent spatial geography and consistent character designs throughout.\n\n0.0–3.0s — THE PERFECT DUMPLING:\nThe cook carefully folds a small round dumpling, pinching its delicate pleated seam with meticulous concentration. His enormous toque wobbles gently with each movement. He lifts the finished dumpling between two fingers, proudly inspects it, gives it one final affectionate pat, and places it neatly on a flour-dusted metal tray. He smiles with professional satisfaction and brushes flour from his hands. The dumpling remains completely motionless.\n\n3.0–5.0s — SOMETHING IS ALIVE:\nThe cook turns his back to retrieve the wooden rolling pin from the shelf, his oversized toque swinging comically with the rotation. Behind him, the perfectly innocent-looking dumpling gives a tiny, almost imperceptible twitch. Its pleated top slowly contracts, resembling a mischievously furrowed brow. Its soft dough body inflates slightly, then compresses. Two ridiculous little dough legs squeeze out from underneath. The dumpling carefully tests its balance, wobbling left and right. The cook remains completely unaware.\n\n5.0–7.5s — THE GREAT ESCAPE:\nThe dumpling suddenly begins walking across the tray on its tiny dough legs. Three distinct, surprisingly determined little footsteps make soft metallic taps against the tray. Its body squashes with each landing and stretches upward between steps. It reaches the tray's edge, looks toward the steaming broth, and leans forward as if calculating the distance. For a brief comedic beat, it loses its balance and windmills its tiny legs, almost falling backward. It recovers with a proud little bounce and crouches dramatically, preparing to jump.\n\n7.5–10.0s — THE DISASTER:\nThe cook hears the final metallic tap and turns back toward the counter. His eyes widen enormously as he discovers the dumpling standing on two legs at the tray's edge. His jaw drops. For a fraction of a second, cook and dumpling stare at each other in absolute disbelief. The dumpling springs off the tray toward the simmering pot. The cook reacts instantly, lunging forward with both arms outstretched, his belly compressing against the counter and his tall toque whipping violently backward. His fingertips miss the escaping dumpling by inches. The dumpling completes a beautiful little airborne arc and plunges directly into the hot broth with a satisfying, heavy PLOP, sending a small crown of droplets upward. The cook freezes in an absurdly extended reaching pose.\n\n10.0–12.5s — AN UNEXPECTED RETURN:\nThe surface of the broth settles. The cook slowly leans over the pot, blinking in confusion, watching the empty surface. A single small bubble rises. Then another. Suddenly the dumpling floats back to the surface, now visibly cooked, wonderfully glossy, plump and steaming. It bobs gently against the pot's edge, looking completely ordinary again, with no visible legs. The cook stares at it, utterly bewildered. His hands remain suspended above the pot, unsure whether to rescue it or serve it.\n\n12.5–15.0s — THE PERFECT DEADPAN:\nThe cook very slowly straightens his back. His flour-covered face is completely expressionless. His oversized chef's toque gradually slides down until it covers one eye. He does absolutely nothing to correct it. His one visible eyebrow rises slowly and impossibly high while his mouth remains perfectly flat. Hold the awkward silence and his utterly defeated expression. Behind him, the cooked dumpling floats innocently in the broth. At approximately 14.5 seconds, a single tiny bubble rises beside it and pops. The cook does not react. End on this completely still, perfectly timed comedic tableau.\n\nCAMERA AND ANIMATION CONTROL:\nOne continuous shot with no cuts. Locked medium-wide camera at counter height, allowing the character, dumpling tray and broth pot to remain visually understandable throughout. Avoid unnecessary camera movement, zooms or reframing. Prioritize exceptional character acting, accurate object interactions, appealing silhouettes, anticipation, follow-through, secondary motion, believable dough elasticity, and precise physical comedy. Every movement should have deliberate timing and a clear cause. The dumpling must remain visually consistent throughout its transformation, escape and cooking. No additional characters, no dialogue, no captions or text overlays.\n\noverall_soundscape:\nWarm, intimate kitchen ambience: gentle ventilation, a soft gas burner hiss, subtle bubbling broth and the faint wooden creaking of the steaming bamboo basket. Delicate flour brushing and soft dough handling sounds accompany the cook's preparations. A tiny elastic squeak accompanies the dumpling's first movement. Exactly three distinct soft dough footsteps ring against the metal tray. A short comedic rubbery wobble accompanies its loss of balance. The cook's sudden realization receives a sharp inhalation, immediately followed by a swift airy whoosh as he lunges. The dumpling lands in the broth with one clean, satisfyingly heavy PLOP and a brief liquid splash. The kitchen returns to a gentle simmer. The final seconds are almost completely silent, emphasizing the cook's deadpan expression. One isolated, delicate bubble pop at approximately 14.5 seconds. No spoken dialogue.\n\nnon_diegetic_music:\nRefined, understated animated-film comedy scoring built around a light pizzicato cello motif and subtle acoustic bass. Begin with a playful but elegant rhythmic figure accompanying the cook's precise dumpling preparation. Introduce a delicate, slightly mysterious pizzicato variation when the dumpling first comes alive. Synchronize three short plucked notes exactly with its three footsteps. Build a brief, tightly controlled musical anticipation as it prepares to jump. Stop the music abruptly when the cook notices the escape. A single short orchestral accent accompanies the desperate lunge, ending immediately on the dumpling's heavy plop. Maintain near-total musical silence during the cooked dumpling's return. Finish with one extremely dry, understated low cello note as the cook's eyebrow rises. No excessive cartoon sound effects, no circus music, no frantic orchestration, no continuous musical underscoring during the final deadpan.\n",
+        "aspect": "16:9 (Widescreen)",
+        "resolution": 1.0,
+        "multiple": 8,
+        "duration": 15,
+        "steps": 6,
+        "sampler": "euler",
+        "seed": 42,
+        "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+        "sla": true,
+        "sla_detail": 0.85,
+        "fps": 24,
+        "format": "mp4",
+        "codec": "auto",
+        "unet_name": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors"
+      },
+      "seed": 42,
+      "seconds": 3207.6,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "comfyui-20261116-b4b1895e"
+    },
+    "h3-r2v-flash": {
+      "case": "h3-r2v-flash-replacement",
+      "type": "video",
+      "card": "examples/h3-r2v-flash/card.mp4",
+      "poster": "examples/h3-r2v-flash/poster.jpg",
+      "full": "examples/h3-r2v-flash/full.mp4",
+      "inputs": [
+        {
+          "id": "image1",
+          "label": "Picture 1",
+          "type": "image",
+          "src": "examples/h3-r2v-flash/input-image1.jpg",
+          "full": "examples/h3-r2v-flash/input-image1-full.jpg"
+        },
+        {
+          "id": "image2",
+          "label": "Picture 2",
+          "type": "image",
+          "src": "examples/h3-r2v-flash/input-image2.jpg",
+          "full": "examples/h3-r2v-flash/input-image2-full.jpg"
+        },
+        {
+          "id": "image3",
+          "label": "Picture 3",
+          "type": "image",
+          "src": "examples/h3-r2v-flash/input-image3.jpg",
+          "full": "examples/h3-r2v-flash/input-image3-full.jpg"
+        },
+        {
+          "id": "image4",
+          "label": "Picture 4",
+          "type": "image",
+          "src": "examples/h3-r2v-flash/input-image4.jpg",
+          "full": "examples/h3-r2v-flash/input-image4-full.jpg"
+        }
+      ],
+      "values": {
+        "prompt": "\nsubject_definitions:\n\n<Subject 1> is the mysterious futuristic chamber shown in <Picture 1>. A perfectly symmetrical, nearly black rectangular room with smooth dark walls, a polished reflective floor, and a single tall rectangular doorway centered on the far wall. The doorway has a thin icy-blue illuminated border surrounding an opaque, almost liquid-black surface. Cold blue light stretches across the reflective floor. Preserve the precise minimalist architecture, doorway geometry, reflections, and eerie empty atmosphere.\n\n<Subject 2> is the young adult blond man in <Picture 2>, with a broad, heavyset build, short tousled blond hair, pale complexion, blue eyes and a neutral expression. He wears a vivid turquoise polo shirt, tan knee-length shorts, a black belt, white socks with dark stripes and chunky black loafers. Preserve his distinctive face, proportions, hairstyle and exact outfit.\n\n<Subject 3> is the young blonde woman in <Picture 3>, with long wavy blonde hair, expressive brown eyes, delicate features, gold hoop earrings and colorful butterfly hair clips. She wears an oversized bright yellow sweater, short black skirt, vivid pink tights and chunky black lace-up platform boots. Preserve her facial identity, hairstyle, hair accessories, body proportions and complete outfit.\n\n<Subject 4> is the slender middle-aged man in <Picture 4>, with swept-back brown hair streaked with grey, a narrow expressive face, pronounced eyes and a slightly nervous appearance. He wears a purple retro windbreaker with turquoise sleeves and accents, a white T-shirt, faded blue jeans and white sneakers. Preserve his exact facial identity, clothing, proportions and hairstyle.\n\n<Subject 5> is a technologically generated duplicate of <Subject 3>. She has the EXACT same face, hair, butterfly clips, yellow sweater, black skirt, pink tights, boots and body proportions as <Subject 3>. Her only difference is behavioral: unnaturally calm, perfectly controlled movements and a faint, unsettlingly polite smile. She is a physically separate person, not a transformation of the original woman.\n\nsummary:\n\n[reference generation] A 15-second live-action psychological science-fiction thriller titled \"THE REPLACEMENT\". Three ordinary people, <Subject 2>, <Subject 3> and <Subject 4>, stand before the mysterious doorway inside <Subject 1>. When <Subject 3> approaches the black surface, her reflection begins moving independently. An identical replacement, <Subject 5>, emerges from the doorway while the original remains outside. The replacement delivers one chilling sentence, and the other characters realize that the technology is not merely showing a reflection. Four restrained cinematic shots with precise dramatic escalation and a disturbing final beat.\n\nretention_analysis:\n\n<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - The dark symmetrical chamber, centered rectangular doorway, thin blue illumination and reflective black floor remain visually consistent throughout.\n\n<Subject 2> (appears in [Shot 1], [Shot 3], [Shot 4]): fully_preserved - Exact reference facial identity, blond hairstyle, turquoise polo, tan shorts, striped socks, black loafers and heavyset proportions.\n\n<Subject 3> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - Exact reference identity, butterfly clips, long blonde hair, yellow sweater, black skirt, pink tights and black platform boots.\n\n<Subject 4> (appears in [Shot 1], [Shot 3], [Shot 4]): fully_preserved - Exact reference identity, grey-streaked hair, purple and turquoise windbreaker, blue jeans, white sneakers and slender proportions.\n\n<Subject 5> (appears in [Shot 3], [Shot 4]): attribute_transfer - Duplicate the entire visible identity and clothing of <Subject 3>, while changing only facial expression and behavior. Both individuals remain separately visible.\n\ndetailed_description:\n\nThe target video is a premium live-action psychological science-fiction thriller, grounded and disturbing rather than action-driven. Clinical, near-black cinematography, cold blue practical lighting, subtle film grain, realistic skin, immaculate production design, restrained performances and deliberate visual composition. The atmosphere feels like an expensive, unsettling anthology television episode about identity and technological replacement.\n\n[Shot 1] 0.0–3.5s — THE WAITING ROOM.\n\nA symmetrical wide shot establishes <Subject 1>, the dark minimalist chamber with its enormous centered black doorway outlined in cold blue light. Three people stand several meters in front of the door, seen from behind at a slight three-quarter angle. On the left stands <Subject 2>, the heavyset blond young man in his turquoise polo and tan shorts. In the middle stands <Subject 3>, the blonde woman in her vivid yellow sweater and pink tights. On the right stands <Subject 4>, the older slender man in his purple and turquoise windbreaker.\n\nTheir strangely colorful everyday clothing contrasts sharply with the sterile futuristic architecture.\n\nThe camera pushes forward slowly with small amplitude. Nobody speaks. The door appears dormant, its black interior reflecting almost no light.\n\nSuddenly, the blue outline emits one gentle pulse.\n\n<Subject 3> takes a cautious step toward it. <Subject 2> glances nervously at <Subject 4>, who remains completely motionless.\n\n[Shot 2] At 00:03.500 — THE REFLECTION.\n\nHard cut to a medium close-up from the side of <Subject 3> standing directly before the black doorway.\n\nHer face is illuminated by the thin blue border. She raises her right hand slowly toward the dark surface.\n\nA realistic reflection of her face gradually appears within the black glass.\n\nBut something is wrong.\n\nHer reflection raises its hand BEFORE the real woman does.\n\nThe real woman abruptly stops moving.\n\nHer reflection does not stop.\n\nIt completes the movement and presses its palm against the inside of the glass.\n\nThe original woman stares in disbelief. Her breath catches. The reflected face begins forming a tiny, unnatural smile while her real face remains frightened and completely still.\n\nThe camera makes a slow, subtle push toward the two almost identical faces.\n\nA soft electronic click breaks the silence.\n\n[Shot 3] At 00:07.000 — THE REPLACEMENT.\n\nHard cut to a medium-wide three-quarter view of the doorway.\n\nThe black surface silently ripples like thick liquid glass.\n\n<Subject 3> instinctively takes two steps backward, keeping her eyes fixed on it.\n\nAn identical young blonde woman, <Subject 5>, steps forward out of the dark doorway and into the room.\n\nHer appearance is completely identical to the original: the same blonde waves, butterfly hair clips, yellow sweater, black skirt, neon-pink tights and heavy platform boots.\n\nThe two women stand facing each other.\n\nThe original woman is visibly terrified.\n\nThe duplicate appears perfectly relaxed.\n\nBehind them, <Subject 2> instinctively backs away, his mouth slightly open. <Subject 4> stares at the newcomer without blinking.\n\nThe camera remains stable and allows the impossible duplication to register clearly. There is no explosive portal effect, smoke or dramatic transformation. The replacement simply walks out as if this were an ordinary procedure.\n\n[Shot 4] At 00:11.000 — THE BETTER VERSION.\n\nHard cut to a tight, carefully composed medium shot of the two identical women standing face-to-face. The dark doorway and its cold blue border remain visible behind the duplicate.\n\n<Subject 3> stands frozen, breathing shallowly, her eyes widening as she studies her own face.\n\n<Subject 5> calmly adjusts one butterfly hair clip, using the exact familiar gesture of the original woman.\n\nShe looks directly into the original woman's eyes.\n\nWith a gentle, reassuring, almost customer-service smile, <Subject 5> (S1), speaking in a soft, natural young female voice with unnerving emotional detachment, says:\n\n<d>[English] They won't know the difference.</d>\n\nA brief silence.\n\nThe camera makes a small lateral movement, revealing <Subject 2> and <Subject 4> behind them.\n\n<Subject 2> looks between the two identical women, completely unable to tell which one is real.\n\n<Subject 4> slowly turns his head toward the duplicate.\n\nInstead of looking frightened, he gives her a tiny, knowing smile.\n\nThe duplicate returns the exact same smile.\n\nThe blue light around the doorway pulses once.\n\nThe original woman notices the exchange.\n\nHer expression changes from confusion to pure dread.\n\nAt 14.6 seconds, hard cut to absolute black.\n\nHold black until 15.0 seconds.\n\nNo title cards, no explanatory text, no additional characters, no exaggerated horror expressions. The final revelation must feel quiet, plausible and deeply disturbing.\n\noverall_soundscape:\n\nExtremely restrained, realistic sound design. A quiet low-frequency ventilation hum and faint electrical resonance fill the chamber. Soft shoe movements echo over the polished floor. The door emits a delicate electromagnetic pulse at approximately 2.5 seconds. During the reflection anomaly, a tiny glass-like electronic click is heard, followed by almost complete silence. As the duplicate emerges, the black surface produces a subtle viscous displacement sound, accompanied by two precise footsteps on the reflective floor. Natural breathing and clothing movement remain audible. The duplicate's spoken line is intimate, clearly articulated and completely free of robotic voice effects. At the final blue-light pulse, a short deep electrical tone sounds before the cut to black.\n\nnon_diegetic_music:\n\nMinimalist premium psychological-thriller scoring. A barely audible deep analog synthesizer drone begins beneath the opening shot. Slowly introduce an irregular, unsettling two-note pattern built from detuned synthetic tones and a very distant low cello texture. No conventional melody, no rhythmic percussion, no orchestral trailer impacts. The score becomes subtly more dissonant as the reflection moves independently. At the moment the duplicate emerges, introduce a brief sub-bass pressure swell, then reduce the music almost to silence. Leave the spoken line completely unobstructed. After the older man's knowing smile, one very low unresolved electronic note appears and is cut instantly at the final black frame.\n",
+        "aspect": "16:9 (Widescreen)",
+        "resolution": 1.0,
+        "multiple": 8,
+        "duration": 15,
+        "steps": 6,
+        "sampler": "euler",
+        "seed": 42,
+        "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+        "sla": true,
+        "sla_detail": 0.85,
+        "fps": 24,
+        "format": "mp4",
+        "codec": "auto",
+        "unet_name": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors",
+        "ref_image_size": "match"
+      },
+      "seed": 42,
+      "seconds": 4043.1,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "comfyui-20261116-fb8e051e"
+    },
+    "h3-i2v-flash": {
+      "case": "h3-i2v-flash-sitcom",
+      "type": "video",
+      "card": "examples/h3-i2v-flash/card.mp4",
+      "poster": "examples/h3-i2v-flash/poster.jpg",
+      "full": "examples/h3-i2v-flash/full.mp4",
+      "inputs": [
+        {
+          "id": "first_frame",
+          "label": "First frame",
+          "type": "image",
+          "src": "examples/h3-i2v-flash/input-first.jpg",
+          "full": "examples/h3-i2v-flash/input-first-full.jpg"
+        }
+      ],
+      "values": {
+        "prompt": "\nintegrated_multimodal_description:\n\n[Shot 1] 0–15 seconds. Premium live-action American television sitcom, warm contemporary apartment comedy, natural expressive performances, sharp conversational timing, playful romantic tension and subtle studio-audience laughter. Realistic human facial animation, precise dialogue lip synchronization, believable eye contact and relaxed physical comedy.\n\nBEGIN EXACTLY WITH THE PROVIDED IMAGE.\n\nA stylish modern open-plan apartment kitchen under warm evening lighting. A beautiful brunette woman with shoulder-length wavy hair wears a black satin blouse tucked into fitted blue jeans. She stands on the left, holding a smartphone and a stemmed glass of white wine, giving the man beside her an amused, slightly suspicious sideways glance.\n\nOn the right stands her handsome dark-haired boyfriend with short facial stubble, wearing a charcoal-grey long-sleeved Henley shirt, dark jeans and a wristwatch. His left hand rests casually inside his trouser pocket while his right hand holds a black smartphone. He is smiling mischievously at the screen.\n\nBehind them, a white marble kitchen island holds a wine bottle, two additional wine glasses and a small set of keys. Stainless-steel appliances, dark cabinets, pendant lights and a cozy living room complete the background.\n\nPreserve both actors' exact facial identities, clothing, hairstyles, positions, body proportions, handheld objects and apartment layout from the reference image.\n\n0.0–2.0s — THE SETUP:\nThe scene begins with the exact composition of the reference image. The man reads something amusing on his smartphone and lets out a small, satisfied chuckle. The woman notices his expression and raises one eyebrow while holding her wine glass. He looks up from the phone toward her, clearly excited about his discovery.\n\n2.0–5.0s — THE APP:\nThe man (S1), speaking with an enthusiastic, slightly smug American male voice, says:\n\n<d>[English] I downloaded an app that predicts our arguments.</d>\n\nHe proudly raises his smartphone slightly, as if presenting an extraordinary technological achievement. His eyebrows lift with childish excitement. The woman looks at him with growing disbelief.\n\n5.0–7.3s — THE RESPONSE:\nThe woman (S2), speaking in a dry, sarcastic American female voice with effortless comedic delivery, replies:\n\n<d>[English] What a waste of money.</d>\n\nShe takes a small, casual sip of white wine, completely unimpressed. The man immediately looks down at his phone.\n\n7.3–9.2s — THE FIRST PUNCHLINE:\nA tiny cheerful notification chime comes from the man's smartphone.\n\nHe looks surprised for a fraction of a second, then slowly breaks into a delighted grin.\n\nThe man (S1) says:\n\n<d>[English] It predicted that.</d>\n\nA brief burst of natural studio-audience laughter follows.\n\n9.2–11.0s — THE WARNING:\nThe woman's smile disappears. She gives him a long, perfectly deadpan stare.\n\nThe woman (S2) says, firmly:\n\n<d>[English] Delete it.</d>\n\nShe lowers her wine glass slightly without looking away from him.\n\n11.0–12.4s — THE SECOND PUNCHLINE:\nThe smartphone immediately makes the exact same cheerful notification sound.\n\nThe man glances down at his screen, then looks directly at her with an increasingly ridiculous, delighted smile.\n\nThe man (S1) says quietly:\n\n<d>[English] That too.</d>\n\n12.4–15.0s — THE SITCOM BUTTON:\nThe woman freezes, staring at him in complete disbelief. She slowly closes her eyes, takes one controlled breath, then drinks from her wine glass with an expression of profound regret about her life choices.\n\nThe man realizes he may have pushed his luck too far. His smug grin slowly collapses into an awkward, nervous smile. Without moving his left hand from his pocket, he carefully lowers the smartphone and looks away, pretending nothing happened.\n\nA perfectly timed warm studio-audience laugh swells at his expression.\n\nHold the two characters in the same composition until the final frame. End on the awkward silence and the woman's magnificent deadpan expression.\n\nCAMERA AND PERFORMANCE CONTROL:\nSingle continuous medium-wide sitcom shot, preserving the reference image framing. A very subtle, almost imperceptible camera push-in over the entire scene. No hard cuts, no dramatic camera movement, no close-ups of smartphone screens.\n\nNatural American sitcom performance with witty conversational pacing, expressive eyebrows, small reaction beats, genuine eye contact and controlled physical comedy.\n\nBoth actors must speak only their assigned lines. Accurate lip synchronization, no overlapping dialogue, no invented dialogue, no narration.\n\nPreserve the smartphone in the man's right hand, his left hand in his pocket, and the wine glass in the woman's hand. No object teleportation or wardrobe changes.\n\noverall_soundscape:\nNatural warm apartment room tone, subtle refrigerator hum, faint clothing movement, gentle wine-glass handling. The man's brief opening chuckle is audible. Two identical bright, short smartphone notification chimes occur at approximately 7.3 and 11 seconds. Carefully timed studio-audience laughter follows the first punchline and builds more strongly after the final punchline. All spoken dialogue remains perfectly clear and prominent. No exaggerated cartoon effects.\n\nnon_diegetic_music:\nAuthentic contemporary American television sitcom sound design. No continuous background music during the conversation. Let the dialogue, smartphone notification chimes, natural comedic pauses and restrained audience laughter carry the scene. A very short, tasteful upbeat sitcom musical sting may punctuate the final reaction during the last half-second.\n",
+        "aspect": "16:9 (Widescreen)",
+        "resolution": 1.0,
+        "multiple": 32,
+        "duration": 15,
+        "steps": 6,
+        "sampler": "euler",
+        "seed": 42,
+        "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+        "sla": true,
+        "sla_detail": 0.85,
+        "fps": 24,
+        "format": "mp4",
+        "codec": "auto",
+        "unet_name": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors"
+      },
+      "seed": 42,
+      "seconds": 3557.3,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "comfyui-20261116-f47456a8"
+    },
+    "h3-flf2v-flash": {
+      "case": "h3-flf2v-flash-space-opera",
+      "type": "video",
+      "card": "examples/h3-flf2v-flash/card.mp4",
+      "poster": "examples/h3-flf2v-flash/poster.jpg",
+      "full": "examples/h3-flf2v-flash/full.mp4",
+      "inputs": [
+        {
+          "id": "first_frame",
+          "label": "First frame",
+          "type": "image",
+          "src": "examples/h3-flf2v-flash/input-first.jpg",
+          "full": "examples/h3-flf2v-flash/input-first-full.jpg"
+        },
+        {
+          "id": "last_frame",
+          "label": "Last frame",
+          "type": "image",
+          "src": "examples/h3-flf2v-flash/input-last.jpg",
+          "full": "examples/h3-flf2v-flash/input-last-full.jpg"
+        }
+      ],
+      "values": {
+        "prompt": "\nHow the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 4) aligns with the 15.00-second mark of the target video.\n\nintegrated_multimodal_description:\n\n[Shot 1] Cinematic live-action space opera, monumental theatrical production quality. 0–3 seconds. Begin EXACTLY with Picture 1: the pristine, symmetrical starship command bridge, officers calmly operating their consoles, the captain standing at the center facing the immense panoramic viewport and its undisturbed starfield. Preserve the original architecture, crew positions, lighting and composition. The camera slowly pushes forward toward the captain. For the first half-second, everything is perfectly still. Then a sudden gravitational shock violently strikes the vessel. The blue instruments flicker, emergency red lights ignite, crew members are thrown sideways, consoles erupt with electrical sparks, and the massive viewport briefly floods with blinding white light. The camera jolts violently only at the moment of impact, then stabilizes. A rapid black-frame interruption ends the shot.\n\n[Shot 2] At 00:03.000, HARD CUT to an extraordinary exterior deep-space wide shot. The same colossal spacecraft appears as a tiny silhouette drifting through an immense, nearly black stellar void. Far ahead, an enormous circular interstellar gateway begins to awaken. First a thin arc of cold blue-white energy illuminates the darkness, then concentric gravitational rings ignite outward, revealing a vast structure thousands of times larger than the ship. The camera steadily pushes forward behind the spacecraft, emphasizing the terrifying difference in scale. Electric filaments crawl around the circumference, gravitational distortions bend the surrounding stars, and the gateway's central darkness gradually opens into an impossible luminous abyss. The scale is overwhelming, majestic and frightening. No unnecessary cuts, no orbiting camera, no explosions. At the end, a sharp white flash interrupts the image.\n\n[Shot 3] At 00:07.000, HARD CUT to a dynamic rear tracking shot of the spacecraft accelerating directly toward the gateway. The camera follows the ship along a single forward trajectory. The engines intensify from faint blue to brilliant white-blue. The gigantic circular gateway expands rapidly across the frame as the vessel approaches. Stars begin stretching into sharp luminous streaks. The surrounding geometry bends violently as the ship crosses the event horizon. The acceleration becomes almost instantaneous: a terrifying burst of impossible speed, immense gravitational distortion, and an overwhelming white-hot warp flash. At approximately 00:10.800, the ship disappears into the light with ONE colossal metallic impact synchronized precisely with the warp transition. Immediately afterward, the image snaps to absolute black and the sound drops into a brief vacuum-like silence. No additional impact sounds.\n\n[Shot 4] At 00:11.000, HARD CUT to absolute black. The camera remains perfectly static. From complete darkness, faint fragments of metallic silver lettering slowly become visible at the center of the screen. A narrow horizontal sweep of cold starlight crosses the emerging letters, revealing the exact title \"BEYOND THE EVENT HORIZON\". The letter spacing opens slightly as the typography settles into a single perfectly centered horizontal line. Each letter has a restrained brushed-metal texture, subtle internal illumination, precise silver-blue highlights and a delicate edge glow. A faint residual afterimage follows the starlight sweep, then disappears. By 00:13.500, the entire title is completely formed and motionless, matching Picture 2 EXACTLY: identical wording, letter shapes, spacing, metallic coloration, scale, placement and pure black background. Hold this precise composition without movement until 15.00 seconds, ensuring extended full readability. No new text, no subtitles, no additional title cards, no logo, no fade-out.\n\noverall_soundscape: The opening bridge carries a low ventilation hum, faint electronic instrumentation and distant engine resonance, abruptly interrupted by deep structural groaning, vibrating metal, electronic alarms and electrical crackling. Outside the vessel, an enormous low-frequency gravitational rumble builds as the gateway activates, accompanied by layered electromagnetic pulses and increasingly intense engine harmonics. The warp jump produces a single devastating metallic impact followed immediately by a short vacuum drop into near-total silence. The final title reveal carries only a delicate, distant crystalline shimmer as the starlight crosses the lettering.\n\nnon_diegetic_music: Premium theatrical space-opera score. Begin with a restrained low brass drone and deep sustained strings. Introduce rapidly accelerating orchestral ostinatos and powerful sub-bass pulses during the gateway reveal, building into massive low brass, tightly synchronized percussion and high string tension during the warp approach. Cut the entire score abruptly at the warp impact, leaving a moment of absolute silence. A single deep cinematic tonal swell accompanies the final title reveal, resolving into a low sustained resonance that fades naturally while the completed title remains on screen.\n",
+        "aspect": "16:9 (Widescreen)",
+        "resolution": 1.0,
+        "multiple": 32,
+        "duration": 15,
+        "steps": 6,
+        "sampler": "euler",
+        "seed": 42,
+        "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+        "sla": true,
+        "sla_detail": 0.85,
+        "fps": 24,
+        "format": "mp4",
+        "codec": "auto",
+        "unet_name": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors"
+      },
+      "seed": 42,
+      "seconds": 3599.1,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "comfyui-20261116-70f82f6a"
+    },
+    "h3-studio-director-flash": {
+      "case": "h3-studio-director-flash-dumpling-single",
+      "type": "video",
+      "card": "examples/h3-video-flash/card.mp4",
+      "poster": "examples/h3-video-flash/poster.jpg",
+      "full": "examples/h3-video-flash/full.mp4",
+      "inputs": [],
+      "values": {
+        "flex_mode": "fl2va",
+        "aspect": "16:9 (Widescreen)",
+        "megapixels": 1.0,
+        "multiple": 8,
+        "duration": 15,
+        "start_seconds": 0,
+        "segment_count": 1,
+        "segment_prompts": "",
+        "global_prompt": "",
+        "advanced_timeline_json": "",
+        "audio_mode": "reference",
+        "video_audio": true,
+        "sla": true,
+        "detail": 0.85,
+        "seed": 42,
+        "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "filename_prefix": "riverfield/h3-studio-director-flash",
+        "format": "mp4",
+        "codec": "h264",
+        "segment_windows": "{\"windows\": [{\"start\": 0, \"end\": 362, \"prompt\": \"\\nintegrated_multimodal_description:\\n\\n[Shot 1] 0–15 seconds. Premium stylized 3D animated short film, Pixar-inspired character animation with polished Cinema 4D and Octane rendering, warm subsurface scattering through ears and fingertips, beautifully tactile materials, soft cinematic global illumination, and expressive squash-and-stretch acting. The animation has professional feature-film quality, precise comedic timing, clear character silhouettes, believable physical interactions and exaggerated but controlled facial expressions.\\n\\nA charming three-head-tall cartoon cook with a round expressive face, a tall oversized white chef's toque that leans slightly to one side, and a flour-dusted apron works at a stainless-steel counter in a cozy, warmly illuminated kitchen. A bamboo steamer releases delicate wisps of steam on the right. Behind him, a shallow pot of gently simmering broth rests on a gas burner. A wooden rolling pin sits on a shelf behind the cook. The camera holds a carefully composed medium-wide shot at counter height, showing the cook's upper body, the dumpling tray in the foreground, and the simmering pot behind him. Maintain coherent spatial geography and consistent character designs throughout.\\n\\n0.0–3.0s — THE PERFECT DUMPLING:\\nThe cook carefully folds a small round dumpling, pinching its delicate pleated seam with meticulous concentration. His enormous toque wobbles gently with each movement. He lifts the finished dumpling between two fingers, proudly inspects it, gives it one final affectionate pat, and places it neatly on a flour-dusted metal tray. He smiles with professional satisfaction and brushes flour from his hands. The dumpling remains completely motionless.\\n\\n3.0–5.0s — SOMETHING IS ALIVE:\\nThe cook turns his back to retrieve the wooden rolling pin from the shelf, his oversized toque swinging comically with the rotation. Behind him, the perfectly innocent-looking dumpling gives a tiny, almost imperceptible twitch. Its pleated top slowly contracts, resembling a mischievously furrowed brow. Its soft dough body inflates slightly, then compresses. Two ridiculous little dough legs squeeze out from underneath. The dumpling carefully tests its balance, wobbling left and right. The cook remains completely unaware.\\n\\n5.0–7.5s — THE GREAT ESCAPE:\\nThe dumpling suddenly begins walking across the tray on its tiny dough legs. Three distinct, surprisingly determined little footsteps make soft metallic taps against the tray. Its body squashes with each landing and stretches upward between steps. It reaches the tray's edge, looks toward the steaming broth, and leans forward as if calculating the distance. For a brief comedic beat, it loses its balance and windmills its tiny legs, almost falling backward. It recovers with a proud little bounce and crouches dramatically, preparing to jump.\\n\\n7.5–10.0s — THE DISASTER:\\nThe cook hears the final metallic tap and turns back toward the counter. His eyes widen enormously as he discovers the dumpling standing on two legs at the tray's edge. His jaw drops. For a fraction of a second, cook and dumpling stare at each other in absolute disbelief. The dumpling springs off the tray toward the simmering pot. The cook reacts instantly, lunging forward with both arms outstretched, his belly compressing against the counter and his tall toque whipping violently backward. His fingertips miss the escaping dumpling by inches. The dumpling completes a beautiful little airborne arc and plunges directly into the hot broth with a satisfying, heavy PLOP, sending a small crown of droplets upward. The cook freezes in an absurdly extended reaching pose.\\n\\n10.0–12.5s — AN UNEXPECTED RETURN:\\nThe surface of the broth settles. The cook slowly leans over the pot, blinking in confusion, watching the empty surface. A single small bubble rises. Then another. Suddenly the dumpling floats back to the surface, now visibly cooked, wonderfully glossy, plump and steaming. It bobs gently against the pot's edge, looking completely ordinary again, with no visible legs. The cook stares at it, utterly bewildered. His hands remain suspended above the pot, unsure whether to rescue it or serve it.\\n\\n12.5–15.0s — THE PERFECT DEADPAN:\\nThe cook very slowly straightens his back. His flour-covered face is completely expressionless. His oversized chef's toque gradually slides down until it covers one eye. He does absolutely nothing to correct it. His one visible eyebrow rises slowly and impossibly high while his mouth remains perfectly flat. Hold the awkward silence and his utterly defeated expression. Behind him, the cooked dumpling floats innocently in the broth. At approximately 14.5 seconds, a single tiny bubble rises beside it and pops. The cook does not react. End on this completely still, perfectly timed comedic tableau.\\n\\nCAMERA AND ANIMATION CONTROL:\\nOne continuous shot with no cuts. Locked medium-wide camera at counter height, allowing the character, dumpling tray and broth pot to remain visually understandable throughout. Avoid unnecessary camera movement, zooms or reframing. Prioritize exceptional character acting, accurate object interactions, appealing silhouettes, anticipation, follow-through, secondary motion, believable dough elasticity, and precise physical comedy. Every movement should have deliberate timing and a clear cause. The dumpling must remain visually consistent throughout its transformation, escape and cooking. No additional characters, no dialogue, no captions or text overlays.\\n\\noverall_soundscape:\\nWarm, intimate kitchen ambience: gentle ventilation, a soft gas burner hiss, subtle bubbling broth and the faint wooden creaking of the steaming bamboo basket. Delicate flour brushing and soft dough handling sounds accompany the cook's preparations. A tiny elastic squeak accompanies the dumpling's first movement. Exactly three distinct soft dough footsteps ring against the metal tray. A short comedic rubbery wobble accompanies its loss of balance. The cook's sudden realization receives a sharp inhalation, immediately followed by a swift airy whoosh as he lunges. The dumpling lands in the broth with one clean, satisfyingly heavy PLOP and a brief liquid splash. The kitchen returns to a gentle simmer. The final seconds are almost completely silent, emphasizing the cook's deadpan expression. One isolated, delicate bubble pop at approximately 14.5 seconds. No spoken dialogue.\\n\\nnon_diegetic_music:\\nRefined, understated animated-film comedy scoring built around a light pizzicato cello motif and subtle acoustic bass. Begin with a playful but elegant rhythmic figure accompanying the cook's precise dumpling preparation. Introduce a delicate, slightly mysterious pizzicato variation when the dumpling first comes alive. Synchronize three short plucked notes exactly with its three footsteps. Build a brief, tightly controlled musical anticipation as it prepares to jump. Stop the music abruptly when the cook notices the escape. A single short orchestral accent accompanies the desperate lunge, ending immediately on the dumpling's heavy plop. Maintain near-total musical silence during the cooked dumpling's return. Finish with one extremely dry, understated low cello note as the cook's eyebrow rises. No excessive cartoon sound effects, no circus music, no frantic orchestration, no continuous musical underscoring during the final deadpan.\\n\", \"images\": [], \"audios\": []}], \"videos\": [], \"audios\": []}"
+      },
+      "seed": 42,
+      "seconds": 3207.6,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "comfyui-20261116-b4b1895e"
     }
   },
-  "updated_from": "20261026-041209-l40s"
+  "updated_from": "20261116-comfyui-b4b1895e-fb8e051e-70f82f6a-f47456a8-h3-studio-director-flash"
 }

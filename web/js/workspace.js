@@ -12,6 +12,8 @@ import { flags, flagButton } from "./flags.js";
 import { feed, feedView, hooks } from "./feed.js";
 import { openPainter, maskPreview } from "./paint.js";
 
+const ratingTag = (app) => (app.rating ? el("span", { class: "tag red", title: app.rating_note || "" }, app.rating) : null);
+
 // ------------------------------------------------------------------ form state (per app, kept while the page is open)
 const forms = new Map();
 
@@ -484,7 +486,7 @@ function composerBar(app, rerenderBar) {
   if (modes) chips.push(modes);
   const model = el("button", { class: "chip model", type: "button", "aria-haspopup": "dialog",
     onclick: (ev) => popover(ev.currentTarget, switcher(app), { width: 360 }) },
-    el("span", { class: "thumb" }, appThumb(app)), el("span", { class: "v" }, app.name), icon("chevD"));
+    el("span", { class: "thumb" }, appThumb(app)), el("span", { class: "v" }, app.name), ratingTag(app), icon("chevD"));
   chips.push(model);
 
   for (const inp of app.inputs) {
@@ -740,7 +742,7 @@ function sidebarPanel(app, rerenderSide) {
   const card = el("div", { class: "model-card", role: "button", tabindex: "0", "aria-label": `${t("ws.change")}: ${app.name}` });
   const ex = exampleItem(app);
   const cardMedia = thumb(ex, { play: "visible" });
-  card.append(cardMedia, el("div", { class: "txt" }, el("h3", { class: "display" }, app.name), el("p", {}, tagline(app))));
+  card.append(cardMedia, el("div", { class: "txt" }, el("h3", { class: "display" }, app.name, ratingTag(app)), el("p", {}, tagline(app))));
   const change = el("button", { class: "change", type: "button" }, icon("swap"), t("ws.change"));
   const openSwitch = (ev) => { ev.stopPropagation(); popover(change, switcher(app), { width: 340 }); };
   change.onclick = openSwitch;
@@ -846,7 +848,7 @@ function libraryTab(app) {
     wrap.append(el("section", { class: "ex-big" },
       el("div", { class: "stage" }, fullMedia(item.type, item.full, { poster: item.poster, autoplay: false })),
       el("div", { class: "side2" },
-        el("div", {}, el("span", { class: "tag ghost" }, t("ws.example")), el("h2", { class: "display", style: { margin: "10px 0 0", fontSize: "26px" } }, app.name)),
+        el("div", {}, el("span", { class: "tag ghost" }, t("ws.example")), el("h2", { class: "display", style: { margin: "10px 0 0", fontSize: "26px" } }, app.name, ratingTag(app))),
         prompt ? el("div", { class: "prompt", style: { padding: "12px", borderRadius: "12px", background: "#1b1b1e", fontSize: "13.5px" } }, prompt) : null,
         item.inputs.length ? el("div", { class: "ins-row" }, ...item.inputs.map((i) => el("figure", {},
           inputTile(i), el("figcaption", {}, i.label)))) : null,
@@ -898,18 +900,20 @@ function cliLine(app) {
 }
 
 function howTab(app) {
-  const total = app.models.filter((m) => !m.optional).reduce((s, m) => s + m.gb, 0);
+  const total = app.models.filter((m) => !m.optional && !m.local).reduce((s, m) => s + m.gb, 0);
+  const localGb = app.models.filter((m) => !m.optional && m.local).reduce((s, m) => s + m.gb, 0);
   return el("div", { class: "how-grid" },
     el("div", { class: "card" }, el("h3", {}, icon("layers"), t("how.pipeline")), el("p", {}, t("how.pipeline.d", { id: app.id })),
       el("div", { class: "statline" }, el("span", {}, `${t("how.pack")}: ${app.pack}`), el("span", {}, app.status === "ready" ? "ready" : t("tag.draft")),
-        app.higgsfield_feature ? el("span", {}, `${t("how.equiv")}: ${app.higgsfield_feature}`) : null),
+        ratingTag(app), app.higgsfield_feature ? el("span", {}, `${t("how.equiv")}: ${app.higgsfield_feature}`) : null),
       app.runnable || app.status === "draft" ? el("p", { class: "row" }, el("a", { class: "btn small", href: `/api/apps/${app.id}/workflow`, download: `riverfield-${app.id}.json` },
         icon("download"), t("how.workflow")), el("span", { class: "dim", style: { fontSize: "12.5px" } }, t("how.workflow.d"))) : null,
       el("p", {}, t("how.download")), el("pre", { class: "code" }, `modal run infra/modal_app.py::download --pack ${app.pack}`),
       el("p", {}, t("how.cli")), el("pre", { class: "code" }, cliLine(app))),
-    app.models.length ? el("div", { class: "card" }, el("h3", {}, icon("box"), t("how.models"), el("span", { class: "dim", style: { marginLeft: "auto", fontWeight: 500 } }, t("how.total", { gb: total.toFixed(1) }))),
+    app.models.length ? el("div", { class: "card" }, el("h3", {}, icon("box"), t("how.models"), el("span", { class: "dim", style: { marginLeft: "auto", fontWeight: 500 } },
+      t("how.total", { gb: total.toFixed(1) }), localGb ? ` · ${t("how.local_gb", { gb: localGb.toFixed(1) })}` : "")),
       el("table", { class: "models" }, el("tbody", {}, ...app.models.map((m) => el("tr", {},
-        el("td", {}, el("div", {}, m.name), el("small", { class: "dim" }, [m.repo, m.license, m.gated ? t("how.gated") : "", m.optional ? t("how.optional") : ""].filter(Boolean).join(" · "))),
+        el("td", {}, el("div", {}, m.name), el("small", { class: "dim" }, [m.local ? t("how.local") : m.repo, m.license, m.gated ? t("how.gated") : "", m.optional ? t("how.optional") : ""].filter(Boolean).join(" · "))),
         el("td", { class: "r" }, `${m.gb} GB`)))))) : null,
     vramBars(app),
     app.notes || app.credits?.length ? el("div", { class: "card" },

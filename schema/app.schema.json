@@ -42,6 +42,16 @@
       "type": "string",
       "maxLength": 160
     },
+    "rating": {
+      "type": "string",
+      "maxLength": 12,
+      "description": "Optional content badge shown on the app card and workspace, e.g. 18+ for an uncensored model."
+    },
+    "rating_note": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Tooltip for the rating badge."
+    },
     "higgsfield_feature": {
       "type": "string",
       "description": "The Higgsfield feature this app rebuilds, as named in their menu."
@@ -517,6 +527,10 @@
         },
         "optional": {
           "type": "boolean"
+        },
+        "local": {
+          "type": "boolean",
+          "description": "Present in the local ComfyUI models folder but not downloadable from the Hub (a Civitai checkpoint, say). Local models count toward VRAM but are left out of the model pack."
         }
       }
     },

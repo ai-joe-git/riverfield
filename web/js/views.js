@@ -9,13 +9,14 @@ import { flags, flagButton } from "./flags.js";
 
 const go = (hash) => () => { location.hash = hash; };
 const appTag = (a) => (a.status === "draft" ? el("span", { class: "tag dark" }, t("tag.draft")) : null);
+const ratingTag = (a) => (a.rating ? el("span", { class: "tag red", title: a.rating_note || "" }, a.rating) : null);
 
 function exampleTile(a, list) {
   const item = exampleItem(a);
   const node = el("div", { class: "m-item", role: "button", tabindex: "0", "aria-label": a.name },
     thumb(item, { play: "visible" }),
     flagButton(flags.key(a.id), { mini: true }),
-    el("div", { class: "cap" }, el("span", {}, a.name), el("span", { class: "tag dark" }, t(`nav.${studioOf(a) === "apps" ? "apps" : studioOf(a)}`))));
+    el("div", { class: "cap" }, el("span", {}, a.name), ratingTag(a), el("span", { class: "tag dark" }, t(`nav.${studioOf(a) === "apps" ? "apps" : studioOf(a)}`))));
   const open = () => hooks.open?.(list.map(exampleItem), item.key);
   node.addEventListener("click", open);
   node.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
@@ -33,7 +34,7 @@ export function exploreView() {
     const card = el("div", { class: "hero-card", role: "link", tabindex: "0", onclick: go(`#/app/${a.id}`), onkeydown: (e) => { if (e.key === "Enter") location.hash = `#/app/${a.id}`; } },
       thumb(item, { play: "visible", useFull: item.type === "video" }),
       el("div", { class: "txt" },
-        el("div", { style: { display: "flex", gap: "6px" } }, el("span", { class: "tag" }, a.name), appTag(a)),
+        el("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap" } }, el("span", { class: "tag" }, a.name), ratingTag(a), appTag(a)),
         el("h3", { class: "display" }, tagline(a)),
         el("p", {}, a.summary)));
     return card;
@@ -118,6 +119,7 @@ function appCard(a) {
   const media = item ? thumb(item, { play: "hover" }) : el("div", { class: "media" }, el("span", { class: "placeholder" }, icon(iconOf(a))));
   const fit = fitOf(a);
   media.append(el("div", { class: "badges" },
+    ratingTag(a),
     a.status === "draft" ? el("span", { class: "tag dark" }, t("tag.draft")) : null,
     fit && fit[1] === "big" ? el("span", { class: "tag violet" }, "48 GB") : null));
   const card = el("a", { class: "app-card", href: `#/app/${a.id}` }, media,

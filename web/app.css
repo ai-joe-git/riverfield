@@ -58,8 +58,11 @@ svg.i { width: 1em; height: 1em; flex: none; }
   letter-spacing: .02em; background: var(--accent); color: var(--accent-ink); white-space: nowrap; }
 .tag.violet { background: var(--violet); color: #120e22; }
 .tag.pink { background: var(--pink); color: #0b1524; }
+.tag.red { background: rgba(176, 42, 51, .94); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
 .tag.ghost { background: transparent; color: var(--dim); box-shadow: inset 0 0 0 1px var(--line-2); }
 .tag.dark { background: rgba(0, 0, 0, .55); color: var(--ink); backdrop-filter: blur(6px); }
+.model-card .txt h3 .tag { margin-left: 8px; vertical-align: middle; }
+.chip .tag.red { height: 16px; padding: 0 5px; font-size: 9.5px; }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
 .icon-btn.menu-btn { display: none; }
 .icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 0; background: transparent; color: #c9c9cf; cursor: pointer; font-size: 17px; }

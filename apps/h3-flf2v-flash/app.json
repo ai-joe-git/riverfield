@@ -1,0 +1,565 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-flf2v-flash",
+  "name": "H3 First and Last Frame Flash",
+  "section": "video",
+  "pack": "video-h3-flash",
+  "status": "ready",
+  "summary": "A 6-step MiniMax H3 clip with sound that starts on one picture and ends on another, on HyperFlow H3 Flash INT8.",
+  "higgsfield_feature": "Create Video",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "hyperflow_int8_flf2v.json",
+    "comfyui": "0.45.0",
+    "notes": "Built from the exact ComfyUI API graph of the successful HyperFlow H3 Flash INT8 flf2v run at multiple=32 (seed 42, 6 steps, 1.0 MP, 16:9). The earlier 1.0 MP run failed because multiple=8 gave an odd 85-wide latent; at multiple=32 the target and the resized first/last frames are 1376x768."
+  },
+  "inputs": [
+    {
+      "id": "first_frame",
+      "type": "image",
+      "label": "First frame",
+      "help": "The clip starts on this picture. It is resized to the requested width and height.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "20",
+          "field": "image"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "last_frame",
+      "type": "image",
+      "label": "Last frame",
+      "help": "The clip ends on this picture. It is resized to the requested width and height.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "21",
+          "field": "image"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "\nHow the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 4) aligns with the 15.00-second mark of the target video.\n\nintegrated_multimodal_description:\n\n[Shot 1] Cinematic live-action space opera, monumental theatrical production quality. 0–3 seconds. Begin EXACTLY with Picture 1: the pristine, symmetrical starship command bridge, officers calmly operating their consoles, the captain standing at the center facing the immense panoramic viewport and its undisturbed starfield. Preserve the original architecture, crew positions, lighting and composition. The camera slowly pushes forward toward the captain. For the first half-second, everything is perfectly still. Then a sudden gravitational shock violently strikes the vessel. The blue instruments flicker, emergency red lights ignite, crew members are thrown sideways, consoles erupt with electrical sparks, and the massive viewport briefly floods with blinding white light. The camera jolts violently only at the moment of impact, then stabilizes. A rapid black-frame interruption ends the shot.\n\n[Shot 2] At 00:03.000, HARD CUT to an extraordinary exterior deep-space wide shot. The same colossal spacecraft appears as a tiny silhouette drifting through an immense, nearly black stellar void. Far ahead, an enormous circular interstellar gateway begins to awaken. First a thin arc of cold blue-white energy illuminates the darkness, then concentric gravitational rings ignite outward, revealing a vast structure thousands of times larger than the ship. The camera steadily pushes forward behind the spacecraft, emphasizing the terrifying difference in scale. Electric filaments crawl around the circumference, gravitational distortions bend the surrounding stars, and the gateway's central darkness gradually opens into an impossible luminous abyss. The scale is overwhelming, majestic and frightening. No unnecessary cuts, no orbiting camera, no explosions. At the end, a sharp white flash interrupts the image.\n\n[Shot 3] At 00:07.000, HARD CUT to a dynamic rear tracking shot of the spacecraft accelerating directly toward the gateway. The camera follows the ship along a single forward trajectory. The engines intensify from faint blue to brilliant white-blue. The gigantic circular gateway expands rapidly across the frame as the vessel approaches. Stars begin stretching into sharp luminous streaks. The surrounding geometry bends violently as the ship crosses the event horizon. The acceleration becomes almost instantaneous: a terrifying burst of impossible speed, immense gravitational distortion, and an overwhelming white-hot warp flash. At approximately 00:10.800, the ship disappears into the light with ONE colossal metallic impact synchronized precisely with the warp transition. Immediately afterward, the image snaps to absolute black and the sound drops into a brief vacuum-like silence. No additional impact sounds.\n\n[Shot 4] At 00:11.000, HARD CUT to absolute black. The camera remains perfectly static. From complete darkness, faint fragments of metallic silver lettering slowly become visible at the center of the screen. A narrow horizontal sweep of cold starlight crosses the emerging letters, revealing the exact title \"BEYOND THE EVENT HORIZON\". The letter spacing opens slightly as the typography settles into a single perfectly centered horizontal line. Each letter has a restrained brushed-metal texture, subtle internal illumination, precise silver-blue highlights and a delicate edge glow. A faint residual afterimage follows the starlight sweep, then disappears. By 00:13.500, the entire title is completely formed and motionless, matching Picture 2 EXACTLY: identical wording, letter shapes, spacing, metallic coloration, scale, placement and pure black background. Hold this precise composition without movement until 15.00 seconds, ensuring extended full readability. No new text, no subtitles, no additional title cards, no logo, no fade-out.\n\noverall_soundscape: The opening bridge carries a low ventilation hum, faint electronic instrumentation and distant engine resonance, abruptly interrupted by deep structural groaning, vibrating metal, electronic alarms and electrical crackling. Outside the vessel, an enormous low-frequency gravitational rumble builds as the gateway activates, accompanied by layered electromagnetic pulses and increasingly intense engine harmonics. The warp jump produces a single devastating metallic impact followed immediately by a short vacuum drop into near-total silence. The final title reveal carries only a delicate, distant crystalline shimmer as the starlight crosses the lettering.\n\nnon_diegetic_music: Premium theatrical space-opera score. Begin with a restrained low brass drone and deep sustained strings. Introduce rapidly accelerating orchestral ostinatos and powerful sub-bass pulses during the gateway reveal, building into massive low brass, tightly synchronized percussion and high string tension during the warp approach. Cut the entire score abruptly at the warp impact, leaving a moment of absolute silence. A single deep cinematic tonal swell accompanies the final title reveal, resolving into a low sustained resonance that fades naturally while the completed title remains on screen.\n",
+      "help": "Describe the motion, the sound and any spoken words. The model resizes both pictures to the requested width and height.",
+      "bind": [
+        {
+          "node": "5",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+          "label": "HyperFlow H3 Flash fl2va INT8 (15.9 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "26",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 1.0,
+      "help": "Total pixels of the clip. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
+      "bind": [
+        {
+          "node": "26",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8 (1360x768 at 1.0 MP; can break image conditioning)"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (H3 default; even latent)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "help": "Sides are rounded to this. Keep 32 for H3: the latent patch is 2, so a width that is only a multiple of 8 can make the first/last-frame latent odd and the run fails.",
+      "bind": [
+        {
+          "node": "26",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 15,
+      "help": "Up to 15. The frame count is 24 fps rounded up to the model's 17k+5 grid (15 s = 362 frames).",
+      "bind": [
+        {
+          "node": "27",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 6,
+      "options": [
+        {
+          "value": 4,
+          "label": "4 (fastest)"
+        },
+        {
+          "value": 6,
+          "label": "6 (default)"
+        },
+        {
+          "value": 8,
+          "label": "8 (most detailed)"
+        }
+      ],
+      "help": "HyperFlow's sigma schedule: 4, 6 or 8 steps at CFG 1.0.",
+      "bind": [
+        {
+          "node": "6",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        }
+      ],
+      "bind": [
+        {
+          "node": "7",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "8",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B INT8 (27.1 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 (15.7 GB, Blackwell)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "3",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm SLA node. Off, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler.",
+      "bind": [
+        {
+          "node": "23",
+          "field": "enabled"
+        },
+        {
+          "node": "24",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "23",
+          "field": "model"
+        },
+        {
+          "node": "24",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "0.85 ignores 85% of blocks (the published run); lower is slower and more exact.",
+      "bind": [
+        {
+          "node": "23",
+          "field": "sparsity_ratio"
+        },
+        {
+          "node": "24",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "fps",
+      "type": "number",
+      "label": "FPS",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "default": 24,
+      "help": "The model is trained at 24 fps.",
+      "bind": [
+        {
+          "node": "13",
+          "field": "fps"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/h3-flf2v-flash",
+      "bind": [
+        {
+          "node": "14",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "14",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI",
+      "file": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 15.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "HyperFlow H3 Flash: Video Rebirth (MiniMax H3 Community License)",
+    "INT8 checkpoints and loader: BennyDaBall (BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI)",
+    "MiniMax H3: MiniMax (MiniMax H3 Community License)",
+    "Sparse attention: H3 SLA ROCm node (local)"
+  ],
+  "test": {
+    "prompt": "The camera slowly pushes in as the character smiles.",
+    "duration": 2,
+    "resolution": 0.4,
+    "steps": 6,
+    "first_frame": "test/first_frame.jpg",
+    "last_frame": "test/last_frame.jpg"
+  },
+  "notes": "Both pictures are required. The prompt can refer to the pictures by their content; the model resizes both to the requested width and height.",
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "commit": "71d37c6948acc25631d347ca54eb7e8a0b60ed76"
+    }
+  ]
+}

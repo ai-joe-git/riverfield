@@ -1,0 +1,26 @@
+{
+  "app": "h3-studio-director-flash",
+  "files": {},
+  "values": {
+    "flex_mode": "fl2va",
+    "aspect": "16:9 (Widescreen)",
+    "megapixels": 1.0,
+    "multiple": 32,
+    "duration": 7.3,
+    "start_seconds": 0,
+    "segment_count": 1,
+    "segment_prompts": "",
+    "global_prompt": "",
+    "advanced_timeline_json": "",
+    "audio_mode": "reference",
+    "video_audio": true,
+    "sla": true,
+    "detail": 0.85,
+    "seed": 42,
+    "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+    "filename_prefix": "riverfield/h3-studio-director-flash",
+    "format": "mp4",
+    "codec": "h264",
+    "segment_windows": "{\"windows\": [{\"start\": 0, \"end\": 175, \"prompt\": \"integrated_multimodal_description:\\n\\n[Shot 1] 0–7.3 seconds. A calm, cinematic wide shot of a rain-soaked city street at night, neon reflections on the wet asphalt, a lone figure with an umbrella walks slowly toward the camera. The camera holds steady, subtle rain motion, realistic lighting, shallow depth of field.\\n\\noverall_soundscape:\\nSteady rain, distant traffic, soft footsteps in shallow water.\\n\\nnon_diegetic_music:\\nA low, restrained ambient synth pad with a slow pulse.\", \"images\": [], \"audios\": []}], \"videos\": [], \"audios\": []}"
+  }
+}

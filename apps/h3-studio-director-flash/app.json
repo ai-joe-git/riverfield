@@ -1,0 +1,764 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-studio-director-flash",
+  "name": "Flash H3 Studio Director",
+  "section": "video",
+  "pack": "video-h3-flash",
+  "status": "ready",
+  "summary": "A 6-step HyperFlow H3 Flash director: Material Planner segments, ordered references, synchronized sound, euler + Flash sigmas. ref2va or fl2va model.",
+  "higgsfield_feature": "AI Director",
+  "source": {
+    "template": "RiverField_Director_studio.json (HyperFlow Flash variant)",
+    "comfyui": "0.45.0",
+    "notes": "Built from the Pika Studio Director graph (RiverFieldH3Planner + MiniMaxH3TimelinePlanner + MiniMaxH3FiniteSegmentVideoSampler) with the HyperFlow H3 Flash INT8 stack: HyperFlowINT8Loader (ref2va/fl2va, legacy patcher), HyperFlowSigmas at 6 steps, KSamplerSelect euler, Qwen3VL int8 encoder, Lynnreal light int8 VAE, audio VAE, SLA 0.85, multiple 32. The Pika LoRA, lcm sampler and ManualSigmas are removed; the Flash model carries its own HyperFlow schedule. The Flash single-clip apps (h3-video-flash, h3-r2v-flash, h3-i2v-flash, h3-flf2v-flash) are the measured baseline; this director combination has not been rendered yet. Start with one 7.3 s segment."
+  },
+  "inputs": [
+    {
+      "id": "segment_windows",
+      "type": "text",
+      "label": "Timeline (panel)",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_windows"
+        }
+      ]
+    },
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image1"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image2"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image3"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image4"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image5"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image6"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image7"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image8"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "required": false,
+      "help": "Reference pictures for the planner's material bin (up to nine). Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "image9"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video1"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video2"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "required": false,
+      "help": "Reference videos for the material bin (up to three).",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video3"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio1"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio2"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "required": false,
+      "help": "Reference audio for the material bin (up to three).",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio3"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "audio_mode",
+      "type": "select",
+      "label": "Audio mode",
+      "default": "reference",
+      "options": [
+        {
+          "value": "reference",
+          "label": "Reference — H3 may regenerate it"
+        },
+        {
+          "value": "locked",
+          "label": "Keep original — injected unchanged"
+        }
+      ],
+      "help": "Applies to every reference audio in the bin.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "audio_mode"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "video_audio",
+      "type": "toggle",
+      "label": "Use the videos' own sound",
+      "default": true,
+      "help": "When on, each reference video's soundtrack is carried into its paired audio slot.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "video_audio"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "global_prompt",
+      "type": "textarea",
+      "label": "Global prompt",
+      "required": false,
+      "default": "",
+      "help": "Used by every segment when ALL segment prompts are empty. Finite sampling requires a local prompt for every segment once any local prompt is supplied.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "global_prompt"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Segment duration (s)",
+      "min": 0.5,
+      "max": 60,
+      "step": 0.1,
+      "default": 7.3,
+      "help": "Generation duration of one segment, rounded to an H3-legal 5+17n frame count. Total ≈ segments × duration − seams.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "generation_seconds"
+        },
+        {
+          "node": "11",
+          "field": "generation_seconds"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "segment_count",
+      "type": "slider",
+      "label": "Segments",
+      "min": 1,
+      "max": 64,
+      "step": 1,
+      "default": 1,
+      "help": "Material segments: each gets its own window and its own line in the segment prompts.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_count"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "segment_prompts",
+      "type": "textarea",
+      "label": "Segment prompts",
+      "required": false,
+      "default": "",
+      "help": "Legacy line-split field. For Pika's multi-line six-section prompts use global_prompt for the whole prompt or segment_windows for per-segment prompts; do not put them here.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "segment_prompts"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "start_seconds",
+      "type": "slider",
+      "label": "Timeline start (s)",
+      "min": 0,
+      "max": 3600,
+      "step": 0.5,
+      "default": 0,
+      "help": "Where the generation window starts on the material timeline.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "start_seconds"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "advanced_timeline_json",
+      "type": "textarea",
+      "label": "Advanced: raw timeline JSON",
+      "required": false,
+      "default": "",
+      "help": "Non-empty: replaces every planner field above and is passed to the Material Planner unchanged.",
+      "bind": [
+        {
+          "node": "rfplan",
+          "field": "advanced_timeline_json"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "flex_mode",
+      "type": "select",
+      "label": "Pika Flex adapter",
+      "default": "ref2va",
+      "options": [
+        {
+          "value": "ref2va",
+          "label": "ref2va — references → video (needs a picture or a clip)",
+          "sets": [
+            {
+              "node": "1",
+              "field": "unet_name",
+              "value": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors"
+            }
+          ]
+        },
+        {
+          "value": "fl2va",
+          "label": "fl2va — text → video (plain text2v, empty bin)",
+          "sets": [
+            {
+              "node": "1",
+              "field": "unet_name",
+              "value": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors"
+            }
+          ]
+        }
+      ],
+      "help": "The Flash H3 model moves with the mode: ref2va for reference material, fl2va for plain text-to-video (empty bin). Both use the same 6-step HyperFlow sigmas, euler and SLA 0.85."
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1 (Square)"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3 (Portrait Photo)"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2 (Photo)"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4 (Portrait Standard)"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3 (Standard)"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16 (Portrait Widescreen)"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9 (Widescreen)"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9 (Ultrawide)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "41",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 1.0,
+      "help": "Native pixel budget. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
+      "bind": [
+        {
+          "node": "41",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "slider",
+      "label": "Dimension multiple",
+      "min": 8,
+      "max": 128,
+      "step": 4,
+      "default": 32,
+      "bind": [
+        {
+          "node": "41",
+          "field": "multiple"
+        }
+      ],
+      "help": "Keep 32 for H3: the latent patch is 2, so a width that is only a multiple of 8 can make the first/last-frame latent odd and the run fails."
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm SLA node. Turn it off on CUDA/XPU, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler. It is also bypassed automatically when the backend lacks the class.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "42",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "30",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors"
+        }
+      ],
+      "help": "int8 runs natively on gfx1151; nvfp4 is emulated here (dequant per layer) and encodes slower.",
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.8,
+      "max": 0.95,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "Sparsity (higher = faster). 0.85 is the Flash default; 0.9 is faster.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "File name prefix",
+      "default": "riverfield/h3-studio-director-flash",
+      "bind": [
+        {
+          "node": "29",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "mp4"
+        },
+        {
+          "value": "mkv",
+          "label": "mkv"
+        },
+        {
+          "value": "webm",
+          "label": "webm"
+        },
+        {
+          "value": "mov",
+          "label": "mov"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "29",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "h264"
+        },
+        {
+          "value": "av1",
+          "label": "av1"
+        },
+        {
+          "value": "prores",
+          "label": "prores"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "help": "h264/av1 need mp4 or mkv; prores needs mov or mkv. Encoding mode stays automatic.",
+      "bind": [
+        {
+          "node": "29",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "29",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI",
+      "file": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 16.3,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI",
+      "file": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 15.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 0.64,
+      "phase": "aux",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    }
+  ],
+  "workflow": "workflow.api.json",
+  "layout": "director",
+  "panel_title": "Flash H3 Director",
+  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave the bin empty for plain text-to-video). The first/last-frame endpoint inputs are not exposed here; use h3-flf2v-flash for endpoint conditioning. 6 steps, euler, SLA 0.85 and multiple 32 are studio-managed. The first render is untested; start with one 7.3 s segment. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render.",
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "commit": "71d37c6948acc25631d347ca54eb7e8a0b60ed76"
+    }
+  ]
+}

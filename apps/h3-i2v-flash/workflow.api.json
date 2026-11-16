@@ -1,0 +1,350 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "patcher": "legacy"
+    },
+    "class_type": "HyperFlowINT8Loader",
+    "_meta": {
+      "title": "HyperFlow INT8 Loader",
+      "cnr_id": "comfyui-hyperflow-int8-nodes",
+      "aux_id": "BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "ver": "0.1.4"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Text encoder (type minimax)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Video VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Audio VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "5": {
+    "inputs": {
+      "prompt": "\nintegrated_multimodal_description:\n\n[Shot 1] 0–15 seconds. Premium live-action American television sitcom, warm contemporary apartment comedy, natural expressive performances, sharp conversational timing, playful romantic tension and subtle studio-audience laughter. Realistic human facial animation, precise dialogue lip synchronization, believable eye contact and relaxed physical comedy.\n\nBEGIN EXACTLY WITH THE PROVIDED IMAGE.\n\nA stylish modern open-plan apartment kitchen under warm evening lighting. A beautiful brunette woman with shoulder-length wavy hair wears a black satin blouse tucked into fitted blue jeans. She stands on the left, holding a smartphone and a stemmed glass of white wine, giving the man beside her an amused, slightly suspicious sideways glance.\n\nOn the right stands her handsome dark-haired boyfriend with short facial stubble, wearing a charcoal-grey long-sleeved Henley shirt, dark jeans and a wristwatch. His left hand rests casually inside his trouser pocket while his right hand holds a black smartphone. He is smiling mischievously at the screen.\n\nBehind them, a white marble kitchen island holds a wine bottle, two additional wine glasses and a small set of keys. Stainless-steel appliances, dark cabinets, pendant lights and a cozy living room complete the background.\n\nPreserve both actors' exact facial identities, clothing, hairstyles, positions, body proportions, handheld objects and apartment layout from the reference image.\n\n0.0–2.0s — THE SETUP:\nThe scene begins with the exact composition of the reference image. The man reads something amusing on his smartphone and lets out a small, satisfied chuckle. The woman notices his expression and raises one eyebrow while holding her wine glass. He looks up from the phone toward her, clearly excited about his discovery.\n\n2.0–5.0s — THE APP:\nThe man (S1), speaking with an enthusiastic, slightly smug American male voice, says:\n\n<d>[English] I downloaded an app that predicts our arguments.</d>\n\nHe proudly raises his smartphone slightly, as if presenting an extraordinary technological achievement. His eyebrows lift with childish excitement. The woman looks at him with growing disbelief.\n\n5.0–7.3s — THE RESPONSE:\nThe woman (S2), speaking in a dry, sarcastic American female voice with effortless comedic delivery, replies:\n\n<d>[English] What a waste of money.</d>\n\nShe takes a small, casual sip of white wine, completely unimpressed. The man immediately looks down at his phone.\n\n7.3–9.2s — THE FIRST PUNCHLINE:\nA tiny cheerful notification chime comes from the man's smartphone.\n\nHe looks surprised for a fraction of a second, then slowly breaks into a delighted grin.\n\nThe man (S1) says:\n\n<d>[English] It predicted that.</d>\n\nA brief burst of natural studio-audience laughter follows.\n\n9.2–11.0s — THE WARNING:\nThe woman's smile disappears. She gives him a long, perfectly deadpan stare.\n\nThe woman (S2) says, firmly:\n\n<d>[English] Delete it.</d>\n\nShe lowers her wine glass slightly without looking away from him.\n\n11.0–12.4s — THE SECOND PUNCHLINE:\nThe smartphone immediately makes the exact same cheerful notification sound.\n\nThe man glances down at his screen, then looks directly at her with an increasingly ridiculous, delighted smile.\n\nThe man (S1) says quietly:\n\n<d>[English] That too.</d>\n\n12.4–15.0s — THE SITCOM BUTTON:\nThe woman freezes, staring at him in complete disbelief. She slowly closes her eyes, takes one controlled breath, then drinks from her wine glass with an expression of profound regret about her life choices.\n\nThe man realizes he may have pushed his luck too far. His smug grin slowly collapses into an awkward, nervous smile. Without moving his left hand from his pocket, he carefully lowers the smartphone and looks away, pretending nothing happened.\n\nA perfectly timed warm studio-audience laugh swells at his expression.\n\nHold the two characters in the same composition until the final frame. End on the awkward silence and the woman's magnificent deadpan expression.\n\nCAMERA AND PERFORMANCE CONTROL:\nSingle continuous medium-wide sitcom shot, preserving the reference image framing. A very subtle, almost imperceptible camera push-in over the entire scene. No hard cuts, no dramatic camera movement, no close-ups of smartphone screens.\n\nNatural American sitcom performance with witty conversational pacing, expressive eyebrows, small reaction beats, genuine eye contact and controlled physical comedy.\n\nBoth actors must speak only their assigned lines. Accurate lip synchronization, no overlapping dialogue, no invented dialogue, no narration.\n\nPreserve the smartphone in the man's right hand, his left hand in his pocket, and the wine glass in the woman's hand. No object teleportation or wardrobe changes.\n\noverall_soundscape:\nNatural warm apartment room tone, subtle refrigerator hum, faint clothing movement, gentle wine-glass handling. The man's brief opening chuckle is audible. Two identical bright, short smartphone notification chimes occur at approximately 7.3 and 11 seconds. Carefully timed studio-audience laughter follows the first punchline and builds more strongly after the final punchline. All spoken dialogue remains perfectly clear and prominent. No exaggerated cartoon effects.\n\nnon_diegetic_music:\nAuthentic contemporary American television sitcom sound design. No continuous background music during the conversation. Let the dialogue, smartphone notification chimes, natural comedic pauses and restrained audience laughter carry the scene. A very short, tasteful upbeat sitcom musical sting may punctuate the final reaction during the last half-second.\n",
+      "width": [
+        "25",
+        0
+      ],
+      "height": [
+        "25",
+        1
+      ],
+      "length": [
+        "24",
+        1
+      ],
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "first_frame": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ImageToVideo",
+    "_meta": {
+      "title": "Prompt, size, length",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "6": {
+    "inputs": {
+      "steps": 6,
+      "model": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "HyperFlowSigmas",
+    "_meta": {
+      "title": "HyperFlow Sigmas (4 / 6 / 8 steps)",
+      "cnr_id": "comfyui-hyperflow-flash",
+      "aux_id": "Video-Rebirth/ComfyUI-HyperFlow-Flash",
+      "ver": "1.1.1"
+    }
+  },
+  "7": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Sampler (euler)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "8": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Seed",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "9": {
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Guider (CFG 1, no negative prompt)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "10": {
+    "inputs": {
+      "noise": [
+        "8",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode video",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Decode audio",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "13": {
+    "inputs": {
+      "fps": 24.0,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none",
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Video + audio, 24 fps",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "14": {
+    "inputs": {
+      "filename_prefix": "riverfield/h3-i2v-flash",
+      "format": "mp4",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save MP4 (output/hyperflow/)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "20": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "First frame",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "22": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "23": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "24": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "25": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 1.0,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "26": {
+    "inputs": {
+      "value": 15.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  }
+}

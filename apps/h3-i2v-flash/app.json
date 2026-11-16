@@ -1,0 +1,548 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-i2v-flash",
+  "name": "H3 Image to Video Flash",
+  "section": "video",
+  "pack": "video-h3-flash",
+  "status": "ready",
+  "summary": "A 6-step MiniMax H3 clip with synchronized sound from one picture, on the HyperFlow H3 Flash INT8 checkpoint.",
+  "higgsfield_feature": "Create Video",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "hyperflow_int8_i2v.json",
+    "comfyui": "0.45.0",
+    "notes": "Built from the exact ComfyUI API graph of the successful HyperFlow H3 Flash INT8 i2v run at multiple=32 (seed 42, 6 steps, 1.0 MP, 16:9). The earlier 1.0 MP run failed because multiple=8 gave an odd 85-wide latent; at multiple=32 the target and the resized first frame are 1376x768."
+  },
+  "inputs": [
+    {
+      "id": "first_frame",
+      "type": "image",
+      "label": "First frame",
+      "help": "The clip starts on this picture. It is resized to the requested width and height.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "20",
+          "field": "image"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "\nintegrated_multimodal_description:\n\n[Shot 1] 0–15 seconds. Premium live-action American television sitcom, warm contemporary apartment comedy, natural expressive performances, sharp conversational timing, playful romantic tension and subtle studio-audience laughter. Realistic human facial animation, precise dialogue lip synchronization, believable eye contact and relaxed physical comedy.\n\nBEGIN EXACTLY WITH THE PROVIDED IMAGE.\n\nA stylish modern open-plan apartment kitchen under warm evening lighting. A beautiful brunette woman with shoulder-length wavy hair wears a black satin blouse tucked into fitted blue jeans. She stands on the left, holding a smartphone and a stemmed glass of white wine, giving the man beside her an amused, slightly suspicious sideways glance.\n\nOn the right stands her handsome dark-haired boyfriend with short facial stubble, wearing a charcoal-grey long-sleeved Henley shirt, dark jeans and a wristwatch. His left hand rests casually inside his trouser pocket while his right hand holds a black smartphone. He is smiling mischievously at the screen.\n\nBehind them, a white marble kitchen island holds a wine bottle, two additional wine glasses and a small set of keys. Stainless-steel appliances, dark cabinets, pendant lights and a cozy living room complete the background.\n\nPreserve both actors' exact facial identities, clothing, hairstyles, positions, body proportions, handheld objects and apartment layout from the reference image.\n\n0.0–2.0s — THE SETUP:\nThe scene begins with the exact composition of the reference image. The man reads something amusing on his smartphone and lets out a small, satisfied chuckle. The woman notices his expression and raises one eyebrow while holding her wine glass. He looks up from the phone toward her, clearly excited about his discovery.\n\n2.0–5.0s — THE APP:\nThe man (S1), speaking with an enthusiastic, slightly smug American male voice, says:\n\n<d>[English] I downloaded an app that predicts our arguments.</d>\n\nHe proudly raises his smartphone slightly, as if presenting an extraordinary technological achievement. His eyebrows lift with childish excitement. The woman looks at him with growing disbelief.\n\n5.0–7.3s — THE RESPONSE:\nThe woman (S2), speaking in a dry, sarcastic American female voice with effortless comedic delivery, replies:\n\n<d>[English] What a waste of money.</d>\n\nShe takes a small, casual sip of white wine, completely unimpressed. The man immediately looks down at his phone.\n\n7.3–9.2s — THE FIRST PUNCHLINE:\nA tiny cheerful notification chime comes from the man's smartphone.\n\nHe looks surprised for a fraction of a second, then slowly breaks into a delighted grin.\n\nThe man (S1) says:\n\n<d>[English] It predicted that.</d>\n\nA brief burst of natural studio-audience laughter follows.\n\n9.2–11.0s — THE WARNING:\nThe woman's smile disappears. She gives him a long, perfectly deadpan stare.\n\nThe woman (S2) says, firmly:\n\n<d>[English] Delete it.</d>\n\nShe lowers her wine glass slightly without looking away from him.\n\n11.0–12.4s — THE SECOND PUNCHLINE:\nThe smartphone immediately makes the exact same cheerful notification sound.\n\nThe man glances down at his screen, then looks directly at her with an increasingly ridiculous, delighted smile.\n\nThe man (S1) says quietly:\n\n<d>[English] That too.</d>\n\n12.4–15.0s — THE SITCOM BUTTON:\nThe woman freezes, staring at him in complete disbelief. She slowly closes her eyes, takes one controlled breath, then drinks from her wine glass with an expression of profound regret about her life choices.\n\nThe man realizes he may have pushed his luck too far. His smug grin slowly collapses into an awkward, nervous smile. Without moving his left hand from his pocket, he carefully lowers the smartphone and looks away, pretending nothing happened.\n\nA perfectly timed warm studio-audience laugh swells at his expression.\n\nHold the two characters in the same composition until the final frame. End on the awkward silence and the woman's magnificent deadpan expression.\n\nCAMERA AND PERFORMANCE CONTROL:\nSingle continuous medium-wide sitcom shot, preserving the reference image framing. A very subtle, almost imperceptible camera push-in over the entire scene. No hard cuts, no dramatic camera movement, no close-ups of smartphone screens.\n\nNatural American sitcom performance with witty conversational pacing, expressive eyebrows, small reaction beats, genuine eye contact and controlled physical comedy.\n\nBoth actors must speak only their assigned lines. Accurate lip synchronization, no overlapping dialogue, no invented dialogue, no narration.\n\nPreserve the smartphone in the man's right hand, his left hand in his pocket, and the wine glass in the woman's hand. No object teleportation or wardrobe changes.\n\noverall_soundscape:\nNatural warm apartment room tone, subtle refrigerator hum, faint clothing movement, gentle wine-glass handling. The man's brief opening chuckle is audible. Two identical bright, short smartphone notification chimes occur at approximately 7.3 and 11 seconds. Carefully timed studio-audience laughter follows the first punchline and builds more strongly after the final punchline. All spoken dialogue remains perfectly clear and prominent. No exaggerated cartoon effects.\n\nnon_diegetic_music:\nAuthentic contemporary American television sitcom sound design. No continuous background music during the conversation. Let the dialogue, smartphone notification chimes, natural comedic pauses and restrained audience laughter carry the scene. A very short, tasteful upbeat sitcom musical sting may punctuate the final reaction during the last half-second.\n",
+      "help": "Describe the motion, the sound and any spoken words. The model resizes the picture to the requested width and height.",
+      "bind": [
+        {
+          "node": "5",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+          "label": "HyperFlow H3 Flash fl2va INT8 (15.9 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "25",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 1.0,
+      "help": "Total pixels of the clip. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
+      "bind": [
+        {
+          "node": "25",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8 (1360x768 at 1.0 MP; can break image conditioning)"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (H3 default; even latent)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "help": "Sides are rounded to this. Keep 32 for H3: the latent patch is 2, so a width that is only a multiple of 8 can make the first/last-frame latent odd and the run fails.",
+      "bind": [
+        {
+          "node": "25",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 15,
+      "help": "Up to 15. The frame count is 24 fps rounded up to the model's 17k+5 grid (15 s = 362 frames).",
+      "bind": [
+        {
+          "node": "26",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 6,
+      "options": [
+        {
+          "value": 4,
+          "label": "4 (fastest)"
+        },
+        {
+          "value": 6,
+          "label": "6 (default)"
+        },
+        {
+          "value": 8,
+          "label": "8 (most detailed)"
+        }
+      ],
+      "help": "HyperFlow's sigma schedule: 4, 6 or 8 steps at CFG 1.0.",
+      "bind": [
+        {
+          "node": "6",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        }
+      ],
+      "bind": [
+        {
+          "node": "7",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "8",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B INT8 (27.1 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 (15.7 GB, Blackwell)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "3",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm SLA node. Off, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler.",
+      "bind": [
+        {
+          "node": "22",
+          "field": "enabled"
+        },
+        {
+          "node": "23",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "22",
+          "field": "model"
+        },
+        {
+          "node": "23",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "0.85 ignores 85% of blocks (the published run); lower is slower and more exact.",
+      "bind": [
+        {
+          "node": "22",
+          "field": "sparsity_ratio"
+        },
+        {
+          "node": "23",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "fps",
+      "type": "number",
+      "label": "FPS",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "default": 24,
+      "help": "The model is trained at 24 fps.",
+      "bind": [
+        {
+          "node": "13",
+          "field": "fps"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/h3-i2v-flash",
+      "bind": [
+        {
+          "node": "14",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "14",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI",
+      "file": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 15.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "HyperFlow H3 Flash: Video Rebirth (MiniMax H3 Community License)",
+    "INT8 checkpoints and loader: BennyDaBall (BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI)",
+    "MiniMax H3: MiniMax (MiniMax H3 Community License)",
+    "Sparse attention: H3 SLA ROCm node (local)"
+  ],
+  "test": {
+    "prompt": "The camera slowly pushes in as the character smiles.",
+    "duration": 2,
+    "resolution": 0.4,
+    "steps": 6,
+    "first_frame": "test/first_frame.jpg"
+  },
+  "notes": "The first picture is required. The model resizes it to the requested width and height.",
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "commit": "71d37c6948acc25631d347ca54eb7e8a0b60ed76"
+    }
+  ]
+}

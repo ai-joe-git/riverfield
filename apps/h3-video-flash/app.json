@@ -1,0 +1,531 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-video-flash",
+  "name": "H3 Video Flash",
+  "section": "video",
+  "pack": "video-h3-flash",
+  "status": "ready",
+  "summary": "A 6-step MiniMax H3 clip with synchronized sound from a prompt, on the HyperFlow H3 Flash INT8 checkpoint.",
+  "higgsfield_feature": "Create Video",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "hyperflow_int8_t2v.json",
+    "comfyui": "0.45.0",
+    "notes": "Built from the exact ComfyUI API graph of the successful HyperFlow H3 Flash INT8 t2v run (seed 42, 6 steps, 1.0 MP, 16:9). The published example used multiple=8 (1360x768); the app defaults to multiple=32 (1376x768), the H3 latent patch size, so the latent stays even."
+  },
+  "inputs": [
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "\nintegrated_multimodal_description:\n\n[Shot 1] 0–15 seconds. Premium stylized 3D animated short film, Pixar-inspired character animation with polished Cinema 4D and Octane rendering, warm subsurface scattering through ears and fingertips, beautifully tactile materials, soft cinematic global illumination, and expressive squash-and-stretch acting. The animation has professional feature-film quality, precise comedic timing, clear character silhouettes, believable physical interactions and exaggerated but controlled facial expressions.\n\nA charming three-head-tall cartoon cook with a round expressive face, a tall oversized white chef's toque that leans slightly to one side, and a flour-dusted apron works at a stainless-steel counter in a cozy, warmly illuminated kitchen. A bamboo steamer releases delicate wisps of steam on the right. Behind him, a shallow pot of gently simmering broth rests on a gas burner. A wooden rolling pin sits on a shelf behind the cook. The camera holds a carefully composed medium-wide shot at counter height, showing the cook's upper body, the dumpling tray in the foreground, and the simmering pot behind him. Maintain coherent spatial geography and consistent character designs throughout.\n\n0.0–3.0s — THE PERFECT DUMPLING:\nThe cook carefully folds a small round dumpling, pinching its delicate pleated seam with meticulous concentration. His enormous toque wobbles gently with each movement. He lifts the finished dumpling between two fingers, proudly inspects it, gives it one final affectionate pat, and places it neatly on a flour-dusted metal tray. He smiles with professional satisfaction and brushes flour from his hands. The dumpling remains completely motionless.\n\n3.0–5.0s — SOMETHING IS ALIVE:\nThe cook turns his back to retrieve the wooden rolling pin from the shelf, his oversized toque swinging comically with the rotation. Behind him, the perfectly innocent-looking dumpling gives a tiny, almost imperceptible twitch. Its pleated top slowly contracts, resembling a mischievously furrowed brow. Its soft dough body inflates slightly, then compresses. Two ridiculous little dough legs squeeze out from underneath. The dumpling carefully tests its balance, wobbling left and right. The cook remains completely unaware.\n\n5.0–7.5s — THE GREAT ESCAPE:\nThe dumpling suddenly begins walking across the tray on its tiny dough legs. Three distinct, surprisingly determined little footsteps make soft metallic taps against the tray. Its body squashes with each landing and stretches upward between steps. It reaches the tray's edge, looks toward the steaming broth, and leans forward as if calculating the distance. For a brief comedic beat, it loses its balance and windmills its tiny legs, almost falling backward. It recovers with a proud little bounce and crouches dramatically, preparing to jump.\n\n7.5–10.0s — THE DISASTER:\nThe cook hears the final metallic tap and turns back toward the counter. His eyes widen enormously as he discovers the dumpling standing on two legs at the tray's edge. His jaw drops. For a fraction of a second, cook and dumpling stare at each other in absolute disbelief. The dumpling springs off the tray toward the simmering pot. The cook reacts instantly, lunging forward with both arms outstretched, his belly compressing against the counter and his tall toque whipping violently backward. His fingertips miss the escaping dumpling by inches. The dumpling completes a beautiful little airborne arc and plunges directly into the hot broth with a satisfying, heavy PLOP, sending a small crown of droplets upward. The cook freezes in an absurdly extended reaching pose.\n\n10.0–12.5s — AN UNEXPECTED RETURN:\nThe surface of the broth settles. The cook slowly leans over the pot, blinking in confusion, watching the empty surface. A single small bubble rises. Then another. Suddenly the dumpling floats back to the surface, now visibly cooked, wonderfully glossy, plump and steaming. It bobs gently against the pot's edge, looking completely ordinary again, with no visible legs. The cook stares at it, utterly bewildered. His hands remain suspended above the pot, unsure whether to rescue it or serve it.\n\n12.5–15.0s — THE PERFECT DEADPAN:\nThe cook very slowly straightens his back. His flour-covered face is completely expressionless. His oversized chef's toque gradually slides down until it covers one eye. He does absolutely nothing to correct it. His one visible eyebrow rises slowly and impossibly high while his mouth remains perfectly flat. Hold the awkward silence and his utterly defeated expression. Behind him, the cooked dumpling floats innocently in the broth. At approximately 14.5 seconds, a single tiny bubble rises beside it and pops. The cook does not react. End on this completely still, perfectly timed comedic tableau.\n\nCAMERA AND ANIMATION CONTROL:\nOne continuous shot with no cuts. Locked medium-wide camera at counter height, allowing the character, dumpling tray and broth pot to remain visually understandable throughout. Avoid unnecessary camera movement, zooms or reframing. Prioritize exceptional character acting, accurate object interactions, appealing silhouettes, anticipation, follow-through, secondary motion, believable dough elasticity, and precise physical comedy. Every movement should have deliberate timing and a clear cause. The dumpling must remain visually consistent throughout its transformation, escape and cooking. No additional characters, no dialogue, no captions or text overlays.\n\noverall_soundscape:\nWarm, intimate kitchen ambience: gentle ventilation, a soft gas burner hiss, subtle bubbling broth and the faint wooden creaking of the steaming bamboo basket. Delicate flour brushing and soft dough handling sounds accompany the cook's preparations. A tiny elastic squeak accompanies the dumpling's first movement. Exactly three distinct soft dough footsteps ring against the metal tray. A short comedic rubbery wobble accompanies its loss of balance. The cook's sudden realization receives a sharp inhalation, immediately followed by a swift airy whoosh as he lunges. The dumpling lands in the broth with one clean, satisfyingly heavy PLOP and a brief liquid splash. The kitchen returns to a gentle simmer. The final seconds are almost completely silent, emphasizing the cook's deadpan expression. One isolated, delicate bubble pop at approximately 14.5 seconds. No spoken dialogue.\n\nnon_diegetic_music:\nRefined, understated animated-film comedy scoring built around a light pizzicato cello motif and subtle acoustic bass. Begin with a playful but elegant rhythmic figure accompanying the cook's precise dumpling preparation. Introduce a delicate, slightly mysterious pizzicato variation when the dumpling first comes alive. Synchronize three short plucked notes exactly with its three footsteps. Build a brief, tightly controlled musical anticipation as it prepares to jump. Stop the music abruptly when the cook notices the escape. A single short orchestral accent accompanies the desperate lunge, ending immediately on the dumpling's heavy plop. Maintain near-total musical silence during the cooked dumpling's return. Finish with one extremely dry, understated low cello note as the cook's eyebrow rises. No excessive cartoon sound effects, no circus music, no frantic orchestration, no continuous musical underscoring during the final deadpan.\n",
+      "help": "Describe the shot, the sound and any spoken words (in quotes). The 6-step HyperFlow schedule covers the whole clip.",
+      "bind": [
+        {
+          "node": "5",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+          "label": "HyperFlow H3 Flash fl2va INT8 (15.9 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "20",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 1.0,
+      "help": "Total pixels of the clip. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
+      "bind": [
+        {
+          "node": "20",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8 (1360x768 at 1.0 MP; can break image conditioning)"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (H3 default; even latent)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "help": "Sides are rounded to this. Keep 32 for H3: the latent patch is 2, so a width that is only a multiple of 8 can make the first/last-frame latent odd and the run fails.",
+      "bind": [
+        {
+          "node": "20",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 15,
+      "help": "Up to 15. The frame count is 24 fps rounded up to the model's 17k+5 grid (15 s = 362 frames).",
+      "bind": [
+        {
+          "node": "18",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 6,
+      "options": [
+        {
+          "value": 4,
+          "label": "4 (fastest)"
+        },
+        {
+          "value": 6,
+          "label": "6 (default)"
+        },
+        {
+          "value": 8,
+          "label": "8 (most detailed)"
+        }
+      ],
+      "help": "HyperFlow's sigma schedule: 4, 6 or 8 steps at CFG 1.0.",
+      "bind": [
+        {
+          "node": "6",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        }
+      ],
+      "bind": [
+        {
+          "node": "7",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "8",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B INT8 (27.1 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 (15.7 GB, Blackwell)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "3",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm SLA node. Off, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler.",
+      "bind": [
+        {
+          "node": "16",
+          "field": "enabled"
+        },
+        {
+          "node": "17",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "16",
+          "field": "model"
+        },
+        {
+          "node": "17",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "0.85 ignores 85% of blocks (the published run); lower is slower and more exact.",
+      "bind": [
+        {
+          "node": "16",
+          "field": "sparsity_ratio"
+        },
+        {
+          "node": "17",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "fps",
+      "type": "number",
+      "label": "FPS",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "default": 24,
+      "help": "The model is trained at 24 fps.",
+      "bind": [
+        {
+          "node": "13",
+          "field": "fps"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/h3-video-flash",
+      "bind": [
+        {
+          "node": "14",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "14",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI",
+      "file": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 15.9,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "HyperFlow H3 Flash: Video Rebirth (MiniMax H3 Community License)",
+    "INT8 checkpoints and loader: BennyDaBall (BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI)",
+    "MiniMax H3: MiniMax (MiniMax H3 Community License)",
+    "Sparse attention: H3 SLA ROCm node (local)"
+  ],
+  "test": {
+    "prompt": "a cat yawns on a sunny windowsill",
+    "duration": 2,
+    "resolution": 0.4,
+    "steps": 6
+  },
+  "notes": "The 6-step HyperFlow schedule runs at CFG 1.0; the model is loaded by HyperFlowINT8Loader. The H3 SLA ROCm node is bypassed automatically on backends that lack it. Duration snaps to the model's 17k+5 frame grid at 24 fps.",
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "commit": "71d37c6948acc25631d347ca54eb7e8a0b60ed76"
+    }
+  ]
+}

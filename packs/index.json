@@ -129,7 +129,8 @@
   "image-moss": {
     "apps": [
       "moss-image",
-      "moss-turbo"
+      "moss-turbo",
+      "moss-turbo-jib-mix"
     ],
     "download_gb": 13.0,
     "needs_hf_token": false
@@ -203,6 +204,17 @@
       "studio-director"
     ],
     "download_gb": 114.95,
+    "needs_hf_token": false
+  },
+  "video-h3-flash": {
+    "apps": [
+      "h3-flf2v-flash",
+      "h3-i2v-flash",
+      "h3-r2v-flash",
+      "h3-studio-director-flash",
+      "h3-video-flash"
+    ],
+    "download_gb": 86.44,
     "needs_hf_token": false
   },
   "video-ltx": {

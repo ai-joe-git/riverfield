@@ -1,0 +1,642 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-r2v-flash",
+  "name": "H3 Reference to Video Flash",
+  "section": "video",
+  "pack": "video-h3-flash",
+  "status": "ready",
+  "summary": "A 6-step MiniMax H3 clip with synchronized sound from up to four reference pictures, on HyperFlow H3 Flash INT8.",
+  "higgsfield_feature": "Create Video",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "hyperflow_int8_ref2v.json",
+    "comfyui": "0.45.0",
+    "notes": "Built from the exact ComfyUI API graph of the successful HyperFlow H3 Flash INT8 ref2v run (four pictures, seed 42, 6 steps, 1.0 MP, 16:9). The published example used multiple=8 (1360x768); the app defaults to multiple=32 (1376x768)."
+  },
+  "inputs": [
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "help": "Up to four reference pictures. They become <Picture 1>..<Picture 4> in the prompt; each keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "20",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "5",
+          "field": "ref_images.ref_image_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "help": "Up to four reference pictures. They become <Picture 1>..<Picture 4> in the prompt; each keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "21",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "5",
+          "field": "ref_images.ref_image_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "help": "Up to four reference pictures. They become <Picture 1>..<Picture 4> in the prompt; each keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "28",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "5",
+          "field": "ref_images.ref_image_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "help": "Up to four reference pictures. They become <Picture 1>..<Picture 4> in the prompt; each keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "29",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "5",
+          "field": "ref_images.ref_image_3"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "\nsubject_definitions:\n\n<Subject 1> is the mysterious futuristic chamber shown in <Picture 1>. A perfectly symmetrical, nearly black rectangular room with smooth dark walls, a polished reflective floor, and a single tall rectangular doorway centered on the far wall. The doorway has a thin icy-blue illuminated border surrounding an opaque, almost liquid-black surface. Cold blue light stretches across the reflective floor. Preserve the precise minimalist architecture, doorway geometry, reflections, and eerie empty atmosphere.\n\n<Subject 2> is the young adult blond man in <Picture 2>, with a broad, heavyset build, short tousled blond hair, pale complexion, blue eyes and a neutral expression. He wears a vivid turquoise polo shirt, tan knee-length shorts, a black belt, white socks with dark stripes and chunky black loafers. Preserve his distinctive face, proportions, hairstyle and exact outfit.\n\n<Subject 3> is the young blonde woman in <Picture 3>, with long wavy blonde hair, expressive brown eyes, delicate features, gold hoop earrings and colorful butterfly hair clips. She wears an oversized bright yellow sweater, short black skirt, vivid pink tights and chunky black lace-up platform boots. Preserve her facial identity, hairstyle, hair accessories, body proportions and complete outfit.\n\n<Subject 4> is the slender middle-aged man in <Picture 4>, with swept-back brown hair streaked with grey, a narrow expressive face, pronounced eyes and a slightly nervous appearance. He wears a purple retro windbreaker with turquoise sleeves and accents, a white T-shirt, faded blue jeans and white sneakers. Preserve his exact facial identity, clothing, proportions and hairstyle.\n\n<Subject 5> is a technologically generated duplicate of <Subject 3>. She has the EXACT same face, hair, butterfly clips, yellow sweater, black skirt, pink tights, boots and body proportions as <Subject 3>. Her only difference is behavioral: unnaturally calm, perfectly controlled movements and a faint, unsettlingly polite smile. She is a physically separate person, not a transformation of the original woman.\n\nsummary:\n\n[reference generation] A 15-second live-action psychological science-fiction thriller titled \"THE REPLACEMENT\". Three ordinary people, <Subject 2>, <Subject 3> and <Subject 4>, stand before the mysterious doorway inside <Subject 1>. When <Subject 3> approaches the black surface, her reflection begins moving independently. An identical replacement, <Subject 5>, emerges from the doorway while the original remains outside. The replacement delivers one chilling sentence, and the other characters realize that the technology is not merely showing a reflection. Four restrained cinematic shots with precise dramatic escalation and a disturbing final beat.\n\nretention_analysis:\n\n<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - The dark symmetrical chamber, centered rectangular doorway, thin blue illumination and reflective black floor remain visually consistent throughout.\n\n<Subject 2> (appears in [Shot 1], [Shot 3], [Shot 4]): fully_preserved - Exact reference facial identity, blond hairstyle, turquoise polo, tan shorts, striped socks, black loafers and heavyset proportions.\n\n<Subject 3> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - Exact reference identity, butterfly clips, long blonde hair, yellow sweater, black skirt, pink tights and black platform boots.\n\n<Subject 4> (appears in [Shot 1], [Shot 3], [Shot 4]): fully_preserved - Exact reference identity, grey-streaked hair, purple and turquoise windbreaker, blue jeans, white sneakers and slender proportions.\n\n<Subject 5> (appears in [Shot 3], [Shot 4]): attribute_transfer - Duplicate the entire visible identity and clothing of <Subject 3>, while changing only facial expression and behavior. Both individuals remain separately visible.\n\ndetailed_description:\n\nThe target video is a premium live-action psychological science-fiction thriller, grounded and disturbing rather than action-driven. Clinical, near-black cinematography, cold blue practical lighting, subtle film grain, realistic skin, immaculate production design, restrained performances and deliberate visual composition. The atmosphere feels like an expensive, unsettling anthology television episode about identity and technological replacement.\n\n[Shot 1] 0.0–3.5s — THE WAITING ROOM.\n\nA symmetrical wide shot establishes <Subject 1>, the dark minimalist chamber with its enormous centered black doorway outlined in cold blue light. Three people stand several meters in front of the door, seen from behind at a slight three-quarter angle. On the left stands <Subject 2>, the heavyset blond young man in his turquoise polo and tan shorts. In the middle stands <Subject 3>, the blonde woman in her vivid yellow sweater and pink tights. On the right stands <Subject 4>, the older slender man in his purple and turquoise windbreaker.\n\nTheir strangely colorful everyday clothing contrasts sharply with the sterile futuristic architecture.\n\nThe camera pushes forward slowly with small amplitude. Nobody speaks. The door appears dormant, its black interior reflecting almost no light.\n\nSuddenly, the blue outline emits one gentle pulse.\n\n<Subject 3> takes a cautious step toward it. <Subject 2> glances nervously at <Subject 4>, who remains completely motionless.\n\n[Shot 2] At 00:03.500 — THE REFLECTION.\n\nHard cut to a medium close-up from the side of <Subject 3> standing directly before the black doorway.\n\nHer face is illuminated by the thin blue border. She raises her right hand slowly toward the dark surface.\n\nA realistic reflection of her face gradually appears within the black glass.\n\nBut something is wrong.\n\nHer reflection raises its hand BEFORE the real woman does.\n\nThe real woman abruptly stops moving.\n\nHer reflection does not stop.\n\nIt completes the movement and presses its palm against the inside of the glass.\n\nThe original woman stares in disbelief. Her breath catches. The reflected face begins forming a tiny, unnatural smile while her real face remains frightened and completely still.\n\nThe camera makes a slow, subtle push toward the two almost identical faces.\n\nA soft electronic click breaks the silence.\n\n[Shot 3] At 00:07.000 — THE REPLACEMENT.\n\nHard cut to a medium-wide three-quarter view of the doorway.\n\nThe black surface silently ripples like thick liquid glass.\n\n<Subject 3> instinctively takes two steps backward, keeping her eyes fixed on it.\n\nAn identical young blonde woman, <Subject 5>, steps forward out of the dark doorway and into the room.\n\nHer appearance is completely identical to the original: the same blonde waves, butterfly hair clips, yellow sweater, black skirt, neon-pink tights and heavy platform boots.\n\nThe two women stand facing each other.\n\nThe original woman is visibly terrified.\n\nThe duplicate appears perfectly relaxed.\n\nBehind them, <Subject 2> instinctively backs away, his mouth slightly open. <Subject 4> stares at the newcomer without blinking.\n\nThe camera remains stable and allows the impossible duplication to register clearly. There is no explosive portal effect, smoke or dramatic transformation. The replacement simply walks out as if this were an ordinary procedure.\n\n[Shot 4] At 00:11.000 — THE BETTER VERSION.\n\nHard cut to a tight, carefully composed medium shot of the two identical women standing face-to-face. The dark doorway and its cold blue border remain visible behind the duplicate.\n\n<Subject 3> stands frozen, breathing shallowly, her eyes widening as she studies her own face.\n\n<Subject 5> calmly adjusts one butterfly hair clip, using the exact familiar gesture of the original woman.\n\nShe looks directly into the original woman's eyes.\n\nWith a gentle, reassuring, almost customer-service smile, <Subject 5> (S1), speaking in a soft, natural young female voice with unnerving emotional detachment, says:\n\n<d>[English] They won't know the difference.</d>\n\nA brief silence.\n\nThe camera makes a small lateral movement, revealing <Subject 2> and <Subject 4> behind them.\n\n<Subject 2> looks between the two identical women, completely unable to tell which one is real.\n\n<Subject 4> slowly turns his head toward the duplicate.\n\nInstead of looking frightened, he gives her a tiny, knowing smile.\n\nThe duplicate returns the exact same smile.\n\nThe blue light around the doorway pulses once.\n\nThe original woman notices the exchange.\n\nHer expression changes from confusion to pure dread.\n\nAt 14.6 seconds, hard cut to absolute black.\n\nHold black until 15.0 seconds.\n\nNo title cards, no explanatory text, no additional characters, no exaggerated horror expressions. The final revelation must feel quiet, plausible and deeply disturbing.\n\noverall_soundscape:\n\nExtremely restrained, realistic sound design. A quiet low-frequency ventilation hum and faint electrical resonance fill the chamber. Soft shoe movements echo over the polished floor. The door emits a delicate electromagnetic pulse at approximately 2.5 seconds. During the reflection anomaly, a tiny glass-like electronic click is heard, followed by almost complete silence. As the duplicate emerges, the black surface produces a subtle viscous displacement sound, accompanied by two precise footsteps on the reflective floor. Natural breathing and clothing movement remain audible. The duplicate's spoken line is intimate, clearly articulated and completely free of robotic voice effects. At the final blue-light pulse, a short deep electrical tone sounds before the cut to black.\n\nnon_diegetic_music:\n\nMinimalist premium psychological-thriller scoring. A barely audible deep analog synthesizer drone begins beneath the opening shot. Slowly introduce an irregular, unsettling two-note pattern built from detuned synthetic tones and a very distant low cello texture. No conventional melody, no rhythmic percussion, no orchestral trailer impacts. The score becomes subtly more dissonant as the reflection moves independently. At the moment the duplicate emerges, introduce a brief sub-bass pressure swell, then reduce the music almost to silence. Leave the spoken line completely unobstructed. After the older man's knowing smile, one very low unresolved electronic note appears and is cut instantly at the final black frame.\n",
+      "help": "Reference the slots by name: <Picture 1>..<Picture 4>. Spoken words go in quotes; describe sounds and music too.",
+      "bind": [
+        {
+          "node": "5",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors",
+          "label": "HyperFlow H3 Flash ref2va INT8 (16.3 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "ref_image_size",
+      "type": "select",
+      "label": "Reference size",
+      "default": "match",
+      "options": [
+        {
+          "value": "match",
+          "label": "Match the clip's pixel area (faster)"
+        },
+        {
+          "value": "max",
+          "label": "Max: 2048px short edge (best identity, much slower)"
+        }
+      ],
+      "help": "Reference tokens ride through every sampling step, so 'max' can be several times slower.",
+      "bind": [
+        {
+          "node": "5",
+          "field": "ref_image_size"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "24",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 1.0,
+      "help": "Total pixels of the clip. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
+      "bind": [
+        {
+          "node": "24",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8 (1360x768 at 1.0 MP; can break image conditioning)"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (H3 default; even latent)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "help": "Sides are rounded to this. Keep 32 for H3: the latent patch is 2, so a width that is only a multiple of 8 can make the first/last-frame latent odd and the run fails.",
+      "bind": [
+        {
+          "node": "24",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 15,
+      "step": 1,
+      "default": 15,
+      "help": "Up to 15. The frame count is 24 fps rounded up to the model's 17k+5 grid (15 s = 362 frames).",
+      "bind": [
+        {
+          "node": "25",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 6,
+      "options": [
+        {
+          "value": 4,
+          "label": "4 (fastest)"
+        },
+        {
+          "value": 6,
+          "label": "6 (default)"
+        },
+        {
+          "value": 8,
+          "label": "8 (most detailed)"
+        }
+      ],
+      "help": "HyperFlow's sigma schedule: 4, 6 or 8 steps at CFG 1.0.",
+      "bind": [
+        {
+          "node": "6",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        }
+      ],
+      "bind": [
+        {
+          "node": "7",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "8",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B INT8 (27.1 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 (15.7 GB, Blackwell)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "2",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "3",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm SLA node. Off, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler.",
+      "bind": [
+        {
+          "node": "26",
+          "field": "enabled"
+        },
+        {
+          "node": "27",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "26",
+          "field": "model"
+        },
+        {
+          "node": "27",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.85,
+      "help": "0.85 ignores 85% of blocks (the published run); lower is slower and more exact.",
+      "bind": [
+        {
+          "node": "26",
+          "field": "sparsity_ratio"
+        },
+        {
+          "node": "27",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "fps",
+      "type": "number",
+      "label": "FPS",
+      "min": 1,
+      "max": 60,
+      "step": 1,
+      "default": 24,
+      "help": "The model is trained at 24 fps.",
+      "bind": [
+        {
+          "node": "13",
+          "field": "fps"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/h3-r2v-flash",
+      "bind": [
+        {
+          "node": "14",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "14",
+          "field": "format.codec"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "14",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI",
+      "file": "minimax_h3_ref2va_hyperflow_flash_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 16.3,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "HyperFlow H3 Flash: Video Rebirth (MiniMax H3 Community License)",
+    "INT8 checkpoints and loader: BennyDaBall (BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI)",
+    "MiniMax H3: MiniMax (MiniMax H3 Community License)",
+    "Sparse attention: H3 SLA ROCm node (local)"
+  ],
+  "test": {
+    "prompt": "A red bicycle on a white background, product shot",
+    "duration": 2,
+    "resolution": 0.4,
+    "steps": 6
+  },
+  "notes": "Reference pictures enter the prompt as <Picture 1>..<Picture 4>; every slot is optional, and an empty slot has its edge cut so no LoadImage runs. 'match' scales each picture down to the generation's pixel area; 'max' keeps a 2048px short edge and is much slower.",
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "commit": "71d37c6948acc25631d347ca54eb7e8a0b60ed76"
+    }
+  ]
+}

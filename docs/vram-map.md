@@ -84,6 +84,7 @@ is not the least the app needs.
 | `z-image` | ready | 12.2 GB | denoise 6.2 GB | z_image_turbo_int8_convrot.safetensors (6.2) | fits whole | L4 / A10G (24 GB) | 12.6 GB (H100) |
 | `moss-image` | ready | 13.0 GB | encode 7.3 GB | qwen3.5_9b_w4a8_gptq.safetensors (7.3) | fits whole | L4 / A10G (24 GB) | not measured |
 | `moss-turbo` | ready | 13.0 GB | encode 7.3 GB | qwen3.5_9b_w4a8_gptq.safetensors (7.3) | fits whole | L4 / A10G (24 GB) | not measured |
+| `moss-turbo-jib-mix` | ready | 13.0 GB | encode 7.3 GB | qwen3.5_9b_w4a8_gptq.safetensors (7.3) | fits whole | L4 / A10G (24 GB) | not measured |
 | `qwen-image-edit-turbo` | ready | 15.1 GB | encode 8.0 GB | qwen3vl_8b_int8_convrot.safetensors (8.0) | fits whole | L4 / A10G (24 GB) | not measured |
 | `music` | ready | 14.3 GB | encode 9.2 GB | minimax_music3_text_encoder_pruned_int8_convrot.safetensors (9.2) | fits whole | L4 / A10G (24 GB) | 37.1 GB (L40S) |
 | `music-turbo` | ready | 14.3 GB | encode 9.2 GB | minimax_music3_text_encoder_pruned_int8_convrot.safetensors (9.2) | fits whole | L4 / A10G (24 GB) | not measured |
@@ -147,9 +148,14 @@ is not the least the app needs.
 | `dub` | ready | 41.2 GB (+5.2 optional) | denoise 24.0 GB | ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors (21.5) | needs Modal | L40S (48 GB), whole | 40.9 GB (H100) |
 | `extend-video` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 50.5 GB (H100) |
 | `extend-video-turbo` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
+| `h3-flf2v-flash` | ready | 45.8 GB (+23.7 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
+| `h3-i2v-flash` | ready | 45.8 GB (+23.7 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-photo` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 49.5 GB (H100) |
 | `h3-photo-turbo` | ready | 56.8 GB (+28.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
+| `h3-r2v-flash` | ready | 46.2 GB (+23.7 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
+| `h3-studio-director-flash` | ready | 46.2 GB (+32.2 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-video` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 48.3 GB (H100) |
+| `h3-video-flash` | ready | 45.8 GB (+23.7 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-video-turbo` | ready | 56.8 GB (+28.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `reshoot` | ready | 54.8 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 44.1 GB (L40S) |
 | `reshoot-turbo` | ready | 52.8 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |

@@ -42,6 +42,8 @@ export type Model = {
   gated?: boolean;
   license?: string;
   optional?: boolean;
+  /** a local-only file (Civitai checkpoint): counted in VRAM, left out of the model pack */
+  local?: boolean;
 };
 export type ApiNode = { class_type: string; inputs: Record<string, unknown>; _meta?: { title?: string } };
 export type ApiWorkflow = Record<string, ApiNode>;
@@ -51,6 +53,9 @@ export type AppManifest = {
   name: string;
   section: "image" | "video" | "audio" | "3d" | "utility";
   summary?: string;
+  /** optional content badge, e.g. 18+ for an uncensored model */
+  rating?: string;
+  rating_note?: string;
   higgsfield_feature?: string;
   /** sibling apps shown as a switch at the top of the form (Cinema Studio: image, video) */
   modes?: string[];

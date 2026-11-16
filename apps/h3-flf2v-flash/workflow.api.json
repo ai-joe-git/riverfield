@@ -1,0 +1,366 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "patcher": "legacy"
+    },
+    "class_type": "HyperFlowINT8Loader",
+    "_meta": {
+      "title": "HyperFlow INT8 Loader",
+      "cnr_id": "comfyui-hyperflow-int8-nodes",
+      "aux_id": "BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "ver": "0.1.4"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Text encoder (type minimax)",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Video VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Audio VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "5": {
+    "inputs": {
+      "prompt": "\nHow the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 4) aligns with the 15.00-second mark of the target video.\n\nintegrated_multimodal_description:\n\n[Shot 1] Cinematic live-action space opera, monumental theatrical production quality. 0–3 seconds. Begin EXACTLY with Picture 1: the pristine, symmetrical starship command bridge, officers calmly operating their consoles, the captain standing at the center facing the immense panoramic viewport and its undisturbed starfield. Preserve the original architecture, crew positions, lighting and composition. The camera slowly pushes forward toward the captain. For the first half-second, everything is perfectly still. Then a sudden gravitational shock violently strikes the vessel. The blue instruments flicker, emergency red lights ignite, crew members are thrown sideways, consoles erupt with electrical sparks, and the massive viewport briefly floods with blinding white light. The camera jolts violently only at the moment of impact, then stabilizes. A rapid black-frame interruption ends the shot.\n\n[Shot 2] At 00:03.000, HARD CUT to an extraordinary exterior deep-space wide shot. The same colossal spacecraft appears as a tiny silhouette drifting through an immense, nearly black stellar void. Far ahead, an enormous circular interstellar gateway begins to awaken. First a thin arc of cold blue-white energy illuminates the darkness, then concentric gravitational rings ignite outward, revealing a vast structure thousands of times larger than the ship. The camera steadily pushes forward behind the spacecraft, emphasizing the terrifying difference in scale. Electric filaments crawl around the circumference, gravitational distortions bend the surrounding stars, and the gateway's central darkness gradually opens into an impossible luminous abyss. The scale is overwhelming, majestic and frightening. No unnecessary cuts, no orbiting camera, no explosions. At the end, a sharp white flash interrupts the image.\n\n[Shot 3] At 00:07.000, HARD CUT to a dynamic rear tracking shot of the spacecraft accelerating directly toward the gateway. The camera follows the ship along a single forward trajectory. The engines intensify from faint blue to brilliant white-blue. The gigantic circular gateway expands rapidly across the frame as the vessel approaches. Stars begin stretching into sharp luminous streaks. The surrounding geometry bends violently as the ship crosses the event horizon. The acceleration becomes almost instantaneous: a terrifying burst of impossible speed, immense gravitational distortion, and an overwhelming white-hot warp flash. At approximately 00:10.800, the ship disappears into the light with ONE colossal metallic impact synchronized precisely with the warp transition. Immediately afterward, the image snaps to absolute black and the sound drops into a brief vacuum-like silence. No additional impact sounds.\n\n[Shot 4] At 00:11.000, HARD CUT to absolute black. The camera remains perfectly static. From complete darkness, faint fragments of metallic silver lettering slowly become visible at the center of the screen. A narrow horizontal sweep of cold starlight crosses the emerging letters, revealing the exact title \"BEYOND THE EVENT HORIZON\". The letter spacing opens slightly as the typography settles into a single perfectly centered horizontal line. Each letter has a restrained brushed-metal texture, subtle internal illumination, precise silver-blue highlights and a delicate edge glow. A faint residual afterimage follows the starlight sweep, then disappears. By 00:13.500, the entire title is completely formed and motionless, matching Picture 2 EXACTLY: identical wording, letter shapes, spacing, metallic coloration, scale, placement and pure black background. Hold this precise composition without movement until 15.00 seconds, ensuring extended full readability. No new text, no subtitles, no additional title cards, no logo, no fade-out.\n\noverall_soundscape: The opening bridge carries a low ventilation hum, faint electronic instrumentation and distant engine resonance, abruptly interrupted by deep structural groaning, vibrating metal, electronic alarms and electrical crackling. Outside the vessel, an enormous low-frequency gravitational rumble builds as the gateway activates, accompanied by layered electromagnetic pulses and increasingly intense engine harmonics. The warp jump produces a single devastating metallic impact followed immediately by a short vacuum drop into near-total silence. The final title reveal carries only a delicate, distant crystalline shimmer as the starlight crosses the lettering.\n\nnon_diegetic_music: Premium theatrical space-opera score. Begin with a restrained low brass drone and deep sustained strings. Introduce rapidly accelerating orchestral ostinatos and powerful sub-bass pulses during the gateway reveal, building into massive low brass, tightly synchronized percussion and high string tension during the warp approach. Cut the entire score abruptly at the warp impact, leaving a moment of absolute silence. A single deep cinematic tonal swell accompanies the final title reveal, resolving into a low sustained resonance that fades naturally while the completed title remains on screen.\n",
+      "width": [
+        "26",
+        0
+      ],
+      "height": [
+        "26",
+        1
+      ],
+      "length": [
+        "25",
+        1
+      ],
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "first_frame": [
+        "20",
+        0
+      ],
+      "last_frame": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ImageToVideo",
+    "_meta": {
+      "title": "Prompt, size, length",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "6": {
+    "inputs": {
+      "steps": 6,
+      "model": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "HyperFlowSigmas",
+    "_meta": {
+      "title": "HyperFlow Sigmas (4 / 6 / 8 steps)",
+      "cnr_id": "comfyui-hyperflow-flash",
+      "aux_id": "Video-Rebirth/ComfyUI-HyperFlow-Flash",
+      "ver": "20a22ab2b075f3c948eb5dba62637ff89fc0f363"
+    }
+  },
+  "7": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Sampler (euler)",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "8": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Seed",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "9": {
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Guider (CFG 1, no negative prompt)",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "10": {
+    "inputs": {
+      "noise": [
+        "8",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode video",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Decode audio",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "13": {
+    "inputs": {
+      "fps": 24.0,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none",
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Video + audio, 24 fps",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "14": {
+    "inputs": {
+      "filename_prefix": "riverfield/h3-flf2v-flash",
+      "format": "mp4",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video-preview": "",
+      "video": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save MP4 (output/hyperflow/)",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "20": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "First frame",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "21": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Last frame",
+      "cnr_id": "comfy-core",
+      "ver": "0.44.0"
+    }
+  },
+  "23": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "24": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "25": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "26": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 1.0,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "27": {
+    "inputs": {
+      "value": 15.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  }
+}

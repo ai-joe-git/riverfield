@@ -2,7 +2,8 @@
   "pack": "image-moss",
   "apps": [
     "moss-image",
-    "moss-turbo"
+    "moss-turbo",
+    "moss-turbo-jib-mix"
   ],
   "download_gb": 13.0,
   "needs_hf_token": false,
@@ -31,7 +32,8 @@
       "license": "Apache-2.0",
       "used_by": [
         "moss-image",
-        "moss-turbo"
+        "moss-turbo",
+        "moss-turbo-jib-mix"
       ]
     },
     {
@@ -44,7 +46,8 @@
       "license": "Apache-2.0",
       "used_by": [
         "moss-image",
-        "moss-turbo"
+        "moss-turbo",
+        "moss-turbo-jib-mix"
       ]
     }
   ]

@@ -22,7 +22,7 @@ export async function loadCatalog() {
 
 /** Apps grouped like a store: a card can only sit in one row. */
 export const CATEGORIES = [
-  { id: "create", apps: ["create-image", "h3-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
+  { id: "create", apps: ["create-image", "h3-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moss-turbo-jib-mix", "moodboard", "styles", "video-t2v", "video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
   { id: "identity", apps: ["character", "character-3", "character-angles", "speak", "talking", "recast", "motion-transfer", "genjutsu", "dub", "character-swap", "face-swap"] },
   { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reshoot-turbo", "reframe", "extend-video", "extend-video-turbo", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
   { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-video", "relayvsr-upscale", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
@@ -72,6 +72,7 @@ export const MODELS = [
   { name: "Qwen-Image-Edit 2509", file: "qwen_image_edit", app: "relight", note: ["Light, angles and the next shot", "Luz, ángulos y la siguiente toma"] },
   { name: "Krea 2 Turbo", file: "krea2_turbo", app: "styles", note: ["Styles with Krea's LoRAs", "Estilos con los LoRAs de Krea"] },
   { name: "MOSS-Image", file: "moss_image", app: "moss-image", note: ["Layout prompts", "Prompts con layout"] },
+  { name: "MOSS-Image Jib Mix", file: "Jib_Mix_Moss_V2", app: "moss-turbo-jib-mix", note: ["Uncensored realistic MOSS", "MOSS realista sin censura"] },
   { name: "Z-Image Turbo", file: "z_image_turbo", app: "z-image", note: ["Fast drafts", "Borradores rápidos"] },
   { name: "FLUX 3 Image Klein", file: "flux3-image-klein", app: "create-image", note: ["Text to image and every edit", "Texto a imagen y todas las ediciones"] },
 ];

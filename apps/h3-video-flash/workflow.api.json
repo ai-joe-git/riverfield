@@ -1,0 +1,335 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_hyperflow_flash_int8_convrot.safetensors",
+      "patcher": "legacy"
+    },
+    "class_type": "HyperFlowINT8Loader",
+    "_meta": {
+      "title": "HyperFlow INT8 Loader",
+      "cnr_id": "comfyui-hyperflow-int8-nodes",
+      "aux_id": "BennyDaBall930/comfyui_hyperflow_int8_nodes",
+      "ver": "0.1.3"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Text encoder (type minimax)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Video VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Audio VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "5": {
+    "inputs": {
+      "prompt": "\nintegrated_multimodal_description:\n\n[Shot 1] 0–15 seconds. Premium stylized 3D animated short film, Pixar-inspired character animation with polished Cinema 4D and Octane rendering, warm subsurface scattering through ears and fingertips, beautifully tactile materials, soft cinematic global illumination, and expressive squash-and-stretch acting. The animation has professional feature-film quality, precise comedic timing, clear character silhouettes, believable physical interactions and exaggerated but controlled facial expressions.\n\nA charming three-head-tall cartoon cook with a round expressive face, a tall oversized white chef's toque that leans slightly to one side, and a flour-dusted apron works at a stainless-steel counter in a cozy, warmly illuminated kitchen. A bamboo steamer releases delicate wisps of steam on the right. Behind him, a shallow pot of gently simmering broth rests on a gas burner. A wooden rolling pin sits on a shelf behind the cook. The camera holds a carefully composed medium-wide shot at counter height, showing the cook's upper body, the dumpling tray in the foreground, and the simmering pot behind him. Maintain coherent spatial geography and consistent character designs throughout.\n\n0.0–3.0s — THE PERFECT DUMPLING:\nThe cook carefully folds a small round dumpling, pinching its delicate pleated seam with meticulous concentration. His enormous toque wobbles gently with each movement. He lifts the finished dumpling between two fingers, proudly inspects it, gives it one final affectionate pat, and places it neatly on a flour-dusted metal tray. He smiles with professional satisfaction and brushes flour from his hands. The dumpling remains completely motionless.\n\n3.0–5.0s — SOMETHING IS ALIVE:\nThe cook turns his back to retrieve the wooden rolling pin from the shelf, his oversized toque swinging comically with the rotation. Behind him, the perfectly innocent-looking dumpling gives a tiny, almost imperceptible twitch. Its pleated top slowly contracts, resembling a mischievously furrowed brow. Its soft dough body inflates slightly, then compresses. Two ridiculous little dough legs squeeze out from underneath. The dumpling carefully tests its balance, wobbling left and right. The cook remains completely unaware.\n\n5.0–7.5s — THE GREAT ESCAPE:\nThe dumpling suddenly begins walking across the tray on its tiny dough legs. Three distinct, surprisingly determined little footsteps make soft metallic taps against the tray. Its body squashes with each landing and stretches upward between steps. It reaches the tray's edge, looks toward the steaming broth, and leans forward as if calculating the distance. For a brief comedic beat, it loses its balance and windmills its tiny legs, almost falling backward. It recovers with a proud little bounce and crouches dramatically, preparing to jump.\n\n7.5–10.0s — THE DISASTER:\nThe cook hears the final metallic tap and turns back toward the counter. His eyes widen enormously as he discovers the dumpling standing on two legs at the tray's edge. His jaw drops. For a fraction of a second, cook and dumpling stare at each other in absolute disbelief. The dumpling springs off the tray toward the simmering pot. The cook reacts instantly, lunging forward with both arms outstretched, his belly compressing against the counter and his tall toque whipping violently backward. His fingertips miss the escaping dumpling by inches. The dumpling completes a beautiful little airborne arc and plunges directly into the hot broth with a satisfying, heavy PLOP, sending a small crown of droplets upward. The cook freezes in an absurdly extended reaching pose.\n\n10.0–12.5s — AN UNEXPECTED RETURN:\nThe surface of the broth settles. The cook slowly leans over the pot, blinking in confusion, watching the empty surface. A single small bubble rises. Then another. Suddenly the dumpling floats back to the surface, now visibly cooked, wonderfully glossy, plump and steaming. It bobs gently against the pot's edge, looking completely ordinary again, with no visible legs. The cook stares at it, utterly bewildered. His hands remain suspended above the pot, unsure whether to rescue it or serve it.\n\n12.5–15.0s — THE PERFECT DEADPAN:\nThe cook very slowly straightens his back. His flour-covered face is completely expressionless. His oversized chef's toque gradually slides down until it covers one eye. He does absolutely nothing to correct it. His one visible eyebrow rises slowly and impossibly high while his mouth remains perfectly flat. Hold the awkward silence and his utterly defeated expression. Behind him, the cooked dumpling floats innocently in the broth. At approximately 14.5 seconds, a single tiny bubble rises beside it and pops. The cook does not react. End on this completely still, perfectly timed comedic tableau.\n\nCAMERA AND ANIMATION CONTROL:\nOne continuous shot with no cuts. Locked medium-wide camera at counter height, allowing the character, dumpling tray and broth pot to remain visually understandable throughout. Avoid unnecessary camera movement, zooms or reframing. Prioritize exceptional character acting, accurate object interactions, appealing silhouettes, anticipation, follow-through, secondary motion, believable dough elasticity, and precise physical comedy. Every movement should have deliberate timing and a clear cause. The dumpling must remain visually consistent throughout its transformation, escape and cooking. No additional characters, no dialogue, no captions or text overlays.\n\noverall_soundscape:\nWarm, intimate kitchen ambience: gentle ventilation, a soft gas burner hiss, subtle bubbling broth and the faint wooden creaking of the steaming bamboo basket. Delicate flour brushing and soft dough handling sounds accompany the cook's preparations. A tiny elastic squeak accompanies the dumpling's first movement. Exactly three distinct soft dough footsteps ring against the metal tray. A short comedic rubbery wobble accompanies its loss of balance. The cook's sudden realization receives a sharp inhalation, immediately followed by a swift airy whoosh as he lunges. The dumpling lands in the broth with one clean, satisfyingly heavy PLOP and a brief liquid splash. The kitchen returns to a gentle simmer. The final seconds are almost completely silent, emphasizing the cook's deadpan expression. One isolated, delicate bubble pop at approximately 14.5 seconds. No spoken dialogue.\n\nnon_diegetic_music:\nRefined, understated animated-film comedy scoring built around a light pizzicato cello motif and subtle acoustic bass. Begin with a playful but elegant rhythmic figure accompanying the cook's precise dumpling preparation. Introduce a delicate, slightly mysterious pizzicato variation when the dumpling first comes alive. Synchronize three short plucked notes exactly with its three footsteps. Build a brief, tightly controlled musical anticipation as it prepares to jump. Stop the music abruptly when the cook notices the escape. A single short orchestral accent accompanies the desperate lunge, ending immediately on the dumpling's heavy plop. Maintain near-total musical silence during the cooked dumpling's return. Finish with one extremely dry, understated low cello note as the cook's eyebrow rises. No excessive cartoon sound effects, no circus music, no frantic orchestration, no continuous musical underscoring during the final deadpan.\n",
+      "width": [
+        "20",
+        0
+      ],
+      "height": [
+        "20",
+        1
+      ],
+      "length": [
+        "19",
+        1
+      ],
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ImageToVideo",
+    "_meta": {
+      "title": "Prompt, size, length",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "6": {
+    "inputs": {
+      "steps": 6,
+      "model": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "HyperFlowSigmas",
+    "_meta": {
+      "title": "HyperFlow Sigmas (4 / 6 / 8 steps)",
+      "cnr_id": "comfyui-hyperflow-flash",
+      "aux_id": "Video-Rebirth/ComfyUI-HyperFlow-Flash",
+      "ver": "1.1.1"
+    }
+  },
+  "7": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Sampler (euler)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "8": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Seed",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "9": {
+    "inputs": {
+      "model": [
+        "17",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Guider (CFG 1, no negative prompt)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "10": {
+    "inputs": {
+      "noise": [
+        "8",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "5",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode video",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "12": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "Decode audio",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "13": {
+    "inputs": {
+      "fps": 24.0,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none",
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Video + audio, 24 fps",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "14": {
+    "inputs": {
+      "filename_prefix": "riverfield/h3-video-flash",
+      "format": "mp4",
+      "format.codec": "auto",
+      "codec": "auto",
+      "video": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save MP4 (output/hyperflow/)",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  },
+  "16": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "17": {
+    "inputs": {
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "H3SLAAttentionROCM",
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM",
+      "aux_id": "patientx/comfyui-h3-sla-attention-rocm",
+      "ver": "dc6d7785a76fc047aba3471fc10c4dce8e22df44"
+    }
+  },
+  "18": {
+    "inputs": {
+      "value": 15.0
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "19": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression",
+      "cnr_id": "comfy-core",
+      "ver": "0.33.0"
+    }
+  },
+  "20": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 1.0,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector",
+      "cnr_id": "comfy-core",
+      "ver": "0.45.0"
+    }
+  }
+}
