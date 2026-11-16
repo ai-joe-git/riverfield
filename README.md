@@ -12,6 +12,7 @@ agent can drive the studio. RiverField also adds **Riverfield Agent**, a native 
 studio through those same MCP tools, **Pika Video** and **Pika Text to Video** with optional **RelayVSR x2/x4**,
 and a **shared inference queue** for web, MCP and agent model calls. Upstream stays the reference
 for the inherited apps; [upstream synchronization](docs/upstream-sync.md) is reviewed patch by patch.
+The full list is under [What RiverField adds](#what-riverfield-adds).
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
@@ -58,11 +59,11 @@ local or remote provider you choose; conversations live under `out/agent/`.
 
 | | |
 |---|---|
-| Apps | **151 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, **2 MiniMax H3 Image**, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **Qwen Image Edit Turbo**, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **157 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, **5 MiniMax H3 Flash**, **2 MiniMax H3 Image**, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **MOSS Turbo Jib Mix (18+)**, **Qwen Image Edit Turbo**, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
 | Agent | **Riverfield Agent**: native chat with local (llama.cpp, Ollama, vLLM, LM Studio, Halogen) and remote (OpenAI, OpenRouter, Anthropic) providers, real MCP tool execution, streaming, approvals, media previews and persistence |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the H3 Image pair comes from ComfyUI's `image_minimax_h3_image_t2i.json` and `image_minimax_h3_image_edit.json`, flattened with `tools/ui2api.py`; the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
-| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples and the two H3 Image 4 MP examples (text-to-image and edit). Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
+| GPU runs | Inherited baseline: 48 Modal lab runs from 20 to 26 Oct (L40S/H100), 710 of 733 cases successful; see [`docs/lab-runs.md`](docs/lab-runs.md). RiverField adds local AMD gfx1151 runs, including Pika + RelayVSR examples, the two H3 Image 4 MP examples (text-to-image and edit), the five H3 Flash examples and the Jib Mix MOSS Turbo example. Local runs are not included in those Modal totals; peak VRAM is not available for every example. |
 | End to end | Run from the browser on 23 Oct, web UI → server → gateway on Modal → ComfyUI on an H100: `morph` 160.8 s from the button to the video (128.7 s of it on the GPU), `mixed-media` 149 s, `dub` 72 s. On 24 Oct through the hosted demo (`infra/web_app.py`, the same web app on Modal behind a passcode): `face-swap` 25.2 s on the GPU. The model-free smoke apps cover the same path in CI |
 | LoRA lab | 334 cases with fixed seeds: one showcase for each app that has a lab case (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
 | CI | `.github/workflows/validate.yml` on every push: the manifest validator, the tests, the type check, the generated packs and VRAM map, and a CPU-only ComfyUI that accepts every workflow and the prompt of every lab case (about 3 minutes) |
@@ -77,12 +78,15 @@ graph and a manifest.
 | `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
 | `extend-video-turbo` | MiniMax H3 extend with the same 3-step turbo LoRA; steps, sampler and sparse-attention controls | H3 int8 | — |
 | `h3-image`, `h3-image-edit` | MiniMax **H3 Image** text-to-image and edit: 4 MP default, aspect/MP picker, 6 steps at CFG 1, sampler/scheduler, DiT/encoder/VAE pickers, Qwen3.8-27B prompt expansion; the edit app resizes its input to the target MP | H3 Image int8 | 481 s for 4.19 MP (t2i), 988 s for 4.18 MP (edit) |
+| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; SLA 0.85 and the usual H3 controls | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
+| `h3-studio-director-flash` | The **Material Planner** director on the Flash checkpoints: per-segment prompts and ordered references, `ref2va` or `fl2va`, 6 steps, euler, Flash sigmas | H3 Flash int8 | 53 min for 15 s, 1.0 MP |
 | `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
 | `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
 | `music-yue2`, `music-yue2-cover` | YuE2 songs and covers, 23-language vocals, from the user's own workflows | YuE2 3B | 22 s / 26 s |
 | `tts`, `tts-clone` | Chatterbox: 23 languages, voice cloning from 5 s | Chatterbox 500M | 4.1 s / 4.6 s |
 | `tts-omni`, `tts-omni-clone` | OmniVoice: voice design from attributes, cloning, 600+ languages | OmniVoice 0.6B | 4.1 s / 4.7 s |
 | `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
+| `moss-turbo-jib-mix` | MOSS Turbo on the uncensored **Jib Mix Moss Realistic V2** checkpoint: the same 8-step LoRA, guidance 1.0–1.8, steps 8–15, **18+** badge. Jib Mix is a local Civitai file, so it counts toward VRAM but is not in the `image-moss` pack | MOSS int8 (Jib Mix) | — (example: 8 steps, 1.0 MP) |
 | `qwen-image-edit-turbo` | Qwen Image 2.1 edit with the Turbo checkpoint: source image, instruction, negative prompt, resolution budget and seed | Qwen Image 2.1 int8 | — |
 | `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
 | `gaussian-splat` | A picture to a **Gaussian splat**: the native `.spz`, a `.glb` mesh and a turntable clip; BiRefNet cut-out, 65k–524k gaussians, sampling preview | Idol / TripoSplat | — |
@@ -281,7 +285,9 @@ Z-Image drew four apples, wrote the label Krea 2 left blank, kept the top-down v
 as a scene where Z-Image printed its keys on the sign. So `create-image`, `cinema-studio`, `ai-influencer` and `meme`
 run on Klein. BFL's 9B upsampler is a toggle in Create Image (on by default: it turns a short prompt into a full
 caption, about 8 s more). Z-Image stays for fast drafts and for the lab's reference photos, so earlier examples keep
-their inputs. MOSS-Image (Apache-2.0) is in for layout prompts. Fibo 2.0, trained on JSON prompts, needs a
+their inputs. MOSS-Image (Apache-2.0) is in for layout prompts; `moss-turbo-jib-mix` is the same 8-step turbo
+graph on **Jib Mix Moss Realistic V2**, an uncensored MOSS-Image checkpoint by J1B (Civitai model 3016339). Jib Mix
+is a local file, not in the `image-moss` pack, and the app's **18+** badge is a content warning. Fibo 2.0, trained on JSON prompts, needs a
 newer ComfyUI than the one pinned here and its weights are licensed for non-commercial use only.
 
 MiniMax **H3 Image** is the newest pair: one int8 checkpoint serves text-to-image (`h3-image`) and edit (`h3-image-edit`), at 4 MP by default, 6 steps and CFG 1, with Qwen3.8-27B prompt expansion and H3's own Qwen3-VL 32B text encoder. It is a separate **66.6 GB** pack (`image-h3`), 44.4 GB in its largest phase, so a 48 GB card is tight and an 80 GB card (A100/H100) or Modal is comfortable; the two 4 MP examples below were made locally on gfx1151. The edit app resizes the input photo to the chosen megapixel count before the single reference pass.
@@ -655,4 +661,11 @@ Dolly effect and Bullet time were replaced. joyfox's smoke outfit change and got
 left out for the same reason: the first dresses people in the outfits of its examples (a bunny suit with a corset, a tight dress,
 a school uniform), the second puts gloved hands from someone unseen on the person's shoulders.
 
-Use footage and characters you own or have permission for; the apps are meant for SFW work.
+Use footage and characters you own or have permission for. Every app except `moss-turbo-jib-mix` is meant for
+SFW work; that app is marked **18+** and its local Jib Mix checkpoint is uncensored.
+
+The five H3 Flash apps use BennyDaBall's [HyperFlow INT8 loader](https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes)
+and [H3 Flash INT8 checkpoints](https://huggingface.co/BennyDaBall/HyperFlow-H3-Flash-INT8-ComfyUI), plus
+[Video-Rebirth's Flash sigma nodes](https://github.com/Video-Rebirth/ComfyUI-HyperFlow-Flash) (MiniMax H3 Community
+License). `moss-turbo-jib-mix` uses J1B's Jib Mix Moss Realistic V2 (Civitai model 3016339), a local file with its
+own Civitai terms; it is the only app here marked 18+.
