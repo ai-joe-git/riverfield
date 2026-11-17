@@ -112,11 +112,11 @@
       "id": "resolution",
       "type": "slider",
       "label": "Resolution (MP)",
-      "min": 0.4,
-      "max": 1.5,
+      "min": 0.1,
+      "max": 3.0,
       "step": 0.1,
       "default": 1.0,
-      "help": "Total pixels of the clip. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
+      "help": "Total pixels of the clip, 0.1–3.0 MP. At 16:9 and 1.0 MP, 1376x768 with size multiple 32.",
       "bind": [
         {
           "node": "25",
