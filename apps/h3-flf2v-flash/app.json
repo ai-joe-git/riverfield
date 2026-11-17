@@ -141,6 +141,73 @@
       ]
     },
     {
+      "id": "upscale",
+      "type": "select",
+      "label": "Upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "None — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "2× — RelayVSR x2 (lightx2v DIT + Flash VAE)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x2_fp32.safetensors"
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RelayVSR x4 (the paper's 4× model)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x4_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x4_fp32.safetensors"
+            }
+          ]
+        }
+      ],
+      "help": "Optional RelayVSR pass on the decoded frames before encoding. None keeps the native result; x2/x4 use the matching DIT and Flash VAE, and x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "vsr_decode",
+          "field": "images"
+        }
+      ]
+    },
+    {
+      "id": "upscale_detail",
+      "type": "slider",
+      "label": "Upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "RelayVSR: how much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output, lower is calmer and closer to the source.",
+      "bind": [
+        {
+          "node": "vsr_decode",
+          "field": "detail"
+        }
+      ]
+    },
+    {
       "id": "multiple",
       "type": "select",
       "label": "Size multiple",
@@ -538,6 +605,42 @@
       "gb": 5.21,
       "phase": "decode",
       "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
       "optional": true
     }
   ],

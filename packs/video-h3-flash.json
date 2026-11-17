@@ -7,7 +7,7 @@
     "h3-studio-director-flash",
     "h3-video-flash"
   ],
-  "download_gb": 86.44,
+  "download_gb": 97.02,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -42,6 +42,38 @@
       "used_by": [
         "h3-r2v-flash",
         "h3-studio-director-flash"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-flf2v-flash",
+        "h3-i2v-flash",
+        "h3-r2v-flash",
+        "h3-studio-director-flash",
+        "h3-video-flash"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x4_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-flf2v-flash",
+        "h3-i2v-flash",
+        "h3-r2v-flash",
+        "h3-studio-director-flash",
+        "h3-video-flash"
       ]
     },
     {
@@ -147,6 +179,38 @@
         "h3-flf2v-flash",
         "h3-i2v-flash",
         "h3-r2v-flash",
+        "h3-video-flash"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x2_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-flf2v-flash",
+        "h3-i2v-flash",
+        "h3-r2v-flash",
+        "h3-studio-director-flash",
+        "h3-video-flash"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x4_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-flf2v-flash",
+        "h3-i2v-flash",
+        "h3-r2v-flash",
+        "h3-studio-director-flash",
         "h3-video-flash"
       ]
     }

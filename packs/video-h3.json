@@ -73,7 +73,12 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-long-shot",
+        "h3-photo",
         "h3-photo-turbo",
+        "h3-r2v",
+        "h3-r2v-flex",
+        "h3-video",
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
@@ -88,7 +93,12 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-long-shot",
+        "h3-photo",
         "h3-photo-turbo",
+        "h3-r2v",
+        "h3-r2v-flex",
+        "h3-video",
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
@@ -306,7 +316,12 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-long-shot",
+        "h3-photo",
         "h3-photo-turbo",
+        "h3-r2v",
+        "h3-r2v-flex",
+        "h3-video",
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"
@@ -321,7 +336,12 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
+        "h3-long-shot",
+        "h3-photo",
         "h3-photo-turbo",
+        "h3-r2v",
+        "h3-r2v-flex",
+        "h3-video",
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"

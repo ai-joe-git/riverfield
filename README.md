@@ -9,8 +9,9 @@ MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniM
 **Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
 attention** node now running on comfy-kitchen's Sol-Attn (and bypassed on CUDA/XPU), and an **MCP server** so an
 agent can drive the studio. RiverField also adds **Riverfield Agent**, a native AI chat that operates the
-studio through those same MCP tools, **Pika Video** and **Pika Text to Video** with optional **RelayVSR x2/x4**,
-and a **shared inference queue** for web, MCP and agent model calls. Upstream stays the reference
+studio through those same MCP tools, optional **RelayVSR x2/x4** in every H3 video app (Pika Video, Pika
+Text to Video, H3 Video/Photo/Reference/Long Shot and the H3 Flash family), and a **shared inference queue**
+for web, MCP and agent model calls. Upstream stays the reference
 for the inherited apps; [upstream synchronization](docs/upstream-sync.md) is reviewed patch by patch.
 The full list is under [What RiverField adds](#what-riverfield-adds).
 
@@ -78,8 +79,8 @@ graph and a manifest.
 | `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
 | `extend-video-turbo` | MiniMax H3 extend with the same 3-step turbo LoRA; steps, sampler and sparse-attention controls | H3 int8 | — |
 | `h3-image`, `h3-image-edit` | MiniMax **H3 Image** text-to-image and edit: 4 MP default, aspect/MP picker, 6 steps at CFG 1, sampler/scheduler, DiT/encoder/VAE pickers, Qwen3.8-27B prompt expansion; the edit app resizes its input to the target MP | H3 Image int8 | 481 s for 4.19 MP (t2i), 988 s for 4.18 MP (edit) |
-| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; SLA 0.85 and the usual H3 controls | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
-| `h3-studio-director-flash` | The **Material Planner** director on the Flash checkpoints: per-segment prompts and ordered references, `ref2va` or `fl2va`, 6 steps, euler, Flash sigmas | H3 Flash int8 | 53 min for 15 s, 1.0 MP |
+| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; SLA 0.85, the usual H3 controls and optional **RelayVSR x2/x4** upscale | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
+| `h3-studio-director-flash` | The **Material Planner** director on the Flash checkpoints: per-segment prompts and ordered references, `ref2va` or `fl2va`, 6 steps, euler, Flash sigmas, optional **RelayVSR x2/x4** on the final clip | H3 Flash int8 | 53 min for 15 s, 1.0 MP |
 | `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
 | `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
 | `music-yue2`, `music-yue2-cover` | YuE2 songs and covers, 23-language vocals, from the user's own workflows | YuE2 3B | 22 s / 26 s |
@@ -92,13 +93,13 @@ graph and a manifest.
 | `gaussian-splat` | A picture to a **Gaussian splat**: the native `.spz`, a `.glb` mesh and a turntable clip; BiRefNet cut-out, 65k–524k gaussians, sampling preview | Idol / TripoSplat | — |
 | `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
 | `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, optional **reference sheet** (Ingredients IC-LoRA held on every frame), 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP; 192 s for 2.28 s with a sheet |
-| `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional | MiniMax H3 | 264 s for 2 s, 4 steps |
+| `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional, plus optional **RelayVSR x2/x4** | MiniMax H3 | 264 s for 2 s, 4 steps |
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count. Leave the bin empty for **pure text-to-video** (FL2VA DiT + Pika Flex FL2VA LoRA) | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
 | `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
 | `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, sampling preset (Pika's 6-step ladder or a custom `BasicScheduler`), LoRA/DiT/VAE pickers, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
 | `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP, the same sampling/LoRA/DiT/VAE controls and optional **RelayVSR 2×/4×** pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
-| `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment | MiniMax H3 int8 | — |
+| `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment; optional **RelayVSR x2/x4** | MiniMax H3 int8 | — |
 | `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
 | `upscale-fast-video` | The same upscaler on a clip: **4 frames per batch**, chunks joined by stream copy, **audio kept** | ESRGAN + `RiverFieldUpscaleVideo` | very slow on the iGPU; chunked to keep memory flat |
@@ -248,7 +249,7 @@ The agent has no unrestricted shell or filesystem: only the scoped MCP tools and
 | `depth-map` | Depth Map | MoGe-2: a depth map (colored or grayscale) or a normal map of a photo | fits whole, 0.7 GB | ready |
 | `smooth` | Slow motion / smoothing | FILM frame interpolation | fits whole, 0.1 GB | ready |
 | `video`, `video-t2v` | Create Video (with audio) | LTX-2.5 22B distilled (int8) | tight: 21.5 GB largest phase | ready |
-| `h3-video`, `h3-photo` | Create Video (with audio) | MiniMax H3 (int8) from Comfy's templates: text or a photo to a clip with speech, sound and music, 20 steps, no turbo LoRA | needs Modal: 27.1 GB text encoder | ready |
+| `h3-video`, `h3-photo` | Create Video (with audio), optional **RelayVSR x2/x4** | MiniMax H3 (int8) from Comfy's templates: text or a photo to a clip with speech, sound and music, 20 steps, no turbo LoRA | needs Modal: 27.1 GB text encoder | ready |
 | `extend-video` | Extend Video | MiniMax H3 from the clip's last frame, the new part joined after it with its sound | needs Modal: 27.1 GB text encoder | ready |
 | `vfx-clean-plate`, `vfx-day-to-night`, `vfx-water` | VFX | LTX-2.5 + official IC-LoRAs | tight: 21.8–22.4 GB | ready |
 | `transitions` | Effects / Transitions | LTX-2.5 + transition LoRA (2.3) | tight: 21.9 GB | ready |
