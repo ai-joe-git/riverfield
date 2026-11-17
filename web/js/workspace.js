@@ -717,6 +717,15 @@ function sideField(app, inp, f, ui, rerender) {
 const isAdvanced = (inp) => inp.type === "seed" || /negative/.test(inp.id)
   || /^sla_(block_size|min_seq_len|dense_last_steps|protect_audio|stabilize_motion|h3_cache|reference_protection|dense_steps|dense_backend|disable_fp16_accum)$/.test(inp.id);
 
+const isShown = (inp, values) => {
+  const cond = inp.show_if;
+  if (!cond) return true;
+  const value = values[cond.input];
+  if ("equals" in cond) return String(value) === String(cond.equals);
+  if ("not_equals" in cond) return String(value) !== String(cond.not_equals);
+  return true;
+};
+
 function presetField(app, f) {
   const opts = [{ id: "", label: t("ws.preset.none") }, ...app.presets];
   const seg = el("div", { class: "seg", role: "group", "aria-label": t("ws.preset") });
@@ -752,7 +761,7 @@ function sidebarPanel(app, rerenderSide) {
 
   const main = [], adv = [];
   for (const inp of app.inputs) {
-    if (inp.hidden) continue;
+    if (inp.hidden || !isShown(inp, f.values)) continue;
     if (isMedia(inp.type)) main.push(dropzone(app, inp, rerenderSide));
     else (isAdvanced(inp) ? adv : main).push(sideField(app, inp, f, ui, rerenderSide));
   }

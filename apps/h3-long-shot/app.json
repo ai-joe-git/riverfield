@@ -10,7 +10,7 @@
   "source": {
     "template": "PikaRiver-H3-Long-Shot-FIXED.json (StableYogi H3 Long Shot)",
     "comfyui": "0.43.0",
-    "notes": "MiniMaxH3ImageToVideo + lcm 6-step sigmas; the length is snapped to 5+17n frames by a ComfyMathExpression from the duration in seconds. The optional SeedVR2 upscale group of the original is not included."
+    "notes": "MiniMaxH3ImageToVideo + the Pika lcm 6-step sigmas by default; the length is snapped to 5+17n frames by a ComfyMathExpression from the duration in seconds. The optional SeedVR2 upscale group of the original is not included."
   },
   "outputs": [
     {
@@ -97,7 +97,7 @@
       "optional": true
     }
   ],
-  "notes": "The duration slider is snapped to an H3-legal 5+17n frame count (5 s = 124, 10 s = 243, 20 s = 481, 30 s = 719, 40 s ~ 974). Speech is about 2.5 words a second, so a 40 s take needs about 100 words. The lcm sampler and its 6-step sigma ladder are part of the recipe.",
+  "notes": "The duration slider is snapped to an H3-legal 5+17n frame count (5 s = 124, 10 s = 243, 20 s = 481, 30 s = 719, 40 s ~ 974). Speech is about 2.5 words a second, so a 40 s take needs about 100 words. The default Pika LoRA uses the lcm sampler and its 6-step sigma ladder; the other H3 LoRAs switch to Custom sampling, their trained step count and euler through a BasicScheduler.",
   "inputs": [
     {
       "id": "image",
@@ -181,8 +181,8 @@
       "id": "megapixels",
       "type": "slider",
       "label": "Resolution (MP)",
-      "min": 0.4,
-      "max": 1.0,
+      "min": 0.1,
+      "max": 4.0,
       "step": 0.01,
       "default": 0.4,
       "bind": [
@@ -190,7 +190,8 @@
           "node": "32",
           "field": "megapixels"
         }
-      ]
+      ],
+      "help": "0.4 MP ≈ 848×480 at 16:9, rounded to a multiple of 32. Up to 4 MP."
     },
     {
       "id": "upscale",
@@ -381,12 +382,80 @@
     {
       "id": "lora_name",
       "type": "select",
-      "label": "Pika Flex LoRA",
+      "label": "LoRA",
       "default": "pika_h3_flex_fl2va_v1_bf16.safetensors",
       "options": [
         {
           "value": "pika_h3_flex_fl2va_v1_bf16.safetensors",
-          "label": "pika_h3_flex_fl2va_v1_bf16"
+          "label": "Pika H3 Flex FL2VA v1 — default, 6-step ladder",
+          "sync": {
+            "steps": 6,
+            "sampler": "lcm",
+            "sampling": "pika"
+          }
+        },
+        {
+          "value": "taomate_h3_3step_comfy.safetensors",
+          "label": "TaoMate H3 3-step — fastest, 3-step",
+          "sync": {
+            "steps": 3,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+          "label": "MiniMax H3 FL2V turbo 4-step v1.2 768p",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+          "label": "MiniMax H3 FL2V turbo 8-step v1.0",
+          "sync": {
+            "steps": 8,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_DMAD_4step_full_lora_avg_rank_39_bf16.safetensors",
+          "label": "MiniMax H3 DMAD 4-step",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_pdmd_2step_lora_avg_rank_38_bf16.safetensors",
+          "label": "MiniMax H3 PDMD 2-step",
+          "sync": {
+            "steps": 2,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_pdmd_4step_lora_avg_rank_57_bf16.safetensors",
+          "label": "MiniMax H3 PDMD 4-step",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
+        },
+        {
+          "value": "minimax_h3_turbo_v4_step600_ema_comfyui.safetensors",
+          "label": "MiniMax H3 turbo v4 step600 EMA (4-step)",
+          "sync": {
+            "steps": 4,
+            "sampler": "euler",
+            "sampling": "custom"
+          }
         }
       ],
       "bind": [
@@ -394,7 +463,8 @@
           "node": "31",
           "field": "lora_name"
         }
-      ]
+      ],
+      "help": "The H3 adapter. Pika uses the shipped lcm 6-step ladder; the turbo and distilled LoRAs switch to Custom sampling with their trained step count and euler."
     },
     {
       "id": "lora_strength",
@@ -410,6 +480,126 @@
           "field": "strength_model"
         }
       ]
+    },
+    {
+      "id": "sampling",
+      "type": "select",
+      "label": "Sampling",
+      "default": "pika",
+      "options": [
+        {
+          "value": "pika",
+          "label": "Pika 6-step ladder (shipped)",
+          "sets": [
+            {
+              "node": "17",
+              "field": "sigmas",
+              "value": [
+                "28",
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "value": "custom",
+          "label": "Custom steps + sampler",
+          "sets": [
+            {
+              "node": "17",
+              "field": "sigmas",
+              "value": [
+                "36",
+                0
+              ]
+            }
+          ]
+        }
+      ],
+      "help": "The Pika ladder is the shipped 6-step lcm schedule. Custom uses Steps and Sampler through a BasicScheduler; picking a turbo or distilled LoRA switches to Custom automatically."
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 2,
+      "max": 30,
+      "step": 1,
+      "default": 6,
+      "help": "Only used with Custom sampling; the Pika ladder is fixed at 6 steps. Picking a LoRA sets its trained step count.",
+      "bind": [
+        {
+          "node": "36",
+          "field": "steps"
+        }
+      ],
+      "show_if": {
+        "input": "sampling",
+        "equals": "custom"
+      }
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "lcm",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "dpmpp_3m_sde"
+        },
+        {
+          "value": "deis",
+          "label": "deis"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "dpm_2_ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "lms"
+        }
+      ],
+      "help": "lcm is what the Pika LoRA and its sigma ladder were built for. euler is what the turbo LoRAs expect.",
+      "bind": [
+        {
+          "node": "14",
+          "field": "sampler_name"
+        }
+      ],
+      "show_if": {
+        "input": "sampling",
+        "equals": "custom"
+      }
     }
   ]
 }

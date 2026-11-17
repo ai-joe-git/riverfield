@@ -28,6 +28,8 @@ export type Input = {
   unlink?: { node: string; field: string }[];
   /** pass-through nodes removed when this input is off or when the backend lacks their class */
   bypass?: { node: string; field: string }[];
+  /** only render this input when another input's value matches (LoRA-aware sampling controls) */
+  show_if?: { input: string; equals?: unknown; not_equals?: unknown };
   limits?: { max_mb?: number; seconds?: [number, number] };
   bind?: Bind[];
 };

@@ -226,6 +226,44 @@ test("drafts run only when allowed", async () => {
   assert.ok(seen[0]?.endsWith("/riverfield/prepare"), "got past the draft gate and asked the gateway");
 });
 
+test("h3-long-shot follows the LoRA: Pika keeps its ladder, turbo LoRAs get their steps", () => {
+  const app = byId("h3-long-shot");
+  const file = { bytes: new Uint8Array([1]), name: "x.png" };
+  const mp = app.inputs.find((i) => i.id === "megapixels")!;
+  assert.equal(mp.min, 0.1);
+  assert.equal(mp.max, 4);
+  const lora = app.inputs.find((i) => i.id === "lora_name")!;
+  assert.ok((lora.options?.length ?? 0) >= 8, "the H3 LoRA list is not Pika-only");
+  assert.deepEqual(app.inputs.find((i) => i.id === "steps")!.show_if, { input: "sampling", equals: "custom" });
+
+  const pika = resolveValues(app, { image: file, prompt: "x", lora_name: "pika_h3_flex_fl2va_v1_bf16.safetensors" });
+  assert.equal(pika.sampling, "pika");
+  assert.equal(pika.steps, 6);
+  assert.equal(pika.sampler, "lcm");
+
+  const turbo = resolveValues(app, { image: file, prompt: "x", lora_name: "taomate_h3_3step_comfy.safetensors" });
+  assert.equal(turbo.sampling, "custom");
+  assert.equal(turbo.steps, 3);
+  assert.equal(turbo.sampler, "euler");
+
+  const graph = () => ({
+    json: structuredClone(app.graph!),
+    setInput(node: string, field: string, value: unknown) {
+      ((this.json as any)[node] ??= { class_type: "?", inputs: {} }).inputs[field] = value;
+    },
+  });
+  const pikaWf = graph();
+  applyInputs(app, pika, pikaWf as any, () => null);
+  assert.deepEqual((pikaWf.json as any)["17"].inputs.sigmas, ["28", 0]);
+  assert.equal((pikaWf.json as any)["36"], undefined, "the unused BasicScheduler is pruned");
+
+  const turboWf = graph();
+  applyInputs(app, turbo, turboWf as any, () => null);
+  assert.deepEqual((turboWf.json as any)["17"].inputs.sigmas, ["36", 0]);
+  assert.equal((turboWf.json as any)["36"].inputs.steps, 3);
+  assert.equal((turboWf.json as any)["14"].inputs.sampler_name, "euler");
+});
+
 test("an optional pass-through node is bypassed when its toggle is off or the backend lacks its class", () => {
   const app = {
     id: "bypass-test", name: "Bypass", section: "video", pack: "core", status: "ready",

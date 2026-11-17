@@ -385,6 +385,22 @@
           "type": "boolean",
           "description": "Managed by a custom panel (Studio Director): the generic form does not render it."
         },
+        "show_if": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "input"
+          ],
+          "description": "Render this input only when another input's value matches. Used by the LoRA-aware sampling controls: Steps and Sampler appear only for Custom sampling.",
+          "properties": {
+            "input": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "equals": {},
+            "not_equals": {}
+          }
+        },
         "bypass": {
           "type": "array",
           "description": "Pass-through nodes to remove when the toggle is off or when the backend does not ship their class (eg. the ROCm SLA node on CUDA/XPU). Consumers are rewired to the named input.",

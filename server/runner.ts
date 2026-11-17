@@ -118,6 +118,15 @@ export function resolveValues(app: App, values: Values): Values {
       out[input.id] = coerce(input, v);
     }
   }
+  // A select option can recommend other form values (a LoRA's trained steps, sampler and
+  // sampling mode). Fill only what the caller left unset, so an explicit choice wins.
+  for (const input of app.inputs) {
+    if (input.type !== "select" || !input.options) continue;
+    const chosen = input.options.find((o) => String(o.value) === String(out[input.id]));
+    for (const [id, v] of Object.entries(chosen?.sync ?? {})) {
+      if (values[id] === undefined) out[id] = v;
+    }
+  }
   if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
   if(app.id==="pika-studio-director"&&!out.advanced_timeline_json)validatePikaValues(out);
   if(app.id==="relayvsr-upscale"){
