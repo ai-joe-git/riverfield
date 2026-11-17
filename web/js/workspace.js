@@ -302,8 +302,22 @@ export function useIn(anchor, item, done) {
   };
   const row = (a) => el("button", { class: "opt", type: "button", onclick: () => go(a) },
     el("span", { class: "thumb" }, appThumb(a)), el("span", { class: "two" }, el("b", {}, a.name), el("small", {}, tagline(a))));
-  popover(anchor, el("div", { class: "usein" }, el("h4", {}, t("act.usein")), ...first.map(row),
-    rest.length ? el("details", {}, el("summary", {}, t("usein.more", { n: rest.length })), ...rest.map(row)) : null), { width: 340 });
+  // Every compatible app, with the usual next steps first. The search keeps the full list usable
+  // instead of hiding the long tail behind a collapsed "more" section.
+  const all = [...first, ...rest];
+  const list = el("div", { class: "usein" });
+  const search = el("input", { type: "search", placeholder: t("apps.search"), "aria-label": t("apps.search") });
+  const draw = () => {
+    const q = search.value.trim().toLowerCase();
+    const hits = all.filter((a) => !q || [a.name, a.summary, a.id, a.higgsfield_feature].filter(Boolean).join(" ").toLowerCase().includes(q));
+    list.replaceChildren(...(hits.length ? hits.map(row) : [el("div", { class: "empty" }, t("apps.none", { q: search.value }))]));
+  };
+  search.addEventListener("input", draw);
+  draw();
+  popover(anchor, el("div", { class: "usein-wrap" },
+    el("h4", {}, t("act.usein"), el("span", { class: "n" }, all.length)),
+    el("label", { class: "search usein-search" }, icon("search"), search),
+    list), { width: 340, cls: "usein-pop" });
 }
 
 // ------------------------------------------------------------------ small parts
