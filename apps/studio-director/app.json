@@ -768,6 +768,10 @@
           "label": "qwen3.5_9b_w4a8_gptq.safetensors"
         },
         {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors"
+        },
+        {
           "value": "qwen3.8_27b_w4a8.safetensors",
           "label": "qwen3.8_27b_w4a8.safetensors"
         },

@@ -296,11 +296,15 @@
           "label": "Huihui Qwen3.8-27B abliterated int8 — uncensored"
         },
         {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8-27B uncensored heretic w4a8 v2 — 17.9 GB"
+        },
+        {
           "value": "qwen3.5_9b_w4a8_gptq.safetensors",
           "label": "Qwen3.5-9B w4a8 — lighter and faster"
         }
       ],
-      "help": "The prompt-expansion model. Qwen3.8-27B is the reference PE model; the Huihui abliterated int8 conversion is uncensored and 29.2 GB; Qwen3.5-9B is lighter and faster.",
+      "help": "The prompt-expansion model. Qwen3.8-27B is the reference PE model; the Huihui abliterated int8 conversion is uncensored and 29.2 GB; the Heretic w4a8 v2 is uncensored and 17.9 GB; Qwen3.5-9B is lighter and faster.",
       "bind": [
         {
           "node": "35",
