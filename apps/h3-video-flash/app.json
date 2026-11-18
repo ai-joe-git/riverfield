@@ -211,10 +211,10 @@
       "type": "slider",
       "label": "Seconds",
       "min": 1,
-      "max": 15,
+      "max": 40,
       "step": 1,
       "default": 15,
-      "help": "Up to 15. The frame count is 24 fps rounded up to the model's 17k+5 grid (15 s = 362 frames).",
+      "help": "Up to 40. The frame count is 24 fps rounded up to the H3 5+17n grid (40 s = 974 frames).",
       "bind": [
         {
           "node": "18",

@@ -264,6 +264,15 @@ test("h3-long-shot follows the LoRA: Pika keeps its ladder, turbo LoRAs get thei
   assert.equal((turboWf.json as any)["14"].inputs.sampler_name, "euler");
 });
 
+test("every H3 video app reaches 40 seconds", () => {
+  const h3 = apps.filter((a) => a.pack === "video-h3" || a.pack === "video-h3-flash");
+  for (const app of h3) {
+    const duration = app.inputs.find((i) => i.id === "duration");
+    if (!duration) continue;
+    assert.ok(Number(duration.max) >= 40, `${app.id}: duration max is ${duration.max}, expected at least 40`);
+  }
+});
+
 test("an optional pass-through node is bypassed when its toggle is off or the backend lacks its class", () => {
   const app = {
     id: "bypass-test", name: "Bypass", section: "video", pack: "core", status: "ready",

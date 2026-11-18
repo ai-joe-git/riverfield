@@ -76,10 +76,10 @@ graph and a manifest.
 
 | App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
 |---|---|---|---|
-| `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
+| `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE, up to 40 s and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
 | `extend-video-turbo` | MiniMax H3 extend with the same 3-step turbo LoRA; steps, sampler and sparse-attention controls | H3 int8 | — |
 | `h3-image`, `h3-image-edit` | MiniMax **H3 Image** text-to-image and edit: 4 MP default, aspect/MP picker, 6 steps at CFG 1, sampler/scheduler, DiT/encoder/VAE pickers, Qwen3.8-27B prompt expansion; the edit app resizes its input to the target MP | H3 Image int8 | 481 s for 4.19 MP (t2i), 988 s for 4.18 MP (edit) |
-| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; SLA 0.85, the usual H3 controls and optional **RelayVSR x2/x4** upscale | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
+| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; up to 40 s; SLA 0.85, the usual H3 controls and optional **RelayVSR x2/x4** upscale | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
 | `h3-studio-director-flash` | The **Material Planner** director on the Flash checkpoints: per-segment prompts and ordered references, `ref2va` or `fl2va`, 6 steps, euler, Flash sigmas, optional **RelayVSR x2/x4** on the final clip | H3 Flash int8 | 53 min for 15 s, 1.0 MP |
 | `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
 | `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
@@ -104,6 +104,8 @@ graph and a manifest.
 | `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
 | `upscale-fast-video` | The same upscaler on a clip: **4 frames per batch**, chunks joined by stream copy, **audio kept** | ESRGAN + `RiverFieldUpscaleVideo` | very slow on the iGPU; chunked to keep memory flat |
 | `relayvsr-upscale` | Wan **RelayVSR** video upscale in one step: **x2 or x4**, the DIT and the Flash VAE are picked together (the factor is baked in the pair), only every 15th frame goes through the DIT and the Flash decoder restores the rest, detail slider | RelayVSR int8 (Wan) | 137 s for 7.29 s, 608×352 → 2432×1408 |
+
+**H3 duration:** every MiniMax H3 video app now exposes a duration up to 40 s. The frame count snaps to the H3 5+17n grid (40 s = 974 frames), so long clips cost proportionally more GPU time.
 
 Four things are not an app:
 
@@ -249,8 +251,8 @@ The agent has no unrestricted shell or filesystem: only the scoped MCP tools and
 | `depth-map` | Depth Map | MoGe-2: a depth map (colored or grayscale) or a normal map of a photo | fits whole, 0.7 GB | ready |
 | `smooth` | Slow motion / smoothing | FILM frame interpolation | fits whole, 0.1 GB | ready |
 | `video`, `video-t2v` | Create Video (with audio) | LTX-2.5 22B distilled (int8) | tight: 21.5 GB largest phase | ready |
-| `h3-video`, `h3-photo` | Create Video (with audio), optional **RelayVSR x2/x4** | MiniMax H3 (int8) from Comfy's templates: text or a photo to a clip with speech, sound and music, 20 steps, no turbo LoRA | needs Modal: 27.1 GB text encoder | ready |
-| `extend-video` | Extend Video | MiniMax H3 from the clip's last frame, the new part joined after it with its sound | needs Modal: 27.1 GB text encoder | ready |
+| `h3-video`, `h3-photo` | Create Video (with audio), optional **RelayVSR x2/x4** | MiniMax H3 (int8) from Comfy's templates: text or a photo to a clip with speech, sound and music, 20 steps, no turbo LoRA, up to 40 s | needs Modal: 27.1 GB text encoder | ready |
+| `extend-video` | Extend Video | MiniMax H3 from the clip's last frame, the new part joined after it with its sound; up to 40 s added | needs Modal: 27.1 GB text encoder | ready |
 | `vfx-clean-plate`, `vfx-day-to-night`, `vfx-water` | VFX | LTX-2.5 + official IC-LoRAs | tight: 21.8–22.4 GB | ready |
 | `transitions` | Effects / Transitions | LTX-2.5 + transition LoRA (2.3) | tight: 21.9 GB | ready |
 | `camera-moves` | Camera Controls | Wan 2.2 Fun Camera (fp8): pans, zooms and rolls on an image, with a 4-step fast preset | fits by phases, 15.3 GB | ready |
@@ -266,7 +268,7 @@ The agent has no unrestricted shell or filesystem: only the scoped MCP tools and
 | `sfx` | Audio | Stable Audio 3 medium | fits whole, 10.4 GB | ready |
 | `recast` | Character swap | SCAIL-2 (int8) + SAM 3.1 tracking: replace a person in a video, or animate a character | fits by phases, 18.6 GB | ready |
 | `motion-transfer` | Character / motion swap | Wan Animate 2 (int8) | fits by phases, 16.6 GB | ready |
-| `reshoot` | Camera angles | MiniMax H3 + MoGe + CrossView: a clip seen from a new angle, the holes of the reprojection filled in | needs Modal: 27.1 GB text encoder (ran on a 48 GB L40S, peak 44.2 GB) | ready |
+| `reshoot` | Camera angles | MiniMax H3 + MoGe + CrossView: a clip seen from a new angle, the holes of the reprojection filled in; up to 40 s kept | needs Modal: 27.1 GB text encoder (ran on a 48 GB L40S, peak 44.2 GB) | ready |
 | `product-shot` | Product placement | FLUX 3 Image Klein (int8) with product-photography scenes | fits whole, 11.0 GB | ready |
 | `speak` | Speak | LTX-2.5 image-to-video voicing a quoted line (voice, lip sync and motion in one pass, no TTS) | tight: 21.5 GB largest phase | ready |
 | `character` | Soul ID | FLUX 3 Image Klein, reference image (int8) | fits whole, 11.0 GB | ready |

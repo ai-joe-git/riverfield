@@ -48,7 +48,7 @@
       "type": "slider",
       "label": "Duration (s)",
       "min": 2,
-      "max": 10,
+      "max": 40,
       "step": 1,
       "default": 4,
       "bind": [
@@ -56,7 +56,8 @@
           "node": "105:111",
           "field": "value"
         }
-      ]
+      ],
+      "help": "Up to 40. The frame count is 24 fps rounded up to the H3 5+17n grid (40 s = 974 frames)."
     },
     {
       "id": "upscale",

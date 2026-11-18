@@ -83,7 +83,7 @@
       "type": "slider",
       "label": "Seconds to keep",
       "min": 2,
-      "max": 10,
+      "max": 40,
       "step": 1,
       "default": 5,
       "bind": [
@@ -91,7 +91,8 @@
           "node": "2",
           "field": "duration"
         }
-      ]
+      ],
+      "help": "Seconds to keep, capped by the source clip and snapped to the H3 5+17n frame grid at 24 fps (40 s = 974 frames)."
     },
     {
       "id": "prompt",

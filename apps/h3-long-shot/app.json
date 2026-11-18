@@ -135,7 +135,7 @@
       "max": 40,
       "step": 1,
       "default": 40,
-      "help": "Snapped to the H3 5+17n frame grid.",
+      "help": "Snapped to the H3 5+17n frame grid (40 s = 974 frames).",
       "bind": [
         {
           "node": "33",
