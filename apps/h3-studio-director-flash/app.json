@@ -5,12 +5,12 @@
   "section": "video",
   "pack": "video-h3-flash",
   "status": "ready",
-  "summary": "A 6-step HyperFlow H3 Flash director: Material Planner segments, ordered references, synchronized sound, euler + Flash sigmas. ref2va or fl2va model.",
+  "summary": "A HyperFlow H3 Flash director: Material Planner segments, ordered references, synchronized sound, euler + Flash sigmas, 4/6/8 steps, video VAE picker.",
   "higgsfield_feature": "AI Director",
   "source": {
     "template": "RiverField_Director_studio.json (HyperFlow Flash variant)",
     "comfyui": "0.45.0",
-    "notes": "Built from the Pika Studio Director graph (RiverFieldH3Planner + MiniMaxH3TimelinePlanner + MiniMaxH3FiniteSegmentVideoSampler) with the HyperFlow H3 Flash INT8 stack: HyperFlowINT8Loader (ref2va/fl2va, legacy patcher), HyperFlowSigmas at 6 steps, KSamplerSelect euler, Qwen3VL int8 encoder, Lynnreal light int8 VAE, audio VAE, SLA 0.85, multiple 32. The Pika LoRA, lcm sampler and ManualSigmas are removed; the Flash model carries its own HyperFlow schedule. The Flash single-clip apps (h3-video-flash, h3-r2v-flash, h3-i2v-flash, h3-flf2v-flash) are the measured baseline; this director combination has not been rendered yet. Start with one 7.3 s segment."
+    "notes": "Built from the Pika Studio Director graph (RiverFieldH3Planner + MiniMaxH3TimelinePlanner + MiniMaxH3FiniteSegmentVideoSampler) with the HyperFlow H3 Flash INT8 stack: HyperFlowINT8Loader (ref2va/fl2va, legacy patcher), HyperFlowSigmas at 4/6/8 steps (default 6), KSamplerSelect euler, Qwen3VL int8 encoder, selectable video VAE (Lynnreal light int8 by default), audio VAE, SLA 0.85, multiple 32. The Pika LoRA, lcm sampler and ManualSigmas are removed; the Flash model carries its own HyperFlow schedule. The Flash single-clip apps (h3-video-flash, h3-r2v-flash, h3-i2v-flash, h3-flf2v-flash) are the measured baseline; this director combination has not been rendered yet. Start with one 7.3 s segment."
   },
   "inputs": [
     {
@@ -424,7 +424,7 @@
     {
       "id": "flex_mode",
       "type": "select",
-      "label": "Pika Flex adapter",
+      "label": "H3 Flash model",
       "default": "ref2va",
       "options": [
         {
@@ -450,7 +450,7 @@
           ]
         }
       ],
-      "help": "The Flash H3 model moves with the mode: ref2va for reference material, fl2va for plain text-to-video (empty bin). Both use the same 6-step HyperFlow sigmas, euler and SLA 0.85."
+      "help": "The Flash H3 model moves with the mode: ref2va for reference material, fl2va for plain text-to-video (empty bin). Both use the same HyperFlow sigmas (4/6/8 steps), euler and SLA 0.85."
     },
     {
       "id": "aspect",
@@ -634,6 +634,33 @@
       ]
     },
     {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 6,
+      "options": [
+        {
+          "value": 4,
+          "label": "4 (fastest)"
+        },
+        {
+          "value": 6,
+          "label": "6 (default)"
+        },
+        {
+          "value": 8,
+          "label": "8 (most detailed)"
+        }
+      ],
+      "help": "HyperFlow's sigma schedule: 4, 6 or 8 steps at CFG 1.0.",
+      "bind": [
+        {
+          "node": "50",
+          "field": "steps"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",
@@ -670,6 +697,33 @@
         {
           "node": "2",
           "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "help": "The video VAE used to decode every segment. Lynnreal light is the Flash default; the full INT8/FP16 VAEs may decode more detail at a higher cost.",
+      "bind": [
+        {
+          "node": "3",
+          "field": "vae_name"
         }
       ]
     },
@@ -807,6 +861,24 @@
       "gb": 2.14,
       "phase": "decode",
       "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
     },
     {
       "repo": "Comfy-Org/MiniMax-H3",

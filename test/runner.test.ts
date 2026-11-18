@@ -277,6 +277,30 @@ test("the extra Qwen3.8 uncensored prompt models are selectable wherever Qwen3.8
   for (const file of files) assert.ok(clip.options?.some((o) => o.value === file), `studio-director: clip_name lacks ${file}`);
 });
 
+test("the Flash director exposes the Flash step ladder and video VAE", () => {
+  const app = byId("h3-studio-director-flash");
+  const steps = app.inputs.find((i) => i.id === "steps")!;
+  assert.deepEqual(steps.options?.map((o) => o.value), [4, 6, 8]);
+  assert.equal(steps.default, 6);
+  assert.deepEqual(steps.bind, [{ node: "50", field: "steps" }]);
+
+  const vae = app.inputs.find((i) => i.id === "vae_name")!;
+  const vaeValues = vae.options?.map((o) => o.value) ?? [];
+  for (const file of [
+    "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+    "minimax_h3_video_vae_int8_convrot.safetensors",
+    "minimax_h3_video_vae_fp16.safetensors",
+  ]) {
+    assert.ok(vaeValues.includes(file), `vae_name lacks ${file}`);
+  }
+  assert.deepEqual(vae.bind, [{ node: "3", field: "vae_name" }]);
+
+  const wf = recorder();
+  applyInputs(app, resolveValues(app, { global_prompt: "x", steps: 4, vae_name: "minimax_h3_video_vae_int8_convrot.safetensors" }), wf, () => null);
+  assert.equal(wf.sets["50.steps"], 4);
+  assert.equal(wf.sets["3.vae_name"], "minimax_h3_video_vae_int8_convrot.safetensors");
+});
+
 test("every H3 video app reaches 40 seconds", () => {
   const h3 = apps.filter((a) => a.pack === "video-h3" || a.pack === "video-h3-flash");
   for (const app of h3) {
