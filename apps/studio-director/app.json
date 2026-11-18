@@ -724,6 +724,10 @@
           "label": "gemma4_e2b_it_int8_convrot.safetensors"
         },
         {
+          "value": "Huihui-Qwen3.8-27B-abliterated_int8_convrot.safetensors",
+          "label": "Huihui-Qwen3.8-27B-abliterated_int8_convrot.safetensors"
+        },
+        {
           "value": "ming_image_0.1_ling_mini_2.0_layer_int8_convrot.safetensors",
           "label": "ming_image_0.1_ling_mini_2.0_layer_int8_convrot.safetensors"
         },

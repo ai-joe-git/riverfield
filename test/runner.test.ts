@@ -264,6 +264,16 @@ test("h3-long-shot follows the LoRA: Pika keeps its ladder, turbo LoRAs get thei
   assert.equal((turboWf.json as any)["14"].inputs.sampler_name, "euler");
 });
 
+test("the Huihui Qwen3.8 abliterated prompt model is selectable wherever Qwen3.8-27B is", () => {
+  const file = "Huihui-Qwen3.8-27B-abliterated_int8_convrot.safetensors";
+  for (const id of ["h3-image", "h3-image-edit"]) {
+    const pe = byId(id).inputs.find((i) => i.id === "pe_model")!;
+    assert.ok(pe.options?.some((o) => o.value === file), `${id}: pe_model lacks ${file}`);
+  }
+  const clip = byId("studio-director").inputs.find((i) => i.id === "clip_name")!;
+  assert.ok(clip.options?.some((o) => o.value === file), `studio-director: clip_name lacks ${file}`);
+});
+
 test("every H3 video app reaches 40 seconds", () => {
   const h3 = apps.filter((a) => a.pack === "video-h3" || a.pack === "video-h3-flash");
   for (const app of h3) {
