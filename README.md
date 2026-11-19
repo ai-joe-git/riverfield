@@ -43,16 +43,24 @@ RiverField adds these apps on top of upstream Freefield. Every app is a folder i
 
 ## Overview
 
-RiverField adds a **3D studio** (a picture to a textured GLB with TRELLIS.2 or Pixal3D, or to a Gaussian splat with Idol), **Lipsync** (LTX-2.5 image-and-audio to
-video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voice design), turbo variants of the
-MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniMax H3 reference pipeline**, a
-**Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
-attention** node now running on comfy-kitchen's Sol-Attn (and bypassed on CUDA/XPU), and an **MCP server** so an
-agent can drive the studio. RiverField also adds **Riverfield Agent**, a native AI chat that operates the
-studio through those same MCP tools, optional **RelayVSR x2/x4** in every H3 video app (Pika Video, Pika
-Text to Video, H3 Video/Photo/Reference/Long Shot and the H3 Flash family), and a **shared inference queue**
-for web, MCP and agent model calls. Upstream stays the reference
-for the inherited apps; [upstream synchronization](docs/upstream-sync.md) is reviewed patch by patch.
+RiverField turns ComfyUI into a studio: image, video, VFX, audio and 3D apps with forms, examples, a shared
+queue and an agent. On top of upstream Freefield it adds:
+
+- **New studios** — a **3D studio** (TRELLIS.2 or Pixal3D to a textured GLB, Idol to a Gaussian splat),
+  **Lipsync** (LTX-2.5 image-and-audio to video), and **four text-to-speech apps** (Chatterbox and OmniVoice,
+  cloning and voice design).
+- **More H3 and music** — turbo variants of MiniMax H3 and MiniMax Music 3, YuE2 songs and covers, the complete
+  **MiniMax H3 reference pipeline**, and the H3 Flash family.
+- **Directing** — a **Material Planner** editing panel with two director apps: free-form, and a locked Pika
+  recipe.
+- **Faster H3** — the **H3 SLA attention** node now runs on comfy-kitchen's Sol-Attn (and is bypassed on
+  CUDA/XPU), plus optional **RelayVSR x2/x4** in every H3 video app (Pika Video, Pika Text to Video, H3
+  Video/Photo/Reference/Long Shot and the H3 Flash family).
+- **Agent and queue** — an **MCP server** and **Riverfield Agent**, a native chat that drives the studio
+  through the same MCP tools, with a **shared inference queue** for web, MCP and agent calls.
+- **Upstream** — inherited apps stay on upstream Freefield; [upstream synchronization](docs/upstream-sync.md)
+  is reviewed patch by patch.
+
 The full list is in the [RiverField apps](#riverfield-apps) table above.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
