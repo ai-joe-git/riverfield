@@ -86,9 +86,19 @@ export function attachMenus(bar, links) {
   let openKey = null, openTimer = null, closeTimer = null;
   let aim = null;   // where the pointer left a studio link while a panel is open
 
+  const place = (key) => {
+    const anchor = links.get(key)?.getBoundingClientRect();
+    if (!anchor) return;
+    const barLeft = bar.getBoundingClientRect().left;
+    const width = panel.getBoundingClientRect().width;
+    const left = Math.max(12, Math.min(anchor.left - 10, window.innerWidth - width - 12));
+    panel.style.left = `${left - barLeft}px`;
+  };
   const close = () => {
     clearTimeout(openTimer); clearTimeout(closeTimer);
     aim = null;
+    document.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("resize", onResize);
     if (!openKey) return;
     links.get(openKey)?.setAttribute("aria-expanded", "false");
     openKey = null;
@@ -103,18 +113,22 @@ export function attachMenus(bar, links) {
     panel.dataset.studio = key;
     panel.hidden = false;
     panel.scrollTop = 0;
+    place(key);
     for (const a of panel.querySelectorAll(".mm-item")) {
       if (a.getAttribute("href") === location.hash) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     }
     openKey = key;
     links.get(key).setAttribute("aria-expanded", "true");
+    document.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("resize", onResize);
   };
   const later = () => { clearTimeout(openTimer); clearTimeout(closeTimer); closeTimer = setTimeout(close, CLOSE_MS); };
   const heading = (e) => openKey && !panel.hidden && towardPanel(aim, e.clientX, e.clientY, panel.getBoundingClientRect());
   // while the pointer keeps heading for the open panel, the close waits; it closes once the pointer turns away or rests
-  document.addEventListener("pointermove", (e) => {
+  const onPointerMove = (e) => {
     if (aim && heading(e)) { clearTimeout(closeTimer); closeTimer = setTimeout(close, AIM_MS); }
-  }, { passive: true });
+  };
+  const onResize = () => { if (openKey) place(openKey); };
 
   for (const key of ["image", "video", "audio", "3d"]) {
     const a = links.get(key);
