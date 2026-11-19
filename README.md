@@ -3,7 +3,47 @@
 Open-source Higgsfield on ComfyUI: every app is one folder, every model is open weights.
 
 **RiverField is a fork of [Freefield](https://github.com/neuregex/freefield) by Sammir Femat (neuregex), MIT.**
-It adds a **3D studio** (a picture to a textured GLB with TRELLIS.2 or Pixal3D, or to a Gaussian splat with Idol), **Lipsync** (LTX-2.5 image-and-audio to
+
+## RiverField apps
+
+RiverField adds these apps on top of upstream Freefield. Every app is a folder in `apps/`, with an API-format workflow and a manifest.
+
+| App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
+|---|---|---|---|
+| `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE, up to 40 s and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
+| `extend-video-turbo` | MiniMax H3 extend with the same 3-step turbo LoRA; steps, sampler and sparse-attention controls | H3 int8 | — |
+| `h3-image`, `h3-image-edit` | MiniMax **H3 Image** text-to-image and edit: 4 MP default, aspect/MP picker, 6 steps at CFG 1, sampler/scheduler, DiT/encoder/VAE pickers, Qwen3.8-27B prompt expansion; the edit app resizes its input to the target MP | H3 Image int8 | 481 s for 4.19 MP (t2i), 988 s for 4.18 MP (edit) |
+| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; up to 40 s; SLA 0.85, the usual H3 controls and optional **RelayVSR x2/x4** upscale | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
+| `h3-studio-director-flash` | The **Material Planner** director on the Flash checkpoints: per-segment prompts and ordered references, `ref2va` or `fl2va`, 4/6/8 steps (default 6), euler, Flash sigmas, video VAE picker, optional **RelayVSR x2/x4** on the final clip | H3 Flash int8 | 53 min for 15 s, 1.0 MP |
+| `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
+| `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
+| `music-yue2`, `music-yue2-cover` | YuE2 songs and covers, 23-language vocals, from the user's own workflows | YuE2 3B | 22 s / 26 s |
+| `tts`, `tts-clone` | Chatterbox: 23 languages, voice cloning from 5 s | Chatterbox 500M | 4.1 s / 4.6 s |
+| `tts-omni`, `tts-omni-clone` | OmniVoice: voice design from attributes, cloning, 600+ languages | OmniVoice 0.6B | 4.1 s / 4.7 s |
+| `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
+| `moss-turbo-jib-mix` | MOSS Turbo on the uncensored **Jib Mix Moss Realistic V2** checkpoint: the same 8-step LoRA, guidance 1.0–1.8, steps 8–15, **18+** badge. Jib Mix is a local Civitai file, so it counts toward VRAM but is not in the `image-moss` pack | MOSS int8 (Jib Mix) | — (example: 8 steps, 1.0 MP) |
+| `qwen-image-edit-turbo` | Qwen Image 2.1 edit with the Turbo checkpoint: source image, instruction, negative prompt, resolution budget and seed | Qwen Image 2.1 int8 | — |
+| `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
+| `gaussian-splat` | A picture to a **Gaussian splat**: the native `.spz`, a `.glb` mesh and a turntable clip; BiRefNet cut-out, 65k–524k gaussians, sampling preview | Idol / TripoSplat | — |
+| `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
+| `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, optional **reference sheet** (Ingredients IC-LoRA held on every frame), 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP; 192 s for 2.28 s with a sheet |
+| `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional, plus optional **RelayVSR x2/x4** | MiniMax H3 | 264 s for 2 s, 4 steps |
+| `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
+| `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count. Leave the bin empty for **pure text-to-video** (FL2VA DiT + Pika Flex FL2VA LoRA) | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
+| `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
+| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, sampling preset (Pika's 6-step ladder or a custom `BasicScheduler`), LoRA/DiT/VAE pickers, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
+| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP, the same sampling/LoRA/DiT/VAE controls and optional **RelayVSR 2×/4×** pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
+| `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment; optional **RelayVSR x2/x4**, the full H3 LoRA list, and sampling that follows the LoRA (Pika keeps its 6-step ladder, turbo/distilled LoRAs use their trained steps) | MiniMax H3 int8 | — |
+| `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
+| `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
+| `upscale-fast-video` | The same upscaler on a clip: **4 frames per batch**, chunks joined by stream copy, **audio kept** | ESRGAN + `RiverFieldUpscaleVideo` | very slow on the iGPU; chunked to keep memory flat |
+| `relayvsr-upscale` | Wan **RelayVSR** video upscale in one step: **x2 or x4**, the DIT and the Flash VAE are picked together (the factor is baked in the pair), only every 15th frame goes through the DIT and the Flash decoder restores the rest, detail slider | RelayVSR int8 (Wan) | 137 s for 7.29 s, 608×352 → 2432×1408 |
+
+**H3 duration:** every MiniMax H3 video app now exposes a duration up to 40 s. The frame count snaps to the H3 5+17n grid (40 s = 974 frames), so long clips cost proportionally more GPU time.
+
+## Overview
+
+RiverField adds a **3D studio** (a picture to a textured GLB with TRELLIS.2 or Pixal3D, or to a Gaussian splat with Idol), **Lipsync** (LTX-2.5 image-and-audio to
 video), **four text-to-speech apps** (Chatterbox and OmniVoice, cloning and voice design), turbo variants of the
 MiniMax H3 and MiniMax Music 3 apps, YuE2 songs and covers, the complete **MiniMax H3 reference pipeline**, a
 **Material Planner** editing panel with two director apps (free-form, and a locked Pika recipe), the **H3 SLA
@@ -13,7 +53,7 @@ studio through those same MCP tools, optional **RelayVSR x2/x4** in every H3 vid
 Text to Video, H3 Video/Photo/Reference/Long Shot and the H3 Flash family), and a **shared inference queue**
 for web, MCP and agent model calls. Upstream stays the reference
 for the inherited apps; [upstream synchronization](docs/upstream-sync.md) is reviewed patch by patch.
-The full list is under [What RiverField adds](#what-riverfield-adds).
+The full list is in the [RiverField apps](#riverfield-apps) table above.
 
 **[Watch the 2-minute demo video](https://youtu.be/N7mv2v3Txeo)**
 
@@ -60,7 +100,7 @@ local or remote provider you choose; conversations live under `out/agent/`.
 
 | | |
 |---|---|
-| Apps | **157 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, **5 MiniMax H3 Flash**, **2 MiniMax H3 Image**, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **MOSS Turbo Jib Mix (18+)**, **Qwen Image Edit Turbo**, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [What RiverField adds](#what-riverfield-adds)) |
+| Apps | **157 ready, plus one draft** (upstream's 120, `moss-image` now out of draft, plus RiverField's own: 4 MiniMax H3 turbo, **5 MiniMax H3 Flash**, **2 MiniMax H3 Image**, 2 MiniMax Music 3 turbo, 2 YuE2, 4 text to speech, MOSS Turbo, **MOSS Turbo Jib Mix (18+)**, **Qwen Image Edit Turbo**, **Image to 3D**, **Gaussian Splat**, **Lipsync**, **H3 Reference to Video**, **H3 Pika Flex**, **Pika Video**, **Pika Text to Video**, **H3 Long Shot**, **Character Angles**, the two **fast upscalers**, **RelayVSR Upscale**, the two **Studio Director** apps and the two **LTX Director** apps, the four-chain one still draft — see [RiverField apps](#riverfield-apps)) |
 | Agent | **Riverfield Agent**: native chat with local (llama.cpp, Ollama, vLLM, LM Studio, Halogen) and remote (OpenAI, OpenRouter, Anthropic) providers, real MCP tool execution, streaming, approvals, media previews and persistence |
 | Open weights | No API or partner nodes. Every model is a file you download, listed in its app's `app.json` with its Hugging Face repo, size and license; the cloud text-encoder branch of Lightricks' examples is removed |
 | Workflows | Built from official sources by `tools/build_apps.py` (ComfyUI's templates, Lightricks' ComfyUI-LTXVideo examples, Comfy's `comfy-reshoot`); the H3 Image pair comes from ComfyUI's `image_minimax_h3_image_t2i.json` and `image_minimax_h3_image_edit.json`, flattened with `tools/ui2api.py`; the template apps reuse those bases and the two smoke apps are hand-written. `tools/import_workflow.py` drafts a new app from any other ComfyUI workflow. All accepted by ComfyUI's validator: ComfyUI `63e5bf5` (0.44.0), ComfyUI-LTXVideo `44c8a36`, ComfyUI-CrossViewWarp `fbb1e93` |
@@ -69,45 +109,9 @@ local or remote provider you choose; conversations live under `out/agent/`.
 | LoRA lab | 334 cases with fixed seeds: one showcase for each app that has a lab case (117), 42 references the other cases start from, and experiments, each with its verdict in its note: every effect, look of `mixed-media` and transformation of `morph` on its own, the character types of `ai-influencer`, the image-model comparison (`cmp-*`, below), template and style-drift tests (`tplx-*`, `mmx-*`), `reshoot` without its Turbo LoRA, the soundtrack candidates for the demo video and checks of new controls. How the lab works: [below](#the-lora-lab-and-the-gallery) |
 | CI | `.github/workflows/validate.yml` on every push: the manifest validator, the tests, the type check, the generated packs and VRAM map, and a CPU-only ComfyUI that accepts every workflow and the prompt of every lab case (about 3 minutes) |
 
-## What RiverField adds
+## Beyond the apps
 
-Everything below is on top of upstream Freefield. Workflow apps use a folder in `apps/`, an API-format
-graph and a manifest.
-
-| App | What it does | Engine | Measured here (gfx1151, ROCm 10.1) |
-|---|---|---|---|
-| `h3-video-turbo`, `h3-photo-turbo` | MiniMax H3 with taomate's 3-step turbo LoRA by default; resolution, sparse-attention level and ratio, steps, sampler, LoRA, DiT, video VAE, up to 40 s and optional RelayVSR x2/x4 | H3 int8 | 186 s for 2 s, 0.4 MP |
-| `extend-video-turbo` | MiniMax H3 extend with the same 3-step turbo LoRA; steps, sampler and sparse-attention controls | H3 int8 | — |
-| `h3-image`, `h3-image-edit` | MiniMax **H3 Image** text-to-image and edit: 4 MP default, aspect/MP picker, 6 steps at CFG 1, sampler/scheduler, DiT/encoder/VAE pickers, Qwen3.8-27B prompt expansion; the edit app resizes its input to the target MP | H3 Image int8 | 481 s for 4.19 MP (t2i), 988 s for 4.18 MP (edit) |
-| `h3-video-flash`, `h3-i2v-flash`, `h3-flf2v-flash`, `h3-r2v-flash` | MiniMax **H3 Flash**: 6 steps at CFG 1 with euler + the Flash sigma ladder on HyperFlow's H3 Flash INT8 checkpoints; text to video with sound, one picture to video, first-and-last-frame, or up to four reference pictures; up to 40 s; SLA 0.85, the usual H3 controls and optional **RelayVSR x2/x4** upscale | H3 Flash int8 | 53–67 min for 15 s, 1.0 MP |
-| `h3-studio-director-flash` | The **Material Planner** director on the Flash checkpoints: per-segment prompts and ordered references, `ref2va` or `fl2va`, 4/6/8 steps (default 6), euler, Flash sigmas, video VAE picker, optional **RelayVSR x2/x4** on the final clip | H3 Flash int8 | 53 min for 15 s, 1.0 MP |
-| `reshoot-turbo` | Re-shoot with the 4-step Ref2V LoRA instead of the 8-step one | H3 + CrossView | — |
-| `music-turbo`, `music-turbo-hq` | MiniMax Music 3 with its 8-step turbo LoRA, at 8 and 12 steps | Music 3 | 111 s / 181 s for 20 s |
-| `music-yue2`, `music-yue2-cover` | YuE2 songs and covers, 23-language vocals, from the user's own workflows | YuE2 3B | 22 s / 26 s |
-| `tts`, `tts-clone` | Chatterbox: 23 languages, voice cloning from 5 s | Chatterbox 500M | 4.1 s / 4.6 s |
-| `tts-omni`, `tts-omni-clone` | OmniVoice: voice design from attributes, cloning, 600+ languages | OmniVoice 0.6B | 4.1 s / 4.7 s |
-| `moss-turbo` | MOSS-Image with its 8-step LoRA, guidance 1.0–1.8, steps 8–15 | MOSS int8 | 96 s for 1 MP |
-| `moss-turbo-jib-mix` | MOSS Turbo on the uncensored **Jib Mix Moss Realistic V2** checkpoint: the same 8-step LoRA, guidance 1.0–1.8, steps 8–15, **18+** badge. Jib Mix is a local Civitai file, so it counts toward VRAM but is not in the `image-moss` pack | MOSS int8 (Jib Mix) | — (example: 8 steps, 1.0 MP) |
-| `qwen-image-edit-turbo` | Qwen Image 2.1 edit with the Turbo checkpoint: source image, instruction, negative prompt, resolution budget and seed | Qwen Image 2.1 int8 | — |
-| `image-to-3d` | A picture to a textured **GLB**, TRELLIS.2 or Pixal3D behind one switch | TRELLIS.2 / Pixal3D | 552 s, 38 MB glb |
-| `gaussian-splat` | A picture to a **Gaussian splat**: the native `.spz`, a `.glb` mesh and a turntable clip; BiRefNet cut-out, 65k–524k gaussians, sampling preview | Idol / TripoSplat | — |
-| `lipsync` | LTX-2.5 image-and-audio to video: a photo speaks a voice track | LTX-2.5 22B | 162 s for 3 s, 0.4 MP |
-| `ltx-director` | LTX-2.5 **Director** timeline: several shots with their own prompts in one pass, native audio, optional **reference sheet** (Ingredients IC-LoRA held on every frame), 8-step quality or 3-step draft, latent x2 | LTX 2.5 22B distilled int8 | 495 s for 5.16 s (2 shots) at 0.9 MP; 192 s for 2.28 s with a sheet |
-| `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional, plus optional **RelayVSR x2/x4** | MiniMax H3 | 264 s for 2 s, 4 steps |
-| `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
-| `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), two-stage sampling, and any model, LoRA, sampler, scheduler or step count. Leave the bin empty for **pure text-to-video** (FL2VA DiT + Pika Flex FL2VA LoRA) | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
-| `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
-| `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, sampling preset (Pika's 6-step ladder or a custom `BasicScheduler`), LoRA/DiT/VAE pickers, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
-| `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP, the same sampling/LoRA/DiT/VAE controls and optional **RelayVSR 2×/4×** pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
-| `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment; optional **RelayVSR x2/x4**, the full H3 LoRA list, and sampling that follows the LoRA (Pika keeps its 6-step ladder, turbo/distilled LoRAs use their trained steps) | MiniMax H3 int8 | — |
-| `character-angles` | One portrait into **eight separate images**, one per camera angle; Qwen 2.1 edit with two recipes: **base + Turbo+** (30 steps) or **Turbo** (4–8 steps) | Qwen Image 2.1 int8 | — |
-| `upscale-fast` | A photo through a local ESRGAN model: model picker, native factor or scaled back down, before/after card | ESRGAN (OpenModelDB) | ~5.5 s per 512² tile in fp32 on the iGPU |
-| `upscale-fast-video` | The same upscaler on a clip: **4 frames per batch**, chunks joined by stream copy, **audio kept** | ESRGAN + `RiverFieldUpscaleVideo` | very slow on the iGPU; chunked to keep memory flat |
-| `relayvsr-upscale` | Wan **RelayVSR** video upscale in one step: **x2 or x4**, the DIT and the Flash VAE are picked together (the factor is baked in the pair), only every 15th frame goes through the DIT and the Flash decoder restores the rest, detail slider | RelayVSR int8 (Wan) | 137 s for 7.29 s, 608×352 → 2432×1408 |
-
-**H3 duration:** every MiniMax H3 video app now exposes a duration up to 40 s. The frame count snaps to the H3 5+17n grid (40 s = 974 frames), so long clips cost proportionally more GPU time.
-
-Four things are not an app:
+Five things are not an app:
 
 - **H3 SLA Attention (ROCm)** — the `H3SLAAttentionROCM` node sits in every H3 workflow, right after the model
   chain. Its own Triton kernel wedges gfx1151 past ~50k tokens, so `local/patch-h3-sla-solattn.py` re-points it
