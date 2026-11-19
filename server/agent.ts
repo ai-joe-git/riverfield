@@ -29,7 +29,7 @@ const REPEATABLE=new Set(["job","wait_job","history","gpu","cancel_job","project
 const turnOf=(c:Conversation)=>c.messages.filter(m=>m.role==="user"&&m.kind!=="studio").at(-1)?.id;
 const stable=(v:any):string=>JSON.stringify(v&&typeof v==="object"?Array.isArray(v)?v.map(x=>JSON.parse(stable(x))):Object.fromEntries(Object.keys(v).sort().map(k=>[k,JSON.parse(stable(v[k]))])):v??null);
 class StopTurn extends Error{}
-const SYSTEM=`You are Riverfield Agent, a general-purpose creative studio agent. Respond in the user's language.
+const SYSTEM=`You are Riverfield Agent, a general-purpose creative studio agent. Respond in English by default; use another language only when the user explicitly asks for it.
 The user decides the creative goal; YOU choose available MCP tools. Remain general-purpose outside the focused cinematic workflow below.
 Discover apps with list_apps; ALWAYS read get_app before run_app, inspect its inputs, prompting guidance and examples. Do not invent input names, model files, reference paths, timeline formats or supported capabilities. Workflow-specific guidance is returned by get_app rather than injected for every app.
 

@@ -59,6 +59,22 @@ test("a run is recorded before it is submitted, with its inputs and the seed tha
   } finally { done(); }
 });
 
+test("a job the proxy calls expired is checked again before marking it expired", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "ff-history-"));
+  const history = new History(dir, { recheck: async () => { const job = fakeJob("succeeded"); await job.wait(); return job; } });
+  try {
+    const app = byId("z-image");
+    const entry = history.start(app, resolveValues(app, { prompt: "x" }));
+    const expired: JobLike = {
+      id: "job-1", status: "expired", outputs: [], error: null, startedAt: new Date(), completedAt: new Date(),
+      async *events() {}, async wait() {}, async cancel() {},
+    };
+    const done = await history.follow(entry, expired);
+    assert.equal(done.status, "succeeded");
+    assert.deepEqual(done.outputs.map((o) => o.file), ["out-01.png", "out-02.mp4"]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("following a job stores its media outputs and timings", async () => {
   const { dir, history, done } = tempHistory();
   try {
@@ -230,4 +246,32 @@ test("a poll that cannot reach the backend is retried; a backend answer that the
   assert.equal(isTransient(Object.assign(new Error("bad request"), { httpStatus: 400 })), false);
   assert.equal(patienceFor(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }), 600_000), 120_000, "a dead local port is given up faster than a cold start");
   assert.equal(patienceFor(Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } }), 600_000), 600_000);
+});
+
+test("on a hosted demo each visitor sees, opens, cancels and deletes only their own runs", async () => {
+  const { history, done } = tempHistory();
+  try {
+    const app = byId("edit");
+    const run = (owner?: string, requestKey?: string) => history.start(app, resolveValues(app,
+      { image: { bytes: PNG, name: "me.png", type: "image/png" }, instruction: "x" }), undefined, requestKey, owner);
+    const alice = run("a".repeat(32), "alice-request");
+    const bob = run("b".repeat(32), "bob-request");
+    const old = run();   // from before owners existed
+    const A = "a".repeat(32), B = "b".repeat(32);
+    assert.deepEqual(history.list(undefined, 300, A).map((e) => e.id), [alice.id]);
+    assert.equal(history.list().length, 3, "no owner asked for (local use, the active-run count): every run");
+    assert.equal(history.get(bob.id, A), null);
+    assert.equal(history.get(old.id, A), null, "a run without an owner belongs to no visitor");
+    assert.ok(history.get(alice.id, A));
+    assert.equal("owner" in history.list(undefined, 300, A)[0], false, "the owner id is never sent to the browser");
+    assert.equal(history.findRequest("alice-request", A)?.id, alice.id);
+    assert.equal(history.findRequest("bob-request", A), undefined);
+    assert.equal(history.file(bob.id, "input-image.png", A), null);
+    assert.ok(history.file(bob.id, "input-image.png", B));
+    assert.equal(history.preview(bob.id, A), null);
+    assert.equal(await history.cancel(bob.id, A), false);
+    assert.equal(history.remove(bob.id, A), false);
+    assert.ok(history.get(bob.id, B), "still there for its owner");
+    assert.ok(history.remove(bob.id, B));
+  } finally { done(); }
 });

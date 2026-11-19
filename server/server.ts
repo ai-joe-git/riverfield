@@ -17,7 +17,8 @@
 // Everything else is served from web/ when it exists (with byte ranges, so videos seek everywhere).
 // Hosted (server/guard.ts): RIVERFIELD_PASSCODE closes every route behind a passcode, RIVERFIELD_MAX_RUNS_PER_DAY and
 // RIVERFIELD_MAX_ACTIVE cap the runs (429 past them), lab marks become read-only and uploads are capped at
-// RIVERFIELD_MAX_UPLOAD_MB. RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
+// RIVERFIELD_MAX_UPLOAD_MB, and each visitor sees only their own runs. Hosted or not, requests from other sites are
+// refused (guard.ts foreign()). RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
@@ -26,7 +27,7 @@ import { loadRegistry, repoRoot, isFileInput, type App } from "./registry.ts";
 import { explainSubmitError, InputError, resolveValues, Runner, type Values } from "./runner.ts";
 import { History } from "./history.ts";
 import { Flags } from "./flags.ts";
-import { DOOR_HTML, Guard } from "./guard.ts";
+import { DOOR_HTML, foreign, Guard, plainHttpToIp } from "./guard.ts";
 import { InferenceQueue } from "./inference-queue.ts";
 import { RiverfieldAgent } from "./agent.ts";
 import { exportConversation } from "./agent-export.ts";
@@ -66,6 +67,11 @@ const draftsAllowed = process.env.RIVERFIELD_DRAFTS === "1";
 const outDir = process.env.RIVERFIELD_OUT || join(root, "out");
 const guard = Guard.fromEnv(join(outDir, "limits.json"));
 const maxUploadMb = Number(process.env.RIVERFIELD_MAX_UPLOAD_MB || (guard.hosted ? 100 : 0));
+const host = process.env.RIVERFIELD_HOST || "127.0.0.1";
+const origins = {
+  loopbackOnly: ["127.0.0.1", "localhost", "::1", "[::1]"].includes(host),
+  allowedHosts: (process.env.RIVERFIELD_ALLOWED_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter(Boolean),
+};
 
 // the backend scales to zero 10 minutes after its last request (infra/modal_app.py scaledown_window).
 // lastContact only moves on real work (a run, a wake): status checks must not keep the GPU alive.
@@ -82,6 +88,7 @@ const history = new History(join(outDir, "history"), {
     return { outputs: app.outputs.map((o) => o.node), nodes: Object.keys(graph).length, classOf: (n) => graph[n]?.class_type ?? null };
   },
   frames: (jobId, signal) => getRunner().frames(jobId, signal),
+  recheck: (jobId) => getRunner().jobs().get(jobId),
 });
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
 const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
@@ -235,9 +242,9 @@ async function jobView(id: string) {
 }
 
 /** Submit in the background; the entry tells the UI how it goes. */
-function startRun(app: App, values: Values, preset?: string,requestKey?:string) {
-  if(requestKey){const old=history.findRequest(requestKey);if(old){if(old.app!==app.id)throw new InputError("Idempotency key belongs to another app");return history.view(old);}}
-  const entry = history.start(app, values, preset,requestKey);
+function startRun(app: App, values: Values, preset?: string, requestKey?: string, owner?: string) {
+  if(requestKey){const old=history.findRequest(requestKey, owner);if(old){if(old.app!==app.id)throw new InputError("Idempotency key belongs to another app");return history.view(old);}}
+  const entry = history.start(app, values, preset, requestKey, owner);
   const controller = new AbortController();
   runControllers.set(entry.id, controller);
   void (async () => {
@@ -263,7 +270,9 @@ function startRun(app: App, values: Values, preset?: string,requestKey?:string) 
 }
 
 const DONE = ["succeeded", "failed", "canceled", "expired", "lost"];
-const activeRuns = () => history.list(undefined, 50).filter((e) => !DONE.includes(e.status)).length;
+// runs accepted whose upload is still being read count too, so two requests at once cannot both pass MAX_ACTIVE
+let admitting = 0;
+const activeRuns = () => history.list(undefined, 50).filter((e) => !DONE.includes(e.status)).length + admitting;
 
 let gpuCache: { at: number; body: unknown } | null = null;
 async function gpuStatus(withDevice = false) {
@@ -313,9 +322,11 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", "http://local");
     const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    const refusedOrigin = foreign(req, origins);
+    if (refusedOrigin) return send(res, 403, { error: refusedOrigin });
     if (guard.passcode) {
       const key = url.searchParams.get("key");
-      const cookie = key !== null ? guard.login(key) : null;
+      const cookie = key !== null ? guard.login(key, !plainHttpToIp(req)) : null;
       if (cookie) {   // the passcode leaves the address bar and lives on as a cookie
         url.searchParams.delete("key");
         res.writeHead(303, { "set-cookie": cookie, location: url.pathname + url.search, "cache-control": "no-store" });
@@ -327,6 +338,9 @@ const server = createServer(async (req, res) => {
         return res.end(DOOR_HTML);
       }
     }
+    const visitor = guard.visitor(req.headers.cookie, !plainHttpToIp(req));   // hosted: this browser's id; locally undefined (no filter)
+    if (visitor.setCookie) res.setHeader("set-cookie", visitor.setCookie);
+    const me = visitor.id;
     if(parts[0]==="mcp"){
       localAccess(req);if(guard.hosted)return send(res,403,{error:"Embedded studio MCP is disabled on hosted demos"});
       const mcp=studioMcpServer(studioURL),transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
@@ -454,23 +468,29 @@ const server = createServer(async (req, res) => {
         if (!runnable(app)) throw new InputError(`${app.id} is a draft; start the server with RIVERFIELD_DRAFTS=1 to run it anyway`);
         const refused = guard.refuse(activeRuns());
         if (refused) return send(res, 429, { error: refused });
-        const { values, preset,requestKey } = await readValues(app, await toRequest(req));
-        const view = startRun(app, resolveValues(app, values), preset,requestKey);
+        admitting++;
+        let view;
+        try {
+          const { values, preset, requestKey } = await readValues(app, await toRequest(req));
+          view = startRun(app, resolveValues(app, values), preset, requestKey, me);
+        } finally {
+          admitting--;
+        }
         guard.record();
         return send(res, 202, view);
       }
       if (area === "history") {
-        if (req.method === "GET" && !id) {const key=url.searchParams.get("request_id"),entry=key?history.findRequest(key):undefined;return send(res,200,{entries:key?(entry?[history.view(entry)]:[]):history.list(url.searchParams.get("app")||undefined)});}
+        if (req.method === "GET" && !id) {const key=url.searchParams.get("request_id"),entry=key?history.findRequest(key, me):undefined;return send(res,200,{entries:key?(entry?[history.view(entry)]:[]):history.list(url.searchParams.get("app")||undefined, 300, me)});}
         if (req.method === "GET" && id && !sub) {
-          const e = history.get(id);
+          const e = history.get(id, me);
           return e ? send(res, 200, e) : send(res, 404, { error: "unknown run" });
         }
         if ((req.method === "GET" || req.method === "HEAD") && sub === "files" && arg) {
-          const file = history.file(id, arg);
+          const file = history.file(id, arg, me);
           return file ? sendFile(req, res, file, "private, max-age=31536000, immutable") : send(res, 404, { error: "not found" });
         }
         if (req.method === "GET" && sub === "preview") {
-          const p = history.preview(id);
+          const p = history.preview(id, me);
           if (!p) return send(res, 404, { error: "no preview" });
           res.writeHead(200, { "content-type": p.type, "content-length": p.bytes.byteLength, "cache-control": "no-store" });
           return res.end(p.bytes);
@@ -478,11 +498,11 @@ const server = createServer(async (req, res) => {
         if (req.method === "POST" && sub === "cancel") {
           const submitted = runControllers.has(id);
           runControllers.get(id)?.abort();
-          return send(res, 200, { canceled: (await history.cancel(id)) || submitted });
+          return send(res, 200, { canceled: (await history.cancel(id, me)) || submitted });
         }
         if (req.method === "DELETE" && id && !sub) {
           runControllers.get(id)?.abort();
-          return send(res, history.remove(id) ? 200 : 404, { removed: id });
+          return send(res, history.remove(id, me) ? 200 : 404, { removed: id });
         }
       }
       if (area === "gpu") {
@@ -505,6 +525,8 @@ const server = createServer(async (req, res) => {
           }
         }
       }
+      // the raw job view reaches any backend job by id, past the history's per-visitor view: local scripts only
+      if (area === "jobs" && guard.hosted) return send(res, 404, { error: "not found" });
       if (req.method === "GET" && area === "jobs" && parts.length === 3) {
         return send(res, 200, await jobView(id));
       }
@@ -536,7 +558,6 @@ const server = createServer(async (req, res) => {
 void inference.run("Recover existing backend jobs", () => history.resume(async (jobId) => getRunner().jobs().get(jobId))).catch(e=>console.error("[recovery]",e));
 
 const port = Number(process.env.PORT ?? 3000);
-const host = process.env.RIVERFIELD_HOST || "127.0.0.1";
 server.listen(port, host, () => console.log(`riverfield on http://${host}:${port} (${apps.length} apps)`
   + (guard.passcode ? " · passcode required" : "") + (guard.maxRunsPerDay ? ` · ${guard.maxRunsPerDay} runs a day` : "")));
 

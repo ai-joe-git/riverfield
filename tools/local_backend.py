@@ -99,7 +99,13 @@ def download(models: Path, names: list[str], dry_run: bool) -> None:
         except Exception as e:  # gated, renamed upstream, network
             failed.append(m)
             print(f"  ✗ {m['name']}  {type(e).__name__}: {(str(e).strip().splitlines() or [''])[0][:160]}")
-            if m.get("gated"):
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status == 401:
+                print("    Hugging Face did not take the token: HF_TOKEN is missing or is not a valid token "
+                      "(a read token from https://huggingface.co/settings/tokens)")
+            elif status == 403 and m.get("gated"):
+                print(f"    this Hugging Face account has not accepted the license yet: https://huggingface.co/{m['repo']}")
+            elif m.get("gated"):
                 print(f"    accept the license at https://huggingface.co/{m['repo']} and set HF_TOKEN")
             continue
         shutil.move(path, dest)
@@ -167,8 +173,8 @@ def serve(comfy: Path, comfy_args: list[str], port: int) -> None:
     shutil.copy2(ROOT / "local" / "riverfield-memory-bridge" / "__init__.py", bridge / "__init__.py")
     procs = []
     try:
-        cmd = [sys.executable, "main.py", "--listen", "127.0.0.1", "--port", "8188", "--disable-auto-launch",
-               "--extra-model-paths-config", str(comfy / "extra_model_paths.yaml"), *comfy_args]
+        # ComfyUI reads extra_model_paths.yaml next to its main.py by itself: passing it again listed every path twice
+        cmd = [sys.executable, "main.py", "--listen", "127.0.0.1", "--port", "8188", "--disable-auto-launch", *comfy_args]
         procs.append(subprocess.Popen(cmd, cwd=comfy))
         wait_http("http://127.0.0.1:8188/system_stats", procs[-1])
         procs.append(subprocess.Popen([proxy, "--comfyui", "http://127.0.0.1:8188", "--port", "8189",

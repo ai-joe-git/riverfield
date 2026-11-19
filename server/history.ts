@@ -5,6 +5,8 @@
 //   out/history/<id>/out-<n>.<ext>    what it made
 // A run is recorded before it is submitted, because submitting to a cold GPU can take minutes:
 // the UI shows it as "starting" right away instead of a spinner on a button.
+// On a hosted demo each run belongs to the visitor who started it (`owner`, from guard.ts): every read, file,
+// cancel and delete takes that visitor and sees only their runs. Locally there is no owner and nothing is filtered.
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -34,6 +36,8 @@ export type Entry = {
   inputs: { id: string; type: string; file: string; name: string }[];
   outputs: { file: string; type: string; name: string; node: string }[];
   error: { message: string; class_type?: string | null; node?: string | null } | null;
+  /** the visitor who started it, on a hosted demo; never sent to the browser */
+  owner?: string;
 };
 
 /** The part of the SDK's Job the history uses (tests pass a fake). */
@@ -61,6 +65,8 @@ export type HistoryOptions = {
   appInfo?: (appId: string) => AppInfo | undefined;
   /** The raw event stream of a job, read without the SDK (see Meter). Absent: job.events() is used. */
   frames?: (jobId: string, signal: AbortSignal) => AsyncIterable<Frame>;
+  /** A fresh handle on a job, for a second look when the backend says "expired" the moment it ends (see follow). */
+  recheck?: (jobId: string) => Promise<JobLike>;
 };
 
 type Live = {
@@ -207,6 +213,9 @@ export function pickOutputs<T extends { type: string; nodeId: string }>(outputs:
 const secondsBetween = (a: string | Date | null | undefined, b: string | Date | null | undefined) =>
   a && b ? Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 100) / 10) : null;
 
+/** No owner asked for: everything. Otherwise only that visitor's runs (runs from before owners existed belong to nobody). */
+const owns = (e: Entry, owner: string | undefined) => owner === undefined || e.owner === owner;
+
 export class History {
   private live = new Map<string, Live>();
   private removed = new Set<string>();
@@ -215,17 +224,19 @@ export class History {
   private onContact: () => void;
   private appInfo: (appId: string) => AppInfo | undefined;
   private frames?: (jobId: string, signal: AbortSignal) => AsyncIterable<Frame>;
+  private recheck?: (jobId: string) => Promise<JobLike>;
 
   constructor(dir: string, opts: HistoryOptions = {}) {
     this.dir = dir;
     this.onContact = opts.onContact ?? (() => {});
     this.appInfo = opts.appInfo ?? (() => undefined);
     this.frames = opts.frames;
+    this.recheck = opts.recheck;
     mkdirSync(dir, { recursive: true });
   }
 
   /** Record a run before it is submitted. `values` are the resolved values (defaults filled, seed picked). */
-  start(app: App, values: Values, preset?: string, requestKey?:string): Entry {
+  start(app: App, values: Values, preset?: string, requestKey?: string, owner?: string): Entry {
     const id = newId();
     const folder = join(this.dir, id);
     mkdirSync(folder);
@@ -246,6 +257,7 @@ export class History {
     const entry: Entry = {
       id, app: app.id, requestKey, status: "starting", job: null, created: new Date().toISOString(), started: null, finished: null,
       seconds: null, total: null, values: shown, preset: preset ?? null, inputs, outputs: [], error: null,
+      ...(owner ? { owner } : {}),
     };
     this.save(entry);
     this.live.set(id, { progress: null, queue: null, preview: null });
@@ -268,6 +280,23 @@ export class History {
     entry.error = { message };
     this.save(entry);
     this.live.delete(entry.id);
+  }
+
+  /**
+   * comfy-api-proxy 0.1.6 reads ComfyUI's /history and then /queue: a job that ends between the two reads is in
+   * neither, and the proxy calls it "expired" (seen on a 0.02 s smoke run, 15 nov). A job this server just watched
+   * cannot have aged out, so before believing "expired" ask again a few times.
+   */
+  private async secondLook(job: JobLike, tries = 3, pauseMs = 1500): Promise<JobLike> {
+    if (normStatus(job.status) !== "expired" || !this.recheck) return job;
+    for (let i = 0; i < tries; i++) {
+      await new Promise((r) => setTimeout(r, pauseMs));
+      try {
+        const again = await this.recheck(job.id);
+        if (normStatus(again.status) !== "expired") return again;
+      } catch { /* keep the first answer */ }
+    }
+    return job;
   }
 
   /** Follow a submitted job to the end, then copy its outputs next to the record. */
@@ -358,6 +387,7 @@ export class History {
       await stream;
     }
 
+    if (!waitError) job = await this.secondLook(job);
     entry.started = job.startedAt?.toISOString() ?? entry.started;
     entry.finished = (job.completedAt ?? new Date()).toISOString();
     // backends that do not report timings: fall back to when this server saw it start running
@@ -425,8 +455,8 @@ export class History {
     return Promise.all(recovering).then(() => {});
   }
 
-  async cancel(id: string): Promise<boolean> {
-    const entry = this.read(id);
+  async cancel(id: string, owner?: string): Promise<boolean> {
+    const entry = this.read(id, owner);
     if (!entry || TERMINAL.has(entry.status)) return false;
     const live = this.live.get(id);
     if (!live) return false;
@@ -435,8 +465,9 @@ export class History {
     return true;
   }
 
-  remove(id: string): boolean {
+  remove(id: string, owner?: string): boolean {
     if (!ID.test(id) || !existsSync(join(this.dir, id))) return false;
+    if (owner !== undefined && !this.read(id, owner)) return false;
     const live = this.live.get(id);
     if (live?.job) live.job.cancel().catch(() => {});
     this.removed.add(id);
@@ -446,23 +477,27 @@ export class History {
   }
 
   /** Absolute path of a file that belongs to a run, or null. */
-  file(id: string, name: string): string | null {
+  file(id: string, name: string, owner?: string): string | null {
     if (!ID.test(id) || !/^(input|out)-[a-z0-9_-]+\.[a-z0-9]{1,5}$/.test(name)) return null;
+    if (owner !== undefined && !this.read(id, owner)) return null;
     const path = join(this.dir, id, name);
     return existsSync(path) ? path : null;
   }
 
-  preview(id: string): { bytes: Uint8Array; type: string } | null {
+  preview(id: string, owner?: string): { bytes: Uint8Array; type: string } | null {
+    if (owner !== undefined && !this.read(id, owner)) return null;
     return this.live.get(id)?.preview ?? null;
   }
 
-  list(app?: string, limit = 300) {
-    return this.entries().filter((e) => !app || e.app === app).slice(0, limit).map((e) => this.view(e));
+  /** `owner` undefined: every run (local use, and the server's own count of active runs). */
+  list(app?: string, limit = 300, owner?: string) {
+    return this.entries(owner).filter((e) => (!app || e.app === app) && owns(e, owner)).slice(0, limit).map((e) => this.view(e));
   }
-  findRequest(key:string){return this.entries().find(e=>e.requestKey===key);}
+  findRequest(key: string, owner?: string) { return this.entries(owner).find((e) => e.requestKey === key && owns(e, owner)); }
 
-  get(id: string) {
-    const e = this.read(id);
+  /** `owner` undefined: every run (local use); otherwise only that visitor's. */
+  get(id: string, owner?: string) {
+    const e = this.read(id, owner);
     return e ? this.view(e) : null;
   }
 
@@ -470,8 +505,9 @@ export class History {
   view(e: Entry) {
     const base = `/api/history/${e.id}`;
     const live = this.live.get(e.id);
+    const { owner: _owner, ...shown } = e;
     return {
-      ...e,
+      ...shown,
       inputs: e.inputs.map((i) => ({ ...i, url: `${base}/files/${i.file}` })),
       outputs: e.outputs.map((o) => ({ ...o, url: `${base}/files/${o.file}` })),
       progress: live?.progress ?? null,
@@ -480,20 +516,21 @@ export class History {
     };
   }
 
-  private entries(): Entry[] {
+  private entries(owner?: string): Entry[] {
     if (!existsSync(this.dir)) return [];
     return readdirSync(this.dir)
       .filter((d) => ID.test(d))
       .sort()
       .reverse()
-      .map((d) => this.read(d))
+      .map((d) => this.read(d, owner))
       .filter((e): e is Entry => e !== null);
   }
 
-  private read(id: string): Entry | null {
+  private read(id: string, owner?: string): Entry | null {
     if (!ID.test(id)) return null;
     try {
       const entry = JSON.parse(readFileSync(join(this.dir, id, "meta.json"), "utf-8")) as Entry;
+      if (!owns(entry, owner)) return null;
       // entries saved before mediaKind() and pickOutputs() carry the SDK's type and every output the backend
       // listed, the given clip first: fix them as they are read (the files stay on disk)
       for (const o of entry.outputs ?? []) o.type = mediaKind(extname(o.file).toLowerCase(), o.type);

@@ -35,6 +35,10 @@ test("providers are server-side, redacted and protected; endpoint labels are enf
  assert.throws(()=>p.save({name:"Wrong remote",location:"remote",baseURL:"http://api.example.com/v1"}),/HTTPS/);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test("the agent defaults to English even when the user writes in French",async()=>{
+ const dir=temporary();let a:RiverfieldAgent|undefined;try{const x=setup(dir,[{text:"Hello",calls:[]}]);a=x.a;a.message(x.c.id,{text:"Bonjour, tu peux m'aider ?"});const c=await settled(a,x.c.id);assert.equal(c.status,"idle");assert.match(x.requests[0][3],/Respond in English by default/);assert.equal(c.messages.at(-1)!.content,"Hello");
+ }finally{await a?.close();rmSync(dir,{recursive:true,force:true});}
+});
 test("provider schema adaptation preserves properties named pattern while removing unsupported schema keywords",()=>{
  const original={type:"object",properties:{pattern:{type:"string",pattern:"a"},counts:{type:"object",propertyNames:{type:"string"},additionalProperties:{type:"integer"}}}};
  const adapted=toolSchema(original);assert.ok(adapted.properties.pattern);assert.equal(adapted.properties.pattern.pattern,undefined);assert.equal(adapted.properties.counts.propertyNames,undefined);assert.equal(original.properties.pattern.pattern,"a");
