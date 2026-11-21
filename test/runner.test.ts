@@ -301,6 +301,28 @@ test("the Flash director exposes the Flash step ladder and video VAE", () => {
   assert.equal(wf.sets["3.vae_name"], "minimax_h3_video_vae_int8_convrot.safetensors");
 });
 
+test("the LTX 2.5 single-shot apps expose a long duration and resolution", () => {
+  for (const [id, node] of [["video", "403"], ["video-t2v", "409"]] as const) {
+    const app = byId(id);
+    assert.match(app.name, /^LTX 2\.5 /);
+    const duration = app.inputs.find((i) => i.id === "duration")!;
+    assert.equal(duration.max, 30, `${id}: duration max`);
+    assert.equal(duration.step, 1, `${id}: whole seconds keep the 8n+1 frame grid at 24 fps`);
+    const mp = app.inputs.find((i) => i.id === "megapixels")!;
+    assert.equal(mp.default, 0.9);
+    assert.deepEqual(mp.bind, [{ node, field: "megapixels" }]);
+
+    const values = resolveValues(app, {
+      ...(id === "video" ? { image: { bytes: new Uint8Array([1]), name: "x.png" } } : {}),
+      prompt: "x", duration: 15, megapixels: 1.5,
+    });
+    const wf = recorder();
+    applyInputs(app, values, wf, () => null);
+    assert.equal(wf.sets[`${id === "video" ? "398:362" : "405:362"}.value`], 15);
+    assert.equal(wf.sets[`${node}.megapixels`], 1.5);
+  }
+});
+
 test("every H3 video app reaches 40 seconds", () => {
   const h3 = apps.filter((a) => a.pack === "video-h3" || a.pack === "video-h3-flash");
   for (const app of h3) {

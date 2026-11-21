@@ -1,12 +1,12 @@
 {
   "$schema": "../../schema/app.schema.json",
   "id": "video-t2v",
-  "name": "Text to Video",
+  "name": "LTX 2.5 Text to Video",
   "section": "video",
   "pack": "video-ltx25",
   "status": "ready",
   "higgsfield_feature": "Create Video",
-  "summary": "A shot with synchronized audio from a prompt, two stages with LTX-2.5.",
+  "summary": "LTX 2.5 makes a shot with synchronized audio from a prompt; two stages, selectable resolution and up to 30 s.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "video_ltx2_5_t2v.json",
@@ -29,11 +29,12 @@
     {
       "id": "duration",
       "type": "slider",
-      "label": "Seconds",
+      "label": "Duration (s)",
       "min": 2,
-      "max": 10,
+      "max": 30,
       "step": 1,
       "default": 5,
+      "help": "LTX 2.5 at 24 fps. Longer clips cost proportionally more GPU time.",
       "bind": [
         {
           "node": "405:362",
@@ -89,6 +90,22 @@
         {
           "node": "409",
           "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.2,
+      "max": 2,
+      "step": 0.1,
+      "default": 0.9,
+      "help": "Final output size. Stage 1 renders at half the linear size and stage 2 upscales the latent x2. 0.9 MP = 1280x704 in 16:9.",
+      "bind": [
+        {
+          "node": "409",
+          "field": "megapixels"
         }
       ]
     },
