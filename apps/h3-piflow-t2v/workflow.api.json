@@ -1,0 +1,403 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE (video)"
+    }
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "Load VAE (audio)"
+    }
+  },
+  "6": {
+    "class_type": "MiniMaxH3ImageToVideo",
+    "inputs": {
+      "clip": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ],
+      "width": [
+        "30",
+        0
+      ],
+      "height": [
+        "30",
+        1
+      ],
+      "length": [
+        "40:32",
+        1
+      ],
+      "prompt": "A street cook in Mexico City flips tacos on a hot griddle, steam and sizzling sound, he looks up and says: \"Two more coming right up!\""
+    },
+    "_meta": {
+      "title": "MiniMax H3 Image to Video"
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "8": {
+    "class_type": "pi-Flow Scheduler",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "steps": [
+        "39:36",
+        0
+      ],
+      "max_raw_t": [
+        "39:38",
+        0
+      ],
+      "min_raw_t": 0,
+      "final_step_size_scale": 0.6
+    },
+    "_meta": {
+      "title": "pi-Flow Scheduler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "conditioning": [
+        "6",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "10": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 401280402944822
+    },
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "11": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "10",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "6",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "12": {
+    "class_type": "DWD Decode",
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "DWD Decode"
+    }
+  },
+  "13": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "5",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAE Decode Audio"
+    }
+  },
+  "14": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "12",
+        0
+      ],
+      "audio": [
+        "13",
+        0
+      ],
+      "fps": 24,
+      "bit_depth": "auto",
+      "color_space": "sRGB",
+      "chroma_subsampling": "auto",
+      "codec": "none"
+    },
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "15": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "14",
+        0
+      ],
+      "filename_prefix": "riverfield/h3-piflow-t2v",
+      "format": "auto",
+      "format.codec": "auto",
+      "codec": "auto"
+    },
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "41",
+        0
+      ],
+      "shift_video": 12,
+      "shift_audio": 3
+    },
+    "_meta": {
+      "title": "ModelSamplingMiniMaxH3"
+    }
+  },
+  "20": {
+    "class_type": "BlockSparseAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "selection": "sol-attn",
+      "selection.tau": 1,
+      "start_percent": 0,
+      "end_percent": 1,
+      "dense_blocks": "0, 1",
+      "min_tokens": 12288,
+      "extra_tokens": 256,
+      "sink_conditioning": "exact_kv_and_rows",
+      "verbose": false
+    },
+    "_meta": {
+      "title": "Model Sparse Attention"
+    }
+  },
+  "30": {
+    "class_type": "ResolutionSelector",
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 0.97,
+      "multiple": 32
+    },
+    "_meta": {
+      "title": "Resolution Selector"
+    }
+  },
+  "39:2": {
+    "class_type": "Load LakonLab Adapter",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "adapter_name": "pi_h3_2step_dwd_adapter_int8_convrot.safetensors",
+      "adapter_strength": 1
+    },
+    "_meta": {
+      "title": "Load 2-step adapter"
+    }
+  },
+  "39:34": {
+    "class_type": "Load LakonLab Adapter",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "adapter_name": "pi_h3_4step_dwd_adapter_int8_convrot.safetensors",
+      "adapter_strength": 1
+    },
+    "_meta": {
+      "title": "Load 4-step adapter"
+    }
+  },
+  "39:35": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "39:2",
+        0
+      ],
+      "on_true": [
+        "39:34",
+        0
+      ],
+      "switch": [
+        "39:37",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Adapter for the steps"
+    }
+  },
+  "39:36": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 2
+    },
+    "_meta": {
+      "title": "Steps (2 or 4)"
+    }
+  },
+  "39:37": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "values.a": [
+        "39:36",
+        0
+      ],
+      "expression": "a > 2"
+    },
+    "_meta": {
+      "title": "4-step adapter?"
+    }
+  },
+  "39:38": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "values.a": [
+        "39:36",
+        0
+      ],
+      "expression": "0.96 if a > 2 else 0.93"
+    },
+    "_meta": {
+      "title": "max_raw_t"
+    }
+  },
+  "40:31": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 5
+    },
+    "_meta": {
+      "title": "Duration (seconds)"
+    }
+  },
+  "40:32": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "values.a": [
+        "40:31",
+        0
+      ],
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17"
+    },
+    "_meta": {
+      "title": "Frame count"
+    }
+  },
+  "41": {
+    "class_type": "H3SLAAttentionROCM",
+    "inputs": {
+      "model": [
+        "39:35",
+        0
+      ],
+      "sparsity_ratio": 0.85,
+      "block_size": "64",
+      "min_seq_len": 8192,
+      "dense_last_steps": 0,
+      "protect_audio": true,
+      "enabled": true,
+      "dense_steps": "",
+      "dense_backend": "auto",
+      "disable_fp16_accum": true,
+      "stabilize_motion": false,
+      "h3_cache": false,
+      "reference_protection": false
+    },
+    "_meta": {
+      "title": "H3 SLA Attention - ROCM"
+    }
+  },
+  "200": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": true
+    },
+    "_meta": {
+      "title": "Block sparse flag"
+    }
+  }
+}

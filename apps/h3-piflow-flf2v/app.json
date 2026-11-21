@@ -1,0 +1,269 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-piflow-flf2v",
+  "name": "pi-H3 DWD First and Last Frame",
+  "section": "video",
+  "pack": "video-h3-piflow",
+  "status": "ready",
+  "higgsfield_feature": "Create Video",
+  "summary": "pi-H3 DWD carries a first frame to a last frame with synchronized audio in 2 or 4 steps, without a VAE video decoder.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "pi-H3-DWD.json (pi-H3 FL2VA, DWD)",
+    "comfyui": "0.46.0",
+    "notes": "pi-H3 DWD on MiniMax H3 FL2VA: 2-step or 4-step DWD adapters predict the video frames at the last sampling step, so the video skips the VAE decoder. The video VAE still encodes the first and last keyframes; the audio VAE decodes the synchronized soundtrack. The pi-Flow scheduler, Load LakonLab Adapter, DWD Decode, BlockSparseAttention and H3 SLA nodes come from the tested pi-H3-DWD workflow. Requires comfyui-piflow 1.4.0 and the local sol_h3.py dtype patch for fp16 adapters on a bf16 base. Text, first-frame and first-and-last-frame conditioning are the three supported pi-H3 modes."
+  },
+  "inputs": [
+    {
+      "id": "first_frame",
+      "type": "image",
+      "label": "First frame",
+      "required": true,
+      "limits": {
+        "max_mb": 20
+      },
+      "bind": [
+        {
+          "node": "100",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "last_frame",
+      "type": "image",
+      "label": "Last frame",
+      "required": true,
+      "limits": {
+        "max_mb": 20
+      },
+      "bind": [
+        {
+          "node": "102",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "The camera slowly pushes in as the scene comes alive; footsteps, cloth movement and a soft room tone.",
+      "help": "Put spoken words in quotes; describe sounds and music too.",
+      "bind": [
+        {
+          "node": "6",
+          "field": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 2,
+      "options": [
+        {
+          "value": 2,
+          "label": "2 (fastest)"
+        },
+        {
+          "value": 4,
+          "label": "4 (more detail)"
+        }
+      ],
+      "help": "pi-H3 switches the DWD adapter and the pi-Flow schedule automatically: 2 steps uses max_raw_t 0.93, 4 steps 0.96.",
+      "bind": [
+        {
+          "node": "39:36",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration (s)",
+      "min": 2,
+      "max": 15,
+      "step": 1,
+      "default": 5,
+      "help": "24 fps, snapped to the H3 5+17n grid. pi-H3 is tested at 5, 10 and 15 s; longer costs proportionally more time.",
+      "bind": [
+        {
+          "node": "40:31",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "30",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.2,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.97,
+      "help": "0.97 MP is 1344x768 in 16:9; 0.4 MP is the fast draft size. The DWD head predicts the frames, so there is no video VAE decode.",
+      "bind": [
+        {
+          "node": "30",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "10",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "H3 SLA attention",
+      "default": true,
+      "help": "The ROCm H3 SLA node. Off, or on a backend that does not ship it: the node is bypassed and the model goes straight to the next attention stage.",
+      "bind": [
+        {
+          "node": "41",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "41",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "block_sparse",
+      "type": "toggle",
+      "label": "Block sparse attention (Sol-Attn)",
+      "default": true,
+      "help": "pi-H3's Sol-Attn block sparse attention. Off runs dense attention: slower and more VRAM.",
+      "bypass": [
+        {
+          "node": "20",
+          "field": "model"
+        }
+      ],
+      "bind": [
+        {
+          "node": "200",
+          "field": "value"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "15",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Lakonik/pi-H3",
+      "file": "loras/pi_h3_2step_dwd_adapter_int8_convrot.safetensors",
+      "dir": "loras",
+      "gb": 2.19,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Lakonik/pi-H3",
+      "file": "loras/pi_h3_4step_dwd_adapter_int8_convrot.safetensors",
+      "dir": "loras",
+      "gb": 2.19,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/Lakonik/ComfyUI-piFlow",
+      "commit": "bcb6ffb"
+    }
+  ]
+}

@@ -323,6 +323,34 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
   }
 });
 
+test("the pi-H3 DWD apps expose 2/4 steps and decode without a video VAE", () => {
+  const modes = [
+    ["h3-piflow-t2v", [], undefined],
+    ["h3-piflow-i2v", ["image"], "101"],
+    ["h3-piflow-flf2v", ["first_frame", "last_frame"], "101"],
+  ] as const;
+  for (const [id, files, first] of modes) {
+    const app = byId(id);
+    assert.match(app.name, /^pi-H3 DWD /);
+    const steps = app.inputs.find((i) => i.id === "steps")!;
+    assert.deepEqual(steps.options?.map((o) => o.value), [2, 4]);
+    assert.deepEqual(steps.bind, [{ node: "39:36", field: "value" }]);
+    const duration = app.inputs.find((i) => i.id === "duration")!;
+    assert.equal(duration.max, 15);
+    const mp = app.inputs.find((i) => i.id === "megapixels")!;
+    assert.deepEqual(mp.bind, [{ node: "30", field: "megapixels" }]);
+    for (const file of files) assert.ok(app.inputs.some((i) => i.id === file), `${id}: ${file}`);
+
+    const graph = app.graph! as Record<string, any>;
+    assert.equal(graph["12"].class_type, "DWD Decode");
+    assert.ok(!Object.values(graph).some((n: any) => n.class_type === "VAEDecode"), `${id}: video VAE decode must be absent`);
+    assert.equal(graph["20"].class_type, "BlockSparseAttention");
+    assert.equal(graph["41"].class_type, "H3SLAAttentionROCM");
+    if (first) assert.equal(graph["6"].inputs.first_frame?.[0], first);
+    if (id === "h3-piflow-flf2v") assert.equal(graph["6"].inputs.last_frame?.[0], "103");
+  }
+});
+
 test("every H3 video app reaches 40 seconds", () => {
   const h3 = apps.filter((a) => a.pack === "video-h3" || a.pack === "video-h3-flash");
   for (const app of h3) {

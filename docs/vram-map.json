@@ -2760,7 +2760,7 @@
     },
     {
       "id": "video",
-      "name": "Image to Video",
+      "name": "LTX 2.5 Image to Video",
       "section": "video",
       "pack": "video-ltx25",
       "status": "ready",
@@ -2786,7 +2786,7 @@
     },
     {
       "id": "video-t2v",
-      "name": "Text to Video",
+      "name": "LTX 2.5 Text to Video",
       "section": "video",
       "pack": "video-ltx25",
       "status": "ready",
@@ -3487,6 +3487,84 @@
       "measured_on": "H100 · 20261024-164909-h100"
     },
     {
+      "id": "h3-piflow-flf2v",
+      "name": "pi-H3 DWD First and Last Frame",
+      "section": "video",
+      "pack": "video-h3-piflow",
+      "status": "ready",
+      "whole_gb": 43.79,
+      "phases_gb": {
+        "encode": 15.69,
+        "denoise": 25.35,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 25.35,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "gb": 20.97
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), whole",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-piflow-i2v",
+      "name": "pi-H3 DWD Image to Video",
+      "section": "video",
+      "pack": "video-h3-piflow",
+      "status": "ready",
+      "whole_gb": 43.79,
+      "phases_gb": {
+        "encode": 15.69,
+        "denoise": 25.35,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 25.35,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "gb": 20.97
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), whole",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-piflow-t2v",
+      "name": "pi-H3 DWD Text to Video",
+      "section": "video",
+      "pack": "video-h3-piflow",
+      "status": "ready",
+      "whole_gb": 43.79,
+      "phases_gb": {
+        "encode": 15.69,
+        "denoise": 25.35,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 25.35,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "gb": 20.97
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), whole",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "extend-video",
       "name": "Extend Video",
       "section": "video",
@@ -3684,7 +3762,7 @@
       },
       "largest_phase": "encode",
       "largest_phase_gb": 27.14,
-      "optional_gb": 42.81,
+      "optional_gb": 50.83,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
