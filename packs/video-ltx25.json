@@ -35,7 +35,7 @@
     "video-t2v",
     "volcano-ad"
   ],
-  "download_gb": 66.03,
+  "download_gb": 67.48,
   "needs_hf_token": true,
   "custom_nodes": [
     {
@@ -490,6 +490,19 @@
         "video",
         "video-t2v",
         "volcano-ad"
+      ]
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.45,
+      "name": "ltx-2.5-video-vae-conv-bf16.safetensors",
+      "gated": true,
+      "license": "LTX-2.x Community License",
+      "used_by": [
+        "video",
+        "video-t2v"
       ]
     }
   ]

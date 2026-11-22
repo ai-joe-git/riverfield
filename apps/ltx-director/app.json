@@ -42,7 +42,8 @@
       "dir": "vae",
       "gb": 1.47,
       "phase": "decode",
-      "license": "LTX 2.5 Community License"
+      "license": "LTX 2.5 Community License",
+      "optional": true
     },
     {
       "repo": "Lightricks/LTX-2.5",
@@ -58,6 +59,14 @@
       "dir": "latent_upscale_models",
       "gb": 1.0,
       "phase": "denoise2",
+      "license": "LTX 2.5 Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.45,
+      "phase": "decode",
       "license": "LTX 2.5 Community License"
     }
   ],
@@ -556,8 +565,12 @@
       "id": "vae_name",
       "type": "select",
       "label": "Video VAE",
-      "default": "ltx-2.5-video-vae-bf16.safetensors",
+      "default": "ltx-2.5-video-vae-conv-bf16.safetensors",
       "options": [
+        {
+          "value": "ltx-2.5-video-vae-conv-bf16.safetensors",
+          "label": "LTX 2.5 video VAE Conv (bf16, 1.45 GB)"
+        },
         {
           "value": "ltx-2.5-video-vae-bf16.safetensors",
           "label": "LTX 2.5 video VAE (diffusion decoder, bf16)"
@@ -568,7 +581,8 @@
           "node": "3",
           "field": "vae_name"
         }
-      ]
+      ],
+      "help": "The video VAE used to decode the clip. Conv bf16 is the new default; the original bf16 stays available."
     },
     {
       "id": "audio_vae_name",

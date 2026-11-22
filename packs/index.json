@@ -233,7 +233,7 @@
       "ltx-director",
       "ltx-director-4seg"
     ],
-    "download_gb": 39.7,
+    "download_gb": 41.15,
     "needs_hf_token": false
   },
   "video-ltx25": {
@@ -272,7 +272,7 @@
       "video-t2v",
       "volcano-ad"
     ],
-    "download_gb": 66.03,
+    "download_gb": 67.48,
     "needs_hf_token": true
   },
   "video-scail": {

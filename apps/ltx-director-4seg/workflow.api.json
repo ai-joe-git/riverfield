@@ -2,7 +2,7 @@
   "3": {
     "class_type": "VAELoaderKJ",
     "inputs": {
-      "vae_name": "ltx-2.5-video-vae-bf16.safetensors",
+      "vae_name": "ltx-2.5-video-vae-conv-bf16.safetensors",
       "device": "main_device",
       "weight_dtype": "bf16"
     },

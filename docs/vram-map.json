@@ -2504,17 +2504,17 @@
       "section": "video",
       "pack": "video-ltx",
       "status": "ready",
-      "whole_gb": 39.7,
+      "whole_gb": 39.68,
       "phases_gb": {
         "encode": 15.37,
         "denoise": 21.5,
         "denoise2": 1.0,
-        "decode": 1.83,
+        "decode": 1.81,
         "aux": 0.0
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 0,
+      "optional_gb": 1.47,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2530,17 +2530,17 @@
       "section": "video",
       "pack": "video-ltx",
       "status": "draft",
-      "whole_gb": 39.7,
+      "whole_gb": 39.68,
       "phases_gb": {
         "encode": 15.37,
         "denoise": 21.5,
         "denoise2": 1.0,
-        "decode": 1.83,
+        "decode": 1.81,
         "aux": 0.0
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 0,
+      "optional_gb": 1.47,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2764,17 +2764,17 @@
       "section": "video",
       "pack": "video-ltx25",
       "status": "ready",
-      "whole_gb": 39.7,
+      "whole_gb": 39.68,
       "phases_gb": {
         "encode": 15.37,
         "denoise": 21.5,
         "denoise2": 0.0,
-        "decode": 1.83,
+        "decode": 1.81,
         "aux": 1.0
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 6.67,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2790,17 +2790,17 @@
       "section": "video",
       "pack": "video-ltx25",
       "status": "ready",
-      "whole_gb": 39.7,
+      "whole_gb": 39.68,
       "phases_gb": {
         "encode": 15.37,
         "denoise": 21.5,
         "denoise2": 0.0,
-        "decode": 1.83,
+        "decode": 1.81,
         "aux": 1.0
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 6.67,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5

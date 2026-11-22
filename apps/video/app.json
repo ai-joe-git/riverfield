@@ -354,8 +354,12 @@
       "id": "vae_name",
       "type": "select",
       "label": "Video VAE",
-      "default": "ltx-2.5-video-vae-bf16.safetensors",
+      "default": "ltx-2.5-video-vae-conv-bf16.safetensors",
       "options": [
+        {
+          "value": "ltx-2.5-video-vae-conv-bf16.safetensors",
+          "label": "LTX 2.5 video VAE Conv (bf16, 1.45 GB)"
+        },
         {
           "value": "ltx-2.5-video-vae-bf16.safetensors",
           "label": "LTX 2.5 video VAE (bf16)"
@@ -366,7 +370,8 @@
           "node": "398:385",
           "field": "vae_name"
         }
-      ]
+      ],
+      "help": "The video VAE used to decode the clip. Conv bf16 is the new default; the original bf16 stays available."
     },
     {
       "id": "audio_vae_name",
@@ -514,7 +519,8 @@
       "gb": 1.47,
       "phase": "decode",
       "gated": true,
-      "license": "LTX-2.x Community License"
+      "license": "LTX-2.x Community License",
+      "optional": true
     },
     {
       "repo": "Lightricks/LTX-2.5",
@@ -542,6 +548,15 @@
       "phase": "encode",
       "license": "Apache-2.0",
       "optional": true
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.45,
+      "phase": "decode",
+      "license": "LTX-2.x Community License",
+      "gated": true
     }
   ],
   "credits": [

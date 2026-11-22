@@ -333,6 +333,18 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
   }
 });
 
+test("the LTX 2.5 conv video VAE is selectable and the default", () => {
+  const conv = "ltx-2.5-video-vae-conv-bf16.safetensors";
+  for (const [id, node] of [["video", "398:385"], ["video-t2v", "405:385"], ["ltx-director", "3"], ["ltx-director-4seg", "3"]] as const) {
+    const app = byId(id);
+    const vae = app.inputs.find((i) => i.id === "vae_name")!;
+    assert.equal(vae.default, conv, `${id}: default`);
+    assert.ok(vae.options?.some((o) => o.value === conv), `${id}: conv option`);
+    assert.ok(vae.options?.some((o) => o.value === "ltx-2.5-video-vae-bf16.safetensors"), `${id}: old option`);
+    assert.equal((app.graph as Record<string, any>)[node].inputs.vae_name, conv, `${id}: workflow`);
+  }
+});
+
 test("the pi-H3 DWD apps expose 2/4 steps and decode without a video VAE", () => {
   const modes = [
     ["h3-piflow-t2v", [], undefined],

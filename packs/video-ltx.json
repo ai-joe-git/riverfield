@@ -4,7 +4,7 @@
     "ltx-director",
     "ltx-director-4seg"
   ],
-  "download_gb": 39.7,
+  "download_gb": 41.15,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -71,6 +71,19 @@
       "dir": "vae",
       "gb": 1.47,
       "name": "ltx-2.5-video-vae-bf16.safetensors",
+      "gated": false,
+      "license": "LTX 2.5 Community License",
+      "used_by": [
+        "ltx-director",
+        "ltx-director-4seg"
+      ]
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.45,
+      "name": "ltx-2.5-video-vae-conv-bf16.safetensors",
       "gated": false,
       "license": "LTX 2.5 Community License",
       "used_by": [

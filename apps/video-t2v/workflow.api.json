@@ -515,7 +515,7 @@
   "405:385": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "ltx-2.5-video-vae-bf16.safetensors"
+      "vae_name": "ltx-2.5-video-vae-conv-bf16.safetensors"
     },
     "_meta": {
       "title": "Load VAE"
