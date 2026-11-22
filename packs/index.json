@@ -219,11 +219,13 @@
   },
   "video-h3-piflow": {
     "apps": [
+      "h3-piflow-director",
       "h3-piflow-flf2v",
       "h3-piflow-i2v",
+      "h3-piflow-r2v",
       "h3-piflow-t2v"
     ],
-    "download_gb": 43.79,
+    "download_gb": 134.91,
     "needs_hf_token": false
   },
   "video-ltx": {

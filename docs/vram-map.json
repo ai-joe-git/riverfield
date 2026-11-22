@@ -3487,6 +3487,32 @@
       "measured_on": "H100 · 20261024-164909-h100"
     },
     {
+      "id": "h3-piflow-director",
+      "name": "pi-H3 Director",
+      "section": "video",
+      "pack": "video-h3-piflow",
+      "status": "ready",
+      "whole_gb": 43.2,
+      "phases_gb": {
+        "encode": 14.61,
+        "denoise": 25.35,
+        "denoise2": 0.0,
+        "decode": 2.6,
+        "aux": 0.64
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 25.35,
+      "optional_gb": 0,
+      "biggest_file": {
+        "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "gb": 20.97
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), whole",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
       "id": "h3-piflow-flf2v",
       "name": "pi-H3 DWD First and Last Frame",
       "section": "video",
@@ -3502,7 +3528,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 25.35,
-      "optional_gb": 0,
+      "optional_gb": 70.74,
       "biggest_file": {
         "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "gb": 20.97
@@ -3528,9 +3554,35 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 25.35,
-      "optional_gb": 0,
+      "optional_gb": 70.74,
       "biggest_file": {
         "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "gb": 20.97
+      },
+      "verdict_24gb": "needs Modal",
+      "modal_gpu": "L40S (48 GB), whole",
+      "measured_peak_gb": null,
+      "measured_on": null
+    },
+    {
+      "id": "h3-piflow-r2v",
+      "name": "pi-H3 DWD Reference to Video",
+      "section": "video",
+      "pack": "video-h3-piflow",
+      "status": "ready",
+      "whole_gb": 43.79,
+      "phases_gb": {
+        "encode": 15.69,
+        "denoise": 25.35,
+        "denoise2": 0.0,
+        "decode": 2.75,
+        "aux": 0.0
+      },
+      "largest_phase": "denoise",
+      "largest_phase_gb": 25.35,
+      "optional_gb": 70.74,
+      "biggest_file": {
+        "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
         "gb": 20.97
       },
       "verdict_24gb": "needs Modal",
@@ -3554,7 +3606,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 25.35,
-      "optional_gb": 0,
+      "optional_gb": 70.74,
       "biggest_file": {
         "name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "gb": 20.97

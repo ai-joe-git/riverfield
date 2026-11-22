@@ -1,11 +1,13 @@
 {
   "pack": "video-h3-piflow",
   "apps": [
+    "h3-piflow-director",
     "h3-piflow-flf2v",
     "h3-piflow-i2v",
+    "h3-piflow-r2v",
     "h3-piflow-t2v"
   ],
-  "download_gb": 43.79,
+  "download_gb": 134.91,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -29,6 +31,61 @@
       ]
     },
     {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-piflow-director",
+        "h3-piflow-r2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x4_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 0.64,
+      "name": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-piflow-director"
+      ]
+    },
+    {
       "repo": "Lakonik/pi-H3",
       "file": "loras/pi_h3_2step_dwd_adapter_int8_convrot.safetensors",
       "dir": "loras",
@@ -37,8 +94,10 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
+        "h3-piflow-director",
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
+        "h3-piflow-r2v",
         "h3-piflow-t2v"
       ]
     },
@@ -51,8 +110,25 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
+        "h3-piflow-director",
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
         "h3-piflow-t2v"
       ]
     },
@@ -60,13 +136,30 @@
       "repo": "Comfy-Org/MiniMax-H3",
       "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
       "dir": "text_encoders",
-      "gb": 15.69,
+      "gb": 14.61,
       "name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-piflow-director",
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 25.0,
+      "name": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
+        "h3-piflow-r2v",
         "h3-piflow-t2v"
       ]
     },
@@ -79,8 +172,10 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
+        "h3-piflow-director",
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
+        "h3-piflow-r2v",
         "h3-piflow-t2v"
       ]
     },
@@ -88,13 +183,75 @@
       "repo": "Comfy-Org/MiniMax-H3",
       "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
       "dir": "vae",
-      "gb": 2.14,
+      "gb": 1.99,
       "name": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-piflow-director",
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "name": "minimax_h3_video_vae_fp16.safetensors",
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "name": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x2_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
+        "h3-piflow-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x4_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "h3-piflow-flf2v",
+        "h3-piflow-i2v",
+        "h3-piflow-r2v",
         "h3-piflow-t2v"
       ]
     }

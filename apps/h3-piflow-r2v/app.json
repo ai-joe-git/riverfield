@@ -1,0 +1,914 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-piflow-r2v",
+  "name": "pi-H3 DWD Reference to Video",
+  "section": "video",
+  "pack": "video-h3-piflow",
+  "status": "ready",
+  "higgsfield_feature": "Reference to Video",
+  "summary": "pi-H3 DWD reference-to-video: reference pictures, clips and audio on the 2/4-step DWD adapters; experimental on Ref2VA.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "h3-r2v + pi-H3 DWD adapters",
+    "comfyui": "0.46.0",
+    "notes": "MiniMax H3 Ref2VA + the pi-H3 2/4-step DWD adapters, pi-Flow Scheduler, H3 SLA and DWD Decode. The adapters are documented for FL2VA text/first/last conditioning; reference tokens on the Ref2VA base are experimental and must be tested before relying on them. The audio VAE still decodes the soundtrack; DWD predicts the video frames."
+  },
+  "inputs": [
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img0",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img1",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img2",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img3",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_3"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img4",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_4"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img5",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_5"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img6",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_6"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img7",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_7"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "help": "Up to nine. They become <Picture N> in the prompt; each one keeps its identity in the shot.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img8",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_images.ref_image_8"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid0",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_0"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid1",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_1"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "help": "Up to three. Its frames become <Video N> and its own soundtrack is used as that video's audio reference; give it a video with a sound track.",
+      "limits": {
+        "max_mb": 200
+      },
+      "bind": [
+        {
+          "node": "vid2",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_videos.ref_video_2"
+        },
+        {
+          "node": "136",
+          "field": "ref_video_audios.ref_video_audio_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio1",
+      "type": "audio",
+      "label": "Audio 1",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud0",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_0"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio2",
+      "type": "audio",
+      "label": "Audio 2",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud1",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_1"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "audio3",
+      "type": "audio",
+      "label": "Audio 3",
+      "help": "Up to three. A voice to copy, a music bed, a sound: they become <Audio N>, separate from the videos' own sound.",
+      "limits": {
+        "max_mb": 50
+      },
+      "bind": [
+        {
+          "node": "aud2",
+          "field": "audio"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "136",
+          "field": "ref_audios.ref_audio_2"
+        }
+      ],
+      "required": false
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "A street cook in Mexico City flips tacos on a hot griddle, steam and sizzling sound. He looks up and says: \"Two more coming right up!\" The camera pushes in slowly.",
+      "help": "Reference the slots by name: <Picture 1>, <Video 1>, <Audio 1>. Spoken words go in quotes.",
+      "bind": [
+        {
+          "node": "138",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Format",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "3:2 (Photo)",
+          "label": "3:2"
+        },
+        {
+          "value": "2:3 (Portrait Photo)",
+          "label": "2:3"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "115",
+          "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.4,
+      "max": 1.5,
+      "step": 0.1,
+      "default": 0.4,
+      "help": "Total pixels of the clip, sides rounded to 32. 0.4 MP is 832x480 at 16:9; higher is sharper and much slower.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (H3 default)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "help": "Keep 32 for H3: the latent patch is 2, so a size multiple of 8 can make the first/last-frame latent odd and the run fails.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 (15.7 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B INT8 (27.1 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B Heretic INT8 (25 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "128",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE (keyframes only)",
+      "default": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "119",
+          "field": "vae_name"
+        }
+      ],
+      "help": "The video VAE encodes reference pictures/keyframes; DWD predicts the output frames."
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/h3-piflow-r2v",
+      "bind": [
+        {
+          "node": "92",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "92",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "92",
+          "field": "format.codec"
+        }
+      ]
+    },
+    {
+      "id": "upscale",
+      "type": "select",
+      "label": "Upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "None — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "2× — RelayVSR x2 (lightx2v DIT + Flash VAE)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x2_fp32.safetensors"
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RelayVSR x4 (the paper's 4× model)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x4_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x4_fp32.safetensors"
+            }
+          ]
+        }
+      ],
+      "help": "Optional RelayVSR pass on the decoded frames before encoding. None keeps the native result; x2/x4 use the matching DIT and Flash VAE, and x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "vsr_decode",
+          "field": "images"
+        }
+      ]
+    },
+    {
+      "id": "upscale_detail",
+      "type": "slider",
+      "label": "Upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "RelayVSR: how much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output, lower is calmer and closer to the source.",
+      "bind": [
+        {
+          "node": "vsr_decode",
+          "field": "detail"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Seconds",
+      "min": 1,
+      "max": 40,
+      "step": 1,
+      "default": 5,
+      "help": "24 fps, snapped to the H3 5+17n grid. pi-H3 is tested at 5, 10 and 15 s; longer is untested and costs proportionally more time.",
+      "bind": [
+        {
+          "node": "132",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        }
+      ],
+      "help": "pi-H3 uses the euler pi-Flow schedule.",
+      "bind": [
+        {
+          "node": "123",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (Sol-Attn)",
+      "default": true,
+      "help": "The ROCm SLA node. Off (or a backend without the class): the node is bypassed and the model goes straight to the sampler — use it on CUDA/XPU.",
+      "bind": [
+        {
+          "node": "160",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "160",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "type": "slider",
+      "label": "Sparse attention: detail",
+      "min": 0.5,
+      "max": 0.9,
+      "step": 0.05,
+      "default": 0.7,
+      "help": "0.9 = 90% des blocs ignorés (le plus rapide, 19 min pour 8 s à 0.8 MP). 0.7 = 30% de blocs exacts (~24 min, bien meilleur sur le mouvement). 0.5 = 50% (~30 min). 0.0 = dense (52 min).",
+      "bind": [
+        {
+          "node": "160",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "Steps",
+      "default": 2,
+      "options": [
+        {
+          "value": 2,
+          "label": "2 (fastest)"
+        },
+        {
+          "value": 4,
+          "label": "4 (more detail)"
+        }
+      ],
+      "help": "Switches the pi-H3 adapter and the pi-Flow schedule: 2 steps uses max_raw_t 0.93, 4 steps 0.96.",
+      "bind": [
+        {
+          "node": "39:36",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "129",
+          "field": "noise_seed"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "92",
+      "type": "video",
+      "label": "Clip"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.61,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Lakonik/pi-H3",
+      "file": "loras/pi_h3_2step_dwd_adapter_int8_convrot.safetensors",
+      "dir": "loras",
+      "gb": 2.19,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Lakonik/pi-H3",
+      "file": "loras/pi_h3_4step_dwd_adapter_int8_convrot.safetensors",
+      "dir": "loras",
+      "gb": 2.19,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 25.0,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.81,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "MiniMax H3 (MiniMax H3 Community License)",
+    "ref2v turbo LoRA 4-step (community, local file)"
+  ],
+  "notes": "Reference to video: the model keeps the people, places and voices you give it. Nine pictures, three videos and three audio clips can be mixed freely, all optional; the prompt refers to them as <Picture 1>, <Video 1>, <Audio 1>. A reference video brings its own frames and its own soundtrack, so give it a clip with sound. Turbo patches the workflow's own 4-step LoRA in place of the full model branch; set Steps to 4 with it, 20 without. Resolution is the template's ResolutionSelector (aspect + megapixels), and the frame count comes from Seconds through the workflow's own formula. The LoRA is a local file, not in the video-h3 pack.",
+  "test": {
+    "prompt": "A red bicycle on a white background, product shot",
+    "duration": 2,
+    "megapixels": 0.4
+  },
+  "custom_nodes": [
+    {
+      "repo": "https://github.com/Lakonik/ComfyUI-piFlow",
+      "commit": "bcb6ffb"
+    }
+  ]
+}

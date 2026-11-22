@@ -336,7 +336,7 @@ test("the pi-H3 DWD apps expose 2/4 steps and decode without a video VAE", () =>
     assert.deepEqual(steps.options?.map((o) => o.value), [2, 4]);
     assert.deepEqual(steps.bind, [{ node: "39:36", field: "value" }]);
     const duration = app.inputs.find((i) => i.id === "duration")!;
-    assert.equal(duration.max, 15);
+    assert.equal(duration.max, 40);
     const mp = app.inputs.find((i) => i.id === "megapixels")!;
     assert.deepEqual(mp.bind, [{ node: "30", field: "megapixels" }]);
     for (const file of files) assert.ok(app.inputs.some((i) => i.id === file), `${id}: ${file}`);
@@ -349,6 +349,32 @@ test("the pi-H3 DWD apps expose 2/4 steps and decode without a video VAE", () =>
     if (first) assert.equal(graph["6"].inputs.first_frame?.[0], first);
     if (id === "h3-piflow-flf2v") assert.equal(graph["6"].inputs.last_frame?.[0], "103");
   }
+});
+
+test("the pi-H3 director and reference apps switch the 2/4-step adapters", () => {
+  for (const id of ["h3-piflow-director", "h3-piflow-r2v"]) {
+    const app = byId(id);
+    const steps = app.inputs.find((i) => i.id === "steps")!;
+    assert.deepEqual(steps.options?.map((o) => o.value), [2, 4]);
+    assert.deepEqual(steps.bind, [{ node: "39:36", field: "value" }]);
+    const graph = app.graph! as Record<string, any>;
+    assert.equal(graph["50"].class_type, "pi-Flow Scheduler");
+    assert.equal(graph["39:2"].class_type, "Load LakonLab Adapter");
+    assert.equal(graph["39:34"].class_type, "Load LakonLab Adapter");
+    for (const [node, spec] of Object.entries(graph)) {
+      for (const [field, value] of Object.entries((spec as any).inputs ?? {})) {
+        if (Array.isArray(value) && value.length === 2 && typeof value[0] === "string") {
+          assert.ok(graph[value[0]], `${id}: ${node}.${field} points at missing node ${value[0]}`);
+        }
+      }
+    }
+  }
+  const director = byId("h3-piflow-director").graph as Record<string, any>;
+  assert.equal(director["30"].class_type, "MiniMaxH3FiniteSegmentVideoSampler");
+  assert.ok(!Object.values(director).some((n: any) => n.class_type === "DWD Decode"), "the multi-segment sampler decodes with the VAE");
+  const ref = byId("h3-piflow-r2v").graph as Record<string, any>;
+  assert.equal(ref["136"].class_type, "MiniMaxH3ReferenceToVideo");
+  assert.equal(ref["12"].class_type, "DWD Decode");
 });
 
 test("every H3 video app reaches 40 seconds", () => {

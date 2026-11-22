@@ -146,9 +146,11 @@ is not the least the app needs.
 | `pika-studio-director` | ready | 40.7 GB (+22.9 optional) | denoise 22.9 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
 | `studio-director` | ready | 40.7 GB | denoise 22.9 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | tight (by phases) | test on L4 / A10G; L40S (48 GB) is comfortable | not measured |
 | `dub` | ready | 41.2 GB (+5.2 optional) | denoise 24.0 GB | ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors (21.5) | needs Modal | L40S (48 GB), whole | 40.9 GB (H100) |
-| `h3-piflow-flf2v` | ready | 43.8 GB | denoise 25.4 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
-| `h3-piflow-i2v` | ready | 43.8 GB | denoise 25.4 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
-| `h3-piflow-t2v` | ready | 43.8 GB | denoise 25.4 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
+| `h3-piflow-director` | ready | 43.2 GB | denoise 25.4 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
+| `h3-piflow-flf2v` | ready | 43.8 GB (+70.7 optional) | denoise 25.4 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
+| `h3-piflow-i2v` | ready | 43.8 GB (+70.7 optional) | denoise 25.4 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
+| `h3-piflow-r2v` | ready | 43.8 GB (+70.7 optional) | denoise 25.4 GB | minimax_h3_ref2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
+| `h3-piflow-t2v` | ready | 43.8 GB (+70.7 optional) | denoise 25.4 GB | minimax_h3_fl2va_pruned_int8_convrot.safetensors (21.0) | needs Modal | L40S (48 GB), whole | not measured |
 | `extend-video` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 50.5 GB (H100) |
 | `extend-video-turbo` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-flf2v-flash` | ready | 45.8 GB (+34.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
