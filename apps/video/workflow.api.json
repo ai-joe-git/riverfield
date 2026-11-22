@@ -82,7 +82,7 @@
         0
       ],
       "sigmas": [
-        "398:397",
+        "398:fastswitch",
         0
       ],
       "latent_image": [
@@ -723,6 +723,44 @@
     },
     "_meta": {
       "title": "Resolution Selector"
+    }
+  },
+  "398:fast": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "0.85, 0.7250, 0.4219, 0.0"
+    },
+    "_meta": {
+      "title": "Fast draft sigmas"
+    }
+  },
+  "398:fastflag": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Fast draft"
+    }
+  },
+  "398:fastswitch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:397",
+        0
+      ],
+      "on_true": [
+        "398:fast",
+        0
+      ],
+      "switch": [
+        "398:fastflag",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "High-res sigmas"
     }
   }
 }

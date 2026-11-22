@@ -73,7 +73,7 @@
         0
       ],
       "sigmas": [
-        "405:404",
+        "405:fastswitch",
         0
       ],
       "latent_image": [
@@ -623,6 +623,44 @@
     },
     "_meta": {
       "title": "Resolution Selector"
+    }
+  },
+  "405:fast": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "0.85, 0.7250, 0.4219, 0.0"
+    },
+    "_meta": {
+      "title": "Fast draft sigmas"
+    }
+  },
+  "405:fastflag": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Fast draft"
+    }
+  },
+  "405:fastswitch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "405:404",
+        0
+      ],
+      "on_true": [
+        "405:fast",
+        0
+      ],
+      "switch": [
+        "405:fastflag",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "High-res sigmas"
     }
   }
 }

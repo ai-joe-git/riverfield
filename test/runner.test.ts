@@ -311,6 +311,16 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
     const mp = app.inputs.find((i) => i.id === "megapixels")!;
     assert.equal(mp.default, 0.9);
     assert.deepEqual(mp.bind, [{ node, field: "megapixels" }]);
+    const enhancer = app.inputs.find((i) => i.id === "enhancer_clip_name")!;
+    assert.ok(enhancer.options?.some((o) => o.value === "gemma4_e2b_it_int8_convrot.safetensors"));
+    const sampler = app.inputs.find((i) => i.id === "sampler")!;
+    assert.ok(sampler.options?.some((o) => o.value === "euler_ancestral"));
+    assert.deepEqual(sampler.bind, [
+      { node: id === "video" ? "398:341" : "405:341", field: "sampler_name" },
+      { node: id === "video" ? "398:352" : "405:352", field: "sampler_name" },
+    ]);
+    const high = app.inputs.find((i) => i.id === "steps")!;
+    assert.deepEqual(high.options?.map((o) => o.value), [9, 4]);
 
     const values = resolveValues(app, {
       ...(id === "video" ? { image: { bytes: new Uint8Array([1]), name: "x.png" } } : {}),

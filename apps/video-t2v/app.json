@@ -27,18 +27,15 @@
       ]
     },
     {
-      "id": "duration",
-      "type": "slider",
-      "label": "Duration (s)",
-      "min": 2,
-      "max": 30,
-      "step": 1,
-      "default": 5,
-      "help": "LTX 2.5 at 24 fps. Longer clips cost proportionally more GPU time.",
+      "id": "negative_prompt",
+      "type": "textarea",
+      "label": "Negative prompt",
+      "default": "pc game, console game, video game, cartoon, childish, ugly",
+      "help": "What the model should avoid.",
       "bind": [
         {
-          "node": "405:362",
-          "field": "value"
+          "node": "405:373",
+          "field": "text"
         }
       ]
     },
@@ -47,10 +44,61 @@
       "type": "toggle",
       "label": "Enhance prompt",
       "default": true,
-      "help": "Rewrites your prompt with a small Gemma 4 model first",
+      "help": "Rewrite the prompt with the prompt-enhancer model before sampling.",
       "bind": [
         {
           "node": "405:383",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "enhancer_clip_name",
+      "type": "select",
+      "label": "Prompt enhancer model",
+      "default": "gemma4_e2b_it_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "gemma4_e2b_it_int8_convrot.safetensors",
+          "label": "Gemma 4 E2B IT INT8 (4.9 GB)"
+        }
+      ],
+      "help": "The small Gemma model used by Enhance prompt.",
+      "bind": [
+        {
+          "node": "405:393",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration (s)",
+      "min": 2,
+      "max": 30,
+      "step": 1,
+      "default": 5,
+      "help": "24 fps, snapped to the LTX 8n+1 grid.",
+      "bind": [
+        {
+          "node": "405:362",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "fps",
+      "type": "slider",
+      "label": "Frame rate",
+      "min": 8,
+      "max": 30,
+      "step": 1,
+      "default": 24,
+      "help": "Playback and conditioning frame rate. The frame count follows the duration and this rate.",
+      "bind": [
+        {
+          "node": "405:361",
           "field": "value"
         }
       ]
@@ -101,11 +149,110 @@
       "max": 2,
       "step": 0.1,
       "default": 0.9,
-      "help": "Final output size. Stage 1 renders at half the linear size and stage 2 upscales the latent x2. 0.9 MP = 1280x704 in 16:9.",
+      "help": "0.9 MP is about 1280x704 in 16:9.",
       "bind": [
         {
           "node": "409",
           "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (LTX default)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "bind": [
+        {
+          "node": "409",
+          "field": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "High-res steps",
+      "default": 9,
+      "options": [
+        {
+          "value": 9,
+          "label": "9 (quality)",
+          "sets": [
+            {
+              "node": "405:fastflag",
+              "field": "value",
+              "value": false
+            }
+          ]
+        },
+        {
+          "value": 4,
+          "label": "4 (fast draft)",
+          "sets": [
+            {
+              "node": "405:fastflag",
+              "field": "value",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "help": "The low-resolution stage stays at 4 steps; this switches the high-resolution stage between 4 and 9 steps."
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler_ancestral",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "euler_ancestral"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:341",
+          "field": "sampler_name"
+        },
+        {
+          "node": "405:352",
+          "field": "sampler_name"
         }
       ]
     },
@@ -119,6 +266,202 @@
         {
           "node": "405:339",
           "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+          "label": "LTX 2.5 22B distilled (int8 convrot)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:384",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "weight_dtype",
+      "type": "select",
+      "label": "Weight dtype",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "default"
+        },
+        {
+          "value": "fp8_e4m3fn",
+          "label": "fp8_e4m3fn"
+        },
+        {
+          "value": "fp8_e4m3fn_fast",
+          "label": "fp8_e4m3fn_fast"
+        },
+        {
+          "value": "fp8_e5m2",
+          "label": "fp8_e5m2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:384",
+          "field": "weight_dtype"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "options": [
+        {
+          "value": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+          "label": "Gemma 4 12B + LTX 2.5 projection (int8 convrot)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:387",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "ltx-2.5-video-vae-bf16.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-video-vae-bf16.safetensors",
+          "label": "LTX 2.5 video VAE (bf16)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:385",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "audio_vae_name",
+      "type": "select",
+      "label": "Audio VAE",
+      "default": "ltx-2.5-audio-vae-bf16.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-audio-vae-bf16.safetensors",
+          "label": "LTX 2.5 audio VAE (bf16)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:386",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "upscaler",
+      "type": "select",
+      "label": "Latent upscaler",
+      "default": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+          "label": "LTX 2.5 spatial upscaler x2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "405:371",
+          "field": "model_name"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/video-t2v",
+      "bind": [
+        {
+          "node": "75",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "75",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "75",
+          "field": "format.codec"
         }
       ]
     }
