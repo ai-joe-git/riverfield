@@ -333,6 +333,21 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
   }
 });
 
+test("the LTX 2.5 single-clip apps can skip the latent upscaler", () => {
+  for (const [id, prefix] of [["video", "398"], ["video-t2v", "405"], ["cinema-video", "398"], ["lipsync", "398"]] as const) {
+    const app = byId(id);
+    const one = app.inputs.find((i) => i.id === "one_pass")!;
+    assert.equal(one.default, false, `${id}: default keeps the two-stage pass`);
+    assert.deepEqual(one.bind, [{ node: `${prefix}:onepass`, field: "value" }]);
+    const graph = app.graph as Record<string, any>;
+    assert.equal(graph[`${prefix}:onepass`].class_type, "PrimitiveBoolean");
+    assert.equal(graph[`${prefix}:wswitch`].class_type, "ComfySwitchNode");
+    assert.equal(graph[`${prefix}:dswitch`].class_type, "ComfySwitchNode");
+    assert.deepEqual(graph[`${prefix}:356`].inputs.width, [`${prefix}:wswitch`, 0]);
+    assert.deepEqual(graph[`${prefix}:374`].inputs.samples, [`${prefix}:dswitch`, 0]);
+  }
+});
+
 test("the LTX 2.5 conv video VAE is selectable and the default", () => {
   const conv = "ltx-2.5-video-vae-conv-bf16.safetensors";
   for (const [id, node] of [["video", "398:385"], ["video-t2v", "405:385"], ["ltx-director", "3"], ["ltx-director-4seg", "3"]] as const) {

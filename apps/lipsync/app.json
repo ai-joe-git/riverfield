@@ -195,6 +195,19 @@
       ]
     },
     {
+      "id": "one_pass",
+      "type": "toggle",
+      "label": "One-pass full resolution",
+      "default": false,
+      "help": "On: sample directly at the selected resolution and skip the latent x2 upscaler/second pass. Off: the existing half-resolution first pass + latent x2 second pass.",
+      "bind": [
+        {
+          "node": "398:onepass",
+          "field": "value"
+        }
+      ]
+    },
+    {
       "id": "seed",
       "type": "seed",
       "label": "Seed",

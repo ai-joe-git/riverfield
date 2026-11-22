@@ -144,12 +144,12 @@
     "class_type": "EmptyLTXVLatentVideo",
     "inputs": {
       "width": [
-        "405:353",
-        1
+        "405:wswitch",
+        0
       ],
       "height": [
-        "405:355",
-        1
+        "405:hswitch",
+        0
       ],
       "length": [
         "405:378",
@@ -165,8 +165,8 @@
     "class_type": "LTXVAudioVAEDecode",
     "inputs": {
       "samples": [
-        "405:369",
-        1
+        "405:aswitch",
+        0
       ],
       "audio_vae": [
         "405:386",
@@ -388,7 +388,7 @@
     "class_type": "VAEDecodeTiled",
     "inputs": {
       "samples": [
-        "405:369",
+        "405:dswitch",
         0
       ],
       "vae": [
@@ -661,6 +661,121 @@
     },
     "_meta": {
       "title": "High-res sigmas"
+    }
+  },
+  "405:onepass": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "One-pass full resolution"
+    }
+  },
+  "405:wfull": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "values.a": [
+        "405:372",
+        0
+      ],
+      "expression": "a"
+    },
+    "_meta": {
+      "title": "Full width"
+    }
+  },
+  "405:hfull": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "values.a": [
+        "405:360",
+        0
+      ],
+      "expression": "a"
+    },
+    "_meta": {
+      "title": "Full height"
+    }
+  },
+  "405:wswitch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "405:353",
+        1
+      ],
+      "on_true": [
+        "405:wfull",
+        1
+      ],
+      "switch": [
+        "405:onepass",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Width: two-stage or one-pass"
+    }
+  },
+  "405:hswitch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "405:355",
+        1
+      ],
+      "on_true": [
+        "405:hfull",
+        1
+      ],
+      "switch": [
+        "405:onepass",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Height: two-stage or one-pass"
+    }
+  },
+  "405:dswitch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "405:369",
+        0
+      ],
+      "on_true": [
+        "405:367",
+        0
+      ],
+      "switch": [
+        "405:onepass",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Video decode source"
+    }
+  },
+  "405:aswitch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "405:369",
+        1
+      ],
+      "on_true": [
+        "405:367",
+        1
+      ],
+      "switch": [
+        "405:onepass",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Audio decode source"
     }
   }
 }
