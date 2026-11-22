@@ -2332,7 +2332,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2358,7 +2358,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2384,7 +2384,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2410,7 +2410,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2436,7 +2436,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2462,7 +2462,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2488,7 +2488,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 0,
+      "optional_gb": 10.58,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2514,7 +2514,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 1.47,
+      "optional_gb": 12.05,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2540,7 +2540,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 1.47,
+      "optional_gb": 12.05,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2566,7 +2566,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2592,7 +2592,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2618,7 +2618,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2644,7 +2644,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2670,7 +2670,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2696,7 +2696,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2722,7 +2722,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.63,
+      "optional_gb": 16.21,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2748,7 +2748,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2774,7 +2774,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 6.67,
+      "optional_gb": 17.25,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -2800,7 +2800,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 21.5,
-      "optional_gb": 6.67,
+      "optional_gb": 17.25,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -3190,7 +3190,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 22.15,
-      "optional_gb": 0,
+      "optional_gb": 10.58,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5
@@ -3970,7 +3970,7 @@
       },
       "largest_phase": "denoise",
       "largest_phase_gb": 27.33,
-      "optional_gb": 5.2,
+      "optional_gb": 15.78,
       "biggest_file": {
         "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
         "gb": 21.5

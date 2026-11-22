@@ -4,7 +4,7 @@
     "ltx-director",
     "ltx-director-4seg"
   ],
-  "download_gb": 41.15,
+  "download_gb": 51.73,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -21,6 +21,32 @@
       "name": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
       "gated": false,
       "license": "LTX 2.5 Community License",
+      "used_by": [
+        "ltx-director",
+        "ltx-director-4seg"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "ltx-director",
+        "ltx-director-4seg"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x4_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
       "used_by": [
         "ltx-director",
         "ltx-director-4seg"
@@ -86,6 +112,32 @@
       "name": "ltx-2.5-video-vae-conv-bf16.safetensors",
       "gated": false,
       "license": "LTX 2.5 Community License",
+      "used_by": [
+        "ltx-director",
+        "ltx-director-4seg"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x2_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "ltx-director",
+        "ltx-director-4seg"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x4_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
       "used_by": [
         "ltx-director",
         "ltx-director-4seg"

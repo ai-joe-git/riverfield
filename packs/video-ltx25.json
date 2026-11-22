@@ -35,7 +35,7 @@
     "video-t2v",
     "volcano-ad"
   ],
-  "download_gb": 67.48,
+  "download_gb": 78.06,
   "needs_hf_token": true,
   "custom_nodes": [
     {
@@ -104,6 +104,66 @@
         "video",
         "video-t2v",
         "volcano-ad"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "asmr-host",
+        "asmr-product",
+        "asmr-whisper",
+        "behind-the-scenes",
+        "cinema-video",
+        "idol",
+        "kick-ad",
+        "lipsync",
+        "magic-button",
+        "melting-doodle",
+        "mixed-media",
+        "mukbang",
+        "rap-video",
+        "speak",
+        "storm-creature",
+        "talking",
+        "truck-ad",
+        "video",
+        "video-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "name": "relayvsr_x4_int8_convrot.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "asmr-host",
+        "asmr-product",
+        "asmr-whisper",
+        "behind-the-scenes",
+        "cinema-video",
+        "idol",
+        "kick-ad",
+        "lipsync",
+        "magic-button",
+        "melting-doodle",
+        "mixed-media",
+        "mukbang",
+        "rap-video",
+        "speak",
+        "storm-creature",
+        "talking",
+        "truck-ad",
+        "video",
+        "video-t2v"
       ]
     },
     {
@@ -501,6 +561,66 @@
       "gated": true,
       "license": "LTX-2.x Community License",
       "used_by": [
+        "video",
+        "video-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x2_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "asmr-host",
+        "asmr-product",
+        "asmr-whisper",
+        "behind-the-scenes",
+        "cinema-video",
+        "idol",
+        "kick-ad",
+        "lipsync",
+        "magic-button",
+        "melting-doodle",
+        "mixed-media",
+        "mukbang",
+        "rap-video",
+        "speak",
+        "storm-creature",
+        "talking",
+        "truck-ad",
+        "video",
+        "video-t2v"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "name": "relayvsr_flash_vae_x4_fp32.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "asmr-host",
+        "asmr-product",
+        "asmr-whisper",
+        "behind-the-scenes",
+        "cinema-video",
+        "idol",
+        "kick-ad",
+        "lipsync",
+        "magic-button",
+        "melting-doodle",
+        "mixed-media",
+        "mukbang",
+        "rap-video",
+        "speak",
+        "storm-creature",
+        "talking",
+        "truck-ad",
         "video",
         "video-t2v"
       ]

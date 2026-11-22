@@ -348,6 +348,23 @@ test("the LTX 2.5 single-clip apps can skip the latent upscaler", () => {
   }
 });
 
+test("the LTX 2.5 single-clip apps offer RelayVSR x2/x4", () => {
+  for (const id of ["video", "video-t2v", "cinema-video", "ltx-director", "mixed-media"]) {
+    const app = byId(id);
+    const up = app.inputs.find((i) => i.id === "upscale")!;
+    const values = up.options?.map((o) => o.value) ?? [];
+    assert.deepEqual(values, ["", "x2", "x4"], `${id}: upscale options`);
+    assert.deepEqual(up.bypass, [{ node: "vsr_decode", field: "images" }]);
+    const detail = app.inputs.find((i) => i.id === "upscale_detail")!;
+    assert.deepEqual(detail.bind, [{ node: "vsr_decode", field: "detail" }]);
+    const graph = app.graph as Record<string, any>;
+    assert.equal(graph.vsr_decode.class_type, "VSRDecode");
+    assert.equal(graph.vsr_unet.class_type, "UNETLoader");
+    const create = Object.values(graph).find((n: any) => n.class_type === "CreateVideo") as any;
+    assert.deepEqual(create.inputs.images, ["vsr_decode", 0]);
+  }
+});
+
 test("the LTX 2.5 conv video VAE is selectable and the default", () => {
   const conv = "ltx-2.5-video-vae-conv-bf16.safetensors";
   for (const [id, node] of [["video", "398:385"], ["video-t2v", "405:385"], ["ltx-director", "3"], ["ltx-director-4seg", "3"]] as const) {

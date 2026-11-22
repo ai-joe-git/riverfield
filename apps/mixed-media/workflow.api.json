@@ -448,7 +448,7 @@
     "class_type": "CreateVideo",
     "inputs": {
       "images": [
-        "5518:5538",
+        "vsr_decode",
         0
       ],
       "audio": [
@@ -941,6 +941,92 @@
     },
     "_meta": {
       "title": "Edit instruction + what is in the shot"
+    }
+  },
+  "vsr_unet": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "_meta": {
+      "title": "RelayVSR DIT"
+    }
+  },
+  "vsr_vae": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "relayvsr_flash_vae_x2_fp32.safetensors"
+    },
+    "_meta": {
+      "title": "RelayVSR Flash VAE"
+    }
+  },
+  "vsr_cond": {
+    "class_type": "RelayVSRConditioning",
+    "inputs": {
+      "model": [
+        "vsr_unet",
+        0
+      ],
+      "images": [
+        "5518:5538",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "RelayVSR conditioning"
+    }
+  },
+  "vsr_sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "vsr_unet",
+        0
+      ],
+      "positive": [
+        "vsr_cond",
+        0
+      ],
+      "negative": [
+        "vsr_cond",
+        0
+      ],
+      "latent_image": [
+        "vsr_cond",
+        1
+      ],
+      "seed": 0,
+      "steps": 1,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    },
+    "_meta": {
+      "title": "RelayVSR one step"
+    }
+  },
+  "vsr_decode": {
+    "class_type": "VSRDecode",
+    "inputs": {
+      "vae": [
+        "vsr_vae",
+        0
+      ],
+      "samples": [
+        "vsr_sampler",
+        0
+      ],
+      "images": [
+        "5518:5538",
+        0
+      ],
+      "detail": 1
+    },
+    "_meta": {
+      "title": "RelayVSR decode"
     }
   }
 }
