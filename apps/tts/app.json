@@ -20,11 +20,87 @@
       "label": "Text",
       "required": true,
       "default": "Bonjour, ici RiverField. Ceci est une courte phrase lue par Chatterbox pour vérifier la voix.",
-      "help": "Punctuation is respected: commas and full stops set the pacing.",
+      "help": "Punctuation is respected: commas and full stops set the pacing. Long scripts are split into chunks automatically.",
       "bind": [
         {
           "node": "10",
           "field": "text"
+        }
+      ]
+    },
+    {
+      "id": "enable_chunking",
+      "type": "toggle",
+      "label": "Chunk long text",
+      "default": true,
+      "help": "On: synthesise the script in safe chunks and join them. Off sends the whole script in one GPU call and can crash long-context runs.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "enable_chunking"
+        }
+      ]
+    },
+    {
+      "id": "max_chars_per_chunk",
+      "type": "slider",
+      "label": "Chunk size (characters)",
+      "min": 100,
+      "max": 1000,
+      "step": 50,
+      "default": 400,
+      "help": "Smaller chunks use less GPU memory and follow the script more closely; larger chunks are more continuous but riskier.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "max_chars_per_chunk"
+        }
+      ]
+    },
+    {
+      "id": "chunk_combination_method",
+      "type": "select",
+      "label": "Join chunks",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "auto"
+        },
+        {
+          "value": "concatenate",
+          "label": "concatenate"
+        },
+        {
+          "value": "silence_padding",
+          "label": "silence padding"
+        },
+        {
+          "value": "crossfade",
+          "label": "crossfade"
+        }
+      ],
+      "help": "How the audio chunks are joined. auto resolves by script length.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "chunk_combination_method"
+        }
+      ]
+    },
+    {
+      "id": "silence_between_chunks_ms",
+      "type": "slider",
+      "label": "Pause between chunks (ms)",
+      "min": 0,
+      "max": 500,
+      "step": 25,
+      "default": 100,
+      "help": "Pause used when Join chunks is silence padding.",
+      "bind": [
+        {
+          "node": "10",
+          "field": "silence_between_chunks_ms"
         }
       ]
     },

@@ -45,6 +45,12 @@ set +a
 # le proxy ignore les sorties ComfyUI de type 3d : sans ce patch, les .glb n'arrivent jamais
 "$VENV/bin/python" "$RIVERFIELD_DIR/local/patch-proxy.py" || true
 
+# Chatterbox MTL : découpe les longs scripts avant l'appel GPU. Sans ce patch, un texte de
+# plusieurs milliers de caractères part en une seule allocation et peut perdre le contexte
+# amdgpu (écran figé / session graphique tuée). Réappliqué après chaque mise à jour du node.
+"$VENV/bin/python" "$RIVERFIELD_DIR/local/patch-chatterbox-chunking.py" || \
+  echo "WARNING: le patch de chunking Chatterbox n'a pas été appliqué" >&2
+
 source "$VENV/bin/activate"
 
 # Same environment hygiene as 15_RUN_COMFYUI_ROCM101.sh.

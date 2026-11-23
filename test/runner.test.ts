@@ -494,3 +494,29 @@ test("an optional pass-through node is bypassed when its toggle is off or the ba
   assert.ok(kept.json["42"], "the node stays when the backend ships it and the toggle is on");
   assert.deepEqual(kept.json["30"].inputs.model, ["42", 0]);
 });
+
+test("the Chatterbox voice apps chunk long scripts before synthesis", () => {
+  const voice = { bytes: new Uint8Array([1]), name: "voice.wav" };
+  for (const id of ["tts", "tts-clone"]) {
+    const app = byId(id);
+    for (const field of ["enable_chunking", "max_chars_per_chunk", "chunk_combination_method", "silence_between_chunks_ms"]) {
+      assert.ok(app.inputs.some((i) => i.id === field), `${id}: missing ${field}`);
+    }
+    const values = id === "tts"
+      ? resolveValues(app, { text: "a long story" })
+      : resolveValues(app, { text: "a long story", voice });
+    assert.equal(values.enable_chunking, true, `${id}: chunking is on by default`);
+    assert.equal(values.max_chars_per_chunk, 400, `${id}: the safe default chunk is 400 characters`);
+    const wf = recorder();
+    applyInputs(app, values, wf, () => "asset:voice.wav");
+    assert.equal(wf.sets["10.enable_chunking"], true);
+    assert.equal(wf.sets["10.max_chars_per_chunk"], 400);
+    assert.equal(wf.sets["10.chunk_combination_method"], "auto");
+    assert.equal(wf.sets["10.silence_between_chunks_ms"], 100);
+    assert.throws(
+      () => resolveValues(app, id === "tts" ? { text: "x", max_chars_per_chunk: 5000 } : { text: "x", voice, max_chars_per_chunk: 5000 }),
+      InputError,
+      `${id}: chunk size stays inside the backend limit`,
+    );
+  }
+});

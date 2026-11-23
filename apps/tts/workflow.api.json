@@ -20,7 +20,11 @@
       "device": "default",
       "dtype": "auto",
       "attention_mode": "sdpa",
-      "crash_protection_template": "hmm ,, {seg} hmm ,,"
+      "crash_protection_template": "hmm ,, {seg} hmm ,,",
+      "enable_chunking": true,
+      "max_chars_per_chunk": 400,
+      "chunk_combination_method": "auto",
+      "silence_between_chunks_ms": 100
     }
   },
   "20": {
