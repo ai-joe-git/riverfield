@@ -26,8 +26,8 @@ function exampleTile(a, list) {
 // ------------------------------------------------------------------ Explore
 export function exploreView() {
   const withEx = apps.filter((a) => a.example?.full);
-  const hero = HERO.map((id) => byId.get(id)).filter((a) => a?.example?.full);
-  for (const a of withEx) if (hero.length < 6 && !hero.includes(a) && a.example.type === "video") hero.push(a);
+  const hero = HERO.map((id) => byId.get(id)).filter((a) => a?.example?.full).slice(0, 12);
+  for (const a of withEx) if (hero.length < 12 && !hero.includes(a) && a.example.type === "video") hero.push(a);
 
   const row = el("div", { class: "hero-row" }, ...hero.map((a) => {
     const item = exampleItem(a);
@@ -91,6 +91,8 @@ export function exploreView() {
 
   const node = el("div", { class: "page" },
     ...start,
+    hero.length ? el("div", { class: "sec-head", style: { marginTop: "6px" } },
+      el("div", {}, el("h2", { class: "display" }, t("explore.featured")), el("p", {}, t("explore.featured.sub", { n: apps.length })))) : null,
     hero.length ? el("div", { class: "hero-wrap" }, row, prevBtn, nextBtn) : null,
     el("section", { class: "promo" },
       el("div", { class: "promo-lead" },

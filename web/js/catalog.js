@@ -98,7 +98,14 @@ export function menuGroups(studio) {
 /** Big cards on the Explore page, in this order when they have an example. */
 // the hosted demo opens with these, each loaded with its lab example: quick first, then the big video models
 export const START_HERE = ["face-swap", "morph", "mixed-media", "dub", "reshoot"];
-export const HERO = ["effects", "recast", "motion-transfer", "speak", "camera-moves", "talking", "transitions", "vfx-day-to-night", "video-t2v", "relight", "styles"];
+export const HERO = [
+  "h3-piflow-flf2v", "h3-piflow-i2v", "h3-studio-director-flash",
+  "ltx-director", "image-to-3d", "gaussian-splat", "lipsync",
+  "tts-omni", "music-yue2", "relayvsr-upscale", "cinema-video",
+  "h3-video-flash", "effects", "recast", "motion-transfer", "speak",
+  "camera-moves", "talking", "transitions", "vfx-day-to-night",
+  "video-t2v", "relight", "styles",
+];
 
 /** Prompt-first apps get the floating composer; upload-first apps get the sidebar. */
 const DIRECTOR_APPS = new Set(["studio-director", "pika-studio-director"]);
