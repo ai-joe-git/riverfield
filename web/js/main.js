@@ -21,7 +21,7 @@ let current = null;
 
 function route() {
   const hash = location.hash || "#/";
-  if ((hash === "#/" || hash === "#") && !hosted) return agentView({home:true});
+  if (hash === "#/" || hash === "#") { location.replace("#/explore"); return null; }
   if (hash.startsWith("#/explore")) return exploreView();
   if (hash.startsWith("#/agent")) return agentView();
   const m = /^#\/app\/([\w-]+)(?:\/(history|library|how|director))?/.exec(hash);

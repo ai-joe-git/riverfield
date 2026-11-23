@@ -165,9 +165,9 @@ re-applies the two patches inside the third-party packs), then `./stop.sh && ./s
 
 ## Riverfield Agent
 
-**Talk to your studio.** The local home page (`http://127.0.0.1:3000/#/`) opens a fresh chat welcome view.
-Open **Agent** in the top bar (`#/agent`) to restore your last conversation, or **Explore** (`#/explore`)
-to browse the studio. Hosted demos keep Explore as their home page.
+**Explore is the home page** (`http://127.0.0.1:3000/#/explore`), on local installs and hosted demos.
+The **Agent** is a work-in-progress for now: open it from the top bar (`#/agent`) to restore your last
+conversation. It is no longer the landing page.
 
 Riverfield Agent is a native, general-purpose AI agent — **not** a scripted production pipeline.
 The **LLM decides** what to do, the **MCP tools** provide the capabilities, and **Riverfield executes**
