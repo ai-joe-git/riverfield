@@ -5,12 +5,12 @@
   "section": "image",
   "pack": "image-h3",
   "status": "ready",
-  "summary": "Edit a photo with MiniMax H3 Image: 4 MP reference-conditioned edits, prompt expansion, aspect-preserving resize.",
+  "summary": "Edit a photo with MiniMax H3 Image: up to 16 reference pictures, 4 MP default, prompt expansion, aspect-preserving resize.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "image_minimax_h3_image_edit.json",
     "comfyui": "0.45.0",
-    "notes": "Official ComfyUI image_minimax_h3_image_edit template. The input photo is resized to the target megapixel area (4 MP by default) and scaled to a multiple of 32; the Qwen3.8-27B prompt-expansion model turns the edit instruction into a detailed target description. Turn expansion off to send the instruction verbatim."
+    "notes": "Official ComfyUI image_minimax_h3_image_edit template, extended to the model's full 16-picture limit. Picture 1 is the photo being edited; Pictures 2-16 are optional identity, prop, material or composition references. Each reference is wired to both the prompt-expansion model and the conditioning node, as ComfyUI's H3 Image docs require. Empty reference slots cut both edges and are pruned before submission. The input photo is resized to the target megapixel area (4 MP by default) and scaled to a multiple of 32; the Qwen3.8-27B prompt-expansion model turns the edit instruction into a detailed target description. Turn expansion off to send the instruction verbatim."
   },
   "inputs": [
     {
@@ -18,11 +18,404 @@
       "type": "image",
       "label": "Photo to edit",
       "required": true,
-      "help": "The source photo. It is resized to the target megapixel area, preserving aspect ratio, before the model sees it.",
+      "help": "The photo to edit, <Picture 1>. It is resized to the target megapixel area, preserving aspect ratio, before the model sees it. Add up to 15 optional references below; H3 Image accepts 16 pictures in total.",
       "bind": [
         {
           "node": "45",
           "field": "image"
+        }
+      ],
+      "limits": {
+        "max_mb": 64
+      }
+    },
+    {
+      "id": "image_2",
+      "type": "image",
+      "label": "Reference 2",
+      "required": false,
+      "help": "Optional <Picture 2> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "63",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_2"
+        },
+        {
+          "node": "34",
+          "field": "images.image2"
+        }
+      ]
+    },
+    {
+      "id": "image_3",
+      "type": "image",
+      "label": "Reference 3",
+      "required": false,
+      "help": "Optional <Picture 3> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "64",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_3"
+        },
+        {
+          "node": "34",
+          "field": "images.image3"
+        }
+      ]
+    },
+    {
+      "id": "image_4",
+      "type": "image",
+      "label": "Reference 4",
+      "required": false,
+      "help": "Optional <Picture 4> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "65",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_4"
+        },
+        {
+          "node": "34",
+          "field": "images.image4"
+        }
+      ]
+    },
+    {
+      "id": "image_5",
+      "type": "image",
+      "label": "Reference 5",
+      "required": false,
+      "help": "Optional <Picture 5> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "66",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_5"
+        },
+        {
+          "node": "34",
+          "field": "images.image5"
+        }
+      ]
+    },
+    {
+      "id": "image_6",
+      "type": "image",
+      "label": "Reference 6",
+      "required": false,
+      "help": "Optional <Picture 6> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "67",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_6"
+        },
+        {
+          "node": "34",
+          "field": "images.image6"
+        }
+      ]
+    },
+    {
+      "id": "image_7",
+      "type": "image",
+      "label": "Reference 7",
+      "required": false,
+      "help": "Optional <Picture 7> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "68",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_7"
+        },
+        {
+          "node": "34",
+          "field": "images.image7"
+        }
+      ]
+    },
+    {
+      "id": "image_8",
+      "type": "image",
+      "label": "Reference 8",
+      "required": false,
+      "help": "Optional <Picture 8> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "69",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_8"
+        },
+        {
+          "node": "34",
+          "field": "images.image8"
+        }
+      ]
+    },
+    {
+      "id": "image_9",
+      "type": "image",
+      "label": "Reference 9",
+      "required": false,
+      "help": "Optional <Picture 9> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "70",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_9"
+        },
+        {
+          "node": "34",
+          "field": "images.image9"
+        }
+      ]
+    },
+    {
+      "id": "image_10",
+      "type": "image",
+      "label": "Reference 10",
+      "required": false,
+      "help": "Optional <Picture 10> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "71",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_10"
+        },
+        {
+          "node": "34",
+          "field": "images.image10"
+        }
+      ]
+    },
+    {
+      "id": "image_11",
+      "type": "image",
+      "label": "Reference 11",
+      "required": false,
+      "help": "Optional <Picture 11> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "72",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_11"
+        },
+        {
+          "node": "34",
+          "field": "images.image11"
+        }
+      ]
+    },
+    {
+      "id": "image_12",
+      "type": "image",
+      "label": "Reference 12",
+      "required": false,
+      "help": "Optional <Picture 12> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "73",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_12"
+        },
+        {
+          "node": "34",
+          "field": "images.image12"
+        }
+      ]
+    },
+    {
+      "id": "image_13",
+      "type": "image",
+      "label": "Reference 13",
+      "required": false,
+      "help": "Optional <Picture 13> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "74",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_13"
+        },
+        {
+          "node": "34",
+          "field": "images.image13"
+        }
+      ]
+    },
+    {
+      "id": "image_14",
+      "type": "image",
+      "label": "Reference 14",
+      "required": false,
+      "help": "Optional <Picture 14> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "75",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_14"
+        },
+        {
+          "node": "34",
+          "field": "images.image14"
+        }
+      ]
+    },
+    {
+      "id": "image_15",
+      "type": "image",
+      "label": "Reference 15",
+      "required": false,
+      "help": "Optional <Picture 15> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "76",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_15"
+        },
+        {
+          "node": "34",
+          "field": "images.image15"
+        }
+      ]
+    },
+    {
+      "id": "image_16",
+      "type": "image",
+      "label": "Reference 16",
+      "required": false,
+      "help": "Optional <Picture 16> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "77",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_16"
+        },
+        {
+          "node": "34",
+          "field": "images.image16"
         }
       ]
     },
@@ -32,7 +425,7 @@
       "label": "Edit instruction",
       "required": true,
       "default": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
-      "help": "What to change. With expansion on, this instruction is rewritten into a detailed description of the target image.",
+      "help": "What to change. Refer to the photo as <Picture 1> and references as <Picture 2>, <Picture 3>, and so on. With expansion on, this instruction is rewritten into a detailed description of the target image.",
       "bind": [
         {
           "node": "43",

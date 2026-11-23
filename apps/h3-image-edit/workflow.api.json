@@ -68,6 +68,66 @@
       "images.image_1": [
         "48",
         0
+      ],
+      "images.image_2": [
+        "63",
+        0
+      ],
+      "images.image_3": [
+        "64",
+        0
+      ],
+      "images.image_4": [
+        "65",
+        0
+      ],
+      "images.image_5": [
+        "66",
+        0
+      ],
+      "images.image_6": [
+        "67",
+        0
+      ],
+      "images.image_7": [
+        "68",
+        0
+      ],
+      "images.image_8": [
+        "69",
+        0
+      ],
+      "images.image_9": [
+        "70",
+        0
+      ],
+      "images.image_10": [
+        "71",
+        0
+      ],
+      "images.image_11": [
+        "72",
+        0
+      ],
+      "images.image_12": [
+        "73",
+        0
+      ],
+      "images.image_13": [
+        "74",
+        0
+      ],
+      "images.image_14": [
+        "75",
+        0
+      ],
+      "images.image_15": [
+        "76",
+        0
+      ],
+      "images.image_16": [
+        "77",
+        0
       ]
     },
     "_meta": {
@@ -116,7 +176,67 @@
       "sampling_mode.seed": 0,
       "thinking": true,
       "use_default_template": true,
-      "mtp": "auto"
+      "mtp": "auto",
+      "images.image2": [
+        "63",
+        0
+      ],
+      "images.image3": [
+        "64",
+        0
+      ],
+      "images.image4": [
+        "65",
+        0
+      ],
+      "images.image5": [
+        "66",
+        0
+      ],
+      "images.image6": [
+        "67",
+        0
+      ],
+      "images.image7": [
+        "68",
+        0
+      ],
+      "images.image8": [
+        "69",
+        0
+      ],
+      "images.image9": [
+        "70",
+        0
+      ],
+      "images.image10": [
+        "71",
+        0
+      ],
+      "images.image11": [
+        "72",
+        0
+      ],
+      "images.image12": [
+        "73",
+        0
+      ],
+      "images.image13": [
+        "74",
+        0
+      ],
+      "images.image14": [
+        "75",
+        0
+      ],
+      "images.image15": [
+        "76",
+        0
+      ],
+      "images.image16": [
+        "77",
+        0
+      ]
     },
     "_meta": {
       "title": "Generate Text"
@@ -343,6 +463,141 @@
     },
     "_meta": {
       "title": "Compare Images"
+    }
+  },
+  "63": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 2"
+    }
+  },
+  "64": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 3"
+    }
+  },
+  "65": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 4"
+    }
+  },
+  "66": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 5"
+    }
+  },
+  "67": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 6"
+    }
+  },
+  "68": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 7"
+    }
+  },
+  "69": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 8"
+    }
+  },
+  "70": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 9"
+    }
+  },
+  "71": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 10"
+    }
+  },
+  "72": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 11"
+    }
+  },
+  "73": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 12"
+    }
+  },
+  "74": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 13"
+    }
+  },
+  "75": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 14"
+    }
+  },
+  "76": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 15"
+    }
+  },
+  "77": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "vintage_yellow_taxi.png"
+    },
+    "_meta": {
+      "title": "Reference image 16"
     }
   }
 }

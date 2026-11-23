@@ -520,3 +520,45 @@ test("the Chatterbox voice apps chunk long scripts before synthesis", () => {
     );
   }
 });
+
+test("H3 Image Edit exposes the model's 16-picture limit and prunes empty references", () => {
+  const app = byId("h3-image-edit");
+  const source = app.inputs.find((i) => i.id === "image")!;
+  assert.equal(source.required, true, "the photo to edit is still required");
+  for (let n = 2; n <= 16; n += 1) {
+    const ref = app.inputs.find((i) => i.id === `image_${n}`);
+    assert.ok(ref, `missing reference slot ${n}`);
+    assert.equal(ref!.required, false, `reference ${n} is optional`);
+    const node = String(61 + n);
+    assert.deepEqual(ref!.bind, [{ node, field: "image" }], `reference ${n} loads from node ${node}`);
+    assert.deepEqual(ref!.unlink, [
+      { node: "32", field: `images.image_${n}` },
+      { node: "34", field: `images.image${n}` },
+    ], `reference ${n} cuts both consumers when empty`);
+  }
+  assert.ok(!app.inputs.some((i) => i.id === "image_17"), "16 pictures total, not 17");
+
+  const src = { bytes: new Uint8Array([1]), name: "source.png" };
+  const ref2 = { bytes: new Uint8Array([2]), name: "ref2.png" };
+  const ref16 = { bytes: new Uint8Array([3]), name: "ref16.png" };
+  const values = resolveValues(app, { image: src, image_2: ref2, image_16: ref16, prompt: "use both references" });
+  const graph = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
+  const wf = {
+    json: graph,
+    setInput(node: string, field: string, value: unknown) { (graph[node].inputs ??= {})[field] = value; },
+  };
+  applyInputs(app, values, wf, (f) => `asset:${f.name}`);
+
+  assert.deepEqual(graph["32"].inputs["images.image_2"], ["63", 0], "reference 2 reaches the conditioning node");
+  assert.deepEqual(graph["32"].inputs["images.image_16"], ["77", 0], "reference 16 reaches the conditioning node");
+  assert.deepEqual(graph["34"].inputs["images.image2"], ["63", 0], "reference 2 reaches prompt expansion");
+  assert.deepEqual(graph["34"].inputs["images.image16"], ["77", 0], "reference 16 reaches prompt expansion");
+  assert.equal(graph["63"].inputs.image, "asset:ref2.png");
+  assert.equal(graph["77"].inputs.image, "asset:ref16.png");
+  assert.equal(graph["45"].inputs.image, "asset:source.png");
+
+  assert.equal(graph["32"].inputs["images.image_3"], undefined, "an empty slot leaves no dangling edge");
+  assert.equal(graph["34"].inputs["images.image3"], undefined);
+  assert.ok(!graph["64"], "the empty slot's loader is pruned");
+  assert.ok(!graph["65"], "another empty slot's loader is pruned too");
+});
