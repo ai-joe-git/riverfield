@@ -431,6 +431,21 @@ test("the pi-H3 director and reference apps switch the 2/4-step adapters", () =>
   assert.equal(ref["12"].class_type, "DWD Decode");
 });
 
+test("the base H3 video apps expose the same controls as the latest H3 apps", () => {
+  for (const id of ["h3-video", "h3-photo"]) {
+    const app = byId(id);
+    for (const field of ["resolution", "unet_name", "vae_name", "clip_name", "sampler", "scheduler", "sla_detail", "upscale", "upscale_detail", "filename_prefix", "format", "codec"]) {
+      assert.ok(app.inputs.some((i) => i.id === field), `${id}: missing ${field}`);
+    }
+    const sampler = app.inputs.find((i) => i.id === "sampler")!;
+    assert.ok((sampler.options?.length ?? 0) >= 5);
+    const unet = app.inputs.find((i) => i.id === "unet_name")!;
+    assert.ok((unet.options?.length ?? 0) >= 3);
+    const vae = app.inputs.find((i) => i.id === "vae_name")!;
+    assert.ok((vae.options?.length ?? 0) >= 3);
+  }
+});
+
 test("every H3 video app reaches 40 seconds", () => {
   const h3 = apps.filter((a) => a.pack === "video-h3" || a.pack === "video-h3-flash");
   for (const app of h3) {

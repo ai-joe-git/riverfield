@@ -155,11 +155,11 @@ is not the least the app needs.
 | `extend-video-turbo` | ready | 51.5 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-flf2v-flash` | ready | 45.8 GB (+34.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-i2v-flash` | ready | 45.8 GB (+34.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
-| `h3-photo` | ready | 51.5 GB (+10.6 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 49.5 GB (H100) |
+| `h3-photo` | ready | 51.5 GB (+100.6 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 49.5 GB (H100) |
 | `h3-photo-turbo` | ready | 56.8 GB (+28.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-r2v-flash` | ready | 46.2 GB (+34.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-studio-director-flash` | ready | 46.2 GB (+50.8 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
-| `h3-video` | ready | 51.5 GB (+10.6 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 48.3 GB (H100) |
+| `h3-video` | ready | 51.5 GB (+100.6 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 48.3 GB (H100) |
 | `h3-video-flash` | ready | 45.8 GB (+34.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `h3-video-turbo` | ready | 56.8 GB (+28.3 optional) | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | not measured |
 | `reshoot` | ready | 54.8 GB | encode 27.1 GB | qwen3vl_32b_minimax_h3_int8_convrot.safetensors (27.1) | needs Modal | L40S (48 GB), by phases | 44.1 GB (L40S) |

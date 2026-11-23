@@ -17,7 +17,7 @@
     "reshoot-turbo",
     "studio-director"
   ],
-  "download_gb": 114.95,
+  "download_gb": 160.92,
   "needs_hf_token": false,
   "custom_nodes": [
     {
@@ -49,6 +49,19 @@
     },
     {
       "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "name": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-photo",
+        "h3-video"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
       "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
       "dir": "diffusion_models",
       "gb": 20.97,
@@ -56,8 +69,10 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
+        "h3-photo",
         "h3-r2v",
         "h3-r2v-flex",
+        "h3-video",
         "pika-studio-director",
         "reshoot",
         "reshoot-turbo",
@@ -215,14 +230,29 @@
       "license": "Apache-2.0",
       "used_by": [
         "h3-long-shot",
+        "h3-photo",
         "h3-photo-turbo",
         "h3-r2v",
         "h3-r2v-flex",
+        "h3-video",
         "h3-video-turbo",
         "pika-studio-director",
         "pika-text-to-video",
         "pika-video",
         "studio-director"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 25.0,
+      "name": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+      "gated": false,
+      "license": "MiniMax H3 Community License",
+      "used_by": [
+        "h3-photo",
+        "h3-video"
       ]
     },
     {
@@ -261,8 +291,10 @@
       "license": "MiniMax H3 Community License",
       "used_by": [
         "h3-long-shot",
+        "h3-photo",
         "h3-photo-turbo",
         "h3-r2v",
+        "h3-video",
         "h3-video-turbo",
         "pika-studio-director",
         "pika-text-to-video",
@@ -279,7 +311,9 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
+        "h3-photo",
         "h3-photo-turbo",
+        "h3-video",
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video"

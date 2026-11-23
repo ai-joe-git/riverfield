@@ -49,12 +49,88 @@
         {
           "value": "4:3 (Standard)",
           "label": "4:3"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
         }
       ],
       "bind": [
         {
           "node": "115",
           "field": "aspect_ratio"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.4,
+      "help": "0.4 MP is 832x480 in 16:9; higher is sharper and much slower.",
+      "bind": [
+        {
+          "node": "115",
+          "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model (DiT)",
+      "default": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "label": "H3 FL2VA pruned INT8"
+        },
+        {
+          "value": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "label": "H3 Ref2VA pruned INT8"
+        },
+        {
+          "value": "minimax_h3_image_pruned_int8_convrot.safetensors",
+          "label": "H3 Image pruned INT8"
+        }
+      ],
+      "bind": [
+        {
+          "node": "140:127",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_video_vae_int8_convrot.safetensors",
+          "label": "Video VAE INT8 (2.8 GB)"
+        },
+        {
+          "value": "minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+          "label": "Lynnreal light INT8 (2.1 GB)"
+        },
+        {
+          "value": "minimax_h3_video_vae_fp16.safetensors",
+          "label": "Video VAE FP16 (5.2 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "140:119",
+          "field": "vae_name"
         }
       ]
     },
@@ -66,13 +142,366 @@
       "max": 40,
       "step": 1,
       "default": 4,
+      "help": "Up to 40. The frame count is 24 fps rounded up to the H3 5+17n grid (40 s = 974 frames).",
       "bind": [
         {
           "node": "140:133",
           "field": "value"
         }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 8,
+      "max": 30,
+      "step": 1,
+      "default": 20,
+      "help": "Fewer steps run faster and look rougher.",
+      "bind": [
+        {
+          "node": "140:137",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "res_multistep",
+      "options": [
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        },
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "euler_ancestral"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "lcm",
+          "label": "lcm"
+        }
       ],
-      "help": "Up to 40. The frame count is 24 fps rounded up to the H3 5+17n grid (40 s = 974 frames)."
+      "bind": [
+        {
+          "node": "140:123",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "select",
+      "label": "Scheduler",
+      "default": "simple",
+      "options": [
+        {
+          "value": "simple",
+          "label": "simple"
+        },
+        {
+          "value": "sgm_uniform",
+          "label": "sgm_uniform"
+        },
+        {
+          "value": "karras",
+          "label": "karras"
+        },
+        {
+          "value": "exponential",
+          "label": "exponential"
+        },
+        {
+          "value": "ddim_uniform",
+          "label": "ddim_uniform"
+        },
+        {
+          "value": "beta",
+          "label": "beta"
+        },
+        {
+          "value": "normal",
+          "label": "normal"
+        },
+        {
+          "value": "linear_quadratic",
+          "label": "linear_quadratic"
+        },
+        {
+          "value": "kl_optimal",
+          "label": "kl_optimal"
+        }
+      ],
+      "bind": [
+        {
+          "node": "140:124",
+          "field": "scheduler"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "140:129",
+          "field": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B INT8 (27.1 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 (15.7 GB)"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B Heretic INT8 (25 GB)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "140:128",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "sla",
+      "type": "toggle",
+      "label": "Sparse attention (H3 SLA)",
+      "default": true,
+      "help": "The ROCm H3 SLA node. Off, or on a backend that does not ship it: the node is bypassed.",
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "enabled"
+        }
+      ],
+      "bypass": [
+        {
+          "node": "140:138",
+          "field": "model"
+        }
+      ]
+    },
+    {
+      "id": "sla_detail",
+      "type": "slider",
+      "label": "SLA sparsity",
+      "min": 0.5,
+      "max": 0.95,
+      "step": 0.05,
+      "default": "0.9",
+      "help": "Fraction of key blocks skipped. Lower keeps more exact blocks and costs time.",
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "sla_block_size",
+      "type": "select",
+      "label": "SLA block size",
+      "default": "64",
+      "options": [
+        {
+          "value": "32",
+          "label": "32 — finest"
+        },
+        {
+          "value": "64",
+          "label": "64 — balanced"
+        },
+        {
+          "value": "128",
+          "label": "128 — fastest"
+        }
+      ],
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "block_size"
+        }
+      ]
+    },
+    {
+      "id": "sla_min_seq_len",
+      "type": "number",
+      "label": "SLA min sequence length",
+      "min": 0,
+      "max": 1000000,
+      "step": 1024,
+      "default": 8192,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "min_seq_len"
+        }
+      ]
+    },
+    {
+      "id": "sla_dense_last_steps",
+      "type": "slider",
+      "label": "SLA dense last steps",
+      "min": 0,
+      "max": 8,
+      "step": 1,
+      "default": 1,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "dense_last_steps"
+        }
+      ]
+    },
+    {
+      "id": "sla_protect_audio",
+      "type": "toggle",
+      "label": "SLA protect audio",
+      "default": true,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "protect_audio"
+        }
+      ]
+    },
+    {
+      "id": "sla_stabilize_motion",
+      "type": "toggle",
+      "label": "SLA stabilize motion",
+      "default": false,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "stabilize_motion"
+        }
+      ]
+    },
+    {
+      "id": "sla_h3_cache",
+      "type": "toggle",
+      "label": "H3 cache",
+      "default": false,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "h3_cache"
+        }
+      ]
+    },
+    {
+      "id": "sla_reference_protection",
+      "type": "toggle",
+      "label": "SLA protect video refs",
+      "default": false,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "reference_protection"
+        }
+      ]
+    },
+    {
+      "id": "sla_dense_steps",
+      "type": "text",
+      "label": "SLA dense steps",
+      "default": "",
+      "help": "Explicit 0-based step indices to force dense, e.g. '0,1' or '0-2'.",
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "dense_steps"
+        }
+      ]
+    },
+    {
+      "id": "sla_dense_backend",
+      "type": "select",
+      "label": "SLA dense backend",
+      "default": "comfy_kitchen",
+      "options": [
+        {
+          "value": "comfy_kitchen",
+          "label": "comfy_kitchen"
+        },
+        {
+          "value": "pytorch",
+          "label": "pytorch"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        },
+        {
+          "value": "sage:auto",
+          "label": "sage:auto"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_cuda",
+          "label": "sage:qk_int8_pv_fp16_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_triton",
+          "label": "sage:qk_int8_pv_fp16_triton"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda",
+          "label": "sage:qk_int8_pv_fp8_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda++",
+          "label": "sage:qk_int8_pv_fp8_cuda++"
+        }
+      ],
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "dense_backend"
+        }
+      ]
+    },
+    {
+      "id": "sla_disable_fp16_accum",
+      "type": "toggle",
+      "label": "SLA disable fp16 accumulation",
+      "default": true,
+      "bind": [
+        {
+          "node": "140:138",
+          "field": "disable_fp16_accum"
+        }
+      ]
     },
     {
       "id": "upscale",
@@ -142,50 +571,109 @@
       ]
     },
     {
-      "id": "steps",
-      "type": "slider",
-      "label": "Steps",
-      "min": 8,
-      "max": 30,
-      "step": 1,
-      "default": 20,
-      "help": "Fewer steps run faster and look rougher.",
-      "bind": [
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
         {
-          "node": "140:137",
-          "field": "value"
-        }
-      ]
-    },
-    {
-      "id": "sla",
-      "type": "toggle",
-      "label": "Sparse attention (H3 SLA)",
-      "default": true,
-      "help": "The ROCm SLA node. Turn it off on CUDA/XPU, or on a backend that does not ship it: the node is bypassed and the model goes straight to the sampler. It is also bypassed automatically when the backend lacks the class.",
-      "bind": [
+          "value": 8,
+          "label": "8"
+        },
         {
-          "node": "140:138",
-          "field": "enabled"
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (H3 default)"
+        },
+        {
+          "value": 64,
+          "label": "64"
         }
       ],
-      "bypass": [
+      "help": "Keep 32 for H3: the latent patch is 2, so a size multiple of 8 can make the latent odd and the run fails.",
+      "bind": [
         {
-          "node": "140:138",
-          "field": "model"
+          "node": "115",
+          "field": "multiple"
         }
       ]
     },
     {
-      "id": "seed",
-      "type": "seed",
-      "label": "Seed",
-      "default": -1,
-      "help": "-1 picks a random seed",
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "File name prefix",
+      "default": "riverfield/h3-video",
       "bind": [
         {
-          "node": "140:129",
-          "field": "noise_seed"
+          "node": "92",
+          "field": "filename_prefix"
+        }
+      ]
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "92",
+          "field": "format"
+        }
+      ]
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "92",
+          "field": "format.codec"
         }
       ]
     }
@@ -264,6 +752,60 @@
       "gb": 0.13,
       "phase": "decode",
       "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.69,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 25.0,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_lynnreal_light_vae_int8_convrot.safetensors",
+      "dir": "vae",
+      "gb": 2.14,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "vae/minimax_h3_video_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 5.21,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License",
       "optional": true
     }
   ],

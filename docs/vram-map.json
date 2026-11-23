@@ -3736,7 +3736,7 @@
       },
       "largest_phase": "encode",
       "largest_phase_gb": 27.14,
-      "optional_gb": 10.58,
+      "optional_gb": 100.56,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
@@ -3840,7 +3840,7 @@
       },
       "largest_phase": "encode",
       "largest_phase_gb": 27.14,
-      "optional_gb": 10.58,
+      "optional_gb": 100.56,
       "biggest_file": {
         "name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "gb": 27.14
