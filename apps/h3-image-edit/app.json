@@ -660,13 +660,9 @@
         {
           "value": "minimax_h3_image_vae_fp16.safetensors",
           "label": "H3 Image VAE fp16 — default"
-        },
-        {
-          "value": "p-h3-image_vae_int8_convrot.safetensors",
-          "label": "H3 Image VAE int8 — community"
         }
       ],
-      "help": "The H3 Image VAE that decodes the latent. The fp16 file is the official decoder; the int8 file is a community variant.",
+      "help": "The official fp16 H3 Image decoder. The edit app keeps it for multi-reference runs: the community int8 VAE has wedged the GPU when several references are anchored. Text-to-image still offers that int8 variant.",
       "bind": [
         {
           "node": "31",

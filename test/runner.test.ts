@@ -538,6 +538,8 @@ test("H3 Image Edit exposes the model's 16-picture limit and prunes empty refere
     ], `reference ${n} cuts both consumers when empty`);
   }
   assert.ok(!app.inputs.some((i) => i.id === "image_17"), "16 pictures total, not 17");
+  const vae = app.inputs.find((i) => i.id === "vae_name")!;
+  assert.deepEqual(vae.options?.map((o) => o.value), ["minimax_h3_image_vae_fp16.safetensors"], "multi-reference edits keep the official fp16 VAE");
 
   const src = { bytes: new Uint8Array([1]), name: "source.png" };
   const ref2 = { bytes: new Uint8Array([2]), name: "ref2.png" };
