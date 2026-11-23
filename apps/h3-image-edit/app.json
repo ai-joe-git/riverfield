@@ -16,9 +16,9 @@
     {
       "id": "image",
       "type": "image",
-      "label": "Photo to edit",
+      "label": "Picture 1",
       "required": true,
-      "help": "The photo to edit, <Picture 1>. It is resized to the target megapixel area, preserving aspect ratio, before the model sees it. Add up to 15 optional references below; H3 Image accepts 16 pictures in total.",
+      "help": "The photo to edit. It becomes <Picture 1> in the prompt. Add up to 15 optional references below; H3 Image accepts 16 pictures in total.",
       "bind": [
         {
           "node": "45",
@@ -32,9 +32,9 @@
     {
       "id": "image_2",
       "type": "image",
-      "label": "Reference 2",
+      "label": "Picture 2",
       "required": false,
-      "help": "Optional <Picture 2> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -58,9 +58,9 @@
     {
       "id": "image_3",
       "type": "image",
-      "label": "Reference 3",
+      "label": "Picture 3",
       "required": false,
-      "help": "Optional <Picture 3> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -84,9 +84,9 @@
     {
       "id": "image_4",
       "type": "image",
-      "label": "Reference 4",
+      "label": "Picture 4",
       "required": false,
-      "help": "Optional <Picture 4> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -110,9 +110,9 @@
     {
       "id": "image_5",
       "type": "image",
-      "label": "Reference 5",
+      "label": "Picture 5",
       "required": false,
-      "help": "Optional <Picture 5> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -136,9 +136,9 @@
     {
       "id": "image_6",
       "type": "image",
-      "label": "Reference 6",
+      "label": "Picture 6",
       "required": false,
-      "help": "Optional <Picture 6> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -162,9 +162,9 @@
     {
       "id": "image_7",
       "type": "image",
-      "label": "Reference 7",
+      "label": "Picture 7",
       "required": false,
-      "help": "Optional <Picture 7> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -188,9 +188,9 @@
     {
       "id": "image_8",
       "type": "image",
-      "label": "Reference 8",
+      "label": "Picture 8",
       "required": false,
-      "help": "Optional <Picture 8> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -214,9 +214,9 @@
     {
       "id": "image_9",
       "type": "image",
-      "label": "Reference 9",
+      "label": "Picture 9",
       "required": false,
-      "help": "Optional <Picture 9> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -240,9 +240,9 @@
     {
       "id": "image_10",
       "type": "image",
-      "label": "Reference 10",
+      "label": "Picture 10",
       "required": false,
-      "help": "Optional <Picture 10> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -266,9 +266,9 @@
     {
       "id": "image_11",
       "type": "image",
-      "label": "Reference 11",
+      "label": "Picture 11",
       "required": false,
-      "help": "Optional <Picture 11> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -292,9 +292,9 @@
     {
       "id": "image_12",
       "type": "image",
-      "label": "Reference 12",
+      "label": "Picture 12",
       "required": false,
-      "help": "Optional <Picture 12> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -318,9 +318,9 @@
     {
       "id": "image_13",
       "type": "image",
-      "label": "Reference 13",
+      "label": "Picture 13",
       "required": false,
-      "help": "Optional <Picture 13> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -344,9 +344,9 @@
     {
       "id": "image_14",
       "type": "image",
-      "label": "Reference 14",
+      "label": "Picture 14",
       "required": false,
-      "help": "Optional <Picture 14> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -370,9 +370,9 @@
     {
       "id": "image_15",
       "type": "image",
-      "label": "Reference 15",
+      "label": "Picture 15",
       "required": false,
-      "help": "Optional <Picture 15> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -396,9 +396,9 @@
     {
       "id": "image_16",
       "type": "image",
-      "label": "Reference 16",
+      "label": "Picture 16",
       "required": false,
-      "help": "Optional <Picture 16> when the slots are filled from Reference 2 upward. Use it for identity, prop, material or composition. Connected pictures are numbered in order, so leave no gaps. Up to 16 pictures total.",
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
       "limits": {
         "max_mb": 64
       },
@@ -771,5 +771,6 @@
     "resolution": 4,
     "steps": 6,
     "seed": 42
-  }
+  },
+  "layout": "sidebar"
 }

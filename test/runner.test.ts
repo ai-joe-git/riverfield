@@ -523,6 +523,7 @@ test("the Chatterbox voice apps chunk long scripts before synthesis", () => {
 
 test("H3 Image Edit exposes the model's 16-picture limit and prunes empty references", () => {
   const app = byId("h3-image-edit");
+  assert.equal(app.layout, "sidebar", "the picture slots use the H3 reference app's stacked sidebar, not the composer's empty-icon row");
   const source = app.inputs.find((i) => i.id === "image")!;
   assert.equal(source.required, true, "the photo to edit is still required");
   for (let n = 2; n <= 16; n += 1) {
