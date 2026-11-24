@@ -44,7 +44,7 @@ function blankSegment(app) {
 function stateFor(app) {
   let st = cache.get(app.id);
   if (!st) {
-    st = restore(app) || { selected: 0, start: null, startUrl: null, startData: null, segments: Array.from({ length: 4 }, () => blankSegment(app)), assembled: null, assembling: false, busyAll: false, autoError: null };
+    st = restore(app) || { selected: 0, start: null, startUrl: null, startData: null, segments: Array.from({ length: 4 }, () => blankSegment(app)), assembled: null, assembling: false, busyAll: false, stopAfter: false, autoError: null };
     if (!Number.isInteger(st.selected)) st.selected = 0;
     st.selected = Math.max(0, Math.min(st.segments.length - 1, st.selected));
     cache.set(app.id, st);
@@ -117,6 +117,7 @@ function restore(app) {
     start: null,
     assembling: false,
     busyAll: false,
+    stopAfter: false,
     segments: saved.segments.map((s) => ({
       ...blankSegment(app),
       ...s,
@@ -197,6 +198,19 @@ function parseBatch(text, fallback) {
   return out;
 }
 
+function resumeIndex(segments) {
+  let start = segments.findIndex((s) => !s.approved || !s.videoFile || s.stale);
+  if (start < 0) return -1;
+  // A non-cut segment needs the previous segment's extracted last frame. If that frame
+  // is missing, walk back until the chain has a usable handoff or a hard cut.
+  while (start > 0 && !segments[start].cut) {
+    const prev = segments[start - 1];
+    if (prev.approved && prev.videoFile && prev.lastFrameUrl && !prev.stale) break;
+    start -= 1;
+  }
+  return start;
+}
+
 export function sequentialDirectorView(app, f) {
   const st = stateFor(app);
   const root = el("div", { class: "dir" });
@@ -274,6 +288,17 @@ export function sequentialDirectorView(app, f) {
     refresh();
   }
 
+  function runStopButton() {
+    if (st.busyAll) {
+      return el("button", {
+        type: "button", class: "dir-toggle on", disabled: st.stopAfter,
+        onclick: () => { st.stopAfter = true; persist(st, app); draw(); toast("Stopping after the current segment."); },
+      }, icon("stop"), st.stopAfter ? "Stopping…" : "Stop after current");
+    }
+    return el("button", { type: "button", class: "dir-toggle on", onclick: () => void generateAll() },
+      icon("spark"), "Generate all");
+  }
+
   function drawHead() {
     const total = st.segments.reduce((n, s) => n + s.duration, 0);
     const approved = st.segments.filter((s) => s.approved && s.videoFile).length;
@@ -283,7 +308,7 @@ export function sequentialDirectorView(app, f) {
         el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}${st.busyAll ? ` · generating ${st.selected + 1}/${st.segments.length}` : ""}`)),
       el("div", { class: "dir-head-right" },
         el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => openBatch() }, icon("code"), "Paste prompts"),
-        el("button", { type: "button", class: "dir-toggle on", disabled: st.busyAll, onclick: () => void generateAll() }, icon("spark"), st.busyAll ? "Generating…" : "Generate all"),
+        runStopButton(),
         el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => {
           if (st.segments.length >= MAX_SEGMENTS) return toast(`${MAX_SEGMENTS} segments is the current maximum.`, { error: true });
           st.segments.push(blankSegment(app));
@@ -479,7 +504,11 @@ export function sequentialDirectorView(app, f) {
           st.assembled ? el("a", { class: "dir-chip on", href: st.assembled, download: "riverfield-sequential.mp4" }, icon("download"), el("span", {}, "Download final cut")) : null,
           st.autoError ? el("span", { class: "dir-chip", style: { color: "var(--bad)" } }, icon("info"), el("span", {}, st.autoError)) : null)),
       el("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
-        el("button", { class: "btn dir-go", type: "button", disabled: st.busyAll, onclick: () => void generateAll() }, icon("spark"), st.busyAll ? "Generating…" : "Generate all"),
+        (() => {
+          const b = runStopButton();
+          b.className = "btn dir-go";
+          return b;
+        })(),
         el("button", { class: "btn ghost", type: "button", disabled: st.busyAll || st.assembling, onclick: () => void assemble() }, icon("film"), st.assembling ? "Assembling…" : "Assemble approved")));
     finalEl?.remove();
     finalEl = null;
@@ -579,19 +608,25 @@ export function sequentialDirectorView(app, f) {
   async function generateAll() {
     if (st.busyAll) return;
     checkSettings();
-    if (!st.start && !st.startData) { toast("Choose the start image for segment 1.", { error: true }); return; }
-    for (let i = 1; i < st.segments.length; i += 1) {
-      if (st.segments[i].cut && !st.segments[i].cutStart && !st.segments[i].cutStartData) {
+    const start = resumeIndex(st.segments);
+    if (start < 0) { await assemble(); return; }
+    if (start === 0 && !st.start && !st.startData && !st.startUrl) {
+      toast("Choose the start image for segment 1.", { error: true });
+      return;
+    }
+    for (let i = Math.max(1, start); i < st.segments.length; i += 1) {
+      if (st.segments[i].cut && !st.segments[i].cutStart && !st.segments[i].cutStartData && !st.segments[i].cutStartUrl) {
         toast(`Segment ${i + 1} is a cut: choose its start image first.`, { error: true });
         return;
       }
     }
     st.busyAll = true;
+    st.stopAfter = false;
     st.autoError = null;
     st.assembled = null;
     draw();
     try {
-      for (let i = 0; i < st.segments.length; i += 1) {
+      for (let i = start; i < st.segments.length; i += 1) {
         st.selected = i;
         st.segments[i].approved = false;
         st.segments[i].stale = false;
@@ -605,10 +640,15 @@ export function sequentialDirectorView(app, f) {
         st.segments[i].stale = false;
         persist(st, app);
         draw();
+        if (st.stopAfter) {
+          st.autoError = `Stopped after segment ${i + 1}. Resume when ready.`;
+          return;
+        }
       }
       await assemble();
     } finally {
       st.busyAll = false;
+      st.stopAfter = false;
       persist(st, app);
       draw();
     }
