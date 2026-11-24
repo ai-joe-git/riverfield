@@ -134,6 +134,44 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   // reliable client-side discriminator (and it keeps LTX untouched).
   const h3Planner = app.inputs.some((i) => i.id === "segment_count");
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
+  const mediaStoreKey = `dirfiles.${app.id}`;
+  function fileFromDataUrl(entry) {
+    const [meta, b64] = String(entry.data || "").split(",");
+    const mime = (/data:([^;]+)/.exec(meta) || [])[1] || entry.type || "image/png";
+    const bin = atob(b64 || "");
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], entry.name || "image.png", { type: mime });
+  }
+  function restoreMediaFiles() {
+    const saved = store.get(mediaStoreKey) || {};
+    for (const [slot, entry] of Object.entries(saved)) {
+      if (!slot.startsWith("image") || f.files[slot] || !entry?.data) continue;
+      try {
+        const file = fileFromDataUrl(entry);
+        f.files[slot] = { file, url: URL.createObjectURL(file) };
+      } catch { /* corrupt entry */ }
+    }
+  }
+  function rememberMedia(slot, file) {
+    if (!slot.startsWith("image") || !file) return;
+    if (file.size > 2_000_000) {
+      const map = store.get(mediaStoreKey) || {};
+      if (map[slot]) { delete map[slot]; store.set(mediaStoreKey, map); }
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const map = store.get(mediaStoreKey) || {};
+      map[slot] = { data: String(reader.result || ""), name: file.name, type: file.type };
+      store.set(mediaStoreKey, map);
+    };
+    reader.readAsDataURL(file);
+  }
+  function forgetMedia(slot) {
+    const map = store.get(mediaStoreKey) || {};
+    if (map[slot]) { delete map[slot]; store.set(mediaStoreKey, map); }
+  }
   function normalizeOverlaps() {
     if (!h3Planner || !st.windows.length) return false;
     let changed = false;
@@ -168,8 +206,12 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     }
     return changed;
   }
-  if (pruneMedia(st, app, f)) persistState(app, f, st);
-  if (fillDefaultPictures()) persistState(app, f, st);
+  restoreMediaFiles();
+  for (const [slot, x] of Object.entries(f.files)) if (slot.startsWith("image") && x?.file) rememberMedia(slot, x.file);
+  if (pruneMedia(st, app, f) || fillDefaultPictures()) {
+    persistState(app, f, st);
+    onDirty?.();
+  }
   let selected = 0;
   let zoom = Number(store.get("dir.zoom")) || 70;
   let drag = null;
@@ -289,6 +331,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     if (maxMb && file.size > maxMb * 1e6) { toast(`${file.name}: max ${maxMb} MB`, { error: true }); return false; }
     const url = URL.createObjectURL(file);
     f.files[free.id] = { file, url };
+    if (type === "image") rememberMedia(free.id, file);
     if (h3Planner && type === "image") fillDefaultPictures();
     pendingMeta++;
     probe(url, type).then((m) => {
@@ -304,6 +347,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     if (x?.url) URL.revokeObjectURL(x.url);
     delete f.files[slot];
     meta.delete(slot);
+    forgetMedia(slot);
     const type = slot.replace(/\d+$/, "");
     const index = Number(slot.replace(/\D/g, "")) - 1;
     for (const w of st.windows) {
@@ -930,7 +974,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   function draw() {
     // Existing timelines can carry an overlap created before the H3 snapping rule. Repair
     // it on load and on every redraw, not only when the user presses Generate.
-    if (normalizeOverlaps()) persistState(app, f, st);
+    if (normalizeOverlaps()) { persistState(app, f, st); onDirty?.(); }
     // normalise clip durations against the probed media before anything renders
     for (const m of mediaOf(app, f, "video")) clipFor("video", m.index);
     for (const m of mediaOf(app, f, "audio")) clipFor("audio", m.index);
