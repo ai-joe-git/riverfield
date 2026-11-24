@@ -23,16 +23,29 @@ const MAX_LENGTH = 3592;
 const MIN_LEN = 5;
 const SEAM = 39;
 
-/** One prompt per line; a trailing ",13" or ", 13s" becomes that segment's seconds. */
-export function parseBatchPrompts(text, fallback) {
+/** One prompt per line. `,13` sets seconds; `,13,3` also sets the overlap with the
+ * previous segment. The modal slider supplies the overlap when the third value is absent. */
+export function parseBatchPrompts(text, fallback, fallbackOverlap = SEAM / FPS) {
   const out = [];
   for (const raw of String(text || "").split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
-    const hit = /\s*,\s*(\d+(?:\.\d+)?)\s*s?\s*$/i.exec(line);
-    const duration = hit ? Number(hit[1]) : fallback;
-    const prompt = (hit ? line.slice(0, hit.index) : line).trim();
-    if (prompt) out.push({ prompt, duration: Math.max(MIN_LEN / FPS, Math.min(30, duration)) });
+    let prompt = line, duration = fallback, overlap = fallbackOverlap;
+    const two = /^(.*?)\s*,\s*(\d+(?:\.\d+)?)\s*s?\s*,\s*(\d+(?:\.\d+)?)\s*s?\s*$/i.exec(line);
+    const one = /^(.*?)\s*,\s*(\d+(?:\.\d+)?)\s*s?\s*$/i.exec(line);
+    if (two) {
+      prompt = two[1].trim();
+      duration = Number(two[2]);
+      overlap = Number(two[3]);
+    } else if (one) {
+      prompt = one[1].trim();
+      duration = Number(one[2]);
+    }
+    if (prompt) out.push({
+      prompt,
+      duration: Math.max(MIN_LEN / FPS, Math.min(30, duration)),
+      overlap: Math.max(0, Math.min(30, overlap)),
+    });
   }
   return out;
 }
@@ -742,21 +755,27 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const max = fixed ?? (Number.isFinite(countMax) && countMax > 0 ? countMax : 512);
     const selectedWindow = st.windows[selected];
     const fallbackSeconds = selectedWindow ? Math.max(MIN_LEN / FPS, (selectedWindow.end - selectedWindow.start) / FPS) : (Number(f.values.duration) || 5);
-    const dialog = modal("Paste prompts", "One prompt per line. Add an optional suffix: ,13 for 13 seconds. Lines without a suffix use the default below.");
-    const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "Wide shot of the room,13\nShe turns toward the window,8\nClose-up on her eyes,5" });
+    const dialog = modal("Paste prompts", "One prompt per line. Add ,13 for 13 seconds, or ,13,3 for 13 seconds with a 3-second overlap. Lines without values use the defaults below.");
+    const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "Wide shot of the room,13,3\nShe turns toward the window,8,3\nClose-up on her eyes,5" });
     const fallback = el("input", { class: "dir-num", type: "number", min: String(MIN_LEN / FPS), max: "30", step: "0.1", value: String(fallbackSeconds) });
+    const overlap = el("input", { class: "dir-num wide", type: "range", min: "0", max: "10", step: "0.1", value: String(SEAM / FPS) });
+    const overlapValue = el("span", { class: "unit" }, `${(SEAM / FPS).toFixed(1)}s`);
+    const forceAll = el("input", { type: "checkbox" });
     const info = el("p", { class: "help", style: { margin: "0" } }, "0 segments");
     const refresh = () => {
-      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)));
-      info.textContent = `${parsed.length} segment${parsed.length === 1 ? "" : "s"} · ${max} max`;
+      overlapValue.textContent = `${Number(overlap.value).toFixed(1)}s`;
+      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)), Number(overlap.value));
+      info.textContent = `${parsed.length} segment${parsed.length === 1 ? "" : "s"} · ${max} max · ${Number(overlap.value).toFixed(1)}s default overlap`;
     };
     ta.addEventListener("input", refresh);
     fallback.addEventListener("input", refresh);
+    overlap.addEventListener("input", refresh);
+    forceAll.addEventListener("change", refresh);
     const make = (replace) => {
-      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)));
-      let prompts = parsed;
+      let prompts = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)), Number(overlap.value));
+      if (forceAll.checked) prompts = prompts.map((p) => ({ ...p, overlap: Number(overlap.value) }));
       if (replace && fixed && prompts.length < fixed) {
-        while (prompts.length < fixed) prompts.push({ prompt: "", duration: Math.max(MIN_LEN / FPS, Number(fallback.value) || fallbackSeconds) });
+        while (prompts.length < fixed) prompts.push({ prompt: "", duration: Math.max(MIN_LEN / FPS, Number(fallback.value) || fallbackSeconds), overlap: Number(overlap.value) });
       }
       if (!prompts.length) return toast("Paste at least one prompt.", { error: true });
       if ((replace ? 0 : st.windows.length) + prompts.length > max) {
@@ -764,18 +783,21 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       }
       const old = st.windows;
       const next = [];
-      let cursor = replace ? 0 : (old[old.length - 1]?.end ?? 0);
       for (let index = 0; index < prompts.length; index += 1) {
         const item = prompts[index];
         const len = alignedLength(Math.max(MIN_LEN, Math.round(item.duration * FPS)), MIN_LEN);
-        const start = next.length === 0 ? (replace ? 0 : cursor) : Math.max(0, next[next.length - 1].end - Math.min(SEAM, len - 1));
+        const previous = next.length ? next[next.length - 1] : (replace ? null : old[old.length - 1]);
+        const overlapFrames = previous
+          ? Math.max(0, Math.min(Math.round(item.overlap * FPS), len - 1, (previous.end - previous.start) - 1))
+          : 0;
+        const start = previous ? Math.max(0, previous.end - overlapFrames) : (replace ? 0 : (old[old.length - 1]?.end ?? 0));
         const end = start + len;
         if (end > MAX_LENGTH) return toast(`The batch goes past ${MAX_LENGTH} frames.`, { error: true });
-        const previous = replace ? old[index] : old[old.length - 1];
+        const media = replace ? old[index] : old[old.length - 1];
         next.push({
           start, end, prompt: item.prompt,
-          images: [...(previous?.images || [])],
-          audios: [...(previous?.audios || [])],
+          images: [...(media?.images || [])],
+          audios: [...(media?.audios || [])],
         });
       }
       if (replace) {
@@ -793,8 +815,14 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     };
     dialog.append(el("div", { class: "ag-dialog-form" },
       ta,
-      el("div", { class: "dir-seg-fields" }, el("label", {}, "default length", fallback, el("span", { class: "unit" }, "s")), info),
-      el("p", { class: "help", style: { margin: "0" } }, "A trailing comma-number becomes that segment’s duration. Existing pictures and sounds are kept by segment index on Replace; Append copies the last segment’s assignments."),
+      el("div", { class: "dir-seg-fields" },
+        el("label", {}, "default length", fallback, el("span", { class: "unit" }, "s")),
+        el("label", {}, "interlace / overlap", overlap, overlapValue),
+        info),
+      el("label", { style: { display: "flex", alignItems: "center", gap: "7px", fontSize: "11.5px", color: "var(--dim)" } },
+        forceAll, "Apply the slider overlap to every pasted segment"),
+      el("p", { class: "help", style: { margin: "0" } },
+        "A trailing ,N becomes duration; a second ,N becomes the overlap with the previous segment. Existing pictures and sounds are kept by segment index on Replace; Append copies the last segment’s assignments."),
       el("div", { class: "ag-dialog-actions" },
         el("button", { class: "btn ghost", type: "button", onclick: () => make(false) }, icon("plus"), "Append segments"),
         el("button", { class: "btn lime", type: "button", onclick: () => make(true) }, icon("film"), "Replace segments"))));
