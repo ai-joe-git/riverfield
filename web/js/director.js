@@ -150,7 +150,19 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     }
     return changed;
   }
+  const allPictures = () => mediaOf(app, f, "image").map((m) => m.index);
+  function fillDefaultPictures() {
+    if (!h3Planner) return false;
+    const pictures = allPictures();
+    if (!pictures.length) return false;
+    let changed = false;
+    for (const w of st.windows) {
+      if (!w.images?.length) { w.images = [...pictures]; changed = true; }
+    }
+    return changed;
+  }
   if (pruneMedia(st, app, f)) persistState(app, f, st);
+  if (fillDefaultPictures()) persistState(app, f, st);
   let selected = 0;
   let zoom = Number(store.get("dir.zoom")) || 70;
   let drag = null;
@@ -270,6 +282,10 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     if (maxMb && file.size > maxMb * 1e6) { toast(`${file.name}: max ${maxMb} MB`, { error: true }); return false; }
     const url = URL.createObjectURL(file);
     f.files[free.id] = { file, url };
+    if (h3Planner && type === "image") {
+      const index = Number(free.id.replace(/\D/g, "")) - 1;
+      for (const w of st.windows) if (!w.images.includes(index)) w.images.push(index);
+    }
     pendingMeta++;
     probe(url, type).then((m) => {
       meta.set(free.id, m);
@@ -740,7 +756,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
             const last = st.windows[st.windows.length - 1];
             const len = last.end - last.start;
             const start = last.end - Math.min(SEAM, len - 1);
-            st.windows.push({ start, end: start + len, prompt: "", images: [...last.images], audios: [...last.audios] });
+            st.windows.push({ start, end: start + len, prompt: "", images: h3Planner ? allPictures() : [...last.images], audios: [...last.audios] });
             selected = st.windows.length - 1; changed();
           } }, icon("plus"), "Segment"),
           el("button", { type: "button", class: "btn small ghost", disabled: st.windows.length <= 1 ? "true" : undefined, onclick: () => {
@@ -815,6 +831,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       }
       const old = st.windows;
       const next = [];
+      const everyPicture = h3Planner ? allPictures() : null;
       for (let index = 0; index < prompts.length; index += 1) {
         const item = prompts[index];
         const len = alignedLength(Math.max(MIN_LEN, Math.round(item.duration * FPS)), MIN_LEN);
@@ -828,7 +845,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
         const media = replace ? old[index] : old[old.length - 1];
         next.push({
           start, end, prompt: item.prompt,
-          images: [...(media?.images || [])],
+          images: h3Planner ? [...everyPicture] : [...(media?.images || [])],
           audios: [...(media?.audios || [])],
         });
       }
