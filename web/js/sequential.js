@@ -7,6 +7,7 @@
 // server-side fast concat.
 import { api, el, icon, store, toast } from "./util.js";
 import { modal } from "./agent-controls.js";
+import { feed } from "./feed.js";
 
 const TERMINAL = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 const PER_SEGMENT = new Set(["image", "last_frame", "last_frame_enabled", "prompt", "duration", "last_frame_export"]);
@@ -317,7 +318,8 @@ export function sequentialDirectorView(app, f) {
           draw();
         } }, icon("plus"), "Add segment"),
         el("button", { type: "button", class: "dir-toggle on", disabled: st.busyAll || st.assembling, onclick: () => void assemble() },
-          icon("film"), st.assembling ? "Assembling…" : "Assemble")));
+          icon("film"), st.assembling ? "Assembling…" : "Assemble"),
+        st.autoError ? el("span", { class: "tag red", title: st.autoError }, "chain stopped") : null));
   }
 
   function drawStage() {
@@ -391,8 +393,7 @@ export function sequentialDirectorView(app, f) {
       cursor += seg.duration;
     });
 
-    const playhead = el("div", { class: "dir-playhead", style: { left: `${((st.segments.slice(0, st.selected).reduce((n, s) => n + s.duration, 0)) / total) * 100}%` } });
-    stage.replaceChildren(el("div", { class: "dir-scroll" }, el("div", { class: "dir-canvas" }, ruler, track, playhead)));
+    stage.replaceChildren(el("div", { class: "dir-scroll" }, el("div", { class: "dir-canvas" }, ruler, track)));
   }
 
   function drawEditor() {
@@ -575,15 +576,25 @@ export function sequentialDirectorView(app, f) {
       }
       const started = await api(`/api/apps/${app.id}/run`, { method: "POST", body: fd });
       seg.jobId = started.id;
+      void feed.load(app.id).catch(() => {});
       let entry = started;
       while (!TERMINAL.has(entry.status)) {
         await sleep(1800);
         entry = await api(`/api/history/${started.id}`);
       }
       if (entry.status !== "succeeded") throw new Error(entry.error?.message || `Run ${entry.status}`);
-      const video = entry.outputs.find((o) => o.type === "video");
-      const frame = entry.outputs.find((o) => o.type === "image");
+      let video = entry.outputs.find((o) => o.type === "video");
+      let frame = entry.outputs.find((o) => o.type === "image");
       if (!video) throw new Error("The segment finished without a video output.");
+      if (!frame) {
+        // The history row is saved after its files; give a slow disk one more read before
+        // treating a missing extracted frame as a chain failure.
+        await sleep(1000);
+        entry = await api(`/api/history/${started.id}`);
+        video = entry.outputs.find((o) => o.type === "video");
+        frame = entry.outputs.find((o) => o.type === "image");
+        if (!video) throw new Error("The segment finished without a video output.");
+      }
       seg.videoUrl = video.url;
       seg.videoFile = video.file;
       seg.lastFrameUrl = frame?.url || null;
@@ -601,6 +612,7 @@ export function sequentialDirectorView(app, f) {
       seg.running = false;
       persist(st, app);
       draw();
+      void feed.load(app.id).catch(() => {});
     }
     return ok;
   }
@@ -633,7 +645,8 @@ export function sequentialDirectorView(app, f) {
         draw();
         const ok = await runSegment(i);
         if (!ok) {
-          st.autoError = `Stopped at segment ${i + 1}; fix it and run again.`;
+          st.autoError = `Stopped at segment ${i + 1}; ${st.segments[i]?.error || "fix it and run again."}`;
+          toast(st.autoError, { error: true });
           return;
         }
         st.segments[i].approved = true;
@@ -642,6 +655,7 @@ export function sequentialDirectorView(app, f) {
         draw();
         if (st.stopAfter) {
           st.autoError = `Stopped after segment ${i + 1}. Resume when ready.`;
+          toast(st.autoError);
           return;
         }
       }
@@ -672,13 +686,17 @@ export function sequentialDirectorView(app, f) {
       });
       st.assembled = result.outputs?.[0]?.url || null;
       if (!st.assembled) throw new Error("The assembler returned no video.");
+      st.autoError = null;
       persist(st, app);
       toast("Sequential cut assembled.");
     } catch (e) {
-      toast(e.message, { error: true });
+      st.autoError = `Assembly failed: ${e.message}`;
+      toast(st.autoError, { error: true });
     } finally {
       st.assembling = false;
+      persist(st, app);
       draw();
+      void feed.load(app.id).catch(() => {});
     }
   }
 
