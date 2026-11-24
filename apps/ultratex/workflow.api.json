@@ -1,0 +1,701 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "flux-2-klein-base-9b_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "3": {
+    "inputs": {
+      "selection": "sla",
+      "selection.keep_percent": 20.0,
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "dense_blocks": "",
+      "min_tokens": 12288,
+      "extra_tokens": 256,
+      "sink_conditioning": "exact_kv_and_rows",
+      "verbose": false,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "BlockSparseAttention",
+    "_meta": {
+      "title": "Model Sparse Attention",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "4": {
+    "inputs": {
+      "lora_name": "ultratex_flux2_klein_9b_albedo_lora_bf16.safetensors",
+      "strength_model": 1.0,
+      "model": [
+        "105",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "5": {
+    "inputs": {
+      "lora_name": "ultratex_flux2_klein_9b_metallic_roughness_lora_bf16.safetensors",
+      "strength_model": 1.0,
+      "model": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "7": {
+    "inputs": {
+      "conditioning_name": "flux-2-klein-9b_empty_prompt.safetensors"
+    },
+    "class_type": "ConditioningLoader",
+    "_meta": {
+      "title": "Load Conditioning",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "8": {
+    "inputs": {
+      "vae_name": "ultratex_flux2_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "11": {
+    "inputs": {
+      "model_3d": [
+        "234",
+        0
+      ]
+    },
+    "class_type": "Get3DComponents",
+    "_meta": {
+      "title": "Get 3D Components",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "13": {
+    "inputs": {
+      "mode": "world normal",
+      "width": [
+        "233:90",
+        0
+      ],
+      "height": [
+        "233:90",
+        0
+      ],
+      "background": "#ffffff",
+      "mesh": [
+        "11",
+        0
+      ],
+      "camera_info": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "RenderMesh",
+    "_meta": {
+      "title": "Render Mesh",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "14": {
+    "inputs": {
+      "image": "sir_frog.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "16": {
+    "inputs": {
+      "extra_views": "off",
+      "conditioning": [
+        "7",
+        0
+      ],
+      "vae": [
+        "8",
+        0
+      ],
+      "normals": [
+        "209",
+        0
+      ],
+      "masks": [
+        "210",
+        0
+      ],
+      "reference": [
+        "242",
+        0
+      ],
+      "reference_mask": [
+        "202",
+        0
+      ]
+    },
+    "class_type": "UltraTexConditioning",
+    "_meta": {
+      "title": "UltraTex Conditioning",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "17": {
+    "inputs": {
+      "width": [
+        "233:90",
+        0
+      ],
+      "height": [
+        "233:90",
+        0
+      ],
+      "batch_size": 6
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Empty Flux 2 Latent",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "18": {
+    "inputs": {
+      "count": 4,
+      "yaw": 360.0,
+      "pitch": 0.0,
+      "poles": "top and bottom",
+      "camera_info": [
+        "234",
+        2
+      ]
+    },
+    "class_type": "CreateCameraOrbit",
+    "_meta": {
+      "title": "Create Camera Orbit",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "20": {
+    "inputs": {
+      "seed": 1,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "16",
+        0
+      ],
+      "latent_image": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "21": {
+    "inputs": {
+      "samples": [
+        "20",
+        0
+      ],
+      "vae": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "22": {
+    "inputs": {
+      "resolution": [
+        "233:93",
+        0
+      ],
+      "blend_exponent": 4.0,
+      "fill_unseen": true,
+      "mesh": [
+        "11",
+        0
+      ],
+      "images": [
+        "21",
+        0
+      ],
+      "camera_info": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "BakeTextureFromViews",
+    "_meta": {
+      "title": "Bake Texture From Views",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "60": {
+    "inputs": {
+      "seed": 4,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "16",
+        0
+      ],
+      "negative": [
+        "16",
+        0
+      ],
+      "latent_image": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "61": {
+    "inputs": {
+      "samples": [
+        "60",
+        0
+      ],
+      "vae": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "62": {
+    "inputs": {
+      "resolution": [
+        "233:93",
+        0
+      ],
+      "blend_exponent": 4.0,
+      "fill_unseen": true,
+      "mesh": [
+        "11",
+        0
+      ],
+      "images": [
+        "61",
+        0
+      ],
+      "camera_info": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "BakeTextureFromViews",
+    "_meta": {
+      "title": "Bake Texture From Views",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "80": {
+    "inputs": {
+      "mesh": [
+        "11",
+        0
+      ],
+      "base_color": [
+        "228",
+        0
+      ],
+      "metallic": [
+        "231",
+        0
+      ],
+      "roughness": [
+        "230",
+        0
+      ]
+    },
+    "class_type": "ApplyTextureToMesh",
+    "_meta": {
+      "title": "Apply Texture to Mesh",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "105": {
+    "inputs": {
+      "lora_name": "flux-2-klein-9b_distill_lora_avg_rank_345_bf16.safetensors",
+      "strength_model": 0.5,
+      "model": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "200": {
+    "inputs": {
+      "bg_removal_model": [
+        "201",
+        0
+      ],
+      "image": [
+        "242",
+        0
+      ]
+    },
+    "class_type": "RemoveBackground",
+    "_meta": {
+      "title": "Remove Background",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "201": {
+    "inputs": {
+      "bg_removal_name": "birefnet.safetensors"
+    },
+    "class_type": "LoadBackgroundRemovalModel",
+    "_meta": {
+      "title": "Load Background Removal Model",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "202": {
+    "inputs": {
+      "mask": [
+        "200",
+        0
+      ]
+    },
+    "class_type": "MaskPreview",
+    "_meta": {
+      "title": "Preview Mask",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "209": {
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "210": {
+    "inputs": {
+      "mask": [
+        "13",
+        1
+      ]
+    },
+    "class_type": "MaskPreview",
+    "_meta": {
+      "title": "Preview Mask",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "223": {
+    "inputs": {
+      "image": [
+        "62",
+        0
+      ]
+    },
+    "class_type": "SplitImageChannels",
+    "_meta": {
+      "title": "Split Image Channels",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "228": {
+    "inputs": {
+      "filename_prefix": "3d/ultratex_texture_3d_model_albedo",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "format.channels": "auto",
+      "images": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "Save Albedo",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "230": {
+    "inputs": {
+      "filename_prefix": "3d/ultratex_texture_3d_model_roughness",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "format.channels": "grayscale (1 channel)",
+      "images": [
+        "223",
+        1
+      ]
+    },
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "Save Roughness",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "231": {
+    "inputs": {
+      "filename_prefix": "3d/ultratex_texture_3d_model_metallic",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "format.channels": "grayscale (1 channel)",
+      "images": [
+        "223",
+        2
+      ]
+    },
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "Save Metallic",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "234": {
+    "inputs": {
+      "model_file": "sir_frog.obj",
+      "viewport_state": {
+        "camera_info": {
+          "position": {
+            "x": 10,
+            "y": 10,
+            "z": 10.000000000000002
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "zoom": 1,
+          "cameraType": "perspective",
+          "quaternion": {
+            "x": -0.2798481423331213,
+            "y": 0.3647051996310008,
+            "z": 0.11591689595929511,
+            "w": 0.8804762392171493
+          },
+          "fov": 35,
+          "aspect": 1,
+          "near": 0.01,
+          "far": 10000,
+          "frustum": {
+            "left": -5,
+            "right": 5,
+            "top": 5,
+            "bottom": -5
+          }
+        },
+        "model_3d_info": [
+          {
+            "position": {
+              "x": 0,
+              "y": 0,
+              "z": 0
+            },
+            "quaternion": {
+              "x": 0,
+              "y": 0,
+              "z": 0,
+              "w": 1
+            },
+            "scale": {
+              "x": 1,
+              "y": 1,
+              "z": 1
+            }
+          }
+        ]
+      },
+      "width": [
+        "233:90",
+        0
+      ],
+      "height": [
+        "233:90",
+        0
+      ]
+    },
+    "class_type": "Load3DAdvanced",
+    "_meta": {
+      "title": "First Camera Rig",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "242": {
+    "inputs": {
+      "target_width": [
+        "233:90",
+        0
+      ],
+      "target_height": [
+        "233:90",
+        0
+      ],
+      "padding_color": "white",
+      "interpolation": "area",
+      "image": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "ResizeAndPadImage",
+    "_meta": {
+      "title": "Resize And Pad Image",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "233:90": {
+    "inputs": {
+      "value": 1024
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Rendered Mesh Resolution",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "233:93": {
+    "inputs": {
+      "value": 4096
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Texture Resolution",
+      "cnr_id": "comfy-core",
+      "ver": "0.46.0"
+    }
+  },
+  "285": {
+    "class_type": "MeshToFile3D",
+    "inputs": {
+      "mesh": [
+        "80",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Create 3D File (from Mesh)"
+    }
+  },
+  "322": {
+    "class_type": "Save3DAdvanced",
+    "inputs": {
+      "model_3d": [
+        "285",
+        0
+      ],
+      "filename_prefix": "riverfield/ultratex",
+      "width": 1024,
+      "height": 1024,
+      "viewport_state": ""
+    },
+    "_meta": {
+      "title": "Save 3D (Advanced)"
+    }
+  }
+}

@@ -31,7 +31,7 @@ export const CATEGORIES = [
     "asmr-product", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad"] },
   { id: "portraits", apps: ["ai-influencer", "ai-influencer-photo", "photodump", "headshot", "commercial-faces", "style-snap", "skin-enhancer", "outfit-vending", "glitter-sticker", "fashion-factory", "try-on", "outfit-swap", "outfit-shot"] },
   { id: "clips", apps: ["behind-the-scenes", "asmr-whisper", "asmr-host", "roller-coaster", "storm-creature", "cloud-surf", "mukbang", "melting-doodle", "rap-video", "idol"] },
-  { id: "3d", apps: ["image-to-3d", "gaussian-splat"] },
+  { id: "3d", apps: ["image-to-3d", "gaussian-splat", "ultratex"] },
   { id: "play", apps: ["game-styles", "plushie", "render-3d", "figure-3d", "pixel-game", "brick-toy", "sketch-to-real", "paint-app", "mural", "micro-beasts", "meme"] },
   { id: "templates", apps: ["j-magazine", "cafe-60s", "victory-card", "j-poster", "mascot", "burning-sunset", "comic-book", "giallo", "renaissance", "japanese-show", "breakdown", "edit-text", "image-effects", "color-grade"] },
 ];

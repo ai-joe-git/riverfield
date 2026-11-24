@@ -720,3 +720,29 @@ test("MiniMax H3 Image Character Swap is wired to the character-swap LoRA", () =
   assert.equal(graph["9"].class_type, "SaveImage");
   assert.equal(graph["62"], undefined);
 });
+
+test("UltraTex exposes a mesh input and returns a textured GLB", () => {
+  const app = byId("ultratex");
+  assert.equal(app.section, "3d");
+  assert.equal(app.layout, "sidebar");
+  assert.deepEqual(app.outputs, [{ node: "322", type: "model", label: "Textured model (.glb)" }]);
+  assert.equal((app.graph as Record<string, any>)["322"]?.class_type, "Save3DAdvanced");
+  assert.equal((app.graph as Record<string, any>)["81"], undefined, "the old SaveGLB is replaced by Save3DAdvanced");
+  const mesh = app.inputs.find((i) => i.id === "mesh")!;
+  assert.equal(mesh.type, "model");
+  assert.equal(mesh.required, true);
+  assert.deepEqual(mesh.bind, [{ node: "234", field: "model_file" }]);
+  const values = resolveValues(app, {
+    mesh: { bytes: new Uint8Array([1]), name: "mesh.obj" },
+    image: { bytes: new Uint8Array([2]), name: "reference.png" },
+    render_resolution: 1024, texture_resolution: 4096,
+  });
+  const graph = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
+  const wf = { json: graph, setInput(node: string, field: string, value: unknown) { (graph[node].inputs ??= {})[field] = value; } };
+  applyInputs(app, values, wf, (f) => `asset:${f.name}`);
+  assert.equal(graph["234"].inputs.model_file, "asset:mesh.obj");
+  assert.equal(graph["14"].inputs.image, "asset:reference.png");
+  assert.equal(graph["233:90"].inputs.value, 1024);
+  assert.equal(graph["233:93"].inputs.value, 4096);
+  assert.deepEqual(graph["322"].inputs.model_3d, ["285", 0]);
+});

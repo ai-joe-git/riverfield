@@ -1,0 +1,221 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "ultratex",
+  "name": "UltraTex 3D Texture",
+  "section": "3d",
+  "higgsfield_feature": "3D",
+  "pack": "ultratex",
+  "status": "ready",
+  "layout": "sidebar",
+  "summary": "Textures an untextured mesh from one reference photo with UltraTex: six rendered views, albedo and metallic/roughness passes, and a PBR GLB.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "3d_ultratex_texture_3d_model.json (ComfyUI user workflow)",
+    "comfyui": "0.46.0",
+    "notes": "Built from the successful 2026-11-24 UltraTex run. The original SaveGLB was replaced by MeshToFile3D + Save3DAdvanced so the result is a first-class model output in RiverField. The mesh must already have UVs. The reference image is background-cut with BiRefNet; rendered mesh resolution drives the six views, texture resolution drives the baked maps. The albedo and metallic/roughness passes keep their separate seeds and step counts. The sample is the frog sword mesh/reference from the official UltraTex template."
+  },
+  "inputs": [
+    {
+      "id": "mesh",
+      "type": "model",
+      "label": "Mesh (.obj, .glb, .gltf, .stl, .ply)",
+      "required": true,
+      "help": "An untextured mesh with UVs. The six world-normal views and the bake both use this mesh and its camera.",
+      "limits": {
+        "max_mb": 128
+      },
+      "bind": [
+        {
+          "node": "234",
+          "field": "model_file"
+        }
+      ]
+    },
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Reference image",
+      "required": true,
+      "help": "How the object should look from the front view. One object, one orientation; the background is removed automatically.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "14",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "render_resolution",
+      "type": "slider",
+      "label": "Rendered mesh resolution",
+      "min": 512,
+      "max": 2048,
+      "step": 128,
+      "default": 1024,
+      "help": "Size of the six rendered normal views and the conditioning latent. 1024 is the template default.",
+      "bind": [
+        {
+          "node": "233:90",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "texture_resolution",
+      "type": "slider",
+      "label": "Texture resolution",
+      "min": 1024,
+      "max": 4096,
+      "step": 512,
+      "default": 4096,
+      "help": "Size of the baked albedo, roughness and metallic maps. 4096 is the template default.",
+      "bind": [
+        {
+          "node": "233:93",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "albedo_steps",
+      "type": "slider",
+      "label": "Albedo steps",
+      "min": 1,
+      "max": 10,
+      "step": 1,
+      "default": 4,
+      "bind": [
+        {
+          "node": "20",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "mr_steps",
+      "type": "slider",
+      "label": "Metallic/roughness steps",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 8,
+      "bind": [
+        {
+          "node": "60",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "albedo_seed",
+      "type": "seed",
+      "label": "Albedo seed",
+      "default": 1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "20",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "mr_seed",
+      "type": "seed",
+      "label": "Metallic/roughness seed",
+      "default": 4,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "60",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "fill_unseen",
+      "type": "toggle",
+      "label": "Fill unseen texels",
+      "default": true,
+      "help": "Grow colour into texels no camera saw. Off keeps the mesh's own texture there.",
+      "bind": [
+        {
+          "node": "22",
+          "field": "fill_unseen"
+        },
+        {
+          "node": "62",
+          "field": "fill_unseen"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "322",
+      "type": "model",
+      "label": "Textured model (.glb)"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "diffusion_models/flux-2-klein-base-9b_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 9.44,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License"
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "loras/flux-2-klein-9b_distill_lora_avg_rank_345_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.96,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License"
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "loras/ultratex_flux2_klein_9b_albedo_lora_bf16.safetensors",
+      "dir": "loras",
+      "gb": 0.478,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License"
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "loras/ultratex_flux2_klein_9b_metallic_roughness_lora_bf16.safetensors",
+      "dir": "loras",
+      "gb": 0.478,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License"
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "embeddings/flux-2-klein-9b_empty_prompt.safetensors",
+      "dir": "embeddings",
+      "gb": 0.025,
+      "phase": "encode",
+      "license": "FLUX Non-Commercial License"
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "vae/ultratex_flux2_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.336,
+      "phase": "decode",
+      "license": "FLUX Non-Commercial License"
+    },
+    {
+      "repo": "Comfy-Org/BiRefNet",
+      "file": "background_removal/birefnet.safetensors",
+      "dir": "background_removal",
+      "gb": 0.444,
+      "phase": "aux",
+      "license": "MIT"
+    }
+  ]
+}

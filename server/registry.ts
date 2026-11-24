@@ -87,7 +87,7 @@ export type AppManifest = {
 export type App = AppManifest & { dir: string; workflowPath?: string; graph?: ApiWorkflow };
 export type Problem = { app: string; severity: "error" | "warning"; message: string };
 
-const FILE_TYPES = new Set(["image", "video", "audio"]);
+const FILE_TYPES = new Set(["image", "video", "audio", "model"]);
 
 export function repoRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), "..");

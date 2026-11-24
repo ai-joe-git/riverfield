@@ -71,6 +71,11 @@ MENU = [
         '"character-swap", "h3-image-character-swap", "face-swap"',
         "cat.identity.character-swap",
     ),
+    (
+        '"image-to-3d", "gaussian-splat"',
+        '"image-to-3d", "gaussian-splat", "ultratex"',
+        "cat.3d.ultratex",
+    ),
 ]
 
 

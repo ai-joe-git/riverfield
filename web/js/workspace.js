@@ -60,11 +60,14 @@ function persist(app) {
   store.set(`values.${app.id}`, { ...f.values, __preset: f.preset });
 }
 
-const ACCEPT = { image: "image/*", video: "video/*", audio: "audio/*" };
+const ACCEPT = { image: "image/*", video: "video/*", audio: "audio/*", model: ".obj,.glb,.gltf,.stl,.ply,.fbx,.usdz,.spz" };
 function fileMatches(type, file) {
-  if (file.type) return file.type.startsWith(`${type}/`);
   const ext = extOf(file.name);
-  return { image: ["png", "jpg", "jpeg", "webp", "gif"], video: ["mp4", "mov", "webm", "mkv"], audio: ["mp3", "wav", "flac", "ogg", "m4a"] }[type]?.includes(ext);
+  const extensions = { image: ["png", "jpg", "jpeg", "webp", "gif"], video: ["mp4", "mov", "webm", "mkv"], audio: ["mp3", "wav", "flac", "ogg", "m4a"], model: ["obj", "glb", "gltf", "stl", "ply", "fbx", "usdz", "spz"] }[type] || [];
+  // Browsers often report .obj/.glb as application/octet-stream; the extension is the reliable test there.
+  if (type === "model") return file.type.startsWith("model/") || extensions.includes(ext);
+  if (file.type) return file.type.startsWith(`${type}/`);
+  return extensions.includes(ext);
 }
 
 /** A recorded clip as a small 16-bit mono WAV: what ComfyUI's LoadAudio reads everywhere. */
@@ -476,12 +479,12 @@ function composerBar(app, rerenderBar) {
     const x = f.files[inp.id];
     if (!x) {
       const add = el("button", { class: "att need", type: "button", title: `${t("ws.add", { what: inp.label })}${inp.required ? "" : ` (${t("ws.optional")})`}`,
-        "aria-label": t("ws.add", { what: inp.label }), dataset: { slot: inp.id }, onclick: () => pick(inp) }, icon(inp.type === "image" ? "image" : inp.type));
+        "aria-label": t("ws.add", { what: inp.label }), dataset: { slot: inp.id }, onclick: () => pick(inp) }, icon(inp.type === "image" ? "image" : inp.type === "video" ? "video" : inp.type === "audio" ? "audio" : "box"));
       if (inp.type !== "audio") return add;
       return el("span", { style: { display: "contents" } }, add,
         recButton(inp, (file) => { if (setFile(app, inp, file)) rerenderBar(); }));
     }
-    const m = inp.type === "image" ? el("img", { src: x.url, alt: "" }) : inp.type === "video" ? el("video", { src: `${x.url}#t=0.1`, muted: true, preload: "metadata" }) : el("span", { style: { display: "grid", placeItems: "center", height: "100%" } }, icon("audio"));
+    const m = inp.type === "image" ? el("img", { src: x.url, alt: "" }) : inp.type === "video" ? el("video", { src: `${x.url}#t=0.1`, muted: true, preload: "metadata" }) : inp.type === "audio" ? el("span", { style: { display: "grid", placeItems: "center", height: "100%" } }, icon("audio")) : el("span", { style: { display: "grid", placeItems: "center", height: "100%" } }, icon("box"));
     return el("div", { class: "att", title: x.file.name },
       m, el("span", { class: "lbl" }, inp.label),
       el("button", { class: "x", type: "button", "aria-label": t("ws.remove"), onclick: () => { clearFile(app, inp.id); rerenderBar(); } }, icon("x")));
@@ -494,7 +497,7 @@ function composerBar(app, rerenderBar) {
         const empty = mediaInputs.filter((i) => !f.files[i.id]);
         if (mediaInputs.length === 1 || empty.length === 1) return pick(empty[0] || mediaInputs[0]);
         popover(ev.currentTarget, el("div", {}, ...mediaInputs.map((inp) => el("button", { class: "opt", type: "button", onclick: () => { closePopover(); pick(inp); } },
-          icon(inp.type === "image" ? "image" : inp.type), inp.label))));
+          icon(inp.type === "image" ? "image" : inp.type === "video" ? "video" : inp.type === "audio" ? "audio" : "box"), inp.label))));
       } }, icon("plus")));
   }
   const modes = modeSwitch(app);
@@ -630,7 +633,7 @@ function dropzone(app, inp, rerender) {
   if (!x) {
     zone = el("div", { class: "drop", role: "button", tabindex: "0", dataset: { slot: inp.id }, "aria-label": t("ws.add", { what: inp.label }),
       onclick: () => input.click(), onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } } },
-      el("span", { class: "ic" }, icon(inp.type === "image" ? "image" : inp.type === "video" ? "video" : "audio")),
+      el("span", { class: "ic" }, icon(inp.type === "image" ? "image" : inp.type === "video" ? "video" : inp.type === "audio" ? "audio" : "box")),
       el("b", {}, inp.label, inp.required ? "" : el("span", { class: "faint", style: { fontWeight: 500 } }, ` · ${t("ws.optional")}`)),
       el("small", {}, inp.help || t(`ws.drop.${inp.type}`)),
       el("small", { class: "faint" }, [t("ws.drop.hint"), limits].filter(Boolean).join(" · ")),
@@ -639,7 +642,8 @@ function dropzone(app, inp, rerender) {
   } else {
     const media = inp.type === "image" ? el("img", { src: x.url, alt: "" })
       : inp.type === "video" ? el("video", { src: x.url, muted: true, loop: true, playsinline: true, autoplay: true, preload: "auto" })
-        : el("audio", { src: x.url, controls: true, preload: "metadata" });
+        : inp.type === "audio" ? el("audio", { src: x.url, controls: true, preload: "metadata" })
+          : el("span", { class: "typeicon" }, icon("box"));
     if (inp.type === "video") media.muted = true;
     const warn = el("span", { class: "fname" }, x.file.name);
     if (inp.type === "video" && inp.limits?.seconds) {
@@ -917,7 +921,7 @@ function vramBars(app) {
 function cliLine(app) {
   const parts = ["npm run app --", app.id];
   for (const inp of app.inputs) {
-    if (isMedia(inp.type)) { if (inp.required) parts.push(`--file ${inp.id}=my-${inp.type}.${inp.type === "image" ? "jpg" : inp.type === "video" ? "mp4" : "mp3"}`); continue; }
+    if (isMedia(inp.type)) { if (inp.required) parts.push(`--file ${inp.id}=my-${inp.type}.${inp.type === "image" ? "jpg" : inp.type === "video" ? "mp4" : inp.type === "audio" ? "mp3" : "obj"}`); continue; }
     if (inp.required && inp.type === "textarea") parts.push(`--set ${inp.id}="${String(inp.default || "…").slice(0, 40)}"`);
   }
   return parts.join(" ");

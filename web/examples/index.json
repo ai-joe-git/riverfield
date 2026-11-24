@@ -5916,6 +5916,43 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "comfyui-20261124-character-swap"
+    },
+    "ultratex": {
+      "case": "ultratex-sir-frog",
+      "type": "model",
+      "card": "examples/ultratex/card.jpg",
+      "poster": "examples/ultratex/card.jpg",
+      "full": "examples/ultratex/model.glb",
+      "inputs": [
+        {
+          "id": "mesh",
+          "label": "Mesh (.obj, .glb, .gltf, .stl, .ply)",
+          "type": "model",
+          "src": "examples/ultratex/mesh.obj",
+          "full": "examples/ultratex/mesh.obj"
+        },
+        {
+          "id": "image",
+          "label": "Reference image",
+          "type": "image",
+          "src": "examples/ultratex/card.jpg",
+          "full": "examples/ultratex/reference.jpg"
+        }
+      ],
+      "values": {
+        "render_resolution": 1024,
+        "texture_resolution": 4096,
+        "albedo_steps": 4,
+        "mr_steps": 8,
+        "albedo_seed": 1,
+        "mr_seed": 4,
+        "fill_unseen": true
+      },
+      "seed": 1,
+      "seconds": 89.5,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "comfyui-20261124-ultratex"
     }
   },
   "updated_from": "20261122-piflow-dwd"

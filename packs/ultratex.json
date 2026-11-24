@@ -1,0 +1,102 @@
+{
+  "pack": "ultratex",
+  "apps": [
+    "ultratex"
+  ],
+  "download_gb": 13.16,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "diffusion_models/flux-2-klein-base-9b_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 9.44,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License",
+      "name": "flux-2-klein-base-9b_int8_convrot.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "loras/flux-2-klein-9b_distill_lora_avg_rank_345_bf16.safetensors",
+      "dir": "loras",
+      "gb": 1.96,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License",
+      "name": "flux-2-klein-9b_distill_lora_avg_rank_345_bf16.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "loras/ultratex_flux2_klein_9b_albedo_lora_bf16.safetensors",
+      "dir": "loras",
+      "gb": 0.478,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License",
+      "name": "ultratex_flux2_klein_9b_albedo_lora_bf16.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "loras/ultratex_flux2_klein_9b_metallic_roughness_lora_bf16.safetensors",
+      "dir": "loras",
+      "gb": 0.478,
+      "phase": "denoise",
+      "license": "FLUX Non-Commercial License",
+      "name": "ultratex_flux2_klein_9b_metallic_roughness_lora_bf16.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "embeddings/flux-2-klein-9b_empty_prompt.safetensors",
+      "dir": "embeddings",
+      "gb": 0.025,
+      "phase": "encode",
+      "license": "FLUX Non-Commercial License",
+      "name": "flux-2-klein-9b_empty_prompt.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/UltraTex",
+      "file": "vae/ultratex_flux2_vae_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.336,
+      "phase": "decode",
+      "license": "FLUX Non-Commercial License",
+      "name": "ultratex_flux2_vae_fp32.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    },
+    {
+      "repo": "Comfy-Org/BiRefNet",
+      "file": "background_removal/birefnet.safetensors",
+      "dir": "background_removal",
+      "gb": 0.444,
+      "phase": "aux",
+      "license": "MIT",
+      "name": "birefnet.safetensors",
+      "gated": false,
+      "used_by": [
+        "ultratex"
+      ]
+    }
+  ]
+}

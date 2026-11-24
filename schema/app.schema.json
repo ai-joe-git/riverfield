@@ -276,7 +276,8 @@
             "seed",
             "image",
             "video",
-            "audio"
+            "audio",
+            "model"
           ]
         },
         "label": {

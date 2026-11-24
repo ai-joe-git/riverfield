@@ -1,7 +1,7 @@
 import {InputError} from "./input-error.ts";
 
 type Manifest={id:string;name?:string;inputs:Array<{id:string;type:string;options?:unknown[];multiple?:unknown;min?:number;max?:number;help?:string}>};
-const isFile=(input:{type:string})=>["image","video","audio"].includes(input.type);
+const isFile=(input:{type:string})=>["image","video","audio","model"].includes(input.type);
 
 /** Mechanical transport fixes only, using the actual manifest. Never infer a new reference. */
 export function normalizeRunInputs(app:Manifest,rawValues:Record<string,unknown>={},rawFiles:Record<string,unknown>={}){

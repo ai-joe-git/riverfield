@@ -307,5 +307,12 @@
     ],
     "download_gb": 45.06,
     "needs_hf_token": true
+  },
+  "ultratex": {
+    "apps": [
+      "ultratex"
+    ],
+    "download_gb": 13.16,
+    "needs_hf_token": false
   }
 }
