@@ -183,7 +183,20 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
   async function restoreMediaFiles() {
     try {
-      try { localStorage.removeItem(`dirfiles.${app.id}`); } catch { /* ignore old quota hogs */ }
+      // Migrate the short-lived localStorage image cache from the previous build into
+      // IndexedDB before removing it; IndexedDB has the storage budget for real pictures.
+      const legacyKey = `dirfiles.${app.id}`;
+      const legacy = store.get(legacyKey) || {};
+      for (const [slot, entry] of Object.entries(legacy)) {
+        if (!slot.startsWith("image") || !entry?.data || f.files[slot]) continue;
+        try {
+          const blob = await (await fetch(entry.data)).blob();
+          const file = new File([blob], entry.name || "image.png", { type: entry.type || blob.type || "image/png" });
+          f.files[slot] = { file, url: URL.createObjectURL(file) };
+          await mediaPut(`${app.id}:${slot}`, { blob: file, name: file.name, type: file.type });
+        } catch { /* corrupt legacy entry */ }
+      }
+      try { localStorage.removeItem(legacyKey); } catch { /* ignore */ }
       const entries = await mediaEntries(`${app.id}:`);
       for (const [key, value] of entries) {
         const slot = key.slice(app.id.length + 1);
