@@ -129,7 +129,10 @@ function probe(url, type) {
 
 export function directorView(app, f, { onSubmit, onDirty }) {
   const st = stateFor(app, f);
-  const h3Planner = Object.values(app.graph ?? {}).some((n) => n?.class_type === "RiverFieldH3Planner");
+  // The browser app object does not include the server-side graph. Every H3 Material
+  // Planner manifest exposes segment_count; the LTX directors do not, so this is the
+  // reliable client-side discriminator (and it keeps LTX untouched).
+  const h3Planner = app.inputs.some((i) => i.id === "segment_count");
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
   function normalizeOverlaps() {
     if (!h3Planner || !st.windows.length) return false;
@@ -157,7 +160,11 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     if (!pictures.length) return false;
     let changed = false;
     for (const w of st.windows) {
-      if (!w.images?.length) { w.images = [...pictures]; changed = true; }
+      const rank = new Map(pictures.map((index, pos) => [index, pos]));
+      const current = (w.images || []).filter((index) => rank.has(index));
+      const sorted = current.slice().sort((a, b) => rank.get(a) - rank.get(b));
+      const next = sorted.length ? sorted : [...pictures];
+      if (JSON.stringify(next) !== JSON.stringify(w.images || [])) { w.images = next; changed = true; }
     }
     return changed;
   }
@@ -282,10 +289,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     if (maxMb && file.size > maxMb * 1e6) { toast(`${file.name}: max ${maxMb} MB`, { error: true }); return false; }
     const url = URL.createObjectURL(file);
     f.files[free.id] = { file, url };
-    if (h3Planner && type === "image") {
-      const index = Number(free.id.replace(/\D/g, "")) - 1;
-      for (const w of st.windows) if (!w.images.includes(index)) w.images.push(index);
-    }
+    if (h3Planner && type === "image") fillDefaultPictures();
     pendingMeta++;
     probe(url, type).then((m) => {
       meta.set(free.id, m);
