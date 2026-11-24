@@ -206,7 +206,7 @@
           "field": "text"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "enhance",
@@ -220,7 +220,7 @@
           "field": "value"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "enhancer_clip_name",
@@ -240,7 +240,7 @@
           "field": "clip_name"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "duration",
@@ -274,7 +274,7 @@
           "field": "value"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "aspect",
@@ -313,7 +313,7 @@
           "field": "aspect_ratio"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "megapixels",
@@ -330,7 +330,7 @@
           "field": "megapixels"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "multiple",
@@ -361,7 +361,7 @@
           "field": "multiple"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "steps",
@@ -393,7 +393,7 @@
         }
       ],
       "help": "The low-resolution stage stays at 4 steps; this switches the high-resolution stage between 4 and 9 steps.",
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "sampler",
@@ -432,7 +432,7 @@
           "field": "sampler_name"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "one_pass",
@@ -446,7 +446,7 @@
           "field": "value"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "upscale",
@@ -498,7 +498,7 @@
           "field": "images"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "upscale_detail",
@@ -515,7 +515,7 @@
           "field": "detail"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "seed",
@@ -529,7 +529,7 @@
           "field": "noise_seed"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "unet_name",
@@ -548,7 +548,7 @@
           "field": "unet_name"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "weight_dtype",
@@ -579,7 +579,7 @@
           "field": "weight_dtype"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "clip_name",
@@ -598,7 +598,7 @@
           "field": "clip_name"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "vae_name",
@@ -622,7 +622,7 @@
         }
       ],
       "help": "The video VAE used to decode the clip. Conv bf16 is the new default; the original bf16 stays available.",
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "audio_vae_name",
@@ -641,7 +641,7 @@
           "field": "vae_name"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "upscaler",
@@ -660,7 +660,7 @@
           "field": "model_name"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "filename_prefix",
@@ -673,7 +673,7 @@
           "field": "filename_prefix"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "format",
@@ -708,7 +708,7 @@
           "field": "format"
         }
       ],
-      "hidden": true
+      "hidden": false
     },
     {
       "id": "codec",
@@ -739,7 +739,7 @@
           "field": "format.codec"
         }
       ],
-      "hidden": true
+      "hidden": false
     }
   ]
 }

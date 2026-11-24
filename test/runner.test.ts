@@ -338,6 +338,10 @@ test("the sequential director is a ready LTX segment chain", () => {
   assert.ok(app.outputs.some((o) => o.type === "video"));
   assert.equal(app.status, "ready");
   assert.equal(app.inputs.find((i) => i.id === "last_frame")?.required, false);
+  assert.equal(app.inputs.find((i) => i.id === "image")?.hidden, true, "the generic media slots are driven by the panel");
+  assert.equal(app.inputs.find((i) => i.id === "prompt")?.hidden, true, "segment prompts are driven by the panel");
+  assert.equal(app.inputs.find((i) => i.id === "aspect")?.hidden, false, "technical settings stay in the left panel");
+  assert.equal(app.inputs.find((i) => i.id === "unet_name")?.hidden, false, "model settings stay in the left panel");
   const exportToggle = app.inputs.find((i) => i.id === "last_frame_export")!;
   assert.equal(exportToggle.hidden, true, "the chain sets last-frame export itself");
   const values = resolveValues(app, {

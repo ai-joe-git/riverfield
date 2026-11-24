@@ -962,7 +962,9 @@ function mainArea(app, layout, disposers) {
     disposeBody?.();
     disposeBody = null;
     if (director && wsTab === "director") body.replaceChildren(
-      app.id === "ltx-sequential-director" ? sequentialDirectorView(app) : directorView(app, formFor(app), { onSubmit: () => { void submit(app, {}); } }));
+      app.id === "ltx-sequential-director"
+        ? sequentialDirectorView(app, formFor(app))
+        : directorView(app, formFor(app), { onSubmit: () => { void submit(app, {}); } }));
     else if (wsTab === "history") disposeBody = feedView(body, { app: app.id, empty: () => emptyFor(app, layout), dense });
     else body.replaceChildren(wsTab === "library" ? libraryTab(app) : howTab(app));
   };
