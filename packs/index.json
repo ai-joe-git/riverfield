@@ -114,7 +114,8 @@
     "apps": [
       "h3-image",
       "h3-image-edit",
-      "h3-image-edit-minimax"
+      "h3-image-edit-minimax",
+      "h3-image-character-swap"
     ],
     "download_gb": 66.58,
     "needs_hf_token": false

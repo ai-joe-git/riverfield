@@ -693,3 +693,30 @@ test("MiniMax H3 Image Edit stays available beside p-H3 Image Edit", () => {
   assert.deepEqual(vae.options?.map((o) => o.value), ["minimax_h3_image_vae_fp16.safetensors"]);
   assert.equal(resolveValues(app, { image: { bytes: new Uint8Array([1]), name: "source.png" }, prompt: "make it blue" }).steps, 6);
 });
+
+test("MiniMax H3 Image Character Swap is wired to the character-swap LoRA", () => {
+  const app = byId("h3-image-character-swap");
+  assert.equal(app.name, "MiniMax H3 Image Character Swap");
+  assert.equal(app.layout, "sidebar");
+  assert.deepEqual(app.outputs, [{ node: "9", type: "image", label: "Character swap" }]);
+  assert.equal(app.inputs.filter((i) => i.type === "image").length, 2);
+  assert.equal((app.graph as Record<string, any>)["63"]?.class_type, "LoadLoraModel");
+  const lora = app.inputs.find((i) => i.id === "lora_name")!;
+  assert.equal(lora.default, "h3_image_character_swap_v1.safetensors");
+  assert.ok(lora.options?.some((o) => o.value === "h3_character_swap_pro4500_1000.safetensors"));
+  const values = resolveValues(app, {
+    image: { bytes: new Uint8Array([1]), name: "scene.png" },
+    image_2: { bytes: new Uint8Array([2]), name: "person.png" },
+    prompt: "Swap <Picture 1> with <Picture 2>",
+  });
+  const graph = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
+  const wf = { json: graph, setInput(node: string, field: string, value: unknown) { (graph[node].inputs ??= {})[field] = value; } };
+  applyInputs(app, values, wf, (f) => `asset:${f.name}`);
+  assert.equal(graph["45"].inputs.image, "asset:scene.png");
+  assert.equal(graph["64"].inputs.image, "asset:person.png");
+  assert.equal(graph["63"].inputs["loras.0.lora_name"], "h3_image_character_swap_v1.safetensors");
+  assert.deepEqual(graph["65"].inputs["images.image_0"], ["48", 0]);
+  assert.deepEqual(graph["65"].inputs["images.image_1"], ["64", 0]);
+  assert.equal(graph["9"].class_type, "SaveImage");
+  assert.equal(graph["62"], undefined);
+});

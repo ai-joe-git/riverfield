@@ -66,6 +66,11 @@ MENU = [
         '"h3-image-edit", "h3-image-edit-minimax", "inpaint"',
         "cat.vfx.image.minimax",
     ),
+    (
+        '"character-swap", "face-swap"',
+        '"character-swap", "h3-image-character-swap", "face-swap"',
+        "cat.identity.character-swap",
+    ),
 ]
 
 

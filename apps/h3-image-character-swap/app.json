@@ -1,0 +1,322 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-image-character-swap",
+  "name": "MiniMax H3 Image Character Swap",
+  "section": "image",
+  "higgsfield_feature": "Character Swap",
+  "pack": "image-h3",
+  "status": "ready",
+  "summary": "Swap the person in a scene with a reference character on MiniMax H3 Image, using the character-swap LoRA.",
+  "layout": "sidebar",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "image_minimax_h3_image_character_swap",
+    "comfyui": "0.46.0",
+    "notes": "App built from the successful MiniMax H3 image character-swap inference of 2026-11-24. Picture 1 is the scene to edit; Picture 2 is the reference person. The character-swap LoRA is applied to the MiniMax H3 Image DiT, the instruction is sent directly to MiniMaxH3ImageConditioning, and the output is saved by the SaveImage node. The optional ImageCompare preview node from the original graph was removed; it was not part of the saved image."
+  },
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Scene photo (Picture 1)",
+      "required": true,
+      "help": "The photo containing the person to replace. It becomes <Picture 1> in the instruction.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "45",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "image_2",
+      "type": "image",
+      "label": "Reference character (Picture 2)",
+      "required": true,
+      "help": "The person to insert. It becomes <Picture 2>; use a clear face and upper body.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "64",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Swap instruction",
+      "default": "Swap the human in <Picture 1> with human <Picture 2>, also update the human in the mirror",
+      "help": "Describe who is replaced and what must follow the new character (reflections, shadow, clothing, pose).",
+      "bind": [
+        {
+          "node": "43",
+          "field": "value"
+        }
+      ],
+      "required": true
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.2,
+      "max": 4,
+      "step": 0.1,
+      "default": 1,
+      "help": "The scene is scaled to this megapixel budget before conditioning. 1.0 MP reproduces the example.",
+      "bind": [
+        {
+          "node": "56",
+          "field": "resize_type.megapixels"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 6,
+      "bind": [
+        {
+          "node": "38",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "euler_ancestral"
+        },
+        {
+          "value": "heun",
+          "label": "heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "dpm_2"
+        },
+        {
+          "value": "er_sde",
+          "label": "er_sde"
+        }
+      ],
+      "bind": [
+        {
+          "node": "38",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "select",
+      "label": "Scheduler",
+      "default": "simple",
+      "options": [
+        {
+          "value": "simple",
+          "label": "simple"
+        },
+        {
+          "value": "normal",
+          "label": "normal"
+        },
+        {
+          "value": "karras",
+          "label": "karras"
+        },
+        {
+          "value": "exponential",
+          "label": "exponential"
+        },
+        {
+          "value": "sgm_uniform",
+          "label": "sgm_uniform"
+        }
+      ],
+      "bind": [
+        {
+          "node": "38",
+          "field": "scheduler"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "38",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "lora_name",
+      "type": "select",
+      "label": "Character-swap LoRA",
+      "default": "h3_image_character_swap_v1.safetensors",
+      "options": [
+        {
+          "value": "h3_image_character_swap_v1.safetensors",
+          "label": "h3_image_character_swap_v1"
+        },
+        {
+          "value": "h3_character_swap_pro4500_1000.safetensors",
+          "label": "h3_character_swap_pro4500_1000"
+        }
+      ],
+      "bind": [
+        {
+          "node": "63",
+          "field": "loras.0.lora_name"
+        }
+      ]
+    },
+    {
+      "id": "lora_strength",
+      "type": "slider",
+      "label": "LoRA strength",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "default": 1,
+      "bind": [
+        {
+          "node": "63",
+          "field": "loras.0.strength"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model (DiT)",
+      "default": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_image_pruned_int8_convrot.safetensors",
+          "label": "minimax_h3_image_pruned_int8_convrot.safetensors"
+        }
+      ],
+      "bind": [
+        {
+          "node": "29",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+        }
+      ],
+      "bind": [
+        {
+          "node": "30",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Image VAE",
+      "default": "minimax_h3_image_vae_fp16.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_image_vae_fp16.safetensors",
+          "label": "minimax_h3_image_vae_fp16.safetensors"
+        }
+      ],
+      "bind": [
+        {
+          "node": "31",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/minimax-h3-image-character-swap",
+      "bind": [
+        {
+          "node": "9",
+          "field": "filename_prefix"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "9",
+      "type": "image",
+      "label": "Character swap"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.98,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "vae/minimax_h3_image_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 1.17,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "local/h3-image-character-swap",
+      "file": "loras/h3_image_character_swap_v1.safetensors",
+      "dir": "loras",
+      "gb": 0.155,
+      "phase": "denoise",
+      "license": "Local character-swap LoRA",
+      "local": true
+    }
+  ]
+}
