@@ -454,9 +454,27 @@ export function sequentialDirectorView(app, f) {
           onPick: (file) => { revoke(seg.cutStartUrl); seg.cutStart = file; seg.cutStartUrl = URL.createObjectURL(file); invalidationFrom(st, i); rememberData(seg, "cutStartData", file, st, app); persist(st, app); draw(); },
           onClear: () => { revoke(seg.cutStartUrl); seg.cutStart = null; seg.cutStartUrl = null; seg.cutStartData = null; invalidationFrom(st, i); persist(st, app); draw(); },
         })
-        : el("span", { class: `dir-chip ${prev?.lastFrameUrl ? "on" : ""}`.trim(), title: "First frame from the previous approved segment" },
-          prev?.lastFrameUrl ? el("img", { src: prev.lastFrameUrl, alt: "" }) : icon("image"),
-          el("span", {}, prev?.lastFrameUrl ? "Previous segment’s last frame" : "Previous segment not approved yet"));
+        : (() => {
+          const chooseAnother = (file) => {
+            revoke(seg.cutStartUrl);
+            seg.cut = true;
+            seg.cutStart = file;
+            seg.cutStartUrl = URL.createObjectURL(file);
+            invalidationFrom(st, i);
+            rememberData(seg, "cutStartData", file, st, app);
+            persist(st, app);
+            draw();
+          };
+          return el("span", { style: { display: "inline-flex", gap: "6px", flexWrap: "wrap", alignItems: "center" } },
+            mediaChip(prev?.lastFrameUrl ? "Previous segment’s last frame" : "Previous frame not ready", prev?.lastFrameUrl, {
+              onPick: chooseAnother,
+              title: "Click to use another picture as this segment’s first frame (creates a hard cut)",
+            }),
+            mediaChip("Choose another image", null, {
+              onPick: chooseAnother,
+              title: "Use a new first image for this segment instead of the previous last frame",
+            }));
+        })();
 
     const keyframe = mediaChip(seg.last ? "Final keyframe" : "Add final keyframe", seg.lastUrl, {
       onPick: (file) => { revoke(seg.lastUrl); seg.last = file; seg.lastUrl = URL.createObjectURL(file); invalidationFrom(st, i); rememberData(seg, "lastData", file, st, app); persist(st, app); draw(); },
