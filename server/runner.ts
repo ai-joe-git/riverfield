@@ -121,7 +121,7 @@ export function resolveValues(app: App, values: Values): Values {
   // The video app exposes a hidden "Use last frame" switch. Derive it from the optional
   // file so the UI only has to show a last-frame dropzone: upload it and it is used,
   // leave it empty and the original first-frame-only graph stays untouched.
-  if (app.id === "video" && app.inputs.some((i) => i.id === "last_frame_enabled")) {
+  if (app.inputs.some((i) => i.id === "last_frame_enabled")) {
     out.last_frame_enabled = out.last_frame !== undefined;
   }
   // A select option can recommend other form values (a LoRA's trained steps, sampler and

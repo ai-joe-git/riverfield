@@ -1,0 +1,745 @@
+{
+  "id": "ltx-sequential-director",
+  "name": "RiverField LTX Sequential Director",
+  "section": "video",
+  "pack": "video-ltx25",
+  "status": "ready",
+  "higgsfield_feature": "AI Director",
+  "summary": "Segment-by-segment LTX 2.5 director: last frame feeds the next run, optional final keyframes and hard cuts, approve before assembly.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "LTX 2.5 video (I2V / first-and-last frame)",
+    "comfyui": "0.42.0",
+    "notes": "The segment graph is the LTX 2.5 video app with its optional last frame. The sequential panel submits that graph once per segment and never relies on an IC-LoRA: it extracts each finished segment’s last frame, feeds it as the next first frame, carries an optional per-segment final keyframe, and lets a cut replace the handoff with a new start image. Segment videos are separate History runs; the final assembly is a bounded ffmpeg concat."
+  },
+  "outputs": [
+    {
+      "node": "75",
+      "type": "video",
+      "label": "Video"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "diffusion_models/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 21.5,
+      "phase": "denoise",
+      "gated": true,
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 15.37,
+      "phase": "encode",
+      "gated": true,
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.47,
+      "phase": "decode",
+      "gated": true,
+      "license": "LTX-2.x Community License",
+      "optional": true
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-audio-vae-bf16.safetensors",
+      "dir": "vae",
+      "gb": 0.36,
+      "phase": "decode",
+      "gated": true,
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "dir": "latent_upscale_models",
+      "gb": 1.0,
+      "phase": "aux",
+      "gated": true,
+      "license": "LTX-2.x Community License"
+    },
+    {
+      "repo": "Comfy-Org/gemma-4",
+      "file": "text_encoders/gemma4_e2b_it_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 5.2,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Lightricks/LTX-2.5",
+      "file": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
+      "dir": "vae",
+      "gb": 1.45,
+      "phase": "decode",
+      "license": "LTX-2.x Community License",
+      "gated": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "aux",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "aux",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "aux",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "aux",
+      "license": "Apache-2.0",
+      "optional": true
+    }
+  ],
+  "credits": [
+    "LTX-2.5 by Lightricks",
+    "Workflow adapted from ComfyUI's official LTX-2.5 template"
+  ],
+  "test": {
+    "image": "test/portrait.png",
+    "prompt": "she smiles and looks at the camera",
+    "duration": 2
+  },
+  "layout": "director",
+  "panel_title": "LTX Sequential Director",
+  "notes": "A custom director panel (web/js/sequential.js) drives the chain. Approve each segment before the next dependent segment; a hard cut with a new start image intentionally breaks the handoff. No IC-LoRA is required. The first version carries one last-frame image between runs; video/audio context continuation is a later feature.",
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "First frame",
+      "required": true,
+      "limits": {
+        "max_mb": 20
+      },
+      "bind": [
+        {
+          "node": "395",
+          "field": "image"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "last_frame",
+      "type": "image",
+      "label": "Last frame",
+      "required": false,
+      "help": "Optional end keyframe. When provided, the shot settles onto this picture; it is resized to the first frame dimensions. Leave empty for first-frame-only animation.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "lastframe_load",
+          "field": "image"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "last_frame_enabled",
+      "type": "toggle",
+      "label": "Use last frame",
+      "default": false,
+      "hidden": true,
+      "bind": [
+        {
+          "node": "lastenable",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "The camera slowly pushes in as she turns her head toward the light, hair moving in the wind",
+      "bind": [
+        {
+          "node": "398:376",
+          "field": "value"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "negative_prompt",
+      "type": "textarea",
+      "label": "Negative prompt",
+      "default": "pc game, console game, video game, cartoon, childish, ugly",
+      "help": "What the model should avoid.",
+      "bind": [
+        {
+          "node": "398:373",
+          "field": "text"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "enhance",
+      "type": "toggle",
+      "label": "Enhance prompt",
+      "default": true,
+      "help": "Rewrite the prompt with the prompt-enhancer model before sampling.",
+      "bind": [
+        {
+          "node": "398:383",
+          "field": "value"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "enhancer_clip_name",
+      "type": "select",
+      "label": "Prompt enhancer model",
+      "default": "gemma4_e2b_it_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "gemma4_e2b_it_int8_convrot.safetensors",
+          "label": "Gemma 4 E2B IT INT8 (4.9 GB)"
+        }
+      ],
+      "help": "The small Gemma model used by Enhance prompt.",
+      "bind": [
+        {
+          "node": "398:393",
+          "field": "clip_name"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "duration",
+      "type": "slider",
+      "label": "Duration (s)",
+      "min": 2,
+      "max": 30,
+      "step": 1,
+      "default": 5,
+      "help": "24 fps, snapped to the LTX 8n+1 grid.",
+      "bind": [
+        {
+          "node": "398:362",
+          "field": "value"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "fps",
+      "type": "slider",
+      "label": "Frame rate",
+      "min": 8,
+      "max": 30,
+      "step": 1,
+      "default": 24,
+      "help": "Playback and conditioning frame rate. The frame count follows the duration and this rate.",
+      "bind": [
+        {
+          "node": "398:361",
+          "field": "value"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "aspect",
+      "type": "select",
+      "label": "Aspect ratio",
+      "default": "16:9 (Widescreen)",
+      "options": [
+        {
+          "value": "16:9 (Widescreen)",
+          "label": "16:9"
+        },
+        {
+          "value": "9:16 (Portrait Widescreen)",
+          "label": "9:16"
+        },
+        {
+          "value": "1:1 (Square)",
+          "label": "1:1"
+        },
+        {
+          "value": "4:3 (Standard)",
+          "label": "4:3"
+        },
+        {
+          "value": "3:4 (Portrait Standard)",
+          "label": "3:4"
+        },
+        {
+          "value": "21:9 (Ultrawide)",
+          "label": "21:9"
+        }
+      ],
+      "bind": [
+        {
+          "node": "403",
+          "field": "aspect_ratio"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "megapixels",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 0.2,
+      "max": 2,
+      "step": 0.1,
+      "default": 0.9,
+      "help": "0.9 MP is about 1280x704 in 16:9.",
+      "bind": [
+        {
+          "node": "403",
+          "field": "megapixels"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "multiple",
+      "type": "select",
+      "label": "Size multiple",
+      "default": 32,
+      "options": [
+        {
+          "value": 8,
+          "label": "8"
+        },
+        {
+          "value": 16,
+          "label": "16"
+        },
+        {
+          "value": 32,
+          "label": "32 (LTX default)"
+        },
+        {
+          "value": 64,
+          "label": "64"
+        }
+      ],
+      "bind": [
+        {
+          "node": "403",
+          "field": "multiple"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "steps",
+      "type": "select",
+      "label": "High-res steps",
+      "default": 9,
+      "options": [
+        {
+          "value": 9,
+          "label": "9 (quality)",
+          "sets": [
+            {
+              "node": "398:fastflag",
+              "field": "value",
+              "value": false
+            }
+          ]
+        },
+        {
+          "value": 4,
+          "label": "4 (fast draft)",
+          "sets": [
+            {
+              "node": "398:fastflag",
+              "field": "value",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "help": "The low-resolution stage stays at 4 steps; this switches the high-resolution stage between 4 and 9 steps.",
+      "hidden": true
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler_ancestral",
+      "options": [
+        {
+          "value": "euler",
+          "label": "euler"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "euler_ancestral"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "dpmpp_2m"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "dpmpp_2m_sde"
+        },
+        {
+          "value": "res_multistep",
+          "label": "res_multistep"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:341",
+          "field": "sampler_name"
+        },
+        {
+          "node": "398:352",
+          "field": "sampler_name"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "one_pass",
+      "type": "toggle",
+      "label": "One-pass full resolution",
+      "default": false,
+      "help": "On: sample directly at the selected resolution and skip the latent x2 upscaler/second pass. Off: the existing half-resolution first pass + latent x2 second pass.",
+      "bind": [
+        {
+          "node": "398:onepass",
+          "field": "value"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "upscale",
+      "type": "select",
+      "label": "RelayVSR upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "None — native LTX resolution"
+        },
+        {
+          "value": "x2",
+          "label": "2× — RelayVSR x2 (lightx2v DIT + Flash VAE)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x2_fp32.safetensors"
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RelayVSR x4 (the paper 4× model)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x4_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x4_fp32.safetensors"
+            }
+          ]
+        }
+      ],
+      "help": "Optional RelayVSR pass on the decoded LTX frames. None keeps the native result; x2/x4 use the matching DIT and Flash VAE, and x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "vsr_decode",
+          "field": "images"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "upscale_detail",
+      "type": "slider",
+      "label": "Upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "RelayVSR: how much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output.",
+      "bind": [
+        {
+          "node": "vsr_decode",
+          "field": "detail"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed",
+      "bind": [
+        {
+          "node": "398:339",
+          "field": "noise_seed"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+          "label": "LTX 2.5 22B distilled (int8 convrot)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:384",
+          "field": "unet_name"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "weight_dtype",
+      "type": "select",
+      "label": "Weight dtype",
+      "default": "default",
+      "options": [
+        {
+          "value": "default",
+          "label": "default"
+        },
+        {
+          "value": "fp8_e4m3fn",
+          "label": "fp8_e4m3fn"
+        },
+        {
+          "value": "fp8_e4m3fn_fast",
+          "label": "fp8_e4m3fn_fast"
+        },
+        {
+          "value": "fp8_e5m2",
+          "label": "fp8_e5m2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:384",
+          "field": "weight_dtype"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+      "options": [
+        {
+          "value": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
+          "label": "Gemma 4 12B + LTX 2.5 projection (int8 convrot)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:387",
+          "field": "clip_name"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Video VAE",
+      "default": "ltx-2.5-video-vae-conv-bf16.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-video-vae-conv-bf16.safetensors",
+          "label": "LTX 2.5 video VAE Conv (bf16, 1.45 GB)"
+        },
+        {
+          "value": "ltx-2.5-video-vae-bf16.safetensors",
+          "label": "LTX 2.5 video VAE (bf16)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:385",
+          "field": "vae_name"
+        }
+      ],
+      "help": "The video VAE used to decode the clip. Conv bf16 is the new default; the original bf16 stays available.",
+      "hidden": true
+    },
+    {
+      "id": "audio_vae_name",
+      "type": "select",
+      "label": "Audio VAE",
+      "default": "ltx-2.5-audio-vae-bf16.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-audio-vae-bf16.safetensors",
+          "label": "LTX 2.5 audio VAE (bf16)"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:386",
+          "field": "vae_name"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "upscaler",
+      "type": "select",
+      "label": "Latent upscaler",
+      "default": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+      "options": [
+        {
+          "value": "ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors",
+          "label": "LTX 2.5 spatial upscaler x2"
+        }
+      ],
+      "bind": [
+        {
+          "node": "398:371",
+          "field": "model_name"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/sequential",
+      "bind": [
+        {
+          "node": "75",
+          "field": "filename_prefix"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "format",
+      "type": "select",
+      "label": "Container",
+      "default": "mp4",
+      "options": [
+        {
+          "value": "mp4",
+          "label": "MP4"
+        },
+        {
+          "value": "mkv",
+          "label": "MKV"
+        },
+        {
+          "value": "webm",
+          "label": "WebM"
+        },
+        {
+          "value": "mov",
+          "label": "MOV"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "75",
+          "field": "format"
+        }
+      ],
+      "hidden": true
+    },
+    {
+      "id": "codec",
+      "type": "select",
+      "label": "Codec",
+      "default": "h264",
+      "options": [
+        {
+          "value": "h264",
+          "label": "H.264"
+        },
+        {
+          "value": "av1",
+          "label": "AV1"
+        },
+        {
+          "value": "prores",
+          "label": "ProRes"
+        },
+        {
+          "value": "auto",
+          "label": "Auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "75",
+          "field": "format.codec"
+        }
+      ],
+      "hidden": true
+    }
+  ]
+}

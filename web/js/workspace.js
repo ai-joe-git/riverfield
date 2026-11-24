@@ -3,6 +3,7 @@
 //   sidebar:  upload-first apps (video, tools): controls in a left column, results and examples on the right
 import { el, icon, store, toast, popover, closePopover, fmtSeconds, fmtShort, isMedia, extOf, isImageSrc, masonry } from "./util.js";
 import { directorView } from "./director.js";
+import { sequentialDirectorView } from "./sequential.js";
 import { t } from "./i18n.js";
 import {
   byId, layoutOf, familyOf, VIDEO_TABS, videoTabOf, tagline, iconOf, promptInput, estimate, fitOf, rememberApp, categoryOf, CATEGORIES, apps,
@@ -960,7 +961,8 @@ function mainArea(app, layout, disposers) {
     denseBtn.hidden = wsTab !== "history";
     disposeBody?.();
     disposeBody = null;
-    if (director && wsTab === "director") body.replaceChildren(directorView(app, formFor(app), { onSubmit: () => { void submit(app, {}); } }));
+    if (director && wsTab === "director") body.replaceChildren(
+      app.id === "ltx-sequential-director" ? sequentialDirectorView(app) : directorView(app, formFor(app), { onSubmit: () => { void submit(app, {}); } }));
     else if (wsTab === "history") disposeBody = feedView(body, { app: app.id, empty: () => emptyFor(app, layout), dense });
     else body.replaceChildren(wsTab === "library" ? libraryTab(app) : howTab(app));
   };

@@ -255,6 +255,7 @@ export function loadRegistry(root = repoRoot()): { apps: App[]; problems: Proble
       label: "Extract last frame",
       default: false,
       help: "After the clip renders, save its last frame as an extra image in History. It can be used as an input in every app that takes a picture. No extra GPU work.",
+      ...(app.id === "ltx-sequential-director" ? { hidden: true } : {}),
     });
   }
   // modes: every app in the switch exists and lists the same ids in the same order

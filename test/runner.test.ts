@@ -331,6 +331,23 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
   }
 });
 
+test("the sequential director is a ready LTX segment chain", () => {
+  const app = byId("ltx-sequential-director");
+  assert.equal(app.layout, "director");
+  assert.equal(app.panel_title, "LTX Sequential Director");
+  assert.ok(app.outputs.some((o) => o.type === "video"));
+  assert.equal(app.status, "ready");
+  assert.equal(app.inputs.find((i) => i.id === "last_frame")?.required, false);
+  const exportToggle = app.inputs.find((i) => i.id === "last_frame_export")!;
+  assert.equal(exportToggle.hidden, true, "the chain sets last-frame export itself");
+  const values = resolveValues(app, {
+    image: { bytes: new Uint8Array([1]), name: "start.png" },
+    prompt: "continue",
+    last_frame: { bytes: new Uint8Array([2]), name: "end.png" },
+  });
+  assert.equal(values.last_frame_enabled, true, "the segment's optional end keyframe is enabled by file presence");
+});
+
 test("every video app offers the last-frame export post-process", () => {
   const videoApps = apps.filter((a) => a.outputs.some((o) => o.type === "video"));
   assert.ok(videoApps.length > 10, "the catalogue has video apps");
