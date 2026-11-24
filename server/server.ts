@@ -14,6 +14,10 @@
 //   GET    /api/jobs/:id[/outputs/:oid]      raw SDK job view (kept for scripts)
 //   GET    /api/flags                        lab examples marked "mediocre" from the UI (lab/flags.json)
 //   POST   /api/flags                        JSON { key, mediocre, note? }: mark or unmark one example
+//   GET    /api/directors/:app               durable Director project (timeline + media metadata)
+//   PUT    /api/directors/:app               save a Director's editable values
+//   POST   /api/directors/:app/media/:slot   store one picture/clip/sound for that timeline
+//   DELETE /api/directors/:app/media/:slot   remove it
 // Everything else is served from web/ when it exists (with byte ranges, so videos seek everywhere).
 // Hosted (server/guard.ts): RIVERFIELD_PASSCODE closes every route behind a passcode, RIVERFIELD_MAX_RUNS_PER_DAY and
 // RIVERFIELD_MAX_ACTIVE cap the runs (429 past them), lab marks become read-only and uploads are capped at
@@ -26,6 +30,7 @@ import { extname, join, normalize } from "node:path";
 import { loadRegistry, repoRoot, isFileInput, type App } from "./registry.ts";
 import { explainSubmitError, InputError, resolveValues, Runner, type Values } from "./runner.ts";
 import { History } from "./history.ts";
+import { DirectorStore } from "./director-store.ts";
 import { Flags } from "./flags.ts";
 import { DOOR_HTML, foreign, Guard, plainHttpToIp } from "./guard.ts";
 import { InferenceQueue } from "./inference-queue.ts";
@@ -91,6 +96,7 @@ const history = new History(join(outDir, "history"), {
   recheck: (jobId) => getRunner().jobs().get(jobId),
 });
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
+const directors = new DirectorStore(outDir, byId);
 const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
 const mcpURL=process.env.RIVERFIELD_AGENT_MCP_URL||`${studioURL}/mcp`;
 const native=new NativeRuntime(join(outDir,"native-runtime"));
@@ -348,6 +354,32 @@ const server = createServer(async (req, res) => {
     }
     if (parts[0] === "api") {
       const [, area, id, sub, arg] = parts;
+      if (area === "directors") {
+        // Local-only: Director projects contain private media, and hosted demos are per-visitor.
+        if (guard.hosted) return send(res, 404, { error: "Director projects are local-only" });
+        const app = id ? byId.get(id) : undefined;
+        if (!app || !app.inputs.some((i) => i.id === "segment_windows")) return send(res, 404, { error: "unknown Director app" });
+        if (req.method === "GET" && !sub) return send(res, 200, directors.view(id!));
+        if (req.method === "PUT" && !sub) {
+          const raw = await (await toRequest(req, 24)).json() as { values?: unknown; savedAt?: unknown };
+          return send(res, 200, directors.saveValues(id!, raw?.values, raw?.savedAt));
+        }
+        if (sub === "media" && arg) {
+          if (req.method === "GET" || req.method === "HEAD") {
+            const file = directors.mediaPath(id!, arg);
+            if (!file) return send(res, 404, { error: "no such Director media" });
+            return sendFile(req, res, file, "private, no-cache");
+          }
+          if (req.method === "POST") {
+            const form = await (await toRequest(req, 512)).formData();
+            const f = form.get("file");
+            if (!f || typeof f === "string") throw new InputError("Upload a file");
+            return send(res, 200, directors.putMedia(id!, arg, new Uint8Array(await f.arrayBuffer()), f.name, f.type));
+          }
+          if (req.method === "DELETE") return send(res, 200, directors.deleteMedia(id!, arg));
+        }
+        return send(res, 404, { error: "Unknown Director route" });
+      }
       if(area==="agent"){
         localAccess(req);if(guard.hosted)return send(res,403,{error:"Agent provider settings are disabled on public hosted demos"});
         const body=async()=>await (await toRequest(req,22)).json();

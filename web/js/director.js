@@ -174,13 +174,132 @@ function mediaEntries(prefix) {
   }));
 }
 
-export function directorView(app, f, { onSubmit, onDirty }) {
+export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   const st = stateFor(app, f);
   // The browser app object does not include the server-side graph. Every H3 Material
   // Planner manifest exposes segment_count; the LTX directors do not, so this is the
   // reliable client-side discriminator (and it keeps LTX untouched).
   const h3Planner = app.inputs.some((i) => i.id === "segment_count");
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
+  // Durable project state lives on the server (out/directors/<app>). IndexedDB remains
+  // the fast local copy; the server copy makes a reload or another browser on the LAN
+  // show the same timeline and the same pictures.
+  const mediaInputs = new Set(app.inputs.filter((i) => i.type === "image" || i.type === "video" || i.type === "audio").map((i) => i.id));
+  const valueInputs = new Set(app.inputs.filter((i) => !(i.type === "image" || i.type === "video" || i.type === "audio")).map((i) => i.id));
+  let localSavedAt = Number(store.get(`dir.saved.${app.id}`)) || 0;
+  let restoring = true;
+  let serverLoaded = false;
+  let serverSaveTimer = 0;
+  function saveDirty() {
+    if (!restoring) {
+      localSavedAt = Date.now();
+      store.set(`dir.saved.${app.id}`, localSavedAt);
+    }
+    onDirty?.();
+    if (!restoring && serverLoaded) scheduleServerSave();
+  }
+  function scheduleServerSave() {
+    if (!serverLoaded) return;
+    clearTimeout(serverSaveTimer);
+    serverSaveTimer = setTimeout(() => { void pushServerState(); }, 350);
+  }
+  function projectValues() {
+    const values = {};
+    for (const [key, value] of Object.entries(f.values)) if (valueInputs.has(key)) values[key] = value;
+    return values;
+  }
+  async function pushServerState() {
+    if (!serverLoaded) return;
+    clearTimeout(serverSaveTimer);
+    try {
+      const res = await fetch(`/api/directors/${app.id}`, {
+        method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ values: projectValues(), savedAt: localSavedAt || Date.now() }),
+      });
+      if (!res.ok) return;
+      const state = await res.json();
+      if (state && Number.isFinite(Number(state.savedAt))) {
+        localSavedAt = Number(state.savedAt);
+        store.set(`dir.saved.${app.id}`, localSavedAt);
+      }
+    } catch { /* local fallback stays usable */ }
+  }
+  async function uploadServerMedia(slot, file) {
+    const form = new FormData();
+    form.append("file", file, file.name || slot);
+    const res = await fetch(`/api/directors/${app.id}/media/${slot}`, { method: "POST", body: form });
+    if (!res.ok) throw new Error(`media upload answered ${res.status}`);
+    return res.json();
+  }
+  async function deleteServerMedia(slot) {
+    try { await fetch(`/api/directors/${app.id}/media/${slot}`, { method: "DELETE" }); } catch { /* local only */ }
+  }
+  async function loadServerState() {
+    try {
+      const res = await fetch(`/api/directors/${app.id}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }
+  function applyServerValues(values) {
+    if (!values || typeof values !== "object" || Array.isArray(values)) return false;
+    for (const [key, value] of Object.entries(values)) if (valueInputs.has(key)) f.values[key] = value;
+    const next = parseState(f);
+    st.windows = next.windows;
+    st.videos = next.videos;
+    st.audios = next.audios;
+    selected = Math.min(selected, Math.max(0, st.windows.length - 1));
+    stateCache.set(app.id, { raw: f.values.segment_windows, state: st });
+    return true;
+  }
+  async function loadServerMedia(remote, overwrite) {
+    const media = remote?.media && typeof remote.media === "object" ? remote.media : {};
+    for (const [slot, entry] of Object.entries(media)) {
+      if (!mediaInputs.has(slot) || (!overwrite && f.files[slot])) continue;
+      try {
+        const res = await fetch(`/api/directors/${app.id}/media/${slot}`, { cache: "no-store" });
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const file = new File([blob], entry.name || slot, { type: entry.mime || blob.type || "application/octet-stream" });
+        if (f.files[slot]?.url) URL.revokeObjectURL(f.files[slot].url);
+        f.files[slot] = { file, url: URL.createObjectURL(file) };
+        if (entry.type === "image") rememberMedia(slot, file);
+      } catch { /* keep the local copy when the server copy is unreadable */ }
+    }
+  }
+  async function restoreProject() {
+    await restoreMediaFiles();
+    const remote = await loadServerState();
+    const localSaved = localSavedAt;
+    const remoteSaved = Number(remote?.savedAt) || 0;
+    const hasLocalTimeline = typeof f.values.segment_windows === "string" && f.values.segment_windows.trim().length > 0;
+    const hasRemoteTimeline = Boolean(remote?.values) && typeof remote.values.segment_windows === "string" && remote.values.segment_windows.trim().length > 0;
+    const useServer = hasRemoteTimeline && (!hasLocalTimeline || remoteSaved > localSaved + 1000);
+    if (useServer) {
+      applyServerValues(remote.values);
+      localSavedAt = remoteSaved;
+      store.set(`dir.saved.${app.id}`, localSavedAt);
+    }
+    await loadServerMedia(remote, useServer);
+    const remoteMedia = remote?.media && typeof remote.media === "object" ? remote.media : {};
+    for (const [slot, item] of Object.entries(f.files)) {
+      if (!mediaInputs.has(slot) || !item?.file) continue;
+      const saved = remoteMedia[slot];
+      if (saved && saved.name === item.file.name && Number(saved.size) === item.file.size) continue;
+      try { await uploadServerMedia(slot, item.file); } catch { /* keep local */ }
+    }
+    if (pruneMedia(st, app, f) || fillDefaultPictures()) {
+      persistState(app, f, st);
+      localSavedAt = Date.now();
+      store.set(`dir.saved.${app.id}`, localSavedAt);
+    }
+    serverLoaded = true;
+    restoring = false;
+    onDirty?.();
+    if (!useServer) await pushServerState();
+    draw();
+    if (useServer && root.isConnected) onRestored?.();
+  }
   async function restoreMediaFiles() {
     try {
       // Migrate the short-lived localStorage image cache from the previous build into
@@ -248,7 +367,6 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     }
     return changed;
   }
-  const mediaReady = restoreMediaFiles();
   let selected = 0;
   let zoom = Number(store.get("dir.zoom")) || 70;
   let drag = null;
@@ -357,7 +475,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     normalizeOverlaps();
     pruneMedia(st, app, f);
     persistState(app, f, st);
-    onDirty?.();
+    saveDirty();
     draw();
   }
 
@@ -369,6 +487,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const url = URL.createObjectURL(file);
     f.files[free.id] = { file, url };
     if (type === "image") rememberMedia(free.id, file);
+    void uploadServerMedia(free.id, file).catch(() => {});
     if (h3Planner && type === "image") fillDefaultPictures();
     pendingMeta++;
     probe(url, type).then((m) => {
@@ -385,6 +504,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     delete f.files[slot];
     meta.delete(slot);
     forgetMedia(slot);
+    void deleteServerMedia(slot);
     const type = slot.replace(/\d+$/, "");
     const index = Number(slot.replace(/\D/g, "")) - 1;
     for (const w of st.windows) {
@@ -747,7 +867,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       onclick: () => { w.end = w.start + alignedLength(w.end - w.start, MIN_LEN); changed(); } }, "H3");
 
     const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "Prompt for this segment (empty: the global prompt is used)", value: w.prompt || "" });
-    prompt.addEventListener("input", () => { w.prompt = prompt.value; persistState(app, f, st); onDirty?.(); drawTracks(); });
+    prompt.addEventListener("input", () => { w.prompt = prompt.value; persistState(app, f, st); saveDirty(); drawTracks(); });
 
     const imgs = mediaOf(app, f, "image");
     const auds = mediaOf(app, f, "audio");
@@ -824,7 +944,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
         el("option", { value: "edit" }, "edit"),
         el("option", { value: "boundary" }, "boundary"));
       mode.value = v.referenceMode || "guide";
-      mode.onchange = () => { v.referenceMode = mode.value; persistState(app, f, st); onDirty?.(); };
+      mode.onchange = () => { v.referenceMode = mode.value; persistState(app, f, st); saveDirty(); };
       return el("span", { class: "dir-chip on ghost", title: `${m.name} · ${fmt(v.start)}s → ${fmt(v.start + v.duration)}s` },
         icon("film"), el("span", {}, m.name), el("small", {}, `${fmt(v.duration)}s`), mode);
     }).filter(Boolean);
@@ -942,7 +1062,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
         st.windows.push(...next);
       }
       persistState(app, f, st);
-      onDirty?.();
+      saveDirty();
       dialog.close();
       changed();
       toast(`${prompts.length} segment${prompts.length === 1 ? "" : "s"} ${replace ? "created" : "added"}.`);
@@ -971,16 +1091,16 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const hasTwoStage = app.inputs.some((i) => i.id === "two_stage");
     const two = hasTwoStage ? el("button", {
       type: "button", class: `dir-toggle${f.values.two_stage ? " on" : ""}`,
-      onclick: () => { f.values.two_stage = !f.values.two_stage; onDirty?.(); draw(); },
+      onclick: () => { f.values.two_stage = !f.values.two_stage; saveDirty(); draw(); },
     }, icon("spark"), "Two-stage") : null;
     let upscaler = null;
     if (f.values.two_stage) {
       const options = (app.inputs.find((i) => i.id === "upscaler")?.options || []).filter((o) => o.value);
       const sel = el("select", { class: "dir-sel", title: "Latent upscaler" }, ...options.map((o) => el("option", { value: o.value }, o.label || o.value)));
       sel.value = f.values.upscaler || (options[0]?.value ?? "");
-      sel.onchange = () => { f.values.upscaler = sel.value; onDirty?.(); };
+      sel.onchange = () => { f.values.upscaler = sel.value; saveDirty(); };
       const steps = el("input", { class: "dir-num", type: "number", min: "0", max: "20", step: "1", value: String(f.values.high_steps ?? 2), title: "High-resolution steps" });
-      steps.onchange = () => { f.values.high_steps = clamp(Number(steps.value) || 0, 0, 20); onDirty?.(); };
+      steps.onchange = () => { f.values.high_steps = clamp(Number(steps.value) || 0, 0, 20); saveDirty(); };
       upscaler = el("div", { class: "dir-two" }, sel, el("span", {}, "hi-steps"), steps);
     }
     const ws = root.closest(".ws");
@@ -999,10 +1119,10 @@ export function directorView(app, f, { onSubmit, onDirty }) {
 
   function drawFoot() {
     const prompt = el("textarea", { class: "dir-global", rows: "2", placeholder: "Global prompt — used by every segment whose own prompt is empty", value: f.values.global_prompt || "" });
-    prompt.addEventListener("input", () => { f.values.global_prompt = prompt.value; onDirty?.(); });
+    prompt.addEventListener("input", () => { f.values.global_prompt = prompt.value; saveDirty(); });
     const go = el("button", { class: "btn dir-go", type: "button" }, icon("spark"), "Generate");
     go.onclick = () => {
-      if (normalizeOverlaps()) { persistState(app, f, st); onDirty?.(); draw(); }
+      if (normalizeOverlaps()) { persistState(app, f, st); saveDirty(); draw(); }
       onSubmit?.();
     };
     footEl.replaceChildren(el("div", { class: "dir-global-wrap" }, prompt), go);
@@ -1011,7 +1131,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   function draw() {
     // Existing timelines can carry an overlap created before the H3 snapping rule. Repair
     // it on load and on every redraw, not only when the user presses Generate.
-    if (normalizeOverlaps()) { persistState(app, f, st); onDirty?.(); }
+    if (normalizeOverlaps()) { persistState(app, f, st); saveDirty(); }
     // normalise clip durations against the probed media before anything renders
     for (const m of mediaOf(app, f, "video")) clipFor("video", m.index);
     for (const m of mediaOf(app, f, "audio")) clipFor("audio", m.index);
@@ -1030,16 +1150,10 @@ export function directorView(app, f, { onSubmit, onDirty }) {
 
   root.append(headEl, el("div", { class: "dir-body" }, binEl, el("div", { class: "dir-main" }, stage, segEl)), footEl);
   draw();
-  mediaReady.then(() => {
-    for (const [slot, x] of Object.entries(f.files)) if (slot.startsWith("image") && x?.file) rememberMedia(slot, x.file);
-    if (pruneMedia(st, app, f) || fillDefaultPictures()) {
-      persistState(app, f, st);
-      onDirty?.();
-    }
-    draw();
-  });
+  for (const [slot, x] of Object.entries(f.files)) if (slot.startsWith("image") && x?.file) rememberMedia(slot, x.file);
   persistState(app, f, st);
-  onDirty?.();
+  saveDirty();
+  void restoreProject();
   return root;
 }
 
