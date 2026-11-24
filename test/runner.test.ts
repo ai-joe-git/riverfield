@@ -269,10 +269,8 @@ test("the extra Qwen3.8 uncensored prompt models are selectable wherever Qwen3.8
     "Huihui-Qwen3.8-27B-abliterated_int8_convrot.safetensors",
     "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
   ];
-  for (const id of ["h3-image", "h3-image-edit"]) {
-    const pe = byId(id).inputs.find((i) => i.id === "pe_model")!;
-    for (const file of files) assert.ok(pe.options?.some((o) => o.value === file), `${id}: pe_model lacks ${file}`);
-  }
+  const pe = byId("h3-image").inputs.find((i) => i.id === "pe_model")!;
+  for (const file of files) assert.ok(pe.options?.some((o) => o.value === file), `h3-image: pe_model lacks ${file}`);
   const clip = byId("studio-director").inputs.find((i) => i.id === "clip_name")!;
   for (const file of files) assert.ok(clip.options?.some((o) => o.value === file), `studio-director: clip_name lacks ${file}`);
 });
@@ -521,30 +519,32 @@ test("the Chatterbox voice apps chunk long scripts before synthesis", () => {
   }
 });
 
-test("H3 Image Edit exposes the model's 16-picture limit and prunes empty references", () => {
+test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references", () => {
   const app = byId("h3-image-edit");
-  assert.equal(app.layout, "sidebar", "the picture slots use the H3 reference app's stacked sidebar, not the composer's empty-icon row");
+  assert.equal(app.layout, "sidebar", "the picture slots keep the H3 reference sidebar");
   const source = app.inputs.find((i) => i.id === "image")!;
   assert.equal(source.required, true, "the photo to edit is still required");
-  for (let n = 2; n <= 16; n += 1) {
+  for (let n = 2; n <= 9; n += 1) {
     const ref = app.inputs.find((i) => i.id === `image_${n}`);
     assert.ok(ref, `missing reference slot ${n}`);
     assert.equal(ref!.required, false, `reference ${n} is optional`);
-    const node = String(61 + n);
+    const node = String(28 + n);
     assert.deepEqual(ref!.bind, [{ node, field: "image" }], `reference ${n} loads from node ${node}`);
     assert.deepEqual(ref!.unlink, [
-      { node: "32", field: `images.image_${n}` },
-      { node: "34", field: `images.image${n}` },
-    ], `reference ${n} cuts both consumers when empty`);
+      { node: "9", field: `images.image_${n}` },
+      { node: "29", field: `images.image${n}` },
+    ], `reference ${n} cuts both p-h3 consumers when empty`);
   }
-  assert.ok(!app.inputs.some((i) => i.id === "image_17"), "16 pictures total, not 17");
+  assert.ok(!app.inputs.some((i) => i.id === "image_10"), "p-h3-image takes nine pictures, not ten");
   const vae = app.inputs.find((i) => i.id === "vae_name")!;
-  assert.deepEqual(vae.options?.map((o) => o.value), ["minimax_h3_image_vae_fp16.safetensors"], "multi-reference edits keep the official fp16 VAE");
+  assert.deepEqual(vae.options?.map((o) => o.value), ["p-h3-image_vae_int8_convrot.safetensors"], "the edit app uses the p-h3-image VAE");
+  const unet = app.inputs.find((i) => i.id === "unet_name")!;
+  assert.deepEqual(unet.options?.map((o) => o.value), ["minimax_h3_fl2va_pruned_int8_convrot.safetensors"], "the p-h3 LoRA rides the FL2VA base");
 
   const src = { bytes: new Uint8Array([1]), name: "source.png" };
   const ref2 = { bytes: new Uint8Array([2]), name: "ref2.png" };
-  const ref16 = { bytes: new Uint8Array([3]), name: "ref16.png" };
-  const values = resolveValues(app, { image: src, image_2: ref2, image_16: ref16, prompt: "use both references" });
+  const ref9 = { bytes: new Uint8Array([3]), name: "ref9.png" };
+  const values = resolveValues(app, { image: src, image_2: ref2, image_9: ref9, prompt: "use both references" });
   const graph = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
   const wf = {
     json: graph,
@@ -552,16 +552,18 @@ test("H3 Image Edit exposes the model's 16-picture limit and prunes empty refere
   };
   applyInputs(app, values, wf, (f) => `asset:${f.name}`);
 
-  assert.deepEqual(graph["32"].inputs["images.image_2"], ["63", 0], "reference 2 reaches the conditioning node");
-  assert.deepEqual(graph["32"].inputs["images.image_16"], ["77", 0], "reference 16 reaches the conditioning node");
-  assert.deepEqual(graph["34"].inputs["images.image2"], ["63", 0], "reference 2 reaches prompt expansion");
-  assert.deepEqual(graph["34"].inputs["images.image16"], ["77", 0], "reference 16 reaches prompt expansion");
-  assert.equal(graph["63"].inputs.image, "asset:ref2.png");
-  assert.equal(graph["77"].inputs.image, "asset:ref16.png");
-  assert.equal(graph["45"].inputs.image, "asset:source.png");
+  assert.deepEqual(graph["6"].inputs.image, ["26", 0], "the source is scaled before the edit");
+  assert.equal(graph["6"].inputs.megapixels, 4, "the Resolution control drives the p-h3 source scale");
+  assert.deepEqual(graph["9"].inputs["images.image_2"], ["30", 0], "reference 2 reaches p-h3 conditioning");
+  assert.deepEqual(graph["9"].inputs["images.image_9"], ["37", 0], "reference 9 reaches p-h3 conditioning");
+  assert.deepEqual(graph["29"].inputs["images.image2"], ["30", 0], "reference 2 reaches the prompt upsampler");
+  assert.deepEqual(graph["29"].inputs["images.image9"], ["37", 0], "reference 9 reaches the prompt upsampler");
+  assert.equal(graph["26"].inputs.image, "asset:source.png");
+  assert.equal(graph["30"].inputs.image, "asset:ref2.png");
+  assert.equal(graph["37"].inputs.image, "asset:ref9.png");
 
-  assert.equal(graph["32"].inputs["images.image_3"], undefined, "an empty slot leaves no dangling edge");
-  assert.equal(graph["34"].inputs["images.image3"], undefined);
-  assert.ok(!graph["64"], "the empty slot's loader is pruned");
-  assert.ok(!graph["65"], "another empty slot's loader is pruned too");
+  assert.equal(graph["9"].inputs["images.image_4"], undefined, "an empty slot leaves no dangling edge");
+  assert.equal(graph["29"].inputs["images.image4"], undefined);
+  assert.ok(!graph["32"], "the empty slot's loader is pruned");
+  assert.ok(!graph["38"] && !graph["39"], "the layout-only Steps and Scheduler primitives never run");
 });
