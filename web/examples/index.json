@@ -5501,6 +5501,41 @@
         "prompt": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
         "expand": true,
         "resolution": 4,
+        "steps": 8,
+        "sampler": "er_sde",
+        "scheduler": "simple",
+        "seed": 573390858548243,
+        "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "clip_name": "p-h3-image_text_encoder_int8_convrot.safetensors",
+        "vae_name": "p-h3-image_vae_int8_convrot.safetensors",
+        "pe_model": "p-h3-image_prompt_upsampler_w4a8.safetensors",
+        "resize": false
+      },
+      "seed": 573390858548243,
+      "seconds": null,
+      "peak_vram_gb": null,
+      "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
+      "run": "local-20261113-h3-image-edit"
+    },
+    "h3-image-edit-minimax": {
+      "case": "h3-image-edit-minimax-taxi",
+      "type": "image",
+      "card": "examples/h3-image-edit/card.jpg",
+      "poster": null,
+      "full": "examples/h3-image-edit/full.jpg",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Photo to edit",
+          "type": "image",
+          "src": "examples/h3-image-edit/input-image.jpg",
+          "full": "examples/h3-image-edit/input-image-full.jpg"
+        }
+      ],
+      "values": {
+        "prompt": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
+        "expand": true,
+        "resolution": 4,
         "steps": 6,
         "sampler": "euler",
         "scheduler": "simple",

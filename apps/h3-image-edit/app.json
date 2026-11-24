@@ -1,7 +1,7 @@
 {
   "$schema": "../../schema/app.schema.json",
   "id": "h3-image-edit",
-  "name": "H3 Image Edit",
+  "name": "p-H3 Image Edit",
   "section": "image",
   "pack": "image-h3",
   "status": "ready",

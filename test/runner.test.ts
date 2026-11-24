@@ -678,3 +678,18 @@ test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references",
   applyInputs(app, on, onWf, (f) => `asset:${f.name}`);
   assert.equal(onGraph["40"].inputs.switch, true, "custom resolution switches to the scaled source");
 });
+
+test("MiniMax H3 Image Edit stays available beside p-H3 Image Edit", () => {
+  const app = byId("h3-image-edit-minimax");
+  assert.equal(app.name, "MiniMax H3 Image Edit");
+  assert.equal(app.layout, "sidebar");
+  assert.deepEqual(app.outputs, [{ node: "9", type: "image", label: "Edited image" }]);
+  assert.equal((app.graph as Record<string, any>)["9"]?.class_type, "SaveImage", "the MiniMax SaveImage is the output");
+  assert.equal((app.graph as Record<string, any>)["62"], undefined, "the optional compare node no longer causes a validation warning");
+  assert.equal(app.inputs.filter((i) => i.type === "image").length, 16, "the MiniMax editor keeps its 16 pictures");
+  const unet = app.inputs.find((i) => i.id === "unet_name")!;
+  assert.deepEqual(unet.options?.map((o) => o.value), ["minimax_h3_image_pruned_int8_convrot.safetensors"]);
+  const vae = app.inputs.find((i) => i.id === "vae_name")!;
+  assert.deepEqual(vae.options?.map((o) => o.value), ["minimax_h3_image_vae_fp16.safetensors"]);
+  assert.equal(resolveValues(app, { image: { bytes: new Uint8Array([1]), name: "source.png" }, prompt: "make it blue" }).steps, 6);
+});

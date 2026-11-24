@@ -61,6 +61,11 @@ MENU = [
         '"effects", "morph", "edit", "h3-image-edit", "inpaint", "vfx-clean-plate"',
         "cat.vfx.image",
     ),
+    (
+        '"h3-image-edit", "inpaint"',
+        '"h3-image-edit", "h3-image-edit-minimax", "inpaint"',
+        "cat.vfx.image.minimax",
+    ),
 ]
 
 

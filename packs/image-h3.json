@@ -2,7 +2,8 @@
   "pack": "image-h3",
   "apps": [
     "h3-image",
-    "h3-image-edit"
+    "h3-image-edit",
+    "h3-image-edit-minimax"
   ],
   "download_gb": 102.11,
   "needs_hf_token": false,
@@ -17,7 +18,8 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
-        "h3-image"
+        "h3-image",
+        "h3-image-edit-minimax"
       ]
     },
     {
@@ -29,7 +31,8 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
-        "h3-image"
+        "h3-image",
+        "h3-image-edit-minimax"
       ]
     },
     {
@@ -41,7 +44,8 @@
       "gated": false,
       "license": "Apache-2.0",
       "used_by": [
-        "h3-image"
+        "h3-image",
+        "h3-image-edit-minimax"
       ]
     },
     {
@@ -53,7 +57,8 @@
       "gated": false,
       "license": "MiniMax H3 Community License",
       "used_by": [
-        "h3-image"
+        "h3-image",
+        "h3-image-edit-minimax"
       ]
     },
     {

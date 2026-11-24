@@ -1,0 +1,772 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "h3-image-edit-minimax",
+  "name": "MiniMax H3 Image Edit",
+  "section": "image",
+  "pack": "image-h3",
+  "status": "ready",
+  "summary": "Edit a photo with MiniMax H3 Image: up to 16 pictures, 4 MP default, prompt expansion, aspect-preserving resize.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "image_minimax_h3_image_edit.json",
+    "comfyui": "0.46.0",
+    "notes": "Official ComfyUI image_minimax_h3_image_edit template, kept alongside the p-H3 Image Edit app. Picture 1 is the photo being edited; Pictures 2-16 are optional identity, prop, material or composition references. Each reference is wired to both the prompt-expansion model and the conditioning node. Empty reference slots cut both edges and are pruned before submission. The input photo is resized to the target megapixel area (4 MP by default) and scaled to a multiple of 32; the Qwen3.8-27B prompt-expansion model turns the edit instruction into a detailed target description. The optional ImageCompare preview node was removed: it made ComfyUI report a validation warning but is not needed by the saved image output."
+  },
+  "inputs": [
+    {
+      "id": "image",
+      "type": "image",
+      "label": "Picture 1",
+      "required": true,
+      "help": "The photo to edit. It becomes <Picture 1> in the prompt. Add up to 15 optional references below; H3 Image accepts 16 pictures in total.",
+      "bind": [
+        {
+          "node": "45",
+          "field": "image"
+        }
+      ],
+      "limits": {
+        "max_mb": 64
+      }
+    },
+    {
+      "id": "image_2",
+      "type": "image",
+      "label": "Picture 2",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "63",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_2"
+        },
+        {
+          "node": "34",
+          "field": "images.image2"
+        }
+      ]
+    },
+    {
+      "id": "image_3",
+      "type": "image",
+      "label": "Picture 3",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "64",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_3"
+        },
+        {
+          "node": "34",
+          "field": "images.image3"
+        }
+      ]
+    },
+    {
+      "id": "image_4",
+      "type": "image",
+      "label": "Picture 4",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "65",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_4"
+        },
+        {
+          "node": "34",
+          "field": "images.image4"
+        }
+      ]
+    },
+    {
+      "id": "image_5",
+      "type": "image",
+      "label": "Picture 5",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "66",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_5"
+        },
+        {
+          "node": "34",
+          "field": "images.image5"
+        }
+      ]
+    },
+    {
+      "id": "image_6",
+      "type": "image",
+      "label": "Picture 6",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "67",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_6"
+        },
+        {
+          "node": "34",
+          "field": "images.image6"
+        }
+      ]
+    },
+    {
+      "id": "image_7",
+      "type": "image",
+      "label": "Picture 7",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "68",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_7"
+        },
+        {
+          "node": "34",
+          "field": "images.image7"
+        }
+      ]
+    },
+    {
+      "id": "image_8",
+      "type": "image",
+      "label": "Picture 8",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "69",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_8"
+        },
+        {
+          "node": "34",
+          "field": "images.image8"
+        }
+      ]
+    },
+    {
+      "id": "image_9",
+      "type": "image",
+      "label": "Picture 9",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "70",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_9"
+        },
+        {
+          "node": "34",
+          "field": "images.image9"
+        }
+      ]
+    },
+    {
+      "id": "image_10",
+      "type": "image",
+      "label": "Picture 10",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "71",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_10"
+        },
+        {
+          "node": "34",
+          "field": "images.image10"
+        }
+      ]
+    },
+    {
+      "id": "image_11",
+      "type": "image",
+      "label": "Picture 11",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "72",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_11"
+        },
+        {
+          "node": "34",
+          "field": "images.image11"
+        }
+      ]
+    },
+    {
+      "id": "image_12",
+      "type": "image",
+      "label": "Picture 12",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "73",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_12"
+        },
+        {
+          "node": "34",
+          "field": "images.image12"
+        }
+      ]
+    },
+    {
+      "id": "image_13",
+      "type": "image",
+      "label": "Picture 13",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "74",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_13"
+        },
+        {
+          "node": "34",
+          "field": "images.image13"
+        }
+      ]
+    },
+    {
+      "id": "image_14",
+      "type": "image",
+      "label": "Picture 14",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "75",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_14"
+        },
+        {
+          "node": "34",
+          "field": "images.image14"
+        }
+      ]
+    },
+    {
+      "id": "image_15",
+      "type": "image",
+      "label": "Picture 15",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "76",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_15"
+        },
+        {
+          "node": "34",
+          "field": "images.image15"
+        }
+      ]
+    },
+    {
+      "id": "image_16",
+      "type": "image",
+      "label": "Picture 16",
+      "required": false,
+      "help": "Optional. Up to 16. They become <Picture N> in the prompt. Fill the slots from Picture 2 upward; connected pictures are numbered in order, so leave no gaps.",
+      "limits": {
+        "max_mb": 64
+      },
+      "bind": [
+        {
+          "node": "77",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "32",
+          "field": "images.image_16"
+        },
+        {
+          "node": "34",
+          "field": "images.image16"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Edit instruction",
+      "required": true,
+      "default": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
+      "help": "What to change. Refer to the photo as <Picture 1> and references as <Picture 2>, <Picture 3>, and so on. With expansion on, this instruction is rewritten into a detailed description of the target image.",
+      "bind": [
+        {
+          "node": "43",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "expand",
+      "type": "toggle",
+      "label": "Expand the prompt",
+      "default": true,
+      "help": "Use the Qwen3.8-27B prompt-expansion model to rewrite the prompt into a detailed caption before drawing. Turn it off to use the prompt verbatim.",
+      "bind": [
+        {
+          "node": "61",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "resolution",
+      "type": "slider",
+      "label": "Resolution (MP)",
+      "min": 1,
+      "max": 16,
+      "step": 0.5,
+      "default": 4,
+      "help": "Target megapixels. H3 Image works from about 4 MP to 20 MP and is tuned for 4–20 MP; 4 MP is the default.",
+      "bind": [
+        {
+          "node": "56",
+          "field": "resize_type.megapixels"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "type": "slider",
+      "label": "Steps",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 6,
+      "help": "H3 Image is a 6-step distilled model; more steps usually do not help.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "steps"
+        }
+      ]
+    },
+    {
+      "id": "sampler",
+      "type": "select",
+      "label": "Sampler",
+      "default": "euler",
+      "options": [
+        {
+          "value": "euler",
+          "label": "Euler — default"
+        },
+        {
+          "value": "euler_ancestral",
+          "label": "Euler ancestral"
+        },
+        {
+          "value": "heun",
+          "label": "Heun"
+        },
+        {
+          "value": "dpm_2",
+          "label": "DPM 2"
+        },
+        {
+          "value": "dpm_2_ancestral",
+          "label": "DPM 2 ancestral"
+        },
+        {
+          "value": "lms",
+          "label": "LMS"
+        },
+        {
+          "value": "dpmpp_2m",
+          "label": "DPM++ 2M"
+        },
+        {
+          "value": "dpmpp_2m_sde",
+          "label": "DPM++ 2M SDE"
+        },
+        {
+          "value": "dpmpp_3m_sde",
+          "label": "DPM++ 3M SDE"
+        },
+        {
+          "value": "ddpm",
+          "label": "DDPM"
+        },
+        {
+          "value": "lcm",
+          "label": "LCM"
+        },
+        {
+          "value": "uni_pc",
+          "label": "UniPC"
+        }
+      ],
+      "help": "The KSampler sampler. Euler is the prepared workflow's default.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "sampler_name"
+        }
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "select",
+      "label": "Scheduler",
+      "default": "simple",
+      "options": [
+        {
+          "value": "simple",
+          "label": "Simple — default"
+        },
+        {
+          "value": "normal",
+          "label": "Normal"
+        },
+        {
+          "value": "karras",
+          "label": "Karras"
+        },
+        {
+          "value": "exponential",
+          "label": "Exponential"
+        },
+        {
+          "value": "sgm_uniform",
+          "label": "SGM uniform"
+        },
+        {
+          "value": "ddim_uniform",
+          "label": "DDIM uniform"
+        },
+        {
+          "value": "beta",
+          "label": "Beta"
+        },
+        {
+          "value": "linear_quadratic",
+          "label": "Linear quadratic"
+        },
+        {
+          "value": "kl_optimal",
+          "label": "KL optimal"
+        }
+      ],
+      "help": "The KSampler scheduler. Simple is the prepared workflow's default.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "scheduler"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "type": "seed",
+      "label": "Seed",
+      "default": -1,
+      "help": "-1 picks a random seed.",
+      "bind": [
+        {
+          "node": "38",
+          "field": "seed"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model (DiT)",
+      "default": "minimax_h3_image_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_image_pruned_int8_convrot.safetensors",
+          "label": "MiniMax H3 Image int8 — default"
+        }
+      ],
+      "help": "The H3 Image diffusion transformer. Add another H3 Image checkpoint to ComfyUI/models/diffusion_models to expose it here.",
+      "bind": [
+        {
+          "node": "29",
+          "field": "unet_name"
+        }
+      ]
+    },
+    {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B int8 — default"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+          "label": "Qwen3-VL 32B NVFP4 — Blackwell GPU only"
+        },
+        {
+          "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "label": "Qwen3-VL 32B Ultra Heretic int8 — community"
+        }
+      ],
+      "help": "The H3 text encoder. The int8 file is the default; NVFP4 needs a Blackwell GPU; the heretic file is an uncensored community variant.",
+      "bind": [
+        {
+          "node": "30",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "vae_name",
+      "type": "select",
+      "label": "Image VAE",
+      "default": "minimax_h3_image_vae_fp16.safetensors",
+      "options": [
+        {
+          "value": "minimax_h3_image_vae_fp16.safetensors",
+          "label": "H3 Image VAE fp16 — default"
+        }
+      ],
+      "help": "The official fp16 H3 Image decoder. The edit app keeps it for multi-reference runs: the community int8 VAE has wedged the GPU when several references are anchored. Text-to-image still offers that int8 variant.",
+      "bind": [
+        {
+          "node": "31",
+          "field": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": "pe_model",
+      "type": "select",
+      "label": "Prompt-expansion model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8-27B w4a8 — default, reference PE model"
+        },
+        {
+          "value": "Huihui-Qwen3.8-27B-abliterated_int8_convrot.safetensors",
+          "label": "Huihui Qwen3.8-27B abliterated int8 — uncensored"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8-27B uncensored heretic w4a8 v2 — 17.9 GB"
+        },
+        {
+          "value": "qwen3.5_9b_w4a8_gptq.safetensors",
+          "label": "Qwen3.5-9B w4a8 — lighter and faster"
+        }
+      ],
+      "help": "The prompt-expansion model. Qwen3.8-27B is the reference PE model; the Huihui abliterated int8 conversion is uncensored and 29.2 GB; the Heretic w4a8 v2 is uncensored and 17.9 GB; Qwen3.5-9B is lighter and faster.",
+      "bind": [
+        {
+          "node": "35",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "filename_prefix",
+      "type": "text",
+      "label": "Filename prefix",
+      "default": "riverfield/minimax-h3-image-edit",
+      "help": "Where ComfyUI writes the PNG under its output folder.",
+      "bind": [
+        {
+          "node": "9",
+          "field": "filename_prefix"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "9",
+      "type": "image",
+      "label": "Edited image"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "diffusion_models/minimax_h3_image_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.98,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 27.14,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3-Image",
+      "file": "vae/minimax_h3_image_vae_fp16.safetensors",
+      "dir": "vae",
+      "gb": 1.17,
+      "phase": "decode",
+      "license": "MiniMax H3 Community License"
+    }
+  ],
+  "credits": [
+    "MiniMax H3 Image and Qwen3.8-27B prompt expansion by MiniMax and Comfy-Org (MiniMax H3 Community License)",
+    "Qwen3.5-9B prompt upsampler by the Qwen team (Apache-2.0)"
+  ],
+  "test": {
+    "image": "test/vintage_yellow_taxi.png",
+    "prompt": "Replace the vintage yellow taxi in <Picture 1> with a pastel pink ice-cream truck with a scalloped awning and a glowing service window, sitting in the same side profile at the curb.",
+    "expand": false,
+    "resolution": 4,
+    "steps": 6,
+    "seed": 42
+  },
+  "layout": "sidebar"
+}
