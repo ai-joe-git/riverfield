@@ -907,6 +907,9 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   }
 
   function draw() {
+    // Existing timelines can carry an overlap created before the H3 snapping rule. Repair
+    // it on load and on every redraw, not only when the user presses Generate.
+    if (normalizeOverlaps()) persistState(app, f, st);
     // normalise clip durations against the probed media before anything renders
     for (const m of mediaOf(app, f, "video")) clipFor("video", m.index);
     for (const m of mediaOf(app, f, "audio")) clipFor("audio", m.index);
