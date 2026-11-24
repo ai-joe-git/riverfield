@@ -16,11 +16,26 @@
 // legal H3 value on release (or immediately with the H3 button in the segment editor).
 
 import { el, icon, toast, clamp, store } from "./util.js";
+import { modal } from "./agent-controls.js";
 
 const FPS = 24;
 const MAX_LENGTH = 3592;
 const MIN_LEN = 5;
 const SEAM = 39;
+
+/** One prompt per line; a trailing ",13" or ", 13s" becomes that segment's seconds. */
+export function parseBatchPrompts(text, fallback) {
+  const out = [];
+  for (const raw of String(text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const hit = /\s*,\s*(\d+(?:\.\d+)?)\s*s?\s*$/i.exec(line);
+    const duration = hit ? Number(hit[1]) : fallback;
+    const prompt = (hit ? line.slice(0, hit.index) : line).trim();
+    if (prompt) out.push({ prompt, duration: Math.max(MIN_LEN / FPS, Math.min(30, duration)) });
+  }
+  return out;
+}
 
 const MEDIA = {
   image: { label: "Pictures", icon: "image", slots: 9, accept: "image/*" },
@@ -721,6 +736,73 @@ export function directorView(app, f, { onSubmit, onDirty }) {
           : el("span", { class: "dim" }, "none")));
   }
 
+  function openBatch() {
+    const fixed = app.id === "ltx-director-4seg" ? 4 : null;
+    const countMax = Number(app.inputs.find((i) => i.id === "segment_count")?.max);
+    const max = fixed ?? (Number.isFinite(countMax) && countMax > 0 ? countMax : 512);
+    const selectedWindow = st.windows[selected];
+    const fallbackSeconds = selectedWindow ? Math.max(MIN_LEN / FPS, (selectedWindow.end - selectedWindow.start) / FPS) : (Number(f.values.duration) || 5);
+    const dialog = modal("Paste prompts", "One prompt per line. Add an optional suffix: ,13 for 13 seconds. Lines without a suffix use the default below.");
+    const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "Wide shot of the room,13\nShe turns toward the window,8\nClose-up on her eyes,5" });
+    const fallback = el("input", { class: "dir-num", type: "number", min: String(MIN_LEN / FPS), max: "30", step: "0.1", value: String(fallbackSeconds) });
+    const info = el("p", { class: "help", style: { margin: "0" } }, "0 segments");
+    const refresh = () => {
+      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)));
+      info.textContent = `${parsed.length} segment${parsed.length === 1 ? "" : "s"} · ${max} max`;
+    };
+    ta.addEventListener("input", refresh);
+    fallback.addEventListener("input", refresh);
+    const make = (replace) => {
+      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)));
+      let prompts = parsed;
+      if (replace && fixed && prompts.length < fixed) {
+        while (prompts.length < fixed) prompts.push({ prompt: "", duration: Math.max(MIN_LEN / FPS, Number(fallback.value) || fallbackSeconds) });
+      }
+      if (!prompts.length) return toast("Paste at least one prompt.", { error: true });
+      if ((replace ? 0 : st.windows.length) + prompts.length > max) {
+        return toast(`This director accepts at most ${max} segments.`, { error: true });
+      }
+      const old = st.windows;
+      const next = [];
+      let cursor = replace ? 0 : (old[old.length - 1]?.end ?? 0);
+      for (let index = 0; index < prompts.length; index += 1) {
+        const item = prompts[index];
+        const len = alignedLength(Math.max(MIN_LEN, Math.round(item.duration * FPS)), MIN_LEN);
+        const start = next.length === 0 ? (replace ? 0 : cursor) : Math.max(0, next[next.length - 1].end - Math.min(SEAM, len - 1));
+        const end = start + len;
+        if (end > MAX_LENGTH) return toast(`The batch goes past ${MAX_LENGTH} frames.`, { error: true });
+        const previous = replace ? old[index] : old[old.length - 1];
+        next.push({
+          start, end, prompt: item.prompt,
+          images: [...(previous?.images || [])],
+          audios: [...(previous?.audios || [])],
+        });
+      }
+      if (replace) {
+        st.windows = next;
+        selected = 0;
+      } else {
+        selected = st.windows.length;
+        st.windows.push(...next);
+      }
+      persistState(app, f, st);
+      onDirty?.();
+      dialog.close();
+      changed();
+      toast(`${prompts.length} segment${prompts.length === 1 ? "" : "s"} ${replace ? "created" : "added"}.`);
+    };
+    dialog.append(el("div", { class: "ag-dialog-form" },
+      ta,
+      el("div", { class: "dir-seg-fields" }, el("label", {}, "default length", fallback, el("span", { class: "unit" }, "s")), info),
+      el("p", { class: "help", style: { margin: "0" } }, "A trailing comma-number becomes that segment’s duration. Existing pictures and sounds are kept by segment index on Replace; Append copies the last segment’s assignments."),
+      el("div", { class: "ag-dialog-actions" },
+        el("button", { class: "btn ghost", type: "button", onclick: () => make(false) }, icon("plus"), "Append segments"),
+        el("button", { class: "btn lime", type: "button", onclick: () => make(true) }, icon("film"), "Replace segments"))));
+    dialog.showModal();
+    ta.focus();
+    refresh();
+  }
+
   function drawHead() {
     const hasTwoStage = app.inputs.some((i) => i.id === "two_stage");
     const two = hasTwoStage ? el("button", {
@@ -745,7 +827,10 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const zoomIn = el("button", { type: "button", class: "dir-zoom", title: "Zoom in", onclick: () => { zoom = Math.min(300, zoom + 14); store.set("dir.zoom", zoom); draw(); } }, "+");
     headEl.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"), el("span", {}, app.panel_title || "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
-      el("div", { class: "dir-head-right" }, ...[settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn)].filter(Boolean)));
+      el("div", { class: "dir-head-right" }, ...[
+        el("button", { type: "button", class: "dir-toggle", onclick: () => openBatch() }, icon("code"), "Paste prompts"),
+        settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn),
+      ].filter(Boolean)));
   }
 
   function drawFoot() {
