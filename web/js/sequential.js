@@ -44,7 +44,7 @@ function blankSegment(app) {
 function stateFor(app) {
   let st = cache.get(app.id);
   if (!st) {
-    st = restore(app) || { selected: 0, start: null, startUrl: null, startData: null, segments: Array.from({ length: 4 }, () => blankSegment(app)), assembled: null, assembling: false };
+    st = restore(app) || { selected: 0, start: null, startUrl: null, startData: null, segments: Array.from({ length: 4 }, () => blankSegment(app)), assembled: null, assembling: false, busyAll: false, autoError: null };
     if (!Number.isInteger(st.selected)) st.selected = 0;
     st.selected = Math.max(0, Math.min(st.segments.length - 1, st.selected));
     cache.set(app.id, st);
@@ -116,6 +116,7 @@ function restore(app) {
     ...saved,
     start: null,
     assembling: false,
+    busyAll: false,
     segments: saved.segments.map((s) => ({
       ...blankSegment(app),
       ...s,
@@ -279,17 +280,18 @@ export function sequentialDirectorView(app, f) {
     head.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"),
         el("span", {}, app.panel_title || "LTX Sequential Director"),
-        el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}`)),
+        el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}${st.busyAll ? ` · generating ${st.selected + 1}/${st.segments.length}` : ""}`)),
       el("div", { class: "dir-head-right" },
-        el("button", { type: "button", class: "dir-toggle", onclick: () => openBatch() }, icon("code"), "Paste prompts"),
-        el("button", { type: "button", class: "dir-toggle", onclick: () => {
+        el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => openBatch() }, icon("code"), "Paste prompts"),
+        el("button", { type: "button", class: "dir-toggle on", disabled: st.busyAll, onclick: () => void generateAll() }, icon("spark"), st.busyAll ? "Generating…" : "Generate all"),
+        el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => {
           if (st.segments.length >= MAX_SEGMENTS) return toast(`${MAX_SEGMENTS} segments is the current maximum.`, { error: true });
           st.segments.push(blankSegment(app));
           st.selected = st.segments.length - 1;
           persist(st, app);
           draw();
         } }, icon("plus"), "Add segment"),
-        el("button", { type: "button", class: "dir-toggle on", onclick: () => void assemble() },
+        el("button", { type: "button", class: "dir-toggle on", disabled: st.busyAll || st.assembling, onclick: () => void assemble() },
           icon("film"), st.assembling ? "Assembling…" : "Assemble")));
   }
 
@@ -307,7 +309,7 @@ export function sequentialDirectorView(app, f) {
     const track = el("div", { class: "dir-track gen", style: { width: "100%" } });
 
     function startResize(e, target, edge) {
-      if (e.button !== 0) return;
+      if (st.busyAll || e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
       const pxPerSec = Math.max(1, track.getBoundingClientRect().width) / Math.max(1, total);
@@ -378,9 +380,9 @@ export function sequentialDirectorView(app, f) {
     const ready = i === 0 ? Boolean(st.start) : seg.cut ? Boolean(seg.cutStart) : Boolean(prev?.approved && prev?.lastFrameUrl);
     const status = seg.running ? "running" : seg.error ? "failed" : seg.approved ? "approved" : seg.videoUrl ? "review" : "empty";
 
-    const duration = el("input", { class: "dir-num", type: "number", min: "1", max: "30", step: "1", value: String(seg.duration) });
+    const duration = el("input", { class: "dir-num", type: "number", min: "1", max: "30", step: "1", value: String(seg.duration), disabled: st.busyAll });
     duration.addEventListener("input", () => { seg.duration = Math.max(1, Math.min(30, Number(duration.value) || 5)); invalidationFrom(st, i); persist(st, app); });
-    const cut = el("input", { type: "checkbox", checked: seg.cut });
+    const cut = el("input", { type: "checkbox", checked: seg.cut, disabled: st.busyAll });
     cut.addEventListener("change", () => {
       seg.cut = cut.checked;
       if (!seg.cut) { revoke(seg.cutStartUrl); seg.cutStart = null; seg.cutStartUrl = null; }
@@ -389,10 +391,10 @@ export function sequentialDirectorView(app, f) {
       draw();
     });
 
-    const generate = el("button", { class: "btn small lime", type: "button", onclick: () => void runSegment(i) },
+    const generate = el("button", { class: "btn small lime", type: "button", disabled: st.busyAll, onclick: () => void runSegment(i) },
       icon("film"), seg.videoUrl ? "Regenerate" : "Generate segment");
     const approve = seg.videoUrl && !seg.approved ? el("button", {
-      class: "btn small ghost", type: "button", onclick: () => {
+      class: "btn small ghost", type: "button", disabled: st.busyAll, onclick: () => {
         checkSettings();
         if (seg.stale) return toast("Regenerate this changed segment before approving.", { error: true });
         seg.approved = true;
@@ -402,7 +404,7 @@ export function sequentialDirectorView(app, f) {
       },
     }, icon("check"), "Approve") : null;
     const remove = st.segments.length > 1 ? el("button", {
-      class: "btn small ghost danger", type: "button", onclick: () => {
+      class: "btn small ghost danger", type: "button", disabled: st.busyAll, onclick: () => {
         revoke(seg.lastUrl); revoke(seg.cutStartUrl);
         st.segments.splice(i, 1);
         st.selected = Math.min(i, st.segments.length - 1);
@@ -412,7 +414,7 @@ export function sequentialDirectorView(app, f) {
       },
     }, icon("x"), "Remove") : null;
 
-    const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "What happens in this segment?" });
+    const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "What happens in this segment?", disabled: st.busyAll });
     prompt.value = seg.prompt;
     prompt.addEventListener("input", () => { seg.prompt = prompt.value; invalidationFrom(st, i); persist(st, app); });
 
@@ -474,8 +476,11 @@ export function sequentialDirectorView(app, f) {
         el("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } },
           el("span", { class: "dir-chip ghost on" }, icon("film"), el("span", {}, `${approved}/${st.segments.length} approved`)),
           el("span", { class: "dir-chip ghost" }, icon("clock"), el("span", {}, `${fmt(total)}s total`)),
-          st.assembled ? el("a", { class: "dir-chip on", href: st.assembled, download: "riverfield-sequential.mp4" }, icon("download"), el("span", {}, "Download final cut")) : null)),
-      el("button", { class: "btn dir-go", type: "button", onclick: () => void assemble() }, icon("spark"), st.assembling ? "Assembling…" : "Assemble approved"));
+          st.assembled ? el("a", { class: "dir-chip on", href: st.assembled, download: "riverfield-sequential.mp4" }, icon("download"), el("span", {}, "Download final cut")) : null,
+          st.autoError ? el("span", { class: "dir-chip", style: { color: "var(--bad)" } }, icon("info"), el("span", {}, st.autoError)) : null)),
+      el("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
+        el("button", { class: "btn dir-go", type: "button", disabled: st.busyAll, onclick: () => void generateAll() }, icon("spark"), st.busyAll ? "Generating…" : "Generate all"),
+        el("button", { class: "btn ghost", type: "button", disabled: st.busyAll || st.assembling, onclick: () => void assemble() }, icon("film"), st.assembling ? "Assembling…" : "Assemble approved")));
     finalEl?.remove();
     finalEl = null;
     if (st.assembled) {
@@ -513,14 +518,15 @@ export function sequentialDirectorView(app, f) {
 
   async function runSegment(i) {
     const seg = st.segments[i];
-    if (seg.running) return;
+    if (seg.running) return false;
     checkSettings();
     let first;
-    try { first = await firstFileFor(i); } catch (e) { toast(e.message, { error: true }); return; }
+    try { first = await firstFileFor(i); } catch (e) { toast(e.message, { error: true }); return false; }
     seg.running = true; seg.error = null; seg.approved = false; seg.stale = false;
     seg.videoUrl = null; seg.videoFile = null; seg.lastFrameUrl = null; seg.lastFrameFile = null;
     invalidationFrom(st, i + 1);
     draw();
+    let ok = false;
     try {
       const fd = new FormData();
       fd.append("image", first, first.name || `segment-${i + 1}-first.png`);
@@ -558,11 +564,51 @@ export function sequentialDirectorView(app, f) {
       if (seg.cut && inputUrl("image")) { seg.cutStart = null; seg.cutStartData = null; seg.cutStartUrl = inputUrl("image"); }
       if (seg.last && inputUrl("last_frame")) { seg.last = null; seg.lastData = null; seg.lastUrl = inputUrl("last_frame"); }
       if (!seg.lastFrameUrl) seg.error = "The video succeeded, but no last frame was extracted. Add a cut or a final keyframe for the next segment.";
+      else ok = true;
       persist(st, app);
     } catch (e) {
       seg.error = e.message;
     } finally {
       seg.running = false;
+      persist(st, app);
+      draw();
+    }
+    return ok;
+  }
+
+  async function generateAll() {
+    if (st.busyAll) return;
+    checkSettings();
+    if (!st.start && !st.startData) { toast("Choose the start image for segment 1.", { error: true }); return; }
+    for (let i = 1; i < st.segments.length; i += 1) {
+      if (st.segments[i].cut && !st.segments[i].cutStart && !st.segments[i].cutStartData) {
+        toast(`Segment ${i + 1} is a cut: choose its start image first.`, { error: true });
+        return;
+      }
+    }
+    st.busyAll = true;
+    st.autoError = null;
+    st.assembled = null;
+    draw();
+    try {
+      for (let i = 0; i < st.segments.length; i += 1) {
+        st.selected = i;
+        st.segments[i].approved = false;
+        st.segments[i].stale = false;
+        draw();
+        const ok = await runSegment(i);
+        if (!ok) {
+          st.autoError = `Stopped at segment ${i + 1}; fix it and run again.`;
+          return;
+        }
+        st.segments[i].approved = true;
+        st.segments[i].stale = false;
+        persist(st, app);
+        draw();
+      }
+      await assemble();
+    } finally {
+      st.busyAll = false;
       persist(st, app);
       draw();
     }
