@@ -5879,9 +5879,9 @@
     "h3-image-character-swap": {
       "case": "h3-image-character-swap-blonde",
       "type": "image",
-      "card": "examples/h3-image-character-swap/card.jpg",
+      "card": "examples/h3-image-character-swap/card-blonde.jpg",
       "poster": null,
-      "full": "examples/h3-image-character-swap/full.jpg",
+      "full": "examples/h3-image-character-swap/full-blonde.jpg",
       "inputs": [
         {
           "id": "image",
@@ -5894,8 +5894,8 @@
           "id": "image_2",
           "label": "Reference character (Picture 2)",
           "type": "image",
-          "src": "examples/h3-image-character-swap/reference.jpg",
-          "full": "examples/h3-image-character-swap/reference-full.jpg"
+          "src": "examples/h3-image-character-swap/reference-blonde.jpg",
+          "full": "examples/h3-image-character-swap/reference-full-blonde.jpg"
         }
       ],
       "values": {
