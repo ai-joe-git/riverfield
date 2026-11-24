@@ -64,7 +64,7 @@
         0
       ],
       "images.image_1": [
-        "6",
+        "40",
         0
       ],
       "prompt": [
@@ -252,7 +252,7 @@
         0
       ],
       "image_b": [
-        "6",
+        "40",
         0
       ],
       "compare_view": null
@@ -300,7 +300,7 @@
     "class_type": "GetImageSize",
     "inputs": {
       "image": [
-        "6",
+        "40",
         0
       ]
     },
@@ -316,15 +316,15 @@
         0
       ],
       "images.image1": [
-        "6",
+        "41",
         0
       ],
       "images.image2": [
-        "30",
+        "42",
         0
       ],
       "images.image3": [
-        "31",
+        "43",
         0
       ],
       "prompt": [
@@ -337,27 +337,27 @@
       "use_default_template": true,
       "mtp": "auto",
       "images.image4": [
-        "32",
+        "44",
         0
       ],
       "images.image5": [
-        "33",
+        "45",
         0
       ],
       "images.image6": [
-        "34",
+        "46",
         0
       ],
       "images.image7": [
-        "35",
+        "47",
         0
       ],
       "images.image8": [
-        "36",
+        "48",
         0
       ],
       "images.image9": [
-        "37",
+        "49",
         0
       ]
     },
@@ -468,6 +468,158 @@
     },
     "_meta": {
       "title": "Scheduler (layout only on p-h3-image)"
+    }
+  },
+  "40": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "26",
+        0
+      ],
+      "on_true": [
+        "6",
+        0
+      ],
+      "switch": false
+    },
+    "_meta": {
+      "title": "Use custom resolution"
+    }
+  },
+  "41": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "26",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler source at 0.97 MP"
+    }
+  },
+  "42": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "30",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 2 at 0.97 MP"
+    }
+  },
+  "43": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "31",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 3 at 0.97 MP"
+    }
+  },
+  "44": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "32",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 4 at 0.97 MP"
+    }
+  },
+  "45": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "33",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 5 at 0.97 MP"
+    }
+  },
+  "46": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "34",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 6 at 0.97 MP"
+    }
+  },
+  "47": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "35",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 7 at 0.97 MP"
+    }
+  },
+  "48": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "36",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 8 at 0.97 MP"
+    }
+  },
+  "49": {
+    "class_type": "ImageScaleToTotalPixels",
+    "inputs": {
+      "image": [
+        "37",
+        0
+      ],
+      "upscale_method": "lanczos",
+      "megapixels": 0.97,
+      "resolution_steps": 32
+    },
+    "_meta": {
+      "title": "Upsampler Picture 9 at 0.97 MP"
     }
   }
 }

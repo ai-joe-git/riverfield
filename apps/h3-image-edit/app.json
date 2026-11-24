@@ -5,12 +5,12 @@
   "section": "image",
   "pack": "image-h3",
   "status": "ready",
-  "summary": "Edit a photo with P-H3-Image (PrunaAI's H3 FL2VA + LoRA): up to 9 pictures, 4 MP default, fixed 8-step edit, prompt upsampler.",
+  "summary": "Edit a photo with P-H3-Image: up to 9 pictures, native size by default, optional 4/8 MP resize, fixed 8-step edit, prompt upsampler.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "image_p_h3_image_edit.json",
     "comfyui": "0.45.0",
-    "notes": "PrunaAI p-h3-image edit workflow on the MiniMax H3 FL2VA transformer: the 19.5 GB int8 FL2VA base, the p-h3-image LoRA, the p-h3-image text encoder, VAE and prompt upsampler. Picture 1 is the photo being edited; Pictures 2-9 are optional references (p-h3-image accepts nine pictures total). The source is scaled to the selected megapixel area and the conditioning follows its aspect ratio. Empty reference slots cut both edges and are pruned before submission. The prompt upsampler rewrites the request unless Expand is off. Sampling is the model's fixed 8-step ManualSigmas schedule; the Steps and Scheduler controls stay on screen for the shared layout but do not alter that schedule."
+    "notes": "PrunaAI p-h3-image edit workflow on the MiniMax H3 FL2VA transformer: the 19.5 GB int8 FL2VA base, the p-h3-image LoRA, the p-h3-image text encoder, VAE and prompt upsampler. Picture 1 is the photo being edited; Pictures 2-9 are optional references (p-h3-image accepts nine pictures total). The source is scaled to the selected megapixel area and the conditioning follows its aspect ratio. Empty reference slots cut both edges and are pruned before submission. The prompt upsampler rewrites the request unless Expand is off. Sampling is the model's fixed 8-step ManualSigmas schedule; the Steps and Scheduler controls stay on screen for the shared layout but do not alter that schedule. Resolution is now optional and off by default: with Custom resolution off, the conditioning reads Picture 1's native size through a lazy switch; turning it on scales Picture 1 to the selected megapixel target. The prompt upsampler always receives its own 0.97 MP copies of the pictures, independent of that switch."
   },
   "inputs": [
     {
@@ -18,7 +18,7 @@
       "type": "image",
       "label": "Picture 1",
       "required": true,
-      "help": "The photo to edit. It becomes <Picture 1> in the prompt. Add up to eight optional references below; P-H3-Image accepts nine pictures in total.",
+      "help": "The photo to edit. It becomes <Picture 1> in the prompt. Add up to eight optional references below; P-H3-Image accepts nine pictures in total. With Custom resolution off, the output follows this picture's native size.",
       "bind": [
         {
           "node": "26",
@@ -256,10 +256,23 @@
       "type": "toggle",
       "label": "Expand the prompt",
       "default": true,
-      "help": "Use the p-h3-image prompt upsampler to rewrite the instruction into a detailed edit brief. Turn it off to send the instruction verbatim.",
+      "help": "Use the p-h3-image prompt upsampler to rewrite the instruction into a detailed edit brief. It receives 0.97 MP copies of every picture. Turn it off to send the instruction verbatim.",
       "bind": [
         {
           "node": "23",
+          "field": "switch"
+        }
+      ]
+    },
+    {
+      "id": "resize",
+      "type": "toggle",
+      "label": "Custom resolution",
+      "default": false,
+      "help": "Off: keep Picture 1's native size, which is also the output size. On: scale Picture 1 to the megapixel target below. The prompt upsampler always gets 0.97 MP copies either way.",
+      "bind": [
+        {
+          "node": "40",
           "field": "switch"
         }
       ]
@@ -272,7 +285,7 @@
       "max": 16,
       "step": 0.5,
       "default": 4,
-      "help": "Target megapixels. P-H3-Image edits are best at 4 or 8 MP; 4 MP is the safe default.",
+      "help": "Used only when Custom resolution is on. P-H3-Image edits are best at 4 or 8 MP; with the switch off, Picture 1 keeps its native size.",
       "bind": [
         {
           "node": "6",
@@ -579,7 +592,8 @@
     "steps": 8,
     "sampler": "er_sde",
     "scheduler": "simple",
-    "seed": 42
+    "seed": 42,
+    "resize": false
   },
   "layout": "sidebar"
 }

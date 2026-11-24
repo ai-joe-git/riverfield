@@ -545,6 +545,9 @@ test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references",
   const ref2 = { bytes: new Uint8Array([2]), name: "ref2.png" };
   const ref9 = { bytes: new Uint8Array([3]), name: "ref9.png" };
   const values = resolveValues(app, { image: src, image_2: ref2, image_9: ref9, prompt: "use both references" });
+  assert.equal(values.resize, false, "custom resolution is off by default");
+  const resize = app.inputs.find((i) => i.id === "resize")!;
+  assert.deepEqual(resize.bind, [{ node: "40", field: "switch" }], "the toggle selects source vs scaled source");
   const graph = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
   const wf = {
     json: graph,
@@ -552,12 +555,22 @@ test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references",
   };
   applyInputs(app, values, wf, (f) => `asset:${f.name}`);
 
-  assert.deepEqual(graph["6"].inputs.image, ["26", 0], "the source is scaled before the edit");
-  assert.equal(graph["6"].inputs.megapixels, 4, "the Resolution control drives the p-h3 source scale");
+  assert.equal(graph["40"].inputs.switch, false, "custom resolution leaves the switch off");
+  assert.deepEqual(graph["40"].inputs.on_false, ["26", 0], "off passes Picture 1 untouched");
+  assert.deepEqual(graph["40"].inputs.on_true, ["6", 0], "on passes the scaled Picture 1");
+  assert.deepEqual(graph["27"].inputs.image, ["40", 0], "the output size follows Picture 1 when the switch is off");
+  assert.deepEqual(graph["6"].inputs.image, ["26", 0], "the optional scaler reads Picture 1");
+  assert.equal(graph["6"].inputs.megapixels, 4, "the Resolution control drives the optional scaler");
+
+  assert.deepEqual(graph["9"].inputs["images.image_1"], ["40", 0], "conditioning uses the source-size switch");
   assert.deepEqual(graph["9"].inputs["images.image_2"], ["30", 0], "reference 2 reaches p-h3 conditioning");
   assert.deepEqual(graph["9"].inputs["images.image_9"], ["37", 0], "reference 9 reaches p-h3 conditioning");
-  assert.deepEqual(graph["29"].inputs["images.image2"], ["30", 0], "reference 2 reaches the prompt upsampler");
-  assert.deepEqual(graph["29"].inputs["images.image9"], ["37", 0], "reference 9 reaches the prompt upsampler");
+  assert.deepEqual(graph["29"].inputs["images.image1"], ["41", 0], "the upsampler always gets the 0.97 MP source");
+  assert.deepEqual(graph["29"].inputs["images.image2"], ["42", 0], "the upsampler always gets a 0.97 MP reference 2");
+  assert.deepEqual(graph["29"].inputs["images.image9"], ["49", 0], "the upsampler always gets a 0.97 MP reference 9");
+  assert.equal(graph["41"].inputs.megapixels, 0.97, "upsampler source is 0.97 MP");
+  assert.deepEqual(graph["42"].inputs.image, ["30", 0], "upsampler reference 2 reads its loader");
+  assert.deepEqual(graph["49"].inputs.image, ["37", 0], "upsampler reference 9 reads its loader");
   assert.equal(graph["26"].inputs.image, "asset:source.png");
   assert.equal(graph["30"].inputs.image, "asset:ref2.png");
   assert.equal(graph["37"].inputs.image, "asset:ref9.png");
@@ -565,5 +578,15 @@ test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references",
   assert.equal(graph["9"].inputs["images.image_4"], undefined, "an empty slot leaves no dangling edge");
   assert.equal(graph["29"].inputs["images.image4"], undefined);
   assert.ok(!graph["32"], "the empty slot's loader is pruned");
+  assert.ok(!graph["44"], "the empty slot's 0.97 MP upsampler scaler is pruned too");
   assert.ok(!graph["38"] && !graph["39"], "the layout-only Steps and Scheduler primitives never run");
+
+  const on = resolveValues(app, { image: src, prompt: "x", resize: true });
+  const onGraph = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
+  const onWf = {
+    json: onGraph,
+    setInput(node: string, field: string, value: unknown) { (onGraph[node].inputs ??= {})[field] = value; },
+  };
+  applyInputs(app, on, onWf, (f) => `asset:${f.name}`);
+  assert.equal(onGraph["40"].inputs.switch, true, "custom resolution switches to the scaled source");
 });
