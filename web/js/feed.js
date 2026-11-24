@@ -154,6 +154,7 @@ function failedCard(e) {
 function doneCard(e, list) {
   const app = byId.get(e.app);
   const item = entryItem(e);
+  const lastFrame = item.outputs?.find((o) => o.type === "image" && /last/i.test(o.name || ""));
   // a 3D run shows the model itself; the photo it came from is its card elsewhere
   const media = item.type === "model" && item.outputs?.length
     ? el("div", { class: "rcard-3d" }, modelViewer(item.outputs[0].url, { height: 300 }))
@@ -171,6 +172,8 @@ function doneCard(e, list) {
         el("div", { class: "acts" }, dl,
           item.type !== "audio" && hooks.useIn ? el("button", { class: "mini", type: "button", title: t("act.usein"), "aria-label": t("act.usein"),
             onclick: (ev) => { ev.stopPropagation(); hooks.useIn(ev.currentTarget, item); } }, icon("send")) : null,
+          lastFrame && hooks.useIn ? el("button", { class: "mini", type: "button", title: t("act.uselast"), "aria-label": t("act.uselast"),
+            onclick: (ev) => { ev.stopPropagation(); hooks.useIn(ev.currentTarget, { ...item, full: lastFrame.url, type: "image" }); } }, icon("image")) : null,
           el("button", { class: "mini", type: "button", title: t("act.compare"), "aria-label": t("act.compare"), onclick: stop(() => hooks.compare?.(item)) }, icon("compare")),
           deleteButton(() => feed.remove(e.id)))),
       el("div", { class: "row" }, el("span", { class: "meta" }, prompt || `${ago(e.created)}${e.seconds ? ` · ${fmtSeconds(e.seconds)}` : ""}`),

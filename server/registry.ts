@@ -242,6 +242,21 @@ export function loadRegistry(root = repoRoot()): { apps: App[]; problems: Proble
     if (app.graph) checkGraph(app, problems, severity);
     apps.push(app);
   }
+  // Every video app gets a generic post-processing switch. It is injected after the
+  // manifest/graph checks because it has no workflow binding: the server reads the
+  // finished clip, extracts its last frame and appends it to the run's outputs. That
+  // keeps the feature in one place instead of adding a dead node to every workflow.
+  for (const app of apps) {
+    if (!app.outputs.some((o) => o.type === "video")) continue;
+    if (app.inputs.some((i) => i.id === "last_frame_export")) continue;
+    app.inputs.push({
+      id: "last_frame_export",
+      type: "toggle",
+      label: "Extract last frame",
+      default: false,
+      help: "After the clip renders, save its last frame as an extra image in History. It can be used as an input in every app that takes a picture. No extra GPU work.",
+    });
+  }
   // modes: every app in the switch exists and lists the same ids in the same order
   const byId = new Map(apps.map((a) => [a.id, a]));
   for (const app of apps) {

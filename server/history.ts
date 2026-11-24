@@ -7,6 +7,8 @@
 // the UI shows it as "starting" right away instead of a spinner on a button.
 // On a hosted demo each run belongs to the visitor who started it (`owner`, from guard.ts): every read, file,
 // cancel and delete takes that visitor and sees only their runs. Locally there is no owner and nothing is filtered.
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -17,6 +19,21 @@ import type { FileValue, Frame, Values } from "./runner.ts";
 export type Status = "starting" | "queued" | "running" | "succeeded" | "failed" | "canceled" | "expired" | "lost";
 const TERMINAL = new Set<Status>(["succeeded", "failed", "canceled", "expired", "lost"]);
 const MEDIA = new Set(["image", "video", "audio", "file"]);   // file: 3D models (.glb) from Save3DAdvanced
+const execFileAsync = promisify(execFile);
+
+/** Last decoded frame of a clip, written as a normal JPEG next to the run. CPU-only. */
+async function extractLastFrame(video: string, out: string): Promise<void> {
+  const run = (seek: string) => execFileAsync("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-y", "-sseof", seek,
+    "-i", video, "-update", "1", "-q:v", "2", out,
+  ], { timeout: 120_000 });
+  try {
+    await run("-0.1");
+  } catch {
+    // Very short or odd containers can reject a 0.1 s seek; decode the tail instead.
+    await run("-1");
+  }
+}
 
 export type Entry = {
   id: string;
@@ -417,6 +434,18 @@ export class History {
             entry.error = { message: `could not download ${out.name}: ${(e as Error).message}` };
           }
         }
+        if (entry.values?.last_frame_export === true) {
+          const clip = entry.outputs.find((o) => o.type === "video");
+          if (clip) {
+            const file = `out-${String(++n).padStart(2, "0")}.jpg`;
+            try {
+              await extractLastFrame(join(folder, clip.file), join(folder, file));
+              entry.outputs.push({ file, type: "image", name: "last-frame.jpg", node: "post:last_frame" });
+            } catch (e) {
+              console.warn(`[history] ${entry.id}: could not extract the last frame: ${(e as Error).message}`);
+            }
+          }
+        }
         if (!entry.outputs.length && !entry.error) entry.error = { message: "the job finished without an image, video, audio or 3D output" };
       } else {
         const err = job.error;
@@ -534,7 +563,15 @@ export class History {
       // entries saved before mediaKind() and pickOutputs() carry the SDK's type and every output the backend
       // listed, the given clip first: fix them as they are read (the files stay on disk)
       for (const o of entry.outputs ?? []) o.type = mediaKind(extname(o.file).toLowerCase(), o.type);
-      if (entry.outputs?.length > 1) {
+      const post = (entry.outputs ?? []).filter((o) => o.node?.startsWith("post:"));
+      if (post.length) {
+        const base = (entry.outputs ?? []).filter((o) => !o.node?.startsWith("post:"));
+        entry.outputs = [
+          ...pickOutputs(base.map((o) => ({ ...o, nodeId: o.node })), this.appInfo(entry.app)?.outputs ?? [])
+            .map(({ nodeId: _, ...o }) => o),
+          ...post,
+        ];
+      } else if (entry.outputs?.length > 1) {
         entry.outputs = pickOutputs(entry.outputs.map((o) => ({ ...o, nodeId: o.node })), this.appInfo(entry.app)?.outputs ?? [])
           .map(({ nodeId: _, ...o }) => o);
       }

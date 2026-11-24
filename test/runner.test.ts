@@ -331,6 +331,20 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
   }
 });
 
+test("every video app offers the last-frame export post-process", () => {
+  const videoApps = apps.filter((a) => a.outputs.some((o) => o.type === "video"));
+  assert.ok(videoApps.length > 10, "the catalogue has video apps");
+  for (const app of videoApps) {
+    const toggle = app.inputs.find((i) => i.id === "last_frame_export");
+    assert.ok(toggle, `${app.id}: missing last_frame_export`);
+    assert.equal(toggle!.type, "toggle", `${app.id}: it is a switch`);
+    assert.equal(toggle!.default, false, `${app.id}: off by default`);
+    assert.equal(toggle!.bind, undefined, `${app.id}: the server post-processes the finished clip, no workflow bind`);
+  }
+  const values = resolveValues(byId("video"), { image: { bytes: new Uint8Array([1]), name: "x.png" }, prompt: "x" });
+  assert.equal(values.last_frame_export, false);
+});
+
 test("the LTX 2.5 video app takes an optional last frame", () => {
   const app = byId("video");
   const last = app.inputs.find((i) => i.id === "last_frame")!;

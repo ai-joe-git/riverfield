@@ -46,7 +46,8 @@ export function openViewer(items, startKey) {
       fullMedia(output.type, output.url, { poster: item.poster }),
       items.length > 1 ? el("button", { class: "round navb next", type: "button", "aria-label": t("act.next"), onclick: () => go(1) }, icon("chevR")) : null,
       item.outputs.length > 1 ? el("div", { class: "tabs", style: { position: "absolute", bottom: "14px", left: "50%", transform: "translateX(-50%)" } },
-        ...item.outputs.map((o, k) => el("button", { type: "button", "aria-selected": String(k === out), onclick: () => { out = k; draw(); } }, `${k + 1}`))) : null].filter(Boolean));
+        ...item.outputs.map((o, k) => el("button", { type: "button", "aria-selected": String(k === out), onclick: () => { out = k; draw(); } },
+          o.type === "video" ? t("view.video") : /last/i.test(o.name || "") ? t("view.lastframe") : `${k + 1}`))) : null].filter(Boolean));
 
     const pi = app ? promptInput(app) : null;
     const prompt = pi ? String(item.values?.[pi.id] ?? "") : "";
@@ -60,6 +61,7 @@ export function openViewer(items, startKey) {
       item.seed !== null && item.seed !== undefined ? [icon("dice"), String(item.seed)] : null,
     ].filter(Boolean);
     const url = output.url;
+    const lastFrame = item.outputs.find((o) => o.type === "image" && /last/i.test(o.name || ""));
     aside.replaceChildren(...[
       el("div", { class: "approw" }, app ? thumb({ ...item, kind: "example", card: app.example?.card || item.card, poster: app.example?.poster, type: app.example?.type || item.type }, { play: "none" }) : null,
         el("div", {}, el("b", {}, app?.name ?? item.app), el("small", {}, item.kind === "example" ? t("view.example") : ago(item.created)))),
@@ -78,6 +80,7 @@ export function openViewer(items, startKey) {
         app ? el("button", { class: "btn lime", type: "button", onclick: () => { close(); hooks.recreate?.(item); } }, icon("redo"), t("act.recreate")) : null,
         url ? el("a", { class: "btn ghost", href: url, download: downloadName(item, url) }, icon("download"), t("act.download")) : null,
         url && output.type !== "audio" && hooks.useIn ? el("button", { class: "btn ghost", type: "button", onclick: (ev) => hooks.useIn(ev.currentTarget, { ...item, full: url, type: output.type }, close) }, icon("send"), t("act.usein")) : null,
+        lastFrame && hooks.useIn ? el("button", { class: "btn ghost", type: "button", onclick: (ev) => hooks.useIn(ev.currentTarget, { ...item, full: lastFrame.url, type: "image" }, close) }, icon("send"), t("act.uselast")) : null,
         el("button", { class: "btn ghost", type: "button", onclick: () => { close(); hooks.compare?.({ ...item, full: url, type: output.type }); } }, icon("compare"), t("act.compare")),
         item.kind === "example" && app ? flagButton(flags.key(app.id)) : null,
         item.kind === "history" ? deleteButton(async () => {
