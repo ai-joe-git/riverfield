@@ -127,6 +127,53 @@ function probe(url, type) {
   });
 }
 
+const DIRECTOR_DB = "riverfield-director";
+let directorDbPromise = null;
+function directorDb() {
+  if (!directorDbPromise) {
+    directorDbPromise = new Promise((resolve, reject) => {
+      if (typeof indexedDB === "undefined") return reject(new Error("IndexedDB unavailable"));
+      const req = indexedDB.open(DIRECTOR_DB, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("images")) db.createObjectStore("images");
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return directorDbPromise;
+}
+function mediaPut(key, value) {
+  return directorDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction("images", "readwrite");
+    tx.objectStore("images").put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+function mediaDelete(key) {
+  return directorDb().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction("images", "readwrite");
+    tx.objectStore("images").delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+function mediaEntries(prefix) {
+  return directorDb().then((db) => new Promise((resolve, reject) => {
+    const out = [], tx = db.transaction("images", "readonly"), req = tx.objectStore("images").openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      if (String(cursor.key).startsWith(prefix)) out.push([String(cursor.key), cursor.value]);
+      cursor.continue();
+    };
+    tx.oncomplete = () => resolve(out);
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
 export function directorView(app, f, { onSubmit, onDirty }) {
   const st = stateFor(app, f);
   // The browser app object does not include the server-side graph. Every H3 Material
@@ -134,43 +181,25 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   // reliable client-side discriminator (and it keeps LTX untouched).
   const h3Planner = app.inputs.some((i) => i.id === "segment_count");
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
-  const mediaStoreKey = `dirfiles.${app.id}`;
-  function fileFromDataUrl(entry) {
-    const [meta, b64] = String(entry.data || "").split(",");
-    const mime = (/data:([^;]+)/.exec(meta) || [])[1] || entry.type || "image/png";
-    const bin = atob(b64 || "");
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-    return new File([bytes], entry.name || "image.png", { type: mime });
-  }
-  function restoreMediaFiles() {
-    const saved = store.get(mediaStoreKey) || {};
-    for (const [slot, entry] of Object.entries(saved)) {
-      if (!slot.startsWith("image") || f.files[slot] || !entry?.data) continue;
-      try {
-        const file = fileFromDataUrl(entry);
+  async function restoreMediaFiles() {
+    try {
+      try { localStorage.removeItem(`dirfiles.${app.id}`); } catch { /* ignore old quota hogs */ }
+      const entries = await mediaEntries(`${app.id}:`);
+      for (const [key, value] of entries) {
+        const slot = key.slice(app.id.length + 1);
+        if (!slot.startsWith("image") || f.files[slot] || !value?.blob) continue;
+        const blob = value.blob;
+        const file = blob instanceof File ? blob : new File([blob], value.name || "image.png", { type: value.type || blob.type || "image/png" });
         f.files[slot] = { file, url: URL.createObjectURL(file) };
-      } catch { /* corrupt entry */ }
-    }
+      }
+    } catch { /* IndexedDB unavailable or corrupt */ }
   }
   function rememberMedia(slot, file) {
     if (!slot.startsWith("image") || !file) return;
-    if (file.size > 2_000_000) {
-      const map = store.get(mediaStoreKey) || {};
-      if (map[slot]) { delete map[slot]; store.set(mediaStoreKey, map); }
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const map = store.get(mediaStoreKey) || {};
-      map[slot] = { data: String(reader.result || ""), name: file.name, type: file.type };
-      store.set(mediaStoreKey, map);
-    };
-    reader.readAsDataURL(file);
+    void mediaPut(`${app.id}:${slot}`, { blob: file, name: file.name, type: file.type }).catch(() => {});
   }
   function forgetMedia(slot) {
-    const map = store.get(mediaStoreKey) || {};
-    if (map[slot]) { delete map[slot]; store.set(mediaStoreKey, map); }
+    if (slot.startsWith("image")) void mediaDelete(`${app.id}:${slot}`).catch(() => {});
   }
   function normalizeOverlaps() {
     if (!h3Planner || !st.windows.length) return false;
@@ -206,12 +235,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     }
     return changed;
   }
-  restoreMediaFiles();
-  for (const [slot, x] of Object.entries(f.files)) if (slot.startsWith("image") && x?.file) rememberMedia(slot, x.file);
-  if (pruneMedia(st, app, f) || fillDefaultPictures()) {
-    persistState(app, f, st);
-    onDirty?.();
-  }
+  const mediaReady = restoreMediaFiles();
   let selected = 0;
   let zoom = Number(store.get("dir.zoom")) || 70;
   let drag = null;
@@ -993,7 +1017,16 @@ export function directorView(app, f, { onSubmit, onDirty }) {
 
   root.append(headEl, el("div", { class: "dir-body" }, binEl, el("div", { class: "dir-main" }, stage, segEl)), footEl);
   draw();
+  mediaReady.then(() => {
+    for (const [slot, x] of Object.entries(f.files)) if (slot.startsWith("image") && x?.file) rememberMedia(slot, x.file);
+    if (pruneMedia(st, app, f) || fillDefaultPictures()) {
+      persistState(app, f, st);
+      onDirty?.();
+    }
+    draw();
+  });
   persistState(app, f, st);
+  onDirty?.();
   return root;
 }
 
