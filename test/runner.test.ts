@@ -331,6 +331,43 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
   }
 });
 
+test("the LTX 2.5 video app takes an optional last frame", () => {
+  const app = byId("video");
+  const last = app.inputs.find((i) => i.id === "last_frame")!;
+  assert.equal(last.required, false, "the end keyframe is optional");
+  assert.deepEqual(last.bind, [{ node: "lastframe_load", field: "image" }]);
+  const enabled = app.inputs.find((i) => i.id === "last_frame_enabled")!;
+  assert.equal(enabled.hidden, true, "the use switch is derived, not shown");
+  assert.deepEqual(enabled.bind, [{ node: "lastenable", field: "value" }]);
+
+  const src = { bytes: new Uint8Array([1]), name: "first.png" };
+  const end = { bytes: new Uint8Array([2]), name: "last.png" };
+  const without = resolveValues(app, { image: src, prompt: "x" });
+  assert.equal(without.last_frame_enabled, false);
+  const graphOff = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
+  const wfOff = { json: graphOff, setInput(node: string, field: string, value: unknown) { (graphOff[node].inputs ??= {})[field] = value; } };
+  applyInputs(app, without, wfOff, (f) => `asset:${f.name}`);
+  assert.equal(graphOff.lastenable.inputs.value, false);
+  assert.deepEqual(graphOff["398:377"].inputs.video_latent, ["lastlow_latent", 0], "the low-res graph stays on the original latent");
+  assert.deepEqual(graphOff["398:388"].inputs.positive, ["lastlow_pos", 0], "the low-res guider stays on the original conditioning");
+
+  const withLast = resolveValues(app, { image: src, last_frame: end, prompt: "x" });
+  assert.equal(withLast.last_frame_enabled, true);
+  const graphOn = JSON.parse(JSON.stringify(app.graph)) as Record<string, any>;
+  const wfOn = { json: graphOn, setInput(node: string, field: string, value: unknown) { (graphOn[node].inputs ??= {})[field] = value; } };
+  applyInputs(app, withLast, wfOn, (f) => `asset:${f.name}`);
+  assert.equal(graphOn.lastenable.inputs.value, true);
+  assert.equal(graphOn.lastframe_load.inputs.image, "asset:last.png");
+  assert.deepEqual(graphOn.lastguide_low.inputs.image, ["lastframe_pre", 0]);
+  assert.deepEqual(graphOn.lastguide_high.inputs.image, ["lastframe_pre", 0]);
+  assert.equal(graphOn.lastguide_low.inputs.frame_idx, -1);
+  assert.equal(graphOn.lastguide_high.inputs.frame_idx, -1);
+  assert.deepEqual(graphOn["398:377"].inputs.video_latent, ["lastlow_latent", 0]);
+  assert.deepEqual(graphOn["398:340"].inputs.video_latent, ["lasthigh_latent", 0]);
+  assert.deepEqual(graphOn["398:388"].inputs.positive, ["lastlow_pos", 0]);
+  assert.deepEqual(graphOn["398:391"].inputs.positive, ["lasthigh_pos", 0]);
+});
+
 test("the LTX 2.5 single-clip apps can skip the latent upscaler", () => {
   for (const [id, prefix] of [["video", "398"], ["video-t2v", "405"], ["cinema-video", "398"], ["lipsync", "398"]] as const) {
     const app = byId(id);

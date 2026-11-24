@@ -264,7 +264,7 @@ The agent has no unrestricted shell or filesystem: only the scoped MCP tools and
 | `video-remove-bg` | Remove Background (video), Video Background Remover | BiRefNet on every frame: the clip over a solid color with its sound, plus the matte | fits whole, 0.4 GB | ready |
 | `depth-map` | Depth Map | MoGe-2: a depth map (colored or grayscale) or a normal map of a photo | fits whole, 0.7 GB | ready |
 | `smooth` | Slow motion / smoothing | FILM frame interpolation | fits whole, 0.1 GB | ready |
-| `video`, `video-t2v` | Create Video (with audio) | **LTX 2.5** 22B distilled (int8): text or a photo to a clip with synchronized audio, 0.2–2 MP, up to 30 s | tight: 21.5 GB largest phase | ready |
+| `video`, `video-t2v` | Create Video (with audio) | **LTX 2.5** 22B distilled (int8): text, or a photo with an optional last frame, to a clip with synchronized audio, 0.2–2 MP, up to 30 s | tight: 21.5 GB largest phase | ready |
 | `h3-video`, `h3-photo` | Create Video (with audio), optional **RelayVSR x2/x4** | MiniMax H3 (int8) from Comfy's templates: text or a photo to a clip with speech, sound and music, 20 steps, no turbo LoRA, up to 40 s | needs Modal: 27.1 GB text encoder | ready |
 | `h3-piflow-t2v`, `h3-piflow-i2v`, `h3-piflow-flf2v` | Create Video (with audio) | MiniMax H3 FL2VA + **pi-H3 DWD** adapters: **2 or 4 steps**, text, first frame, or first-and-last frame; DWD predicts frames without a video VAE decoder; synchronized audio, 0.2–2 MP, up to 40 s (tested to 15) | needs Modal: 25.4 GB denoise phase | ready |
 | `h3-piflow-director` | AI Director | **pi-H3 Director**: Material Planner segments on the 2/4-step pi-H3 adapters; standard H3 VAE decode per segment, because DWD is single-shot only | needs Modal: 25.4 GB denoise phase | ready |

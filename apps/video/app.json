@@ -6,7 +6,7 @@
   "pack": "video-ltx25",
   "status": "ready",
   "higgsfield_feature": "Create Video",
-  "summary": "LTX 2.5 animates a still into a shot with synchronized audio; two stages, selectable resolution and up to 30 s.",
+  "summary": "LTX 2.5 animates a still into a shot with synchronized audio; optional last frame, selectable resolution and up to 30 s.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "video_ltx2_5_i2v.json",
@@ -25,6 +25,35 @@
         {
           "node": "395",
           "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "last_frame",
+      "type": "image",
+      "label": "Last frame",
+      "required": false,
+      "help": "Optional end keyframe. When provided, the shot settles onto this picture; it is resized to the first frame dimensions. Leave empty for first-frame-only animation.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "lastframe_load",
+          "field": "image"
+        }
+      ]
+    },
+    {
+      "id": "last_frame_enabled",
+      "type": "toggle",
+      "label": "Use last frame",
+      "default": false,
+      "hidden": true,
+      "bind": [
+        {
+          "node": "lastenable",
+          "field": "value"
         }
       ]
     },

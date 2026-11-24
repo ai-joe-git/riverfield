@@ -45,7 +45,7 @@
     "class_type": "LTXVConcatAVLatent",
     "inputs": {
       "video_latent": [
-        "398:349",
+        "lasthigh_latent",
         0
       ],
       "audio_latent": [
@@ -513,7 +513,7 @@
     "class_type": "LTXVConcatAVLatent",
     "inputs": {
       "video_latent": [
-        "398:357",
+        "lastlow_latent",
         0
       ],
       "audio_latent": [
@@ -649,12 +649,12 @@
         0
       ],
       "positive": [
-        "398:365",
+        "lastlow_pos",
         0
       ],
       "negative": [
-        "398:365",
-        1
+        "lastlow_neg",
+        0
       ],
       "video_cfg": 1,
       "audio_cfg": 1
@@ -671,12 +671,12 @@
         0
       ],
       "positive": [
-        "398:365",
+        "lasthigh_pos",
         0
       ],
       "negative": [
-        "398:365",
-        1
+        "lasthigh_neg",
+        0
       ],
       "video_cfg": 1,
       "audio_cfg": 1
@@ -962,6 +962,252 @@
     },
     "_meta": {
       "title": "RelayVSR decode"
+    }
+  },
+  "lastframe_load": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "neon_cyborg_portrait.png"
+    },
+    "_meta": {
+      "title": "Last frame (optional)"
+    }
+  },
+  "lastframe_size": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "398:351",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "First frame size"
+    }
+  },
+  "lastframe_resize": {
+    "class_type": "ResizeImageMaskNode",
+    "inputs": {
+      "input": [
+        "lastframe_load",
+        0
+      ],
+      "resize_type": "scale dimensions",
+      "resize_type.width": [
+        "lastframe_size",
+        0
+      ],
+      "resize_type.height": [
+        "lastframe_size",
+        1
+      ],
+      "resize_type.crop": "center",
+      "scale_method": "lanczos"
+    },
+    "_meta": {
+      "title": "Resize last frame"
+    }
+  },
+  "lastframe_pre": {
+    "class_type": "LTXVPreprocess",
+    "inputs": {
+      "image": [
+        "lastframe_resize",
+        0
+      ],
+      "img_compression": 18
+    },
+    "_meta": {
+      "title": "Preprocess last frame"
+    }
+  },
+  "lastenable": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Use last frame"
+    }
+  },
+  "lastguide_low": {
+    "class_type": "LTXVAddGuide",
+    "inputs": {
+      "positive": [
+        "398:365",
+        0
+      ],
+      "negative": [
+        "398:365",
+        1
+      ],
+      "vae": [
+        "398:385",
+        0
+      ],
+      "latent": [
+        "398:357",
+        0
+      ],
+      "image": [
+        "lastframe_pre",
+        0
+      ],
+      "frame_idx": -1,
+      "strength": 0.7
+    },
+    "_meta": {
+      "title": "Last frame guide (low)"
+    }
+  },
+  "lastlow_pos": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:365",
+        0
+      ],
+      "on_true": [
+        "lastguide_low",
+        0
+      ],
+      "switch": [
+        "lastenable",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Last frame low pos"
+    }
+  },
+  "lastlow_neg": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:365",
+        1
+      ],
+      "on_true": [
+        "lastguide_low",
+        1
+      ],
+      "switch": [
+        "lastenable",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Last frame low neg"
+    }
+  },
+  "lastlow_latent": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:357",
+        0
+      ],
+      "on_true": [
+        "lastguide_low",
+        2
+      ],
+      "switch": [
+        "lastenable",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Last frame low latent"
+    }
+  },
+  "lastguide_high": {
+    "class_type": "LTXVAddGuide",
+    "inputs": {
+      "positive": [
+        "398:365",
+        0
+      ],
+      "negative": [
+        "398:365",
+        1
+      ],
+      "vae": [
+        "398:385",
+        0
+      ],
+      "latent": [
+        "398:349",
+        0
+      ],
+      "image": [
+        "lastframe_pre",
+        0
+      ],
+      "frame_idx": -1,
+      "strength": 0.7
+    },
+    "_meta": {
+      "title": "Last frame guide (high)"
+    }
+  },
+  "lasthigh_pos": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:365",
+        0
+      ],
+      "on_true": [
+        "lastguide_high",
+        0
+      ],
+      "switch": [
+        "lastenable",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Last frame high pos"
+    }
+  },
+  "lasthigh_neg": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:365",
+        1
+      ],
+      "on_true": [
+        "lastguide_high",
+        1
+      ],
+      "switch": [
+        "lastenable",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Last frame high neg"
+    }
+  },
+  "lasthigh_latent": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "398:349",
+        0
+      ],
+      "on_true": [
+        "lastguide_high",
+        2
+      ],
+      "switch": [
+        "lastenable",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Last frame high latent"
     }
   }
 }

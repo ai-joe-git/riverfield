@@ -24,6 +24,8 @@ export type Input = {
   multiple?: { max?: number; join?: string; prefix?: string; suffix?: string; ordered?: boolean };
   /** image inputs: the image input this one is painted over in the web UI (a white-on-black mask) */
   paint?: string;
+  /** managed by a custom panel (Studio Director) or derived by the runner: the generic form does not render it */
+  hidden?: boolean;
   /** edges to drop when this optional input is empty (an unused reference slot must not run its loader) */
   unlink?: { node: string; field: string }[];
   /** pass-through nodes removed when this input is off or when the backend lacks their class */
