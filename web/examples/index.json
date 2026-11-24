@@ -5877,7 +5877,7 @@
       "run": "comfyui-20261122-piflow"
     },
     "h3-image-character-swap": {
-      "case": "h3-image-character-swap-lockers",
+      "case": "h3-image-character-swap-blonde",
       "type": "image",
       "card": "examples/h3-image-character-swap/card.jpg",
       "poster": null,
@@ -5904,15 +5904,15 @@
         "steps": 6,
         "sampler": "euler",
         "scheduler": "simple",
-        "seed": 142232601287349,
+        "seed": 404270922992776,
         "unet_name": "minimax_h3_image_pruned_int8_convrot.safetensors",
         "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
         "vae_name": "minimax_h3_image_vae_fp16.safetensors",
         "lora_name": "h3_image_character_swap_v1.safetensors",
         "lora_strength": 1.0
       },
-      "seed": 142232601287349,
-      "seconds": 434.5,
+      "seed": 404270922992776,
+      "seconds": 391.1,
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "comfyui-20261124-character-swap"

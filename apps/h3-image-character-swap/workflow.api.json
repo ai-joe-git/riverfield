@@ -66,7 +66,7 @@
   },
   "38": {
     "inputs": {
-      "seed": 142232601287349,
+      "seed": 404270922992776,
       "steps": 6,
       "cfg": 1.0,
       "sampler_name": "euler",
@@ -203,7 +203,7 @@
   },
   "64": {
     "inputs": {
-      "image": "moss_image_t2i_00107_.png"
+      "image": "moss-turbo_00052_.png"
     },
     "class_type": "LoadImage",
     "_meta": {
