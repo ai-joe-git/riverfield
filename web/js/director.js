@@ -61,6 +61,14 @@ export function alignedLength(frames, minimum = MIN_LEN) {
   return Math.min(MAX_LENGTH, Math.max(lower, MIN_LEN + 17 * Math.max(0, Math.round((frames - MIN_LEN) / 17))));
 }
 
+/** H3 segments advance with no gap and an overlap of 0, 1 or 5 + 17n frames. */
+export function legalOverlapFrames(frames, max = Number.POSITIVE_INFINITY) {
+  const cap = Math.max(0, Math.floor(max));
+  const values = [0, 1];
+  for (let n = 0; 5 + 17 * n <= cap; n += 1) values.push(5 + 17 * n);
+  return values.reduce((best, v) => (Math.abs(v - frames) < Math.abs(best - frames) ? v : best), 0);
+}
+
 export function nearestOverlap(frames, maximum) {
   const choices = [0, 1];
   for (let n = 5; n <= maximum; n += 17) choices.push(n);
@@ -121,6 +129,27 @@ function probe(url, type) {
 
 export function directorView(app, f, { onSubmit, onDirty }) {
   const st = stateFor(app, f);
+  const h3Planner = Object.values(app.graph ?? {}).some((n) => n?.class_type === "RiverFieldH3Planner");
+  const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
+  function normalizeOverlaps() {
+    if (!h3Planner || !st.windows.length) return false;
+    let changed = false;
+    const first = st.windows[0];
+    const firstLen = Math.max(MIN_LEN, first.end - first.start);
+    if (first.start !== 0) { first.start = 0; first.end = firstLen; changed = true; }
+    for (let i = 1; i < st.windows.length; i += 1) {
+      const prev = st.windows[i - 1], cur = st.windows[i];
+      const len = Math.max(MIN_LEN, cur.end - cur.start);
+      const prevLen = Math.max(MIN_LEN, prev.end - prev.start);
+      const max = Math.max(0, Math.min(prevLen - 1, len - 1));
+      const desired = Math.max(0, prev.end - cur.start);
+      const overlap = legalOverlapFrames(desired, max);
+      const start = Math.max(0, prev.end - overlap);
+      const end = start + len;
+      if (start !== cur.start || end !== cur.end) { cur.start = start; cur.end = end; changed = true; }
+    }
+    return changed;
+  }
   if (pruneMedia(st, app, f)) persistState(app, f, st);
   let selected = 0;
   let zoom = Number(store.get("dir.zoom")) || 70;
@@ -227,6 +256,7 @@ export function directorView(app, f, { onSubmit, onDirty }) {
   }
 
   function changed() {
+    normalizeOverlaps();
     pruneMedia(st, app, f);
     persistState(app, f, st);
     onDirty?.();
@@ -758,14 +788,15 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const dialog = modal("Paste prompts", "One prompt per line. Add ,13 for 13 seconds, or ,13,3 for 13 seconds with a 3-second overlap. Lines without values use the defaults below.");
     const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "Wide shot of the room,13,3\nShe turns toward the window,8,3\nClose-up on her eyes,5" });
     const fallback = el("input", { class: "dir-num", type: "number", min: String(MIN_LEN / FPS), max: "30", step: "0.1", value: String(fallbackSeconds) });
-    const overlap = el("input", { class: "dir-num wide", type: "range", min: "0", max: "10", step: "0.1", value: String(SEAM / FPS) });
+    const overlap = el("input", { class: "dir-num wide", type: "range", min: "0", max: "10", step: "0.1", value: String(SEAM / FPS), style: { width: "160px" } });
     const overlapValue = el("span", { class: "unit" }, `${(SEAM / FPS).toFixed(1)}s`);
     const forceAll = el("input", { type: "checkbox" });
     const info = el("p", { class: "help", style: { margin: "0" } }, "0 segments");
     const refresh = () => {
-      overlapValue.textContent = `${Number(overlap.value).toFixed(1)}s`;
-      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)), Number(overlap.value));
-      info.textContent = `${parsed.length} segment${parsed.length === 1 ? "" : "s"} · ${max} max · ${Number(overlap.value).toFixed(1)}s default overlap`;
+      const snapped = snapOverlap(Number(overlap.value));
+      overlapValue.textContent = `${snapped.toFixed(2)}s`;
+      const parsed = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)), snapped);
+      info.textContent = `${parsed.length} segment${parsed.length === 1 ? "" : "s"} · ${max} max · ${snapped.toFixed(2)}s default overlap`;
     };
     ta.addEventListener("input", refresh);
     fallback.addEventListener("input", refresh);
@@ -773,9 +804,10 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     forceAll.addEventListener("change", refresh);
     const make = (replace) => {
       let prompts = parseBatchPrompts(ta.value, Math.max(MIN_LEN / FPS, Math.min(30, Number(fallback.value) || 5)), Number(overlap.value));
-      if (forceAll.checked) prompts = prompts.map((p) => ({ ...p, overlap: Number(overlap.value) }));
+      if (forceAll.checked) prompts = prompts.map((p) => ({ ...p, overlap: snapOverlap(Number(overlap.value)) }));
+      else prompts = prompts.map((p) => ({ ...p, overlap: snapOverlap(p.overlap) }));
       if (replace && fixed && prompts.length < fixed) {
-        while (prompts.length < fixed) prompts.push({ prompt: "", duration: Math.max(MIN_LEN / FPS, Number(fallback.value) || fallbackSeconds), overlap: Number(overlap.value) });
+        while (prompts.length < fixed) prompts.push({ prompt: "", duration: Math.max(MIN_LEN / FPS, Number(fallback.value) || fallbackSeconds), overlap: snapOverlap(Number(overlap.value)) });
       }
       if (!prompts.length) return toast("Paste at least one prompt.", { error: true });
       if ((replace ? 0 : st.windows.length) + prompts.length > max) {
@@ -822,7 +854,9 @@ export function directorView(app, f, { onSubmit, onDirty }) {
       el("label", { style: { display: "flex", alignItems: "center", gap: "7px", fontSize: "11.5px", color: "var(--dim)" } },
         forceAll, "Apply the slider overlap to every pasted segment"),
       el("p", { class: "help", style: { margin: "0" } },
-        "A trailing ,N becomes duration; a second ,N becomes the overlap with the previous segment. Existing pictures and sounds are kept by segment index on Replace; Append copies the last segment’s assignments."),
+        h3Planner
+          ? "H3 overlaps snap to 0, 1 or 5 + 17n frames; a requested 3s becomes the nearest legal value (~3.04s). A trailing ,N is duration; a second ,N is overlap. Existing pictures and sounds are kept by index on Replace; Append copies the last segment’s assignments."
+          : "A trailing ,N becomes duration; a second ,N becomes the overlap with the previous segment. Existing pictures and sounds are kept by segment index on Replace; Append copies the last segment’s assignments."),
       el("div", { class: "ag-dialog-actions" },
         el("button", { class: "btn ghost", type: "button", onclick: () => make(false) }, icon("plus"), "Append segments"),
         el("button", { class: "btn lime", type: "button", onclick: () => make(true) }, icon("film"), "Replace segments"))));
@@ -865,7 +899,10 @@ export function directorView(app, f, { onSubmit, onDirty }) {
     const prompt = el("textarea", { class: "dir-global", rows: "2", placeholder: "Global prompt — used by every segment whose own prompt is empty", value: f.values.global_prompt || "" });
     prompt.addEventListener("input", () => { f.values.global_prompt = prompt.value; onDirty?.(); });
     const go = el("button", { class: "btn dir-go", type: "button" }, icon("spark"), "Generate");
-    go.onclick = () => onSubmit?.();
+    go.onclick = () => {
+      if (normalizeOverlaps()) { persistState(app, f, st); onDirty?.(); draw(); }
+      onSubmit?.();
+    };
     footEl.replaceChildren(el("div", { class: "dir-global-wrap" }, prompt), go);
   }
 
