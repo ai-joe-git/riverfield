@@ -25,7 +25,7 @@ const execFileAsync = promisify(execFile);
 async function extractLastFrame(video: string, out: string): Promise<void> {
   const run = (seek: string) => execFileAsync("ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-y", "-sseof", seek,
-    "-i", video, "-update", "1", "-q:v", "2", out,
+    "-i", video, "-update", "1", "-pix_fmt", "rgb24", out,
   ], { timeout: 120_000 });
   try {
     await run("-0.1");
@@ -437,10 +437,10 @@ export class History {
         if (entry.values?.last_frame_export === true) {
           const clip = entry.outputs.find((o) => o.type === "video");
           if (clip) {
-            const file = `out-${String(++n).padStart(2, "0")}.jpg`;
+            const file = `out-${String(++n).padStart(2, "0")}.png`;
             try {
               await extractLastFrame(join(folder, clip.file), join(folder, file));
-              entry.outputs.push({ file, type: "image", name: "last-frame.jpg", node: "post:last_frame" });
+              entry.outputs.push({ file, type: "image", name: "last-frame.png", node: "post:last_frame" });
             } catch (e) {
               console.warn(`[history] ${entry.id}: could not extract the last frame: ${(e as Error).message}`);
             }

@@ -81,7 +81,8 @@
           "node": "398:373",
           "field": "text"
         }
-      ]
+      ],
+      "allow_empty": true
     },
     {
       "id": "enhance",

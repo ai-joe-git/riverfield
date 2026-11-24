@@ -352,6 +352,19 @@ test("the sequential director is a ready LTX segment chain", () => {
   assert.equal(values.last_frame_enabled, true, "the segment's optional end keyframe is enabled by file presence");
 });
 
+test("the sequential director keeps an intentionally empty negative prompt", () => {
+  const app = byId("ltx-sequential-director");
+  const values = resolveValues(app, {
+    image: { bytes: new Uint8Array([1]), name: "start.png" },
+    prompt: "a beat",
+    negative_prompt: "",
+  });
+  assert.equal(values.negative_prompt, "", "cleared is not the default value");
+  const wf = recorder();
+  applyInputs(app, values, wf, () => null);
+  assert.equal(wf.sets["398:373.text"], "", "the empty negative prompt reaches CLIPTextEncode");
+});
+
 test("every video app offers the last-frame export post-process", () => {
   const videoApps = apps.filter((a) => a.outputs.some((o) => o.type === "video"));
   assert.ok(videoApps.length > 10, "the catalogue has video apps");

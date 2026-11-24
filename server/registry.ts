@@ -15,6 +15,8 @@ export type Input = {
   help?: string;
   default?: unknown;
   required?: boolean;
+  /** text/textarea: an explicit empty value wins over the default (the cleared negative prompt) */
+  allow_empty?: boolean;
   min?: number;
   max?: number;
   step?: number;

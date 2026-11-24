@@ -208,7 +208,7 @@ function buildForm(app, { randomSeed = false } = {}) {
     if (inp.multiple) { fd.append(inp.id, JSON.stringify(Array.isArray(v) ? v : [])); continue; }   // none picked is a choice too
     if (inp.type === "seed" && (randomSeed || v === -1 || v === "-1" || v === "" || v === null)) continue;
     // "Any" in a builder select is the empty value: send it, or the server would fill in the default
-    if (v === "" && inp.type === "select" && (inp.options || []).some((o) => o.value === "")) { fd.append(inp.id, ""); continue; }
+    if (v === "" && (inp.allow_empty || (inp.type === "select" && (inp.options || []).some((o) => o.value === "")))) { fd.append(inp.id, ""); continue; }
     if (v === "" || v === null || v === undefined) continue;
     fd.append(inp.id, String(v));
   }

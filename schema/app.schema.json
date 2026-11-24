@@ -289,6 +289,10 @@
         "required": {
           "type": "boolean"
         },
+        "allow_empty": {
+          "type": "boolean",
+          "description": "Text/textarea only: an explicitly empty value is kept instead of falling back to the default."
+        },
         "min": {
           "type": "number"
         },

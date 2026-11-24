@@ -482,7 +482,7 @@ const server = createServer(async (req, res) => {
       if (area === "sequences" && req.method === "POST" && id === "assemble") {
         const body = await (await toRequest(req)).json().catch(() => null) as { segments?: unknown } | null;
         const segments = Array.isArray(body?.segments) ? body.segments : [];
-        if (!segments.length || segments.length > 8) throw new InputError("assemble needs 1 to 8 approved segments");
+        if (!segments.length || segments.length > 512) throw new InputError("assemble needs 1 to 512 approved segments");
         const paths = segments.map((seg) => {
           const s = seg as { id?: unknown; file?: unknown };
           if (typeof s.id !== "string" || typeof s.file !== "string") throw new InputError("every segment needs a history id and a video file");
@@ -490,7 +490,14 @@ const server = createServer(async (req, res) => {
           if (!file) throw new InputError(`segment ${s.id}: unknown video ${s.file}`);
           return file;
         });
-        return send(res, 200, await media.run({ operation: "concat", paths }));
+        try {
+          return send(res, 200, await media.concatMany(paths));
+        } catch (e) {
+          // Short chains can still be normalised by the bounded CPU editor if the fast copy
+          // rejects mixed codecs; long chains must share the settings to be assembled.
+          if (paths.length <= 8) return send(res, 200, await media.run({ operation: "concat", paths }));
+          throw e;
+        }
       }
       if (area === "history") {
         if (req.method === "GET" && !id) {const key=url.searchParams.get("request_id"),entry=key?history.findRequest(key, me):undefined;return send(res,200,{entries:key?(entry?[history.view(entry)]:[]):history.list(url.searchParams.get("app")||undefined, 300, me)});}

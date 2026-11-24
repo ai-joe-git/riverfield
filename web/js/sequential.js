@@ -5,11 +5,12 @@
 // deliberately replaces the handoff with a new start image. Nothing links the segment
 // videos until the user approves them and presses Assemble; assembly is the bounded
 // server-side ffmpeg concat.
-import { api, el, icon, toast } from "./util.js";
+import { api, el, icon, store, toast } from "./util.js";
 
 const TERMINAL = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 const PER_SEGMENT = new Set(["image", "last_frame", "last_frame_enabled", "prompt", "duration", "last_frame_export"]);
 const cache = new Map();
+const MAX_SEGMENTS = 512;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function defaultOf(app, id, fallback) {
@@ -25,6 +26,7 @@ function blankSegment(app) {
     cut: false,
     cutStart: null,
     cutStartUrl: null,
+    cutStartData: null,
     approved: false,
     running: false,
     jobId: null,
@@ -32,6 +34,7 @@ function blankSegment(app) {
     videoFile: null,
     lastFrameUrl: null,
     lastFrameFile: null,
+    lastData: null,
     stale: false,
     error: null,
   };
@@ -40,7 +43,9 @@ function blankSegment(app) {
 function stateFor(app) {
   let st = cache.get(app.id);
   if (!st) {
-    st = { selected: 0, start: null, startUrl: null, segments: Array.from({ length: 4 }, () => blankSegment(app)), assembled: null, assembling: false };
+    st = restore(app) || { selected: 0, start: null, startUrl: null, startData: null, segments: Array.from({ length: 4 }, () => blankSegment(app)), assembled: null, assembling: false };
+    if (!Number.isInteger(st.selected)) st.selected = 0;
+    st.selected = Math.max(0, Math.min(st.segments.length - 1, st.selected));
     cache.set(app.id, st);
   }
   return st;
@@ -58,6 +63,22 @@ async function fileFromUrl(url, name) {
   return new File([blob], name.replace(/\\.[^.]+$/, `.${ext}`), { type: blob.type || "image/png" });
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve) => {
+    if (!file || file.size > 3_500_000 || typeof FileReader === "undefined") return resolve(null);
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function dataUrlToFile(data, name) {
+  const res = await fetch(data);
+  const blob = await res.blob();
+  return new File([blob], name, { type: blob.type || "image/png" });
+}
+
 function invalidationFrom(st, index) {
   for (let i = index; i < st.segments.length; i += 1) {
     if (i > index && st.segments[i].cut) break;
@@ -65,6 +86,53 @@ function invalidationFrom(st, index) {
     seg.approved = false;
     if (seg.videoUrl) seg.stale = true;
   }
+}
+
+function settingsKey(app, f) {
+  const values = {};
+  for (const inp of app.inputs) if (!PER_SEGMENT.has(inp.id)) values[inp.id] = f.values[inp.id];
+  return JSON.stringify(values);
+}
+
+function persist(st, app) {
+  const clone = {
+    ...st,
+    start: null,
+    segments: st.segments.map((s) => ({ ...s, last: null, cutStart: null })),
+  };
+  if (typeof clone.startUrl === "string" && (clone.startUrl.startsWith("blob:") || clone.startUrl.startsWith("data:"))) clone.startUrl = null;
+  for (const seg of clone.segments) {
+    if (typeof seg.lastUrl === "string" && (seg.lastUrl.startsWith("blob:") || seg.lastUrl.startsWith("data:"))) seg.lastUrl = null;
+    if (typeof seg.cutStartUrl === "string" && (seg.cutStartUrl.startsWith("blob:") || seg.cutStartUrl.startsWith("data:"))) seg.cutStartUrl = null;
+  }
+  store.set(`seq.${app.id}`, clone);
+}
+
+function restore(app) {
+  const saved = store.get(`seq.${app.id}`);
+  if (!saved || !Array.isArray(saved.segments) || !saved.segments.length) return null;
+  const st = {
+    ...saved,
+    start: null,
+    assembling: false,
+    segments: saved.segments.map((s) => ({
+      ...blankSegment(app),
+      ...s,
+      last: null,
+      cutStart: null,
+      running: false,
+      error: s.running ? "Interrupted by a page reload; generate this segment again." : s.error,
+    })),
+  };
+  if (typeof st.startUrl === "string" && st.startUrl.startsWith("blob:")) st.startUrl = null;
+  if (!st.startUrl && st.startData) st.startUrl = st.startData;
+  for (const seg of st.segments) {
+    if (typeof seg.lastUrl === "string" && seg.lastUrl.startsWith("blob:")) seg.lastUrl = null;
+    if (typeof seg.cutStartUrl === "string" && seg.cutStartUrl.startsWith("blob:")) seg.cutStartUrl = null;
+    if (!seg.lastUrl && seg.lastData) seg.lastUrl = seg.lastData;
+    if (!seg.cutStartUrl && seg.cutStartData) seg.cutStartUrl = seg.cutStartData;
+  }
+  return st;
 }
 
 function fmt(n) {
@@ -79,6 +147,15 @@ function hiddenFile(onFile, accept = "image/*") {
     if (file) onFile(file);
   });
   return input;
+}
+
+function rememberData(obj, key, file, st, app) {
+  obj[key] = null;
+  fileToDataUrl(file).then((data) => {
+    if (!data) return;
+    obj[key] = data;
+    persist(st, app);
+  });
 }
 
 function mediaChip(label, url, { onPick, onClear, ghost = false, title = "" } = {}) {
@@ -108,6 +185,20 @@ function summary(f, app) {
 export function sequentialDirectorView(app, f) {
   const st = stateFor(app);
   const root = el("div", { class: "dir" });
+
+  function checkSettings() {
+    const key = settingsKey(app, f);
+    if (st.settings === undefined) { st.settings = key; return; }
+    if (st.settings === key) return;
+    st.settings = key;
+    for (const seg of st.segments) {
+      seg.approved = false;
+      if (seg.videoUrl) seg.stale = true;
+    }
+    persist(st, app);
+  }
+  if (st.settings === undefined) st.settings = settingsKey(app, f);
+  checkSettings();
   const head = el("div", { class: "dir-head" });
   const body = el("div", { class: "dir-body", style: { gridTemplateColumns: "minmax(0, 1fr)" } });
   const main = el("div", { class: "dir-main" });
@@ -121,6 +212,7 @@ export function sequentialDirectorView(app, f) {
 
   function select(i) {
     st.selected = Math.max(0, Math.min(st.segments.length - 1, i));
+    persist(st, app);
     draw();
   }
 
@@ -133,9 +225,10 @@ export function sequentialDirectorView(app, f) {
         el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}`)),
       el("div", { class: "dir-head-right" },
         el("button", { type: "button", class: "dir-toggle", onclick: () => {
-          if (st.segments.length >= 8) return toast("Eight segments is the current maximum.", { error: true });
+          if (st.segments.length >= MAX_SEGMENTS) return toast(`${MAX_SEGMENTS} segments is the current maximum.`, { error: true });
           st.segments.push(blankSegment(app));
           st.selected = st.segments.length - 1;
+          persist(st, app);
           draw();
         } }, icon("plus"), "Add segment"),
         el("button", { type: "button", class: "dir-toggle on", onclick: () => void assemble() },
@@ -154,6 +247,39 @@ export function sequentialDirectorView(app, f) {
     ruler.append(el("span", { class: "dir-tick", style: { left: "100%" } }, el("i"), `${fmt(total)}s`));
 
     const track = el("div", { class: "dir-track gen", style: { width: "100%" } });
+
+    function startResize(e, target, edge) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const pxPerSec = Math.max(1, track.getBoundingClientRect().width) / Math.max(1, total);
+      const startX = e.clientX;
+      const startDuration = st.segments[target].duration;
+      let moved = false;
+      const move = (ev) => {
+        const delta = (ev.clientX - startX) / pxPerSec;
+        if (Math.abs(delta) < 0.15) return;
+        const next = Math.max(1, Math.min(30, Math.round(startDuration + delta)));
+        if (next === st.segments[target].duration) return;
+        moved = true;
+        st.segments[target].duration = next;
+        invalidationFrom(st, target);
+        draw();
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        document.body.classList.remove("dir-dragging");
+        if (moved) { persist(st, app); draw(); }
+        else select(Math.max(target, 0));
+      };
+      document.body.classList.add("dir-dragging");
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    }
+
     let cursor = 0;
     st.segments.forEach((seg, i) => {
       const left = (cursor / total) * 100;
@@ -174,6 +300,8 @@ export function sequentialDirectorView(app, f) {
         el("span", { class: "dir-win-prompt" }, seg.prompt || "Empty segment"));
       if (seg.approved) win.append(el("span", { title: "Approved", style: { position: "absolute", top: "5px", right: "9px", color: "var(--mint)", fontSize: "12px", fontWeight: "800" } }, "✓"));
       else if (seg.error) win.append(el("span", { title: seg.error, style: { position: "absolute", top: "5px", right: "9px", color: "var(--bad)", fontSize: "11px", fontWeight: "700" } }, "!"));
+      if (i > 0) win.append(el("span", { class: "dir-handle l", title: "Drag to resize the previous segment", onclick: (e) => e.stopPropagation(), onpointerdown: (e) => startResize(e, i - 1, "l") }));
+      win.append(el("span", { class: "dir-handle r", title: "Drag to resize this segment", onclick: (e) => e.stopPropagation(), onpointerdown: (e) => startResize(e, i, "r") }));
       track.append(win);
       cursor += seg.duration;
     });
@@ -193,12 +321,13 @@ export function sequentialDirectorView(app, f) {
     const status = seg.running ? "running" : seg.error ? "failed" : seg.approved ? "approved" : seg.videoUrl ? "review" : "empty";
 
     const duration = el("input", { class: "dir-num", type: "number", min: "1", max: "30", step: "1", value: String(seg.duration) });
-    duration.addEventListener("input", () => { seg.duration = Math.max(1, Math.min(30, Number(duration.value) || 5)); invalidationFrom(st, i); });
+    duration.addEventListener("input", () => { seg.duration = Math.max(1, Math.min(30, Number(duration.value) || 5)); invalidationFrom(st, i); persist(st, app); });
     const cut = el("input", { type: "checkbox", checked: seg.cut });
     cut.addEventListener("change", () => {
       seg.cut = cut.checked;
       if (!seg.cut) { revoke(seg.cutStartUrl); seg.cutStart = null; seg.cutStartUrl = null; }
       invalidationFrom(st, i);
+      persist(st, app);
       draw();
     });
 
@@ -206,9 +335,11 @@ export function sequentialDirectorView(app, f) {
       icon("film"), seg.videoUrl ? "Regenerate" : "Generate segment");
     const approve = seg.videoUrl && !seg.approved ? el("button", {
       class: "btn small ghost", type: "button", onclick: () => {
+        checkSettings();
         if (seg.stale) return toast("Regenerate this changed segment before approving.", { error: true });
         seg.approved = true;
         invalidationFrom(st, i + 1);
+        persist(st, app);
         draw();
       },
     }, icon("check"), "Approve") : null;
@@ -218,31 +349,32 @@ export function sequentialDirectorView(app, f) {
         st.segments.splice(i, 1);
         st.selected = Math.min(i, st.segments.length - 1);
         invalidationFrom(st, Math.max(0, i - 1));
+        persist(st, app);
         draw();
       },
     }, icon("x"), "Remove") : null;
 
     const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "What happens in this segment?" });
     prompt.value = seg.prompt;
-    prompt.addEventListener("input", () => { seg.prompt = prompt.value; invalidationFrom(st, i); });
+    prompt.addEventListener("input", () => { seg.prompt = prompt.value; invalidationFrom(st, i); persist(st, app); });
 
     const firstChip = i === 0
       ? mediaChip(st.start ? "Start image" : "Choose start image", st.startUrl, {
-        onPick: (file) => { revoke(st.startUrl); st.start = file; st.startUrl = URL.createObjectURL(file); invalidationFrom(st, 0); draw(); },
-        onClear: () => { revoke(st.startUrl); st.start = null; st.startUrl = null; invalidationFrom(st, 0); draw(); },
+        onPick: (file) => { revoke(st.startUrl); st.start = file; st.startUrl = URL.createObjectURL(file); invalidationFrom(st, 0); rememberData(st, "startData", file, st, app); persist(st, app); draw(); },
+        onClear: () => { revoke(st.startUrl); st.start = null; st.startUrl = null; st.startData = null; invalidationFrom(st, 0); persist(st, app); draw(); },
       })
       : seg.cut
         ? mediaChip(seg.cutStart ? "Cut start image" : "Choose cut image", seg.cutStartUrl, {
-          onPick: (file) => { revoke(seg.cutStartUrl); seg.cutStart = file; seg.cutStartUrl = URL.createObjectURL(file); invalidationFrom(st, i); draw(); },
-          onClear: () => { revoke(seg.cutStartUrl); seg.cutStart = null; seg.cutStartUrl = null; invalidationFrom(st, i); draw(); },
+          onPick: (file) => { revoke(seg.cutStartUrl); seg.cutStart = file; seg.cutStartUrl = URL.createObjectURL(file); invalidationFrom(st, i); rememberData(seg, "cutStartData", file, st, app); persist(st, app); draw(); },
+          onClear: () => { revoke(seg.cutStartUrl); seg.cutStart = null; seg.cutStartUrl = null; seg.cutStartData = null; invalidationFrom(st, i); persist(st, app); draw(); },
         })
         : el("span", { class: `dir-chip ${prev?.lastFrameUrl ? "on" : ""}`.trim(), title: "First frame from the previous approved segment" },
           prev?.lastFrameUrl ? el("img", { src: prev.lastFrameUrl, alt: "" }) : icon("image"),
           el("span", {}, prev?.lastFrameUrl ? "Previous segment’s last frame" : "Previous segment not approved yet"));
 
     const keyframe = mediaChip(seg.last ? "Final keyframe" : "Add final keyframe", seg.lastUrl, {
-      onPick: (file) => { revoke(seg.lastUrl); seg.last = file; seg.lastUrl = URL.createObjectURL(file); invalidationFrom(st, i); draw(); },
-      onClear: () => { revoke(seg.lastUrl); seg.last = null; seg.lastUrl = null; invalidationFrom(st, i); draw(); },
+      onPick: (file) => { revoke(seg.lastUrl); seg.last = file; seg.lastUrl = URL.createObjectURL(file); invalidationFrom(st, i); rememberData(seg, "lastData", file, st, app); persist(st, app); draw(); },
+      onClear: () => { revoke(seg.lastUrl); seg.last = null; seg.lastUrl = null; seg.lastData = null; invalidationFrom(st, i); persist(st, app); draw(); },
     });
 
     const preview = seg.videoUrl ? el("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" } },
@@ -297,6 +429,7 @@ export function sequentialDirectorView(app, f) {
   }
 
   function draw() {
+    checkSettings();
     drawHead();
     drawStage();
     drawEditor();
@@ -306,12 +439,14 @@ export function sequentialDirectorView(app, f) {
   async function firstFileFor(i) {
     const seg = st.segments[i];
     if (i === 0) {
-      if (!st.start) throw new Error("Choose the start image for segment 1.");
-      return st.start;
+      if (st.start) return st.start;
+      if (st.startUrl && !st.startUrl.startsWith("blob:")) return fileFromUrl(st.startUrl, "segment-1-start.png");
+      throw new Error("Choose the start image for segment 1.");
     }
     if (seg.cut) {
-      if (!seg.cutStart) throw new Error("Choose the new start image for this cut.");
-      return seg.cutStart;
+      if (seg.cutStart) return seg.cutStart;
+      if (seg.cutStartUrl && !seg.cutStartUrl.startsWith("blob:")) return fileFromUrl(seg.cutStartUrl, `segment-${i + 1}-cut.png`);
+      throw new Error("Choose the new start image for this cut.");
     }
     const prev = st.segments[i - 1];
     if (!prev?.approved || !prev.lastFrameUrl) throw new Error("Approve the previous segment and keep its last frame available.");
@@ -321,6 +456,7 @@ export function sequentialDirectorView(app, f) {
   async function runSegment(i) {
     const seg = st.segments[i];
     if (seg.running) return;
+    checkSettings();
     let first;
     try { first = await firstFileFor(i); } catch (e) { toast(e.message, { error: true }); return; }
     seg.running = true; seg.error = null; seg.approved = false; seg.stale = false;
@@ -330,14 +466,17 @@ export function sequentialDirectorView(app, f) {
     try {
       const fd = new FormData();
       fd.append("image", first, first.name || `segment-${i + 1}-first.png`);
-      if (seg.last) fd.append("last_frame", seg.last, seg.last.name || `segment-${i + 1}-last.png`);
+      let lastFrame = seg.last;
+      if (!lastFrame && seg.lastUrl && !seg.lastUrl.startsWith("blob:")) lastFrame = await fileFromUrl(seg.lastUrl, `segment-${i + 1}-last.png`);
+      if (lastFrame) fd.append("last_frame", lastFrame, lastFrame.name || `segment-${i + 1}-last.png`);
       fd.append("prompt", seg.prompt.trim() || "Continue the shot.");
       fd.append("duration", String(seg.duration));
       fd.append("last_frame_export", "true");
       for (const inp of app.inputs) {
         if (PER_SEGMENT.has(inp.id)) continue;
         const v = f.values[inp.id];
-        if (v === undefined || v === null || v === "") continue;
+        if (v === undefined || v === null) continue;
+        if (v === "") { if (inp.allow_empty) fd.append(inp.id, ""); continue; }
         if (inp.type === "seed" && (v === -1 || v === "-1")) continue;
         fd.append(inp.id, inp.type === "toggle" ? (v ? "true" : "false") : String(v));
       }
@@ -356,17 +495,24 @@ export function sequentialDirectorView(app, f) {
       seg.videoFile = video.file;
       seg.lastFrameUrl = frame?.url || null;
       seg.lastFrameFile = frame?.file || null;
+      const inputUrl = (id) => entry.inputs?.find((x) => x.id === id)?.url || null;
+      if (i === 0 && inputUrl("image")) { st.start = null; st.startData = null; st.startUrl = inputUrl("image"); }
+      if (seg.cut && inputUrl("image")) { seg.cutStart = null; seg.cutStartData = null; seg.cutStartUrl = inputUrl("image"); }
+      if (seg.last && inputUrl("last_frame")) { seg.last = null; seg.lastData = null; seg.lastUrl = inputUrl("last_frame"); }
       if (!seg.lastFrameUrl) seg.error = "The video succeeded, but no last frame was extracted. Add a cut or a final keyframe for the next segment.";
+      persist(st, app);
     } catch (e) {
       seg.error = e.message;
     } finally {
       seg.running = false;
+      persist(st, app);
       draw();
     }
   }
 
   async function assemble() {
     if (st.assembling) return;
+    checkSettings();
     if (st.segments.some((s) => !s.approved || !s.videoFile || s.stale)) {
       toast("Approve every up-to-date segment before assembling.", { error: true });
       return;
@@ -382,6 +528,7 @@ export function sequentialDirectorView(app, f) {
       });
       st.assembled = result.outputs?.[0]?.url || null;
       if (!st.assembled) throw new Error("The assembler returned no video.");
+      persist(st, app);
       toast("Sequential cut assembled.");
     } catch (e) {
       toast(e.message, { error: true });

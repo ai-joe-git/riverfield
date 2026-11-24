@@ -1,6 +1,6 @@
 // Generic, bounded CPU utilities. No scene/storyboard/project orchestration or raw shell/filters.
 import {spawn} from "node:child_process";
-import {mkdirSync,readFileSync,existsSync} from "node:fs";
+import {mkdirSync,readFileSync,existsSync,writeFileSync} from "node:fs";
 import {join,resolve,extname,relative} from "node:path";
 import {randomUUID} from "node:crypto";
 import {z} from "zod";
@@ -25,6 +25,20 @@ export class MediaTools {
     throw new Error("Media path is outside permitted uploads, History, examples or generated media");
   }
   file(id:string,name:string){const dir=join(this.out,"media",identifier(id)),meta=JSON.parse(readFileSync(join(dir,"meta.json"),"utf8"));if(!meta.outputs.some((o:any)=>o.file===name))throw new Error("Unknown media output");return within(dir,name);}
+  /** Fast, lossless concat for a chain whose segments share codec/size/fps. No 8-input or
+   * 120-second CPU-editor limit: the concat demuxer copies the streams instead of re-encoding. */
+  async concatMany(paths:string[]){
+    if(!paths.length) throw new Error("Provide at least one segment");
+    const id=randomUUID(),dir=join(this.out,"media",id);mkdirSync(dir,{recursive:true});
+    const file=join(dir,"export.mp4"),list=join(dir,"concat.txt");
+    const quote=(p:string)=>`file '${p.replace(/'/g,"'\\''")}'`;
+    writeFileSync(list,paths.map(quote).join("\n")+"\n");
+    await command("ffmpeg",["-hide_banner","-loglevel","error","-y","-f","concat","-safe","0","-i",list,"-c","copy","-movflags","+faststart",file]);
+    const output={file:"export.mp4",path:resolve(file),type:"video",metadata:await probe(file),url:`/api/media/${id}/files/export.mp4`};
+    atomic(join(dir,"meta.json"),{id,operation:"concat",inputs:[],outputs:[output]});
+    return {id,outputs:[output]};
+  }
+
   async run(raw:unknown){const v=mediaSchema.parse(raw),paths=(v.paths||[v.path]).filter((x):x is string=>!!x).map(p=>this.permitted(p));if(!paths.length)throw new Error("Provide path or paths");
     const measured=await Promise.all(paths.map(probe));if(v.operation==="probe")return {path:paths[0],metadata:measured[0]};
     if(measured.some(m=>m.duration>120||v.operation!=="audio"&&m.width*m.height>4200000))throw new Error("Generic CPU editing is limited to 120-second inputs and 4.2 MP; use a dedicated app/external editor for larger files");
