@@ -642,6 +642,7 @@ test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references",
   };
   applyInputs(app, values, wf, (f) => `asset:${f.name}`);
 
+  assert.ok(graph["16"] && graph["16"].class_type === "SaveImage", "the p-h3 SaveImage survives graph pruning");
   assert.equal(graph["40"].inputs.switch, false, "custom resolution leaves the switch off");
   assert.deepEqual(graph["40"].inputs.on_false, ["26", 0], "off passes Picture 1 untouched");
   assert.deepEqual(graph["40"].inputs.on_true, ["6", 0], "on passes the scaled Picture 1");
