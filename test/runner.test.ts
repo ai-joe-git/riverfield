@@ -606,6 +606,8 @@ test("the Chatterbox voice apps chunk long scripts before synthesis", () => {
 
 test("H3 Image Edit uses the stable p-H3-Image graph and cuts empty references", () => {
   const app = byId("h3-image-edit");
+  assert.deepEqual(app.outputs, [{ node: "16", type: "image", label: "Edited image" }], "the output is the p-h3 SaveImage, not the conditioning node");
+  assert.equal((app.graph as Record<string, any>)["16"]?.class_type, "SaveImage");
   assert.equal(app.layout, "sidebar", "the picture slots keep the H3 reference sidebar");
   const source = app.inputs.find((i) => i.id === "image")!;
   assert.equal(source.required, true, "the photo to edit is still required");
