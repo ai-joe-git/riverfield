@@ -393,6 +393,9 @@ input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border: 0; bo
 .drop.has { padding: 0; min-height: 0; border-style: solid; border-color: #26262a; overflow: hidden; display: block; }
 .drop.has img, .drop.has video { width: 100%; max-height: 240px; object-fit: contain; background: #050812; }
 .drop.has audio { width: calc(100% - 16px); margin: 10px 8px; }
+/* a 3D mesh has no still: show a centered box icon instead of collapsing to one line */
+.drop.has .typeicon { display: grid; place-items: center; width: 100%; min-height: 92px; background: #0a101a; color: var(--blue); }
+.drop.has .typeicon .i { width: 30px; height: 30px; }
 .drop .bar2 { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
 .drop .fname { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); font-size: 11.5px; padding: 3px 7px; border-radius: 6px; background: rgba(0, 0, 0, .6);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
