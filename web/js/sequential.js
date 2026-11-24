@@ -4,8 +4,9 @@
 // frame export, then uploads that frame as the next run's first image. A "cut" checkbox
 // deliberately replaces the handoff with a new start image. Nothing links the segment
 // videos until the user approves them and presses Assemble; assembly is the bounded
-// server-side ffmpeg concat.
+// server-side fast concat.
 import { api, el, icon, store, toast } from "./util.js";
+import { modal } from "./agent-controls.js";
 
 const TERMINAL = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 const PER_SEGMENT = new Set(["image", "last_frame", "last_frame_enabled", "prompt", "duration", "last_frame_export"]);
@@ -182,6 +183,19 @@ function summary(f, app) {
   return `${String(aspect).split(" (")[0]} · ${mp} MP · ${fps} fps`;
 }
 
+function parseBatch(text, fallback) {
+  const out = [];
+  for (const raw of String(text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const hit = /\s*,\s*(\d+(?:\.\d+)?)\s*s?\s*$/i.exec(line);
+    const duration = hit ? Math.max(1, Math.min(30, Math.round(Number(hit[1])))) : fallback;
+    const prompt = (hit ? line.slice(0, hit.index) : line).trim();
+    if (prompt) out.push({ prompt, duration });
+  }
+  return out;
+}
+
 export function sequentialDirectorView(app, f) {
   const st = stateFor(app);
   const root = el("div", { class: "dir" });
@@ -216,6 +230,49 @@ export function sequentialDirectorView(app, f) {
     draw();
   }
 
+  function openBatch() {
+    const dialog = modal("Paste prompts", "One prompt per line. Add an optional duration suffix: ,13 for 13 seconds. Without a suffix the default below is used.");
+    const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "A woman walks into the room,13\nShe sits down,8\nClose-up on her eyes,5" });
+    const fallback = el("input", { class: "dir-num", type: "number", min: "1", max: "30", step: "1", value: String(st.segments[st.selected]?.duration || defaultOf(app, "duration", 5)) });
+    const info = el("p", { class: "help", style: { margin: "0" } }, "0 segments");
+    const refresh = () => {
+      const parsed = parseBatch(ta.value, Math.max(1, Math.min(30, Number(fallback.value) || 5)));
+      info.textContent = `${parsed.length} segment${parsed.length === 1 ? "" : "s"} · one inference each`;
+    };
+    ta.addEventListener("input", refresh);
+    fallback.addEventListener("input", refresh);
+    const make = (replace) => {
+      const parsed = parseBatch(ta.value, Math.max(1, Math.min(30, Number(fallback.value) || 5)));
+      if (!parsed.length) return toast("Paste at least one prompt.", { error: true });
+      if ((replace ? 0 : st.segments.length) + parsed.length > MAX_SEGMENTS) return toast(`${MAX_SEGMENTS} segments is the current maximum.`, { error: true });
+      const added = parsed.map((p) => ({ ...blankSegment(app), prompt: p.prompt, duration: p.duration }));
+      if (replace) {
+        st.segments = added;
+        st.selected = 0;
+        st.assembled = null;
+      } else {
+        st.selected = st.segments.length;
+        st.segments.push(...added);
+        st.assembled = null;
+      }
+      persist(st, app);
+      dialog.close();
+      draw();
+      toast(`${parsed.length} segment${parsed.length === 1 ? "" : "s"} ${replace ? "created" : "added"}.`);
+    };
+    dialog.append(
+      el("div", { class: "ag-dialog-form" },
+        ta,
+        el("div", { class: "dir-seg-fields" }, el("label", {}, "default length", fallback, el("span", { class: "unit" }, "s")), info),
+        el("p", { class: "help", style: { margin: "0" } }, "A trailing comma-number is removed from the prompt and becomes that segment’s duration. Prompts keep their internal spaces and commas. Replace clears existing cuts/keyframes; Append keeps them."),
+        el("div", { class: "ag-dialog-actions" },
+          el("button", { class: "btn ghost", type: "button", onclick: () => make(false) }, icon("plus"), "Append segments"),
+          el("button", { class: "btn lime", type: "button", onclick: () => make(true) }, icon("film"), "Replace segments"))));
+    dialog.showModal();
+    ta.focus();
+    refresh();
+  }
+
   function drawHead() {
     const total = st.segments.reduce((n, s) => n + s.duration, 0);
     const approved = st.segments.filter((s) => s.approved && s.videoFile).length;
@@ -224,6 +281,7 @@ export function sequentialDirectorView(app, f) {
         el("span", {}, app.panel_title || "LTX Sequential Director"),
         el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}`)),
       el("div", { class: "dir-head-right" },
+        el("button", { type: "button", class: "dir-toggle", onclick: () => openBatch() }, icon("code"), "Paste prompts"),
         el("button", { type: "button", class: "dir-toggle", onclick: () => {
           if (st.segments.length >= MAX_SEGMENTS) return toast(`${MAX_SEGMENTS} segments is the current maximum.`, { error: true });
           st.segments.push(blankSegment(app));

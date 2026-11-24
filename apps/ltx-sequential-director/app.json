@@ -132,7 +132,7 @@
   },
   "layout": "director",
   "panel_title": "LTX Sequential Director",
-  "notes": "A custom director panel (web/js/sequential.js) drives the chain. Approve each segment before the next dependent segment; a hard cut with a new start image intentionally breaks the handoff. No IC-LoRA is required. Up to 512 segments; assembly is a fast stream-copy concat, so the old 8-input/120-second CPU-editor limit does not apply. The panel project state (prompts, durations, cuts, approvals, history URLs and small start/keyframe images) is kept in browser storage and reconnects to History after a reload. One last-frame image is carried between runs; video/audio context continuation is a later feature.",
+  "notes": "A custom director panel (web/js/sequential.js) drives the chain. Approve each segment before the next dependent segment; a hard cut with a new start image intentionally breaks the handoff. No IC-LoRA is required. Up to 512 segments; assembly is a fast stream-copy concat, so the old 8-input/120-second CPU-editor limit does not apply. The panel project state (prompts, durations, cuts, approvals, history URLs and small start/keyframe images) is kept in browser storage and reconnects to History after a reload. One last-frame image is carried between runs; video/audio context continuation is a later feature. Batch paste accepts one prompt per line with an optional trailing ,N duration suffix (for example ,13 for 13 seconds); blank lines are ignored.",
   "inputs": [
     {
       "id": "image",
