@@ -5953,6 +5953,53 @@
       "peak_vram_gb": null,
       "gpu": "AMD Radeon 8060S (gfx1151), ROCm 10.1",
       "run": "comfyui-20261124-ultratex"
+    },
+    "qwen-image-2-1": {
+      "case": "suite404-bedroom-2mp",
+      "type": "image",
+      "card": "examples/qwen-image-2-1/card.jpg",
+      "poster": null,
+      "full": "examples/qwen-image-2-1/full.jpg",
+      "inputs": [],
+      "values": {
+        "prompt": "A breathtaking original Japanese romantic comedy anime OVA background painting from 1995, created with traditional hand-painted cel-animation craftsmanship. Exquisite hand-painted architectural backgrounds, sophisticated 1990s Japanese anime interior design, elegant ink outlines, beautiful two-tone cel shading, rich warm colors, subtle analog film grain and atmospheric cinematic lighting. The same luxurious, mature visual aesthetic as a premium Japanese romantic comedy anime theatrical production from the mid-1990s.\n\nAn extravagant, spacious luxury Tokyo love hotel suite at midnight, designed for a sophisticated romantic comedy with elaborate mechanical surprises. The room feels expensive, intimate, slightly outrageous and unmistakably Japanese 1990s luxury.\n\nCAMERA COMPOSITION:\nA beautifully composed 16:9 wide establishing shot from near the entrance, looking diagonally across the entire bedroom at eye level. A carefully balanced three-quarter perspective reveals the room's spatial layout, the bed, the control panel, the chaise lounge and the large windows simultaneously. The room must feel spacious enough for two adult characters to stand, walk around, approach each other and perform expressive physical comedy. Clear, unobstructed floor space surrounds the bed. The bed must not dominate the foreground.\n\nROOM LAYOUT:\nA magnificent king-size bed occupies the center of the room against an elegant upholstered burgundy headboard with polished dark wooden framing. Luxurious ivory silk bedding, several cream pillows and beautifully draped fabric create a soft romantic atmosphere.\n\nOn the LEFT wall beside the bed, clearly visible and accessible to a standing person, is an elaborate vintage golden automatic room-control panel. Its polished brass surface contains beautiful illuminated jewel-like buttons, small colored indicator lights and one prominent large crimson button labeled \"PASSION MAX\". The panel looks like extravagant custom-built Japanese luxury hotel technology from 1995, rather than a modern digital touchscreen.\n\nA beautiful deep-burgundy velvet chaise lounge with elegant curved wooden legs sits in the left foreground, angled toward the bed. Its position leaves a clear path between the control panel and the lounge.\n\nOn the RIGHT side of the room, enormous floor-to-ceiling windows reveal the breathtaking Tokyo skyline at midnight, filled with thousands of tiny magenta, pink and golden city lights. Heavy burgundy velvet curtains frame the windows.\n\nBehind the bed, an elegant oversized heart-shaped mirror with an ornate golden frame decorates the wall. The heart is sophisticated and luxurious, not childish. Beautiful sculpted wall panels, warm brass sconces, rich burgundy upholstery, lacquered wood and polished architectural details complete the setting.\n\nLIGHTING AND ATMOSPHERE:\nRich cinematic rose-colored ambient illumination blends with warm golden bedside lamps and soft violet-magenta moonlight reflecting from the Tokyo skyline. Beautiful pools of warm light fall across the cream silk bedding. Gentle gradients of pink, amber and deep burgundy create visual depth, with subtle shadows defining the furniture and architecture.\n\nThe atmosphere feels intimate, romantic and subtly extravagant, with the unmistakable aesthetic of a beautifully painted Japanese anime OVA from 1995.\n\nIMPORTANT PRODUCTION DESIGN:\nThis is the definitive master environment for a multi-scene animated romantic comedy. Every important prop has a deliberate, clearly visible, physically consistent position. The hotel room must support wide shots, medium shots, close-ups and believable character movement without changing its underlying architecture.\n\nAll automated romance mechanisms are currently concealed and inactive. The room is pristine and peaceful. No disco ball, no inflatable hearts, no confetti, no rose petals, no activated machinery.\n\nNo characters, no people, no text overlays, no production labels, no storyboard panels, no collage. One single magnificent cinematic anime background painting showing the complete hotel suite. Entirely hand-drawn Japanese 2D anime aesthetics, never photorealistic, never 3D CGI.",
+        "model": "qwen_image_2.1_int8_convrot.safetensors",
+        "expand": false,
+        "aspect": "16:9 (Widescreen)",
+        "megapixels": 2,
+        "steps": 25
+      },
+      "seed": 447606998181262,
+      "note": "Qwen-Image 2.1 base, 1920x1088, 25 steps, raw graph lifted from the 2026-11-25 run"
+    },
+    "ltx-sequential-director": {
+      "case": "suite404-honest-line",
+      "type": "video",
+      "card": "examples/ltx-sequential-director/card.mp4",
+      "poster": "examples/ltx-sequential-director/poster.jpg",
+      "full": "examples/ltx-sequential-director/full.mp4",
+      "inputs": [
+        {
+          "id": "image",
+          "label": "Your first frame",
+          "type": "image",
+          "src": "examples/ltx-sequential-director/input-image.jpg",
+          "full": "examples/ltx-sequential-director/input-image-full.jpg"
+        }
+      ],
+      "values": {
+        "prompt": "1990s hand painted romantic comedy anime. In the same hotel suite a steady medium wide shot keeps both characters in frame near the bed and the control panel. Daichi finally faces Akari and speaks more honestly. He says in French \"Quand je suis avec toi j’ai peur de tout gâcher parce que je t’aime vraiment.\" Akari is surprised for a beat then her expression softens into real tenderness. The room becomes quiet except for soft ambience and a gentle romantic score.",
+        "negative_prompt": "",
+        "enhance": false,
+        "duration": 10,
+        "fps": 24,
+        "aspect": "16:9 (Widescreen)",
+        "megapixels": 1,
+        "steps": 9,
+        "sampler": "euler"
+      },
+      "seed": 42,
+      "note": "existing output of run 20261124-033845529-c504, no new generation"
     }
   },
   "updated_from": "20261122-piflow-dwd"

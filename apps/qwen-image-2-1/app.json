@@ -1,0 +1,221 @@
+{
+ "$schema": "../../schema/app.schema.json",
+ "id": "qwen-image-2-1",
+ "name": "Qwen-Image 2.1",
+ "section": "image",
+ "pack": "image",
+ "status": "ready",
+ "layout": "sidebar",
+ "summary": "Text to image with Qwen-Image 2.1 (base or turbo), ResolutionSelector up to 4 MP, optional Qwen3.5-9B prompt expansion.",
+ "workflow": "workflow.api.json",
+ "source": {
+  "template": "Qwen-Image 2.1 t2i, as run in ComfyUI on 2026-11-25",
+  "comfyui": "0.46.0",
+  "notes": "Graph lifted from the 2 MP run (job c08de456/6425dd71 family). ResolutionSelector drives the empty latent, the model picker swaps the UNET, and the switch picks raw prompt or Qwen3.5-9B expansion."
+ },
+ "inputs": [
+  {
+   "id": "prompt",
+   "type": "textarea",
+   "label": "Prompt",
+   "required": true,
+   "default": "A breathtaking original Japanese romantic comedy anime OVA background painting from 1995, created with traditional hand-painted cel-animation craftsmanship. Exquisite hand-painted architectural backgrounds, sophisticated 1990s Japanese anime interior design, elegant ink outlines, beautiful two-tone cel shading, rich warm colors, subtle analog film grain and atmospheric cinematic lighting. The same luxurious, mature visual aesthetic as a premium Japanese romantic comedy anime theatrical production from the mid-1990s.\n\nAn extravagant, spacious luxury Tokyo love hotel suite at midnight, designed for a sophisticated romantic comedy with elaborate mechanical surprises. The room feels expensive, intimate, slightly outrageous and unmistakably Japanese 1990s luxury.\n\nCAMERA COMPOSITION:\nA beautifully composed 16:9 wide establishing shot from near the entrance, looking diagonally across the entire bedroom at eye level. A carefully balanced three-quarter perspective reveals the room's spatial layout, the bed, the control panel, the chaise lounge and the large windows simultaneously. The room must feel spacious enough for two adult characters to stand, walk around, approach each other and perform expressive physical comedy. Clear, unobstructed floor space surrounds the bed. The bed must not dominate the foreground.\n\nROOM LAYOUT:\nA magnificent king-size bed occupies the center of the room against an elegant upholstered burgundy headboard with polished dark wooden framing. Luxurious ivory silk bedding, several cream pillows and beautifully draped fabric create a soft romantic atmosphere.\n\nOn the LEFT wall beside the bed, clearly visible and accessible to a standing person, is an elaborate vintage golden automatic room-control panel. Its polished brass surface contains beautiful illuminated jewel-like buttons, small colored indicator lights and one prominent large crimson button labeled \"PASSION MAX\". The panel looks like extravagant custom-built Japanese luxury hotel technology from 1995, rather than a modern digital touchscreen.\n\nA beautiful deep-burgundy velvet chaise lounge with elegant curved wooden legs sits in the left foreground, angled toward the bed. Its position leaves a clear path between the control panel and the lounge.\n\nOn the RIGHT side of the room, enormous floor-to-ceiling windows reveal the breathtaking Tokyo skyline at midnight, filled with thousands of tiny magenta, pink and golden city lights. Heavy burgundy velvet curtains frame the windows.\n\nBehind the bed, an elegant oversized heart-shaped mirror with an ornate golden frame decorates the wall. The heart is sophisticated and luxurious, not childish. Beautiful sculpted wall panels, warm brass sconces, rich burgundy upholstery, lacquered wood and polished architectural details complete the setting.\n\nLIGHTING AND ATMOSPHERE:\nRich cinematic rose-colored ambient illumination blends with warm golden bedside lamps and soft violet-magenta moonlight reflecting from the Tokyo skyline. Beautiful pools of warm light fall across the cream silk bedding. Gentle gradients of pink, amber and deep burgundy create visual depth, with subtle shadows defining the furniture and architecture.\n\nThe atmosphere feels intimate, romantic and subtly extravagant, with the unmistakable aesthetic of a beautifully painted Japanese anime OVA from 1995.\n\nIMPORTANT PRODUCTION DESIGN:\nThis is the definitive master environment for a multi-scene animated romantic comedy. Every important prop has a deliberate, clearly visible, physically consistent position. The hotel room must support wide shots, medium shots, close-ups and believable character movement without changing its underlying architecture.\n\nAll automated romance mechanisms are currently concealed and inactive. The room is pristine and peaceful. No disco ball, no inflatable hearts, no confetti, no rose petals, no activated machinery.\n\nNo characters, no people, no text overlays, no production labels, no storyboard panels, no collage. One single magnificent cinematic anime background painting showing the complete hotel suite. Entirely hand-drawn Japanese 2D anime aesthetics, never photorealistic, never 3D CGI.",
+   "bind": [
+    {
+     "node": "459:474",
+     "field": "on_false"
+    },
+    {
+     "node": "459:471",
+     "field": "prompt"
+    }
+   ]
+  },
+  {
+   "id": "model",
+   "type": "select",
+   "label": "Model",
+   "default": "qwen_image_2.1_int8_convrot.safetensors",
+   "options": [
+    {
+     "value": "qwen_image_2.1_int8_convrot.safetensors",
+     "label": "2.1 base — 25 steps",
+     "sync": {
+      "steps": 25
+     }
+    },
+    {
+     "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+     "label": "2.1 turbo — 8 steps",
+     "sync": {
+      "steps": 8
+     }
+    }
+   ],
+   "bind": [
+    {
+     "node": "459:451",
+     "field": "unet_name"
+    }
+   ]
+  },
+  {
+   "id": "expand",
+   "type": "toggle",
+   "label": "Prompt expansion",
+   "default": false,
+   "help": "Qwen3.5-9B rewrites the prompt into a long caption before encoding.",
+   "bind": [
+    {
+     "node": "459:474",
+     "field": "switch"
+    }
+   ]
+  },
+  {
+   "id": "aspect",
+   "type": "select",
+   "label": "Aspect ratio",
+   "default": "16:9 (Widescreen)",
+   "options": [
+    {
+     "value": "1:1 (Square)",
+     "label": "1:1 (Square)"
+    },
+    {
+     "value": "2:3 (Portrait Photo)",
+     "label": "2:3 (Portrait Photo)"
+    },
+    {
+     "value": "3:2 (Photo)",
+     "label": "3:2 (Photo)"
+    },
+    {
+     "value": "3:4 (Portrait Standard)",
+     "label": "3:4 (Portrait Standard)"
+    },
+    {
+     "value": "4:3 (Standard)",
+     "label": "4:3 (Standard)"
+    },
+    {
+     "value": "9:16 (Portrait Widescreen)",
+     "label": "9:16 (Portrait Widescreen)"
+    },
+    {
+     "value": "16:9 (Widescreen)",
+     "label": "16:9 (Widescreen)"
+    },
+    {
+     "value": "21:9 (Ultrawide)",
+     "label": "21:9 (Ultrawide)"
+    }
+   ],
+   "bind": [
+    {
+     "node": "13",
+     "field": "aspect_ratio"
+    }
+   ]
+  },
+  {
+   "id": "megapixels",
+   "type": "slider",
+   "label": "Resolution (MP)",
+   "min": 0.5,
+   "max": 4,
+   "step": 0.1,
+   "default": 2,
+   "help": "2 MP is 16:9 at 1880x1056 with multiple 8.",
+   "bind": [
+    {
+     "node": "13",
+     "field": "megapixels"
+    }
+   ]
+  },
+  {
+   "id": "steps",
+   "type": "slider",
+   "label": "Steps",
+   "min": 4,
+   "max": 30,
+   "step": 1,
+   "default": 25,
+   "bind": [
+    {
+     "node": "459:458",
+     "field": "steps"
+    }
+   ]
+  },
+  {
+   "id": "seed",
+   "type": "seed",
+   "label": "Seed",
+   "default": -1,
+   "help": "-1 picks a random seed",
+   "bind": [
+    {
+     "node": "459:458",
+     "field": "seed"
+    }
+   ]
+  }
+ ],
+ "outputs": [
+  {
+   "node": "461",
+   "type": "image",
+   "label": "Image"
+  }
+ ],
+ "models": [
+  {
+   "repo": "Comfy-Org/Qwen-Image_2.1",
+   "file": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+   "dir": "diffusion_models",
+   "gb": 23.0,
+   "phase": "denoise",
+   "license": "Apache-2.0"
+  },
+  {
+   "repo": "Comfy-Org/Qwen-Image_2.1",
+   "file": "diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors",
+   "dir": "diffusion_models",
+   "gb": 23.0,
+   "phase": "denoise",
+   "license": "Apache-2.0",
+   "optional": true
+  },
+  {
+   "repo": "Comfy-Org/Qwen3-VL-8B",
+   "file": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+   "dir": "text_encoders",
+   "gb": 8.0,
+   "phase": "encode",
+   "license": "Apache-2.0"
+  },
+  {
+   "repo": "Comfy-Org/Qwen-Image_2.1",
+   "file": "vae/qwen_image_2.1_vae_bf16.safetensors",
+   "dir": "vae",
+   "gb": 0.5,
+   "phase": "decode",
+   "license": "Apache-2.0"
+  }
+ ],
+ "credits": [
+  "Qwen-Image 2.1 by the Qwen team (Apache-2.0)",
+  "Qwen3.5-9B prompt upsampler by the Qwen team (Apache-2.0)"
+ ],
+ "test": {
+  "prompt": "an empty luxury hotel corridor at midnight, hand-painted 1990s anime background, burgundy carpet, brass sconces",
+  "model": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+  "expand": false,
+  "aspect": "16:9 (Widescreen)",
+  "megapixels": 1,
+  "steps": 8,
+  "seed": 42
+ }
+}

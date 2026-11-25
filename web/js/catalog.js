@@ -22,11 +22,11 @@ export async function loadCatalog() {
 
 /** Apps grouped like a store: a card can only sit in one row. */
 export const CATEGORIES = [
-  { id: "create", apps: ["create-image", "h3-image", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moss-turbo-jib-mix", "moodboard", "styles", "video-t2v", "video", "ltx-sequential-director", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
+  { id: "create", apps: ["create-image", "h3-image", "qwen-image-2-1", "cinema-studio", "cinema-video", "z-image", "moss-image", "moss-turbo", "moss-turbo-jib-mix", "moodboard", "styles", "video-t2v", "video", "ltx-sequential-director", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "music", "music-turbo", "music-turbo-hq", "music-yue2", "music-yue2-cover", "sfx", "tts", "tts-clone", "tts-omni", "tts-omni-clone"] },
   { id: "identity", apps: ["character", "character-3", "character-angles", "speak", "talking", "recast", "motion-transfer", "genjutsu", "dub", "character-swap", "h3-image-character-swap", "face-swap"] },
   { id: "camera", apps: ["camera-moves", "camera-copy", "reshoot", "reshoot-turbo", "reframe", "extend-video", "extend-video-turbo", "transitions", "angles", "shots", "zooms", "whats-next", "bullet-time-scene", "bullet-time-white", "bullet-time-splash"] },
-  { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-video", "relayvsr-upscale", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
-  { id: "vfx", apps: ["effects", "morph", "edit", "h3-image-edit", "h3-image-edit-minimax", "inpaint", "vfx-clean-plate", "vfx-day-to-night", "vfx-water"] },
+  { id: "style", apps: ["relight", "style-reference", "mixed-media", "upscale", "upscale-fast", "upscale-video", "upscale-fast-video", "relayvsr-upscale", "sdr-hdr", "smooth", "remove-bg", "video-remove-bg", "depth-map", "expand-image"] },
+  { id: "vfx", apps: ["effects", "morph", "edit", "h3-image-edit", "h3-image-edit-minimax", "qwen-image-edit-turbo", "inpaint", "vfx-clean-plate", "vfx-day-to-night", "vfx-water"] },
   { id: "ads", apps: ["product-shot", "poster", "packshot", "macro-scene", "macro-product", "giant-product", "billboard", "graffiti-ad", "fridge-ad", "ugc-shot",
     "asmr-product", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad"] },
   { id: "portraits", apps: ["ai-influencer", "ai-influencer-photo", "photodump", "headshot", "commercial-faces", "style-snap", "skin-enhancer", "outfit-vending", "glitter-sticker", "fashion-factory", "try-on", "outfit-swap", "outfit-shot"] },
@@ -41,7 +41,9 @@ export function categoryOf(id) {
 
 /** The video studio's three tabs, like a camera crew: shoot, fix, move. */
 export const VIDEO_TABS = [
-  { id: "create", apps: ["video", "ltx-sequential-director", "cinema-video", "h3-video", "h3-video-turbo", "h3-long-shot", "h3-photo", "h3-photo-turbo", "effects", "morph", "video-t2v", "genjutsu", "speak", "talking", "dub", "transitions", "camera-moves"] },
+  { id: "create", apps: ["video", "ltx-sequential-director", "ltx-director", "cinema-video", "h3-video", "h3-video-turbo", "h3-video-flash", "h3-r2v", "h3-r2v-flash", "h3-r2v-flex",
+    "h3-i2v-flash", "h3-flf2v-flash", "h3-studio-director-flash", "h3-piflow-t2v", "h3-piflow-i2v", "h3-piflow-r2v", "h3-piflow-flf2v", "h3-piflow-director",
+    "pika-video", "pika-text-to-video", "pika-studio-director", "studio-director", "lipsync", "h3-long-shot", "h3-photo", "h3-photo-turbo", "effects", "morph", "video-t2v", "genjutsu", "speak", "talking", "dub", "transitions", "camera-moves"] },
   { id: "edit", apps: ["recast", "mixed-media", "reframe", "extend-video", "extend-video-turbo", "vfx-clean-plate", "vfx-day-to-night", "vfx-water", "sdr-hdr", "upscale-video", "relayvsr-upscale", "smooth", "reshoot", "reshoot-turbo", "video-remove-bg"] },
   { id: "motion", apps: ["motion-transfer", "camera-copy"] },
   { id: "templates", apps: ["behind-the-scenes", "asmr-product", "asmr-whisper", "asmr-host", "chameleon", "magic-button", "truck-ad", "kick-ad", "volcano-ad",
@@ -107,28 +109,23 @@ export const HERO = [
   "video-t2v", "relight", "styles",
 ];
 
-/** Prompt-first apps get the floating composer; upload-first apps get the sidebar. */
+/** Every app uses the left control panel; only the Material Planner has its own
+ * director layout. The old prompt-first composer is no longer selected. */
 const DIRECTOR_APPS = new Set(["studio-director", "pika-studio-director"]);
 
 export function layoutOf(app) {
-  if (app.layout === "director" || DIRECTOR_APPS.has(app.id)) return "director";   // the Material Planner panel owns the page
-  if (app.layout === "sidebar") return "sidebar";   // explicit: controls in the left column
-  if (app.layout === "composer") return "composer";
-  if (app.inputs.some((i) => i.paint)) return "sidebar";   // painting a mask needs the photo in a dropzone
-  const hasText = app.inputs.some((i) => i.type === "textarea");
-  return (app.section === "image" || app.section === "audio") && hasText ? "composer" : "sidebar";
+  if (app.layout === "director" || DIRECTOR_APPS.has(app.id)) return "director";
+  return "sidebar";
 }
 
 /** The apps a model switcher offers next to this one: the same kind of app in the same category. */
 export function familyOf(app) {
-  const layout = layoutOf(app);
-  if (layout === "composer") return apps.filter((a) => layoutOf(a) === "composer" && a.section === app.section && categoryOf(a.id) === categoryOf(app.id));
   if (app.section === "3d") return apps.filter((a) => a.section === "3d");
   if (app.section === "video" || videoTabOf(app.id)) {
     const tab = videoTabOf(app.id);
     return apps.filter((a) => videoTabOf(a.id) === tab);
   }
-  return apps.filter((a) => layoutOf(a) === "sidebar" && !videoTabOf(a.id));
+  return apps.filter((a) => layoutOf(a) === "sidebar" && a.section === app.section && categoryOf(a.id) === categoryOf(app.id));
 }
 
 /** Which studio (top-bar entry) an app belongs to. */
@@ -136,7 +133,7 @@ export function studioOf(app) {
   if (videoTabOf(app.id) || app.section === "video") return "video";
   if (app.section === "audio") return "audio";
   if (app.section === "3d") return "3d";
-  if (layoutOf(app) === "composer") return "image";
+  if (app.section === "image") return "image";
   return "apps";
 }
 
