@@ -17,6 +17,14 @@
 
 import { el, icon, toast, clamp, store } from "./util.js";
 import { modal } from "./agent-controls.js";
+import {
+  renderProfileCapability,
+  renderMetadata,
+  resolveRenderProfile,
+  switchRenderProfile,
+  migrateRenderProfile,
+  UPSCALE_FACTORS,
+} from "./render-profile.js";
 
 const FPS = 24;
 const MAX_LENGTH = 3592;
@@ -76,6 +84,7 @@ export function nearestOverlap(frames, maximum) {
 }
 
 const fmt = (x) => (Math.abs(x) >= 10 ? x.toFixed(1) : x.toFixed(2)).replace(/\.0+$/, "");
+const fmtMp = (x) => `${Number(x).toFixed(2).replace(/\.?0+$/, "")} MP`;
 
 function slotsOf(app, type) {
   return app.inputs.filter((i) => i.type === type && /^(image|video|audio)\d+$/.test(i.id))
@@ -187,9 +196,16 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   const mediaInputs = new Set(app.inputs.filter((i) => i.type === "image" || i.type === "video" || i.type === "audio").map((i) => i.id));
   const valueInputs = new Set(app.inputs.filter((i) => !(i.type === "image" || i.type === "video" || i.type === "audio")).map((i) => i.id));
   let localSavedAt = Number(store.get(`dir.saved.${app.id}`)) || 0;
+  // Profiles are derived from this app's own manifest. Apps without the contract keep
+  // their existing controls untouched.
+  const profiles = app.renderProfile?.supported ? app.renderProfile : renderProfileCapability(app);
+  const freshSession = !localSavedAt
+    && !(typeof f.values.segment_windows === "string" && f.values.segment_windows.trim())
+    && !f.values.render_profile;
   let restoring = true;
   let serverLoaded = false;
   let serverSaveTimer = 0;
+  let profileDirty = false;
   function saveDirty() {
     if (!restoring) {
       localSavedAt = Date.now();
@@ -207,6 +223,32 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     const values = {};
     for (const [key, value] of Object.entries(f.values)) if (valueInputs.has(key)) values[key] = value;
     return values;
+  }
+  function adoptProfile(values) {
+    let changed = false;
+    for (const [key, value] of Object.entries(values || {})) {
+      if (value === undefined) continue;
+      if (f.values[key] !== value) { f.values[key] = value; changed = true; }
+    }
+    return changed;
+  }
+  /** Give an unprofiled project a profile once, without changing its creative payload. */
+  function ensureRenderProfile(fresh) {
+    if (!profiles) return false;
+    const result = migrateRenderProfile(app, f.values, { fresh });
+    if (result.errors.length) { toast(result.errors[0].message, { error: true }); return false; }
+    if (!adoptProfile(result.values)) return false;
+    profileDirty = true;
+    saveDirty();
+    return true;
+  }
+  /** The only profile switch path: saves values and redraws. It never submits a generation. */
+  function chooseRenderProfile(profile) {
+    const result = switchRenderProfile(app, f.values, profile);
+    if (result.errors.length) { toast(result.errors[0].message, { error: true }); return; }
+    if (!adoptProfile(result.values)) { draw(); return; }
+    saveDirty();
+    draw();
   }
   async function pushServerState() {
     if (!serverLoaded) return;
@@ -250,6 +292,9 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     st.audios = next.audios;
     selected = Math.min(selected, Math.max(0, st.windows.length - 1));
     stateCache.set(app.id, { raw: f.values.segment_windows, state: st });
+    // A saved project may predate profiles. Give it the matching profile without
+    // changing its resolution, timeline or references.
+    if (profiles) ensureRenderProfile(false);
     return true;
   }
   async function loadServerMedia(remote, overwrite) {
@@ -293,10 +338,13 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       localSavedAt = Date.now();
       store.set(`dir.saved.${app.id}`, localSavedAt);
     }
+    if (profiles) ensureRenderProfile(false);
     serverLoaded = true;
     restoring = false;
     onDirty?.();
-    if (!useServer) await pushServerState();
+    const push = !useServer || profileDirty;
+    profileDirty = false;
+    if (push) await pushServerState();
     draw();
     if (useServer && root.isConnected) onRestored?.();
   }
@@ -375,6 +423,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   const meta = mediaMeta();
   const root = el("div", { class: "dir" });
   let ghostEl = null;
+  let renderEl = null;
 
   /** Premium pointer drag: rAF ghost, persistent preview, cancel on Escape/blur. */
   function pointerDrag(e, { build, move, end, click, source }) {
@@ -1087,6 +1136,91 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     refresh();
   }
 
+  /** Compact Build & Test / Production strip. It only edits render settings; Generate stays in the footer. */
+  function drawRenderProfile() {
+    if (!renderEl) return;
+    if (!profiles) { renderEl.replaceChildren(); renderEl.hidden = true; return; }
+    renderEl.hidden = false;
+    const active = f.values.render_profile === "production" ? "production" : "build";
+    const group = el("div", { class: "dir-profile-seg", role: "group", "aria-label": "Render profile" },
+      ...["build", "production"].map((id) => el("button", {
+        type: "button", "aria-pressed": String(active === id),
+        title: id === "build" ? `${fmtMp(profiles.build_megapixels)} preview, upscale disabled` : "Production generation at its own resolution",
+        onclick: () => chooseRenderProfile(id),
+      }, id === "build" ? "Build & Test" : "Production")));
+    const meta = renderMetadata(app, f.values);
+    if (active === "build") {
+      const prefMp = Number(f.values.production_megapixels);
+      const prefFactor = UPSCALE_FACTORS[String(f.values.production_upscale || "")] || UPSCALE_FACTORS[""];
+      const kept = Number.isFinite(prefMp) && (prefFactor.linear > 1 || Math.abs(prefMp - profiles.production_default_megapixels) > 1e-6);
+      const note = el("span", { class: "dir-render-note" },
+        el("b", {}, fmtMp(profiles.build_megapixels)), " · native, no upscale",
+        kept ? el("small", {}, `Production kept: ${fmtMp(prefMp)} · ${prefFactor.label}`) : null);
+      const native = meta?.generation?.width ? `${meta.generation.width} × ${meta.generation.height} · ${meta.generation.megapixels.toFixed(2)} MP` : "native resolution";
+      renderEl.replaceChildren(group, note, el("span", { class: "dir-render-res single" }, el("small", {}, "Preview"), el("b", {}, native)));
+      return;
+    }
+    const gen = profiles.generation;
+    const currentMp = Number(f.values.production_megapixels ?? profiles.production_default_megapixels);
+    const readout = el("span", { class: "dir-render-res" });
+    const updateReadout = () => {
+      const next = renderMetadata(app, f.values);
+      if (!next?.generation?.width || !next.output) { readout.replaceChildren(); return; }
+      const native = `${next.generation.width} × ${next.generation.height}`;
+      const final = `${next.output.width} × ${next.output.height}`;
+      readout.replaceChildren(
+        el("span", { class: "dir-render-res-item" }, el("small", {}, "Native"), el("b", {}, native), el("small", {}, `${next.generation.megapixels.toFixed(2)} MP`)),
+        el("span", { class: "dir-render-arrow" }, "→"),
+        el("span", { class: "dir-render-res-item final" }, el("small", {}, "Final ≈"), el("b", {}, final), el("small", {},
+          next.upscale === "off" ? `${next.output.megapixels.toFixed(2)} MP · no upscale` : `${next.output.megapixels.toFixed(2)} MP · ${next.upscale_linear_factor}× linear · ${next.upscale_pixel_area_factor}× pixels`)));
+    };
+    const mp = el("input", { class: "dir-range", type: "range", min: String(gen.min), max: String(gen.max), step: String(gen.step), value: String(currentMp), "aria-label": "Production generation resolution" });
+    const mpValue = el("b", { class: "dir-render-value" }, fmtMp(currentMp));
+    mp.addEventListener("input", () => {
+      const value = Number(mp.value);
+      f.values.production_megapixels = value;
+      f.values.megapixels = value;
+      mpValue.textContent = fmtMp(value);
+      saveDirty();
+      updateReadout();
+    });
+    const resolution = el("label", { class: "dir-render-field" }, el("span", {}, "Resolution"), mp, mpValue);
+    let upscale = null;
+    if (profiles.upscale) {
+      const chosenRaw = String(f.values.production_upscale ?? "");
+      const chosen = chosenRaw === "off" ? "" : chosenRaw;
+      upscale = el("div", { class: "dir-render-field", role: "group", "aria-label": "Production upscale" },
+        el("span", {}, "RelayVSR"),
+        el("div", { class: "dir-upscale-seg" }, ...profiles.upscale.options.map((option) => el("button", {
+          type: "button", "aria-pressed": String(option.value === chosen), title: `${option.label} · ${option.linear_factor}× linear, ${option.pixel_area_factor}× pixel area`,
+          onclick: () => {
+            const result = resolveRenderProfile(app, { ...f.values, render_profile: "production", production_upscale: option.value, upscale: option.value });
+            if (result.errors.length) { toast(result.errors[0].message, { error: true }); return; }
+            adoptProfile(result.values);
+            saveDirty();
+            draw();
+          },
+        }, option.value ? option.value.toUpperCase() : "Off"))));
+    }
+    let detail = null;
+    const detailUpscale = String(f.values.production_upscale || "") === "off" ? "" : String(f.values.production_upscale || "");
+    if (profiles.detail && detailUpscale) {
+      const value = Number(f.values.production_upscale_detail ?? profiles.detail.default);
+      const slider = el("input", { class: "dir-range", type: "range", min: String(profiles.detail.min), max: String(profiles.detail.max), step: String(profiles.detail.step), value: String(value), "aria-label": "RelayVSR detail", title: "How much of the Flash decoder restoration on top of a plain bicubic upscale is kept. 1 is the full model output." });
+      const shown = el("b", { class: "dir-render-value" }, fmt(value));
+      slider.addEventListener("input", () => {
+        const next = Number(slider.value);
+        f.values.production_upscale_detail = next;
+        f.values.upscale_detail = next;
+        shown.textContent = fmt(next);
+        saveDirty();
+      });
+      detail = el("label", { class: "dir-render-field" }, el("span", {}, "Detail"), slider, shown);
+    }
+    updateReadout();
+    renderEl.replaceChildren(...[group, resolution, upscale, detail, readout].filter(Boolean));
+  }
+
   function drawHead() {
     const hasTwoStage = app.inputs.some((i) => i.id === "two_stage");
     const two = hasTwoStage ? el("button", {
@@ -1137,6 +1271,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     for (const m of mediaOf(app, f, "audio")) clipFor("audio", m.index);
     binEl.replaceChildren(binSection("image"), binSection("video"), binSection("audio"));
     drawHead();
+    drawRenderProfile();
     drawSegment();
     drawFoot();
     drawTracks();
@@ -1147,8 +1282,10 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   segEl = el("section", { class: "dir-seg" });
   headEl = el("header", { class: "dir-head" });
   footEl = el("footer", { class: "dir-foot" });
+  renderEl = el("div", { class: "dir-render" });
 
-  root.append(headEl, el("div", { class: "dir-body" }, binEl, el("div", { class: "dir-main" }, stage, segEl)), footEl);
+  ensureRenderProfile(freshSession);
+  root.append(headEl, renderEl, el("div", { class: "dir-body" }, binEl, el("div", { class: "dir-main" }, stage, segEl)), footEl);
   draw();
   for (const [slot, x] of Object.entries(f.files)) if (slot.startsWith("image") && x?.file) rememberMedia(slot, x.file);
   persistState(app, f, st);

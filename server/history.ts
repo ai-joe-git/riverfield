@@ -21,6 +21,18 @@ const TERMINAL = new Set<Status>(["succeeded", "failed", "canceled", "expired", 
 const MEDIA = new Set(["image", "video", "audio", "file"]);   // file: 3D models (.glb) from Save3DAdvanced
 const execFileAsync = promisify(execFile);
 
+/** Rendering facts recorded with a run: what was resolved, not what a form claimed. */
+export type RenderMeta = Record<string, unknown>;
+/** How a run relates to another one (a Production render points back to its preview). */
+export type Lineage = {
+  relation?: string;
+  preview?: string;
+  production?: string;
+  productions?: string[];
+  note?: string;
+  [key: string]: unknown;
+};
+
 /** Last decoded frame of a clip, written as a normal JPEG next to the run. CPU-only. */
 async function extractLastFrame(video: string, out: string): Promise<void> {
   const run = (seek: string) => execFileAsync("ffmpeg", [
@@ -52,6 +64,10 @@ export type Entry = {
   preset: string | null;
   inputs: { id: string; type: string; file: string; name: string }[];
   outputs: { file: string; type: string; name: string; node: string }[];
+  /** resolved render profile, native generation geometry, final output estimate and upscale factor */
+  render?: RenderMeta;
+  /** preview/production relationship; both outputs stay in the history */
+  lineage?: Lineage;
   error: { message: string; class_type?: string | null; node?: string | null } | null;
   /** the visitor who started it, on a hosted demo; never sent to the browser */
   owner?: string;
@@ -253,7 +269,7 @@ export class History {
   }
 
   /** Record a run before it is submitted. `values` are the resolved values (defaults filled, seed picked). */
-  start(app: App, values: Values, preset?: string, requestKey?: string, owner?: string): Entry {
+  start(app: App, values: Values, preset?: string, requestKey?: string, owner?: string, meta?: { render?: RenderMeta; lineage?: Lineage }): Entry {
     const id = newId();
     const folder = join(this.dir, id);
     mkdirSync(folder);
@@ -274,6 +290,8 @@ export class History {
     const entry: Entry = {
       id, app: app.id, requestKey, status: "starting", job: null, created: new Date().toISOString(), started: null, finished: null,
       seconds: null, total: null, values: shown, preset: preset ?? null, inputs, outputs: [], error: null,
+      ...(meta?.render ? { render: meta.render } : {}),
+      ...(meta?.lineage ? { lineage: meta.lineage } : {}),
       ...(owner ? { owner } : {}),
     };
     this.save(entry);
@@ -523,6 +541,27 @@ export class History {
     return this.entries(owner).filter((e) => (!app || e.app === app) && owns(e, owner)).slice(0, limit).map((e) => this.view(e));
   }
   findRequest(key: string, owner?: string) { return this.entries(owner).find((e) => e.requestKey === key && owns(e, owner)); }
+
+  /** Record both directions of a preview -> production relationship. Both runs stay in the history. */
+  linkProduction(previewId: string, productionId: string, owner?: string): boolean {
+    const preview = this.read(previewId, owner);
+    const production = this.read(productionId, owner);
+    if (!preview || !production) return false;
+    const previous = preview.lineage?.productions ?? (preview.lineage?.production ? [preview.lineage.production] : []);
+    preview.lineage = {
+      ...(preview.lineage ?? {}),
+      relation: preview.lineage?.relation ?? "preview",
+      productions: [...new Set([...previous, productionId])],
+    };
+    production.lineage = {
+      ...(production.lineage ?? {}),
+      relation: "new_generation_from_preview",
+      preview: previewId,
+    };
+    this.save(preview);
+    this.save(production);
+    return true;
+  }
 
   /** `owner` undefined: every run (local use); otherwise only that visitor's. */
   get(id: string, owner?: string) {

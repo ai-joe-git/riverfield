@@ -5,6 +5,7 @@ import type { App, Input } from "./registry.ts";
 import { isFileInput, modelKey } from "./registry.ts";
 import {validateH3} from "./h3-plan.ts";
 import {validatePikaValues} from "./pika-prompt.ts";
+import {applyRenderProfile} from "./render-profile.ts";
 import {InputError} from "./input-error.ts";
 export {InputError} from "./input-error.ts";
 
@@ -85,6 +86,10 @@ export function textValues(app: App, values: Values): Values {
 
 /** Fill defaults, coerce types, check required fields. File inputs pass through as FileValue. */
 export function resolveValues(app: App, values: Values): Values {
+  // Explicit render profiles are resolved before defaults: Build & Test must force 0.1 MP
+  // and no upscale, Production must apply its own resolution/upscale. A request without
+  // render_profile is left exactly as it was, so legacy runs keep their old meaning.
+  values = applyRenderProfile(app, values);
   if(app.id==="relayvsr-upscale"){
     values={...values};
     for(const [source,target] of [["unet_name","vae_name"],["vae_name","unet_name"]])if(values[source]!==undefined&&values[target]===undefined){

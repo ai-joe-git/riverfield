@@ -67,6 +67,28 @@ class Feed {
 }
 export const feed = new Feed();
 
+/** The explicit preview -> production action. The server rebuilds the request from the stored payload. */
+export async function renderProduction(entry) {
+  const created = await api(`/api/history/${entry.id}/production`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+  });
+  const previous = feed.entries.get(entry.id);
+  if (previous) {
+    feed.entries.set(entry.id, {
+      ...previous,
+      lineage: {
+        ...(previous.lineage || {}),
+        productions: [...new Set([...(previous.lineage?.productions || []), created.id])],
+      },
+    });
+  }
+  feed.entries.set(created.id, created);
+  feed.emit();
+  feed.schedule();
+  toast(t("toast.production"));
+  return created;
+}
+
 export function statusText(e) {
   if (e.status === "starting") return live.gpuWarm ? t("status.submitting") : t("status.starting");
   if (e.status === "queued") return e.queue ? t("status.queued.n", { n: e.queue }) : t("status.queued");
@@ -160,6 +182,7 @@ function doneCard(e, list) {
     ? el("div", { class: "rcard-3d" }, modelViewer(item.outputs[0].url, { height: 300 }))
     : thumb(item, { play: "visible" });
   const prompt = app && promptInput(app) ? String(e.values?.[promptInput(app).id] ?? "") : "";
+  const canPromote = Boolean(app?.renderProfile?.supported) && e.status === "succeeded" && e.render?.profile !== "production" && item.outputs?.some((o) => o.type === "video");
   const stop = (fn) => (ev) => { ev.stopPropagation(); fn(); };
   const open = () => hooks.open?.(list().map(entryItem), e.id);
   const dl = el("a", { class: "mini", href: item.full, download: downloadName(item, item.full), title: t("act.download"), "aria-label": t("act.download"),
@@ -170,6 +193,8 @@ function doneCard(e, list) {
     el("div", { class: "ov" },
       el("div", { class: "row" }, el("span", { class: "tag dark" }, app?.name ?? e.app),
         el("div", { class: "acts" }, dl,
+          canPromote ? el("button", { class: "mini lime", type: "button", title: t("act.production.hint"), "aria-label": t("act.production"),
+            onclick: stop(() => renderProduction(e).catch((err) => toast(err.message, { error: true }))) }, icon("spark")) : null,
           item.type !== "audio" && hooks.useIn ? el("button", { class: "mini", type: "button", title: t("act.usein"), "aria-label": t("act.usein"),
             onclick: (ev) => { ev.stopPropagation(); hooks.useIn(ev.currentTarget, item); } }, icon("send")) : null,
           lastFrame && hooks.useIn ? el("button", { class: "mini", type: "button", title: t("act.uselast"), "aria-label": t("act.uselast"),

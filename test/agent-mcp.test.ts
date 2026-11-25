@@ -8,7 +8,16 @@ import {StudioMcp,resultData} from "../server/agent-mcp.ts";
 
 /** A stub studio API, so the real MCP server can be exercised without ComfyUI or a GPU. */
 function studio(received: any[] = []) {
-  const app = { id: "z-image", name: "Z Image", section: "image", status: "ready", pack: "image", inputs: [{ id: "prompt", type: "textarea", label: "Prompt" }], outputs: [{ node: "9", type: "image" }], models: [] };
+  const app = { id: "z-image", name: "Z Image", section: "image", status: "ready", pack: "image",
+    inputs: [
+      { id: "prompt", type: "textarea", label: "Prompt" },
+      { id: "render_profile", type: "select", label: "Render profile", options: [{ value: "build", label: "Build & Test" }, { value: "production", label: "Production" }] },
+      { id: "production_megapixels", type: "slider", label: "Production resolution", min: 0.1, max: 3, step: 0.1, default: 0.4 },
+      { id: "production_upscale", type: "select", label: "Production upscale", options: [{ value: "", label: "Off" }, { value: "x2", label: "X2" }, { value: "x4", label: "X4" }], default: "" },
+      { id: "production_upscale_detail", type: "slider", label: "Production detail", min: 0, max: 1, step: 0.05, default: 1 },
+    ],
+    renderProfile: { supported: true, build_megapixels: 0.1, production_default_megapixels: 0.4, generation: { min: 0.1, max: 3, step: 0.1 }, upscale: null, detail: null },
+    outputs: [{ node: "9", type: "image" }], models: [] };
   const server = createServer(async (req, res) => {
     const request = new Request(new URL(req.url!, "http://local"), { method: req.method, headers: req.headers as any, body: (["POST","PUT"].includes(req.method!) ? req : undefined) as any, duplex: "half" } as any);
     const url = new URL(request.url);
@@ -19,6 +28,7 @@ function studio(received: any[] = []) {
       received.push(Object.fromEntries([...form.entries()].map(([k, v]) => [k, typeof v === "string" ? v : (v as File).name])));
       return send({ id: "job-1", app: "z-image", status: "succeeded" });
     }
+    if (url.pathname === "/api/history/job-1/production") { received.push({ production: await request.json() as any }); return send({ id: "job-2", app: "z-image", status: "starting", preview: "job-1", render: { profile: "production" }, lineage: { preview: "job-1" } }); }
     if (url.pathname === "/api/history/job-1") return send({ id: "job-1", app: "z-image", status: "succeeded", outputs: [{ file: "out-01.png", type: "image" }], inputs: [] });
     if (url.pathname === "/api/media") { received.push({ media: await request.json() as any }); return send({ id: "m1", outputs: [] }); }
     res.writeHead(404); res.end("{}");
@@ -48,7 +58,7 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
   try {
     const tools = await client.tools();
     const names = tools.map((t) => t.name);
-    for (const expected of ["list_apps", "get_app", "run_app", "job", "wait_job", "cancel_job", "history", "gpu", "examples", "media","plan_segments"])
+    for (const expected of ["list_apps", "get_app", "run_app", "job", "wait_job", "cancel_job", "history", "gpu", "examples", "media","plan_segments","render_production"])
       assert.ok(names.includes(expected), `MCP must expose ${expected}`);
     assert.ok(!names.includes("autoshorts"), "AutoShorts must no longer be an MCP tool");
 
@@ -58,6 +68,7 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     const described = resultData(await client.call("get_app", { app: "z-image" }));
     assert.ok(described.prompting?.rules?.length, "get_app must return workflow prompting guidance");
     assert.ok(described.inputs[0].id === "prompt");
+    assert.equal(described.renderProfile?.supported, true, "get_app exposes the render-profile contract");
     const named=resultData(await client.call("get_app",{app:"Z Image"}));assert.equal(named.id,"z-image");
 
     const plan=resultData(await client.call("plan_segments",{prompts:["Arrival","Exit"]}));assert.equal(plan.frames,311);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,39);assert.equal(received.length,0,"pure planning never submits a job");
@@ -66,6 +77,13 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     await client.call("run_app", { app: "z-image", values: { prompt: "a grandmother" }, request_id: "conv:tool" });
     assert.equal(received.at(-1).request_id, "conv:tool", "run_app must forward the idempotency key");
     const namedRun=await client.call("run_app",{app:"Z Image",values:{prompt:"named app"}});assert.ok(!namedRun.isError);assert.equal(received.at(-1).prompt,"named app");
+    const profiled=await client.call("run_app",{app:"z-image",values:{prompt:"preview",render_profile:"build"}});assert.ok(!profiled.isError);assert.equal(received.at(-1).render_profile,"build","run_app forwards an explicit render profile");
+    const productionRun=await client.call("run_app",{app:"z-image",values:{prompt:"production",render_profile:"production",production_megapixels:0.8,production_upscale:"x2",production_upscale_detail:0.4}});
+    assert.ok(!productionRun.isError,JSON.stringify(productionRun));
+    assert.equal(received.at(-1).render_profile,"production");assert.equal(received.at(-1).production_megapixels,"0.8");assert.equal(received.at(-1).production_upscale,"x2");assert.equal(received.at(-1).production_upscale_detail,"0.4","MCP forwards the same production controls the Director UI writes");
+    const promoted=await client.call("render_production",{id:"job-1",production_megapixels:0.8,production_upscale:"x2",production_upscale_detail:0.5});
+    assert.ok(!promoted.isError,JSON.stringify(promoted));assert.equal(resultData(promoted).id,"job-2");
+    assert.deepEqual(received.at(-1).production,{production_megapixels:0.8,production_upscale:"x2",production_upscale_detail:0.5},"render_production forwards only explicit rendering choices");
 
     const job = resultData(await client.call("job", { id: "job-1" }));
     assert.equal(job.status, "succeeded");

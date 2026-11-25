@@ -89,7 +89,7 @@ def build_timeline(
 ) -> str:
     fps = int(fps) or FPS
     seconds = max(5.0 / fps, float(generation_seconds))
-    start = max(0.0, float(start_seconds))
+    selection_start = max(0.0, float(start_seconds))
     count = max(1, int(segment_count))
     frames = aligned_length(round(seconds * fps))
 
@@ -161,10 +161,10 @@ def build_timeline(
         for index, raw in enumerate(spec["windows"]):
             if not isinstance(raw, dict):
                 continue
-            start = max(0, int(round(float(raw.get("start", 0) or 0))))
-            end = max(start + MIN_LENGTH, int(round(float(raw.get("end", start + frames) or 0))))
+            window_start = max(0, int(round(float(raw.get("start", 0) or 0))))
+            end = max(window_start + MIN_LENGTH, int(round(float(raw.get("end", window_start + frames) or 0))))
             spec_windows.append({
-                "startFrame": start,
+                "startFrame": window_start,
                 "endFrame": end,
                 "prompt": str(raw.get("prompt") or ""),
                 "images": [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and i in image_ids],
@@ -174,6 +174,7 @@ def build_timeline(
         windows = spec_windows
         count = len(windows)
         seconds = (windows[0]["endFrame"] - windows[0]["startFrame"]) / fps
+        selection_start = windows[0]["startFrame"] / fps
     else:
         prompts = _lines(segment_prompts, 4096)
         windows = create_windows(count, frames)
@@ -217,7 +218,7 @@ def build_timeline(
         "secondPass": bool(two_stage),
         "secondPassModel": upscaler or "",
         "secondPassHighSteps": max(0, int(high_steps)),
-        "selection": {"start": start, "duration": seconds},
+        "selection": {"start": selection_start, "duration": seconds},
         "videoAudioEnabled": bool(video_audio),
         "videoClips": video_assets,
         "images": image_assets,

@@ -4,7 +4,7 @@ import { el, icon, fmtSeconds, toast } from "./util.js";
 import { t, ago } from "./i18n.js";
 import { byId, promptInput } from "./catalog.js";
 import { fullMedia, thumb, downloadName, inputTile } from "./media.js";
-import { hooks, feed, deleteButton } from "./feed.js";
+import { hooks, feed, deleteButton, renderProduction } from "./feed.js";
 import { flags, flagButton } from "./flags.js";
 
 function optionLabel(inp, v) {
@@ -52,7 +52,15 @@ export function openViewer(items, startKey) {
     const pi = app ? promptInput(app) : null;
     const prompt = pi ? String(item.values?.[pi.id] ?? "") : "";
     const labels = Object.fromEntries((app?.inputs || []).map((x) => [x.id, x]));
-    const settings = Object.entries(item.values || {}).filter(([k, v]) => labels[k] && labels[k] !== pi && labels[k].type !== "seed" && v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length));
+    const settings = Object.entries(item.values || {}).filter(([k, v]) => labels[k] && !labels[k].hidden && labels[k] !== pi && labels[k].type !== "seed" && v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length));
+    const render = item.render;
+    const renderRows = render ? [
+      [t("view.profile"), render.profile === "build" ? "Build & Test" : render.profile === "production" ? "Production" : "Legacy"],
+      render.generation?.width ? [t("view.native"), `${render.generation.width} × ${render.generation.height} · ${Number(render.generation.megapixels).toFixed(2)} MP`] : null,
+      render.output ? [t("view.final"), `${render.output.width} × ${render.output.height} · ${Number(render.output.megapixels).toFixed(2)} MP`] : null,
+      [t("view.upscale"), render.upscale === "off" ? t("view.upscale.off") : `${render.upscale.toUpperCase()} · ${render.upscale_linear_factor}× linear · ${render.upscale_pixel_area_factor}× pixels`],
+      item.lineage?.preview ? [t("view.lineage.preview"), item.lineage.preview] : null,
+    ].filter(Boolean) : [];
     const stats = [
       item.seconds ? [icon("clock"), t("view.gpu", { s: fmtSeconds(item.seconds) })] : null,
       item.total && (!item.seconds || item.total - item.seconds > 2) ? [item.seconds ? null : icon("clock"), t("view.total", { s: fmtSeconds(item.total) })] : null,
@@ -62,6 +70,7 @@ export function openViewer(items, startKey) {
     ].filter(Boolean);
     const url = output.url;
     const lastFrame = item.outputs.find((o) => o.type === "image" && /last/i.test(o.name || ""));
+    const canPromote = Boolean(app?.renderProfile?.supported) && item.status === "succeeded" && (item.render?.profile ?? "legacy") !== "production" && item.outputs.some((o) => o.type === "video");
     aside.replaceChildren(...[
       el("div", { class: "approw" }, app ? thumb({ ...item, kind: "example", card: app.example?.card || item.card, poster: app.example?.poster, type: app.example?.type || item.type }, { play: "none" }) : null,
         el("div", {}, el("b", {}, app?.name ?? item.app), el("small", {}, item.kind === "example" ? t("view.example") : ago(item.created)))),
@@ -70,6 +79,8 @@ export function openViewer(items, startKey) {
           el("button", { class: "btn small ghost", type: "button", onclick: () => navigator.clipboard?.writeText(prompt).then(() => toast(t("toast.copied"))) }, icon("copy"), t("act.copy"))),
         el("div", { class: "prompt" }, prompt)) : null,
       stats.length ? el("div", { class: "statline" }, ...stats.map((s) => el("span", {}, ...s))) : null,
+      renderRows.length ? el("div", { style: { display: "grid", gap: "8px" } }, el("small", { class: "dim" }, t("view.render")),
+        el("dl", { class: "vals" }, ...renderRows.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, String(v))]))) : null,
       settings.length ? el("div", { style: { display: "grid", gap: "8px" } }, el("small", { class: "dim" }, t("view.settings")),
         el("dl", { class: "vals" }, ...settings.flatMap(([k, v]) => [el("dt", {}, labels[k].label),
           el("dd", {}, labels[k].type === "select" ? optionLabel(labels[k], v) : labels[k].type === "toggle" ? (v === true || v === "true" ? "✓" : "—") : String(v))]))) : null,
@@ -77,7 +88,9 @@ export function openViewer(items, startKey) {
         el("div", { class: "ins-row" }, ...item.inputs.map((x) => el("figure", {},
           inputTile(x, { href: x.file }), el("figcaption", {}, x.label))))) : null,
       el("div", { class: "acts" },
-        app ? el("button", { class: "btn lime", type: "button", onclick: () => { close(); hooks.recreate?.(item); } }, icon("redo"), t("act.recreate")) : null,
+        canPromote ? el("button", { class: "btn lime", type: "button", title: t("act.production.hint"),
+          onclick: () => renderProduction(item).then(() => close()).catch((err) => toast(err.message, { error: true })) }, icon("spark"), t("act.production")) : null,
+        app ? el("button", { class: canPromote ? "btn ghost" : "btn lime", type: "button", onclick: () => { close(); hooks.recreate?.(item); } }, icon("redo"), t("act.recreate")) : null,
         url ? el("a", { class: "btn ghost", href: url, download: downloadName(item, url) }, icon("download"), t("act.download")) : null,
         url && output.type !== "audio" && hooks.useIn ? el("button", { class: "btn ghost", type: "button", onclick: (ev) => hooks.useIn(ev.currentTarget, { ...item, full: url, type: output.type }, close) }, icon("send"), t("act.usein")) : null,
         lastFrame && hooks.useIn ? el("button", { class: "btn ghost", type: "button", onclick: (ev) => hooks.useIn(ev.currentTarget, { ...item, full: lastFrame.url, type: "image" }, close) }, icon("send"), t("act.uselast")) : null,

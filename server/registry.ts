@@ -28,6 +28,8 @@ export type Input = {
   paint?: string;
   /** managed by a custom panel (Studio Director) or derived by the runner: the generic form does not render it */
   hidden?: boolean;
+  /** consumed by the shared render-profile resolver rather than bound to a workflow node */
+  derived?: boolean;
   /** edges to drop when this optional input is empty (an unused reference slot must not run its loader) */
   unlink?: { node: string; field: string }[];
   /** pass-through nodes removed when this input is off or when the backend lacks their class */
@@ -150,7 +152,7 @@ function checkGraph(app: App, problems: Problem[], severity: Problem["severity"]
   for (const p of app.presets ?? []) for (const s of p.sets) if (typeof s.value === "string") checkTemplate(s.value, `preset "${p.id}"`);
   for (const input of app.inputs) {
     const writes = Boolean(input.bind?.length) || (input.options ?? []).some((o) => o.sets?.length);
-    if (!writes && !usedInTemplates.has(input.id)) {
+    if (!input.derived && !writes && !usedInTemplates.has(input.id)) {
       say(`input "${input.id}" is not bound to any node and no template uses it`);
     }
   }

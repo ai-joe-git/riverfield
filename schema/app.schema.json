@@ -390,6 +390,10 @@
           "type": "boolean",
           "description": "Managed by a custom panel (Studio Director): the generic form does not render it."
         },
+        "derived": {
+          "type": "boolean",
+          "description": "Consumed by server-side profile resolution instead of being bound to a ComfyUI node (render_profile and its production settings)."
+        },
         "show_if": {
           "type": "object",
           "additionalProperties": false,

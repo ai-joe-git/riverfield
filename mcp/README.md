@@ -14,8 +14,9 @@ Desktop). The app itself must be running: the MCP calls it.
 |---|---|
 | `list_apps` | every app with section, status and pack (`section: audio`, `3d`, … to filter) |
 | `get_app` | one manifest: inputs with `type`, `default`, `options`, `file` (path input) and `panel` (driven by a custom UI, still settable here), presets, outputs, models, notes, example |
-| `run_app` | start a run: `values` by input id (numbers, strings, booleans, arrays, **JSON strings**), `files` by absolute path for `image`/`video`/`audio` inputs, optional `preset` → returns the history id |
-| `job` | one run: status, progress, queue position, outputs so far (absolute paths) |
+| `run_app` | start a run: `values` by input id (numbers, strings, booleans, arrays, **JSON strings**), `files` by absolute path for `image`/`video`/`audio` inputs, optional `preset` → returns the history id. H3 Directors accept `render_profile: "build"` (0.1 MP, no upscale) or `"production"` (0.4 MP default, `production_megapixels`, `production_upscale: "off"/"x2"/"x4"`) |
+| `render_production` | promote a succeeded H3 Director preview to a new Production generation; its exact creative payload is preserved and only rendering parameters change |
+| `job` | one run: status, progress, queue position, outputs so far (absolute paths), resolved render metadata and lineage |
 | `wait_job` | poll until it finishes (10 min by default) and return the output files |
 | `cancel_job` | ask the backend to stop a run |
 | `history` | the studio's history: what ran, with what values, where the files are |
@@ -27,7 +28,8 @@ directly.
 
 `get_app` marks each input: `file: true` means it takes an entry in `run_app.files` (absolute
 path), `panel: true` means the web UI drives it from a custom panel but the API accepts it like
-any other input. Optional pass-through nodes (the ROCm `H3SLAAttentionROCM`) are bypassed by the
+any other input, and `derived: true` means the shared render-profile resolver consumes it rather
+than binding it to a workflow node. Optional pass-through nodes (the ROCm `H3SLAAttentionROCM`) are bypassed by the
 runner when the backend does not ship their class, so the same app runs on CUDA or Intel XPU. Complex structures travel as **JSON strings** in `values` — the app's `notes`
 field documents them (that is how the Studio Director's Material Planner is driven).
 

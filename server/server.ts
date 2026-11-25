@@ -49,6 +49,7 @@ import {inputErrorBody} from "./input-error.ts";
 import {defaultDirectorForm} from "./director-form.ts";
 import {directorDurations,planDirectorSegments} from "./h3-plan.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
+import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
 const root = repoRoot();
 const { apps, problems } = loadRegistry(root);
@@ -156,6 +157,8 @@ function publicApp(a: App) {
     runnable: runnable(a),
     layout: a.layout ?? null,
     panel_title: a.panel_title ?? null,
+    /** explicit Build & Test / Production contract, derived from this app's own inputs */
+    renderProfile: renderProfileCapability(a),
     higgsfield_feature: a.higgsfield_feature ?? null,
     modes: a.modes ?? null,
     mode_label: a.mode_label ?? null,
@@ -248,9 +251,9 @@ async function jobView(id: string) {
 }
 
 /** Submit in the background; the entry tells the UI how it goes. */
-function startRun(app: App, values: Values, preset?: string, requestKey?: string, owner?: string) {
+function startRun(app: App, values: Values, preset?: string, requestKey?: string, owner?: string, meta?: {render?:Record<string,unknown>;lineage?:Record<string,unknown>}) {
   if(requestKey){const old=history.findRequest(requestKey, owner);if(old){if(old.app!==app.id)throw new InputError("Idempotency key belongs to another app");return history.view(old);}}
-  const entry = history.start(app, values, preset, requestKey, owner);
+  const entry = history.start(app, values, preset, requestKey, owner, meta);
   const controller = new AbortController();
   runControllers.set(entry.id, controller);
   void (async () => {
@@ -504,7 +507,8 @@ const server = createServer(async (req, res) => {
         let view;
         try {
           const { values, preset, requestKey } = await readValues(app, await toRequest(req));
-          view = startRun(app, resolveValues(app, values), preset, requestKey, me);
+          const resolved = resolveValues(app, values);
+          view = startRun(app, resolved, preset, requestKey, me, { render: renderMetadataFor(app, resolved) ?? undefined });
         } finally {
           admitting--;
         }
@@ -536,6 +540,57 @@ const server = createServer(async (req, res) => {
         if (req.method === "GET" && id && !sub) {
           const e = history.get(id, me);
           return e ? send(res, 200, e) : send(res, 404, { error: "unknown run" });
+        }
+        if (req.method === "POST" && id && sub === "production") {
+          const preview = history.get(id, me);
+          if (!preview) return send(res, 404, { error: "unknown run" });
+          if (preview.status !== "succeeded" || !preview.outputs.some((o) => o.type === "video")) {
+            throw new InputError("Only a succeeded video preview can be rendered in Production");
+          }
+          if (preview.render?.profile === "production") throw new InputError("This run is already a Production render");
+          if (preview.values.seed === undefined || preview.values.seed === null || preview.values.seed === -1 || preview.values.seed === "-1") {
+            throw new InputError("The preview has no resolved seed to preserve; render a new preview before promoting it");
+          }
+          const app = byId.get(preview.app);
+          const capability = app ? renderProfileCapability(app) : null;
+          if (!app || !capability) throw new InputError("This app has no Build & Test / Production profiles");
+          const raw = (await (await toRequest(req, 24)).json().catch(() => ({}))) as Record<string, unknown> | null;
+          if (raw !== null && (typeof raw !== "object" || Array.isArray(raw))) throw new InputError("Expected a production settings object");
+          const requestKey = typeof raw?.request_id === "string" && raw.request_id.length && raw.request_id.length <= 200 ? raw.request_id : undefined;
+          if (requestKey) {
+            const old = history.findRequest(requestKey, me);
+            if (old) {
+              if (old.app !== app.id || old.lineage?.preview !== id) throw new InputError("This idempotency key belongs to another run");
+              return send(res, 202, { ...history.view(old), preview: id });
+            }
+          }
+          // The saved Director project owns the durable production preferences. An MCP
+          // request may override them explicitly, but it never changes the creative payload.
+          // Director projects are local-only, so a hosted demo always uses the preview payload.
+          const saved = guard.hosted ? {} : directors.view(app.id)?.values ?? {};
+          const choices = {
+            production_megapixels: raw?.production_megapixels ?? saved.production_megapixels,
+            production_upscale: raw?.production_upscale ?? saved.production_upscale,
+            production_upscale_detail: raw?.production_upscale_detail ?? saved.production_upscale_detail,
+          };
+          const production = productionRequestFromPreview(app, preview.values as Values, choices);
+          const values: Values = { ...production.values };
+          for (const input of preview.inputs) {
+            const file = history.file(id, input.file, me);
+            if (!file) throw new InputError(`The preview input ${input.id} is no longer on disk`);
+            values[input.id] = { bytes: new Uint8Array(readFileSync(file)), name: input.name };
+          }
+          const resolved = resolveValues(app, values);
+          const entry = startRun(app, resolved, preview.preset ?? undefined, requestKey, me, {
+            render: renderMetadataFor(app, resolved) ?? undefined,
+            lineage: {
+              relation: "new_generation_from_preview",
+              preview: id,
+              note: "New Production generation from the preview's exact creative payload; not a pixel-identical reconstruction.",
+            },
+          });
+          history.linkProduction(id, entry.id, me);
+          return send(res, 202, { ...(history.get(entry.id, me) ?? entry), preview: id });
         }
         if ((req.method === "GET" || req.method === "HEAD") && sub === "files" && arg) {
           const file = history.file(id, arg, me);

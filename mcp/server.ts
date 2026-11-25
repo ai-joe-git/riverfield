@@ -142,10 +142,13 @@ export function build(base=BASE): McpServer {
           file: ["image", "video", "audio"].includes(i.type),
           // managed by a custom panel in the web UI; still settable from here (e.g. segment_windows)
           panel: Boolean(i.hidden),
+          // consumed by the shared render-profile resolver, not bound to a ComfyUI node
+          derived: Boolean(i.derived),
           ...(a.id==="pika-studio-director"&&(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)?{agentManaged:true}:{}),
         })),
         presets: (a.presets ?? []).map((p: Any) => ({ id: p.id, label: p.label })),
         outputs: a.outputs, models: (a.models ?? []).map((m: Any) => m.name),
+        renderProfile: a.renderProfile ?? null,
         notes: a.notes ?? a.source?.notes ?? null, source: a.source ?? null,
         prompting: promptGuidance(a as any),
         ...(a.id==="pika-studio-director"?{agentDefaults:DIRECTOR_DEFAULTS,actualDurations:directorDurations(),delivery:DIRECTOR_DELIVERY,effectiveTechnicalDefaults:Object.fromEntries(a.inputs.filter((i:Any)=>(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)).map((i:Any)=>[i.id,i.default])),agentWritableInputs:a.inputs.filter((i:Any)=>!(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)&&!["advanced_timeline_json","segment_prompts"].includes(i.id)).map((i:Any)=>i.id)}:{}),
@@ -156,7 +159,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("run_app", {
     title: "Run an app",
-    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine.",
+    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses 0.4 MP by default (or production_megapixels within the app range) and production_upscale off/x2/x4. Omitting render_profile preserves the app's legacy manifest defaults.",
     inputSchema: {
       app: z.string().describe("app id"),
       values: z.record(z.string(), z.any()).optional().describe("input values, by input id"),
@@ -168,11 +171,36 @@ export function build(base=BASE): McpServer {
     try {
       const canonical=await manifest(app,base);
       if(canonical.id==="pika-studio-director"&&values?.advanced_timeline_json)throw new InputError("Automated Pika uses native Director segments; raw advanced_timeline_json is reserved for manual editing");
+      if((values?.render_profile===undefined||values?.render_profile==="")&&(values?.production_megapixels!==undefined||values?.production_upscale!==undefined||values?.production_upscale_detail!==undefined))throw new InputError("Set render_profile to 'production' before choosing production_megapixels/upscale; a legacy request keeps its manifest defaults");
       const normalized=normalizeRunInputs(canonical as any,values??{},files??{});
       const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values, normalized.files, preset,base);
       if(request_id)fd.append("request_id",request_id);
       const entry = await call(`/api/apps/${encodeURIComponent(canonical.id)}/run`, { method: "POST", body: fd });
-      return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created });
+      return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created,
+        render: entry.render ?? null, lineage: entry.lineage ?? null });
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("render_production", {
+    title: "Render Production from a preview",
+    description: "Promote a succeeded H3 Director Build & Test preview to a new Production generation. The preview's exact creative payload (timeline, prompts, references, seed, checkpoint, sampler, steps, aspect) is preserved; only rendering parameters change (default 0.4 MP, optional RelayVSR x2/x4). Both outputs stay in history and are linked. This is a new generation, NOT a pixel-identical reconstruction of the preview.",
+    inputSchema: {
+      id: z.string().describe("history entry id of the succeeded preview"),
+      production_megapixels: z.number().min(0.1).max(16).optional().describe("generation resolution in MP; defaults to the Director's saved production preference or 0.4"),
+      production_upscale: z.enum(["off", "x2", "x4"]).optional().describe("RelayVSR factor; 'off' disables upscaling"),
+      production_upscale_detail: z.number().min(0).max(1).optional().describe("RelayVSR decoder detail, when upscaling"),
+      request_id: z.string().max(200).optional().describe("optional durable idempotency key"),
+    },
+  }, async ({ id, production_megapixels, production_upscale, production_upscale_detail, request_id }) => {
+    try {
+      const body: Any = {};
+      if (production_megapixels !== undefined) body.production_megapixels = production_megapixels;
+      if (production_upscale !== undefined) body.production_upscale = production_upscale === "off" ? "" : production_upscale;
+      if (production_upscale_detail !== undefined) body.production_upscale_detail = production_upscale_detail;
+      if (request_id) body.request_id = request_id;
+      const entry = await call(`/api/history/${encodeURIComponent(id)}/production`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created,
+        preview: entry.preview ?? id, render: entry.render ?? null, lineage: entry.lineage ?? null });
     } catch (e) { return fail(e); }
   });
 
@@ -186,6 +214,7 @@ export function build(base=BASE): McpServer {
       const v = local(e);
       return text({ id: v.id, app: v.app, status: v.status, error: v.error ?? null,
         progress: v.progress ?? null, queue: v.queue ?? null,
+        render: v.render ?? null, lineage: v.lineage ?? null,
         outputs: v.outputs.map((o: Any) => ({ type: o.type, path: o.path, url: o.url, file: o.file })) });
     } catch (e) { return fail(e); }
   });
@@ -209,6 +238,7 @@ export function build(base=BASE): McpServer {
           const v = local(e);
           return text({ id: v.id, app: v.app, status: v.status, error: v.error ?? null,
             seconds: v.seconds ?? null,
+            render: v.render ?? null, lineage: v.lineage ?? null,
             outputs: v.outputs.map((o: Any) => ({ type: o.type, path: o.path, file: o.file })) });
         }
         if (Date.now() > deadline) {
@@ -249,7 +279,7 @@ export function build(base=BASE): McpServer {
       const out = list.slice(0, limit ?? 20).map((e) => {
         const v = local(e);
         return { id: v.id, app: v.app, status: v.status, created: v.created, seconds: v.seconds ?? null,
-          values: v.values, outputs: v.outputs.map((o: Any) => o.path) };
+          values: v.values, render: v.render ?? null, lineage: v.lineage ?? null, outputs: v.outputs.map((o: Any) => o.path) };
       });
       return text({ count: out.length, runs: out });
     } catch (e) { return fail(e); }
