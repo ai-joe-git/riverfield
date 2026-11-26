@@ -52,7 +52,6 @@ export interface VisualObserver {
 export interface SceneComparator {
   compare(input: {
     intended: string;
-    candidatePrompt: string;
     canonicalOpening: string;
     observation: Pick<ObservationReport, "visual" | "dialogue" | "technical" | "shots" | "evidence">;
     coverage: string;
@@ -61,7 +60,7 @@ export interface SceneComparator {
 }
 
 export interface AsrAdapter {
-  transcribe(input: { audio: string; offsetSeconds: number; bindingId: string; signal?: AbortSignal }): Promise<ObservationDialogue>;
+  transcribe(input: { audio: string; offsetSeconds: number; fps: number; bindingId: string; signal?: AbortSignal }): Promise<ObservationDialogue>;
 }
 
 export interface AudioUnderstandingAdapter {
@@ -70,6 +69,26 @@ export interface AudioUnderstandingAdapter {
 
 const asConfidence = (value: unknown, fallback: ObservationConfidence = "uncertain"): ObservationConfidence =>
   ["confirmed", "probable", "uncertain", "not_observable"].includes(String(value)) ? String(value) as ObservationConfidence : fallback;
+
+const norm = (value: unknown) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const soundPattern = /\b(sound effect|pin drop|pop|clink|audio|music|soundtrack|sting|whoosh|rustle|footstep|scream|laugh track)\b/i;
+const stylePattern = /\b(sweat drop|sweat drops|blush|blushing|speed line|speed lines|sparkle|sparkles|shock cross|cartoon pop|anime effect|aura|glow)\b/i;
+
+function dedupeBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => { const k = key(item); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+}
+
+function dialogueMatch(expected: string, observed: string, stated?: unknown): "exact" | "partial" | "mismatch" | "none" {
+  const statedMatch = ["exact", "partial", "mismatch", "none"].includes(String(stated)) ? String(stated) as "exact" | "partial" | "mismatch" | "none" : null;
+  const clean = (text: string) => norm(text.replace(/^s\d+\s*:\s*/i, "").replace(/^asr\s*:\s*/i, "").replace(/^["'“”]+|["'“”]+$/g, ""));
+  const e = clean(expected), o = clean(observed);
+  if (!e || !o) return statedMatch ?? "none";
+  if (e === o) return "exact";
+  if (o.includes(e) || e.includes(o)) return "partial";
+  if (statedMatch) return statedMatch;
+  return "mismatch";
+}
 
 const strings = (value: unknown, max = 24): string[] =>
   Array.isArray(value) ? value.map(String).filter(Boolean).slice(0, max) : [];
@@ -98,16 +117,31 @@ function frameFile(frame: ObservationEvidence): FileValue {
   return { bytes: new Uint8Array(readFileSync(frame.path!)), name: basename(frame.path!), type: "image/jpeg" };
 }
 
+export type ObserverBackendOptions = {
+  /** Model id reported in the report; the caller may provide a smaller specialized workflow. */
+  model?: string;
+  maxImages?: number;
+  maxOutputTokens?: number;
+  temperature?: number;
+};
+
 export class QwenVisualObserver implements VisualObserver, SceneComparator {
-  readonly model = "qwen3.8_27b_w4a8.safetensors";
+  readonly model: string;
   readonly version = OBSERVER_VERSION;
   readonly promptVersion = OBSERVER_PROMPT_VERSION;
   private readonly runner: Runner;
   private readonly app: App;
+  private readonly maxImages: number;
+  private readonly maxOutputTokens: number;
+  private readonly temperature: number;
 
-  constructor(runner: Runner, app: App) {
+  constructor(runner: Runner, app: App, options: ObserverBackendOptions = {}) {
     this.runner = runner;
     this.app = app;
+    this.model = options.model ?? "qwen3.8_27b_w4a8.safetensors";
+    this.maxImages = Math.max(1, Math.min(9, options.maxImages ?? 9));
+    this.maxOutputTokens = options.maxOutputTokens ?? 4096;
+    this.temperature = options.temperature ?? 0.1;
   }
 
   async observe(input: {
@@ -117,8 +151,8 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     referenceFiles?: { label: string; file: FileValue }[];
     signal?: AbortSignal;
   }): Promise<VisualObserverResult> {
-    const frames = input.frames.slice(0, 9);
-    const references = (input.referenceFiles ?? []).slice(0, Math.max(0, 9 - frames.length));
+    const frames = input.frames.slice(0, this.maxImages);
+    const references = (input.referenceFiles ?? []).slice(0, Math.max(0, this.maxImages - frames.length));
     const allowed = new Set(frames.map((frame) => frame.id));
     const prompt = visualObserverPrompt({
       technical: input.technical, shots: input.shots, frames,
@@ -143,14 +177,14 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         file: reference.file,
         meta: { id: reference.label, label: reference.label, kind: "reference" as const, file: reference.file.name },
       })),
-    ].slice(0, 9);
+    ].slice(0, this.maxImages);
     visualImages.forEach((image, index) => { values[`frame${index + 1}`] = image.file; });
     const { outputs } = await this.runner.runTexts(this.app, values, input.signal);
     const rawText = outputs[0]?.text ?? "";
     const parsed = jsonObject(rawText);
     const limitations = strings(parsed.limitations, 30);
     const uncertainties = strings(parsed.uncertainties, 30);
-    const characters = (Array.isArray(parsed.characters) ? parsed.characters : []).map((entry: any) => ({
+    const characters = dedupeBy((Array.isArray(parsed.characters) ? parsed.characters : []).map((entry: any) => ({
       description: String(entry?.description ?? "").trim(),
       identityMatch: ["matches", "probable", "uncertain", "not_observable"].includes(String(entry?.identity_match))
         ? String(entry.identity_match) as "matches" | "probable" | "uncertain" | "not_observable"
@@ -161,7 +195,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       ...(entry?.physical_appearance ? { physicalAppearance: String(entry.physical_appearance) } : {}),
       evidenceIds: evidenceIds(entry?.evidence_ids, allowed, limitations),
       ...(strings(entry?.uncertainties).length ? { uncertainties: strings(entry.uncertainties) } : {}),
-    })).filter((entry: any) => entry.description);
+    })).filter((entry: any) => entry.description), (entry: any) => norm(entry.description));
     const mapList = (value: unknown, keys: string[]) => (Array.isArray(value) ? value : []).map((entry: any) => {
       const out: Record<string, unknown> = {};
       for (const key of keys) if (entry?.[key] !== undefined) out[key] = String(entry[key]);
@@ -181,7 +215,8 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       actions: mapList(parsed.actions, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["actions"],
       composition: mapList(parsed.composition, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["composition"],
       expressions: mapList(parsed.expressions, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["expressions"],
-      artifacts: mapList(parsed.artifacts, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["artifacts"],
+      stylisticEffects: [],
+      artifacts: [],
       ...(parsed.opening_state && typeof parsed.opening_state === "object" ? {
         openingState: { description: String((parsed.opening_state as any).description ?? ""), evidenceIds: evidenceIds((parsed.opening_state as any).evidence_ids, allowed, limitations) },
       } : {}),
@@ -189,18 +224,26 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         closingState: { description: String((parsed.closing_state as any).description ?? ""), evidenceIds: evidenceIds((parsed.closing_state as any).evidence_ids, allowed, limitations) },
       } : {}),
       uncertainties,
-      claims: (Array.isArray(parsed.claims) ? parsed.claims : []).map((claim: any) => ({
+      claims: dedupeBy((Array.isArray(parsed.claims) ? parsed.claims : []).map((claim: any) => ({
         text: String(claim?.text ?? "").trim(),
         evidenceIds: evidenceIds(claim?.evidence_ids, allowed, limitations),
         confidence: asConfidence(claim?.confidence),
-      })).filter((claim: any) => claim.text),
+      })).filter((claim: any) => claim.text), (claim: any) => norm(claim.text)),
     };
+    visual.props = dedupeBy(visual.props, (entry) => norm(entry.description));
+    visual.actions = dedupeBy(visual.actions, (entry) => norm(entry.description));
+    visual.composition = dedupeBy(visual.composition, (entry) => norm(entry.description));
+    visual.expressions = dedupeBy(visual.expressions, (entry) => norm(entry.description));
+    const styled = mapList(parsed.stylistic_effects, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["artifacts"];
+    const artifacts = mapList(parsed.artifacts, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["artifacts"];
+    visual.stylisticEffects = dedupeBy([...styled, ...artifacts.filter((entry) => stylePattern.test(entry.description))], (entry) => norm(entry.description));
+    visual.artifacts = dedupeBy(artifacts.filter((entry) => !stylePattern.test(entry.description)), (entry) => norm(entry.description));
     if (!characters.length && !visual.actions.length && !visual.claims.length) {
       limitations.push("The observer returned no evidence-backed visual claims; the visual stage is inconclusive.");
     }
     return {
       visual, model: this.model, version: this.version, promptVersion: this.promptVersion,
-      configuration: { maxImages: 9, frames: frames.length, referenceFrames: references.length, temperature: 0.1, maxLength: 6144 },
+      configuration: { maxImages: this.maxImages, frames: frames.length, referenceFrames: references.length, temperature: this.temperature, maxLength: this.maxOutputTokens },
       rawText, systemPrompt: VISUAL_OBSERVER_SYSTEM_PROMPT, inputPrompt: prompt,
       images: visualImages.map((image, index) => ({ order: index + 1, ...image.meta })),
     };
@@ -208,7 +251,6 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
 
   async compare(input: {
     intended: string;
-    candidatePrompt: string;
     canonicalOpening: string;
     observation: Pick<ObservationReport, "visual" | "dialogue" | "technical" | "shots" | "evidence">;
     coverage: string;
@@ -222,26 +264,69 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     const parsed = jsonObject(rawText);
     const allowed = new Set(input.observation.evidence.map((entry) => entry.id));
     const limitations = strings(parsed.limitations, 30);
-    const findings: ObservationFinding[] = (Array.isArray(parsed.findings) ? parsed.findings : []).map((finding: any, index: number) => {
+    const findings: ObservationFinding[] = [];
+    const rawFindings = Array.isArray(parsed.findings) ? parsed.findings : [];
+    const seenFindings = new Set<string>();
+    for (const [index, finding] of rawFindings.entries()) {
+      const category = ["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(String(finding?.category))
+        ? String(finding.category) as ObservationFinding["category"] : "coverage";
+      const expected = String(finding?.expected ?? "").trim();
+      const observed = String(finding?.observed ?? "").trim();
+      if (!expected && !observed) continue;
+      const key = `${category}|${norm(expected)}|${norm(observed)}`;
+      if (seenFindings.has(key)) { limitations.push(`Comparison finding ${index + 1} was a duplicate and was removed.`); continue; }
+      seenFindings.add(key);
       const ids = evidenceIds(finding?.evidence_ids, allowed, limitations);
       let classification = asConfidence(finding?.classification, "not_observable");
       let rationale = String(finding?.rationale ?? "").trim();
+      const match = category === "dialogue" ? dialogueMatch(expected, observed, finding?.dialogue_match) : undefined;
+      const audioIds = ids.filter((id) => id.startsWith("audio-"));
+      if (category === "dialogue") {
+        if (match === "partial" && classification === "confirmed") {
+          classification = "probable";
+          rationale = `${rationale}${rationale ? " " : ""}The transcript is a partial match, not an exact match.`.trim();
+        } else if (match === "mismatch") {
+          classification = "uncertain";
+          rationale = `${rationale}${rationale ? " " : ""}The available transcript does not match the expected line.`.trim();
+        }
+        if (!audioIds.length) {
+          classification = "not_observable";
+          rationale = `${rationale}${rationale ? " " : ""}No audio evidence supports this dialogue finding.`.trim();
+        }
+      }
+      if (category === "prop" && /\b(liquid|contents|full|empty|filled)\b/i.test(`${expected} ${observed}`) && !audioIds.length) {
+        if (classification === "confirmed" || classification === "probable") classification = "uncertain";
+        rationale = `${rationale}${rationale ? " " : ""}A static visual frame does not establish liquid contents or quantity.`.trim();
+      }
+      if (category === "action" && /\b(previous|earlier|before|approach(?:es|ing)?|walk(?:s|ing)?)\b/i.test(`${expected} ${observed}`)) {
+        const visualIds = ids.filter((id) => id.startsWith("frame-"));
+        if (visualIds.length < 2 && classification === "confirmed") {
+          classification = "probable";
+          rationale = `${rationale}${rationale ? " " : ""}The previous or continuing movement is inferred from a single still, not directly observed.`.trim();
+        }
+      }
       if (!ids.length && (classification === "confirmed" || classification === "probable")) {
         classification = "not_observable";
         rationale = `${rationale}${rationale ? " " : ""}No supplied visual or audio evidence id supports this finding; it was downgraded during validation.`.trim();
         limitations.push(`Comparison finding ${index + 1} had no valid evidence id and was downgraded from the model's stated classification.`);
       }
-      return {
-        id: `finding-${String(index + 1).padStart(3, "0")}`,
-        category: ["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(String(finding?.category))
-          ? String(finding.category) as ObservationFinding["category"] : "coverage",
-        expected: String(finding?.expected ?? "").trim(),
-        observed: String(finding?.observed ?? "").trim(),
-        classification,
-        rationale,
-        evidenceIds: ids,
-      };
-    }).filter((finding: ObservationFinding) => finding.expected || finding.observed);
+      findings.push({
+        id: "", category, expected, observed, classification, rationale, evidenceIds: ids,
+        ...(match ? { dialogueMatch: match } : {}),
+      });
+      if (soundPattern.test(`${expected} ${observed}`) && !audioIds.length) {
+        findings.push({
+          id: "", category: "event",
+          expected: "Audio/sound-effect component",
+          observed: "Not observable from visual evidence; the audio track was not cited for this subclaim.",
+          classification: "not_observable",
+          rationale: "Compound visual/audio finding split into an atomic audio claim; a visible effect does not confirm a sound.",
+          evidenceIds: [], dialogueMatch: "none",
+        });
+      }
+    }
+    const dedupedFindings = dedupeBy(findings, (finding) => `${finding.category}|${norm(finding.expected)}|${norm(finding.observed)}`);
+    const numberedFindings = dedupedFindings.map((finding, index) => ({ ...finding, id: `finding-${String(index + 1).padStart(3, "0")}` }));
     const proposedChanges: FactChange[] = (Array.isArray(parsed.proposed_changes) ? parsed.proposed_changes : [])
       .map((change: any) => ({
         op: change?.op === "update" ? "update" as const : "add" as const,
@@ -250,11 +335,16 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         subjectIds: strings(change?.subject_ids).length ? strings(change.subject_ids) : undefined,
         tags: strings(change?.tags).length ? strings(change.tags) : ["observed-proposal"],
         phase: ["opening", "closing", "global"].includes(String(change?.phase)) ? String(change.phase) as FactChange["phase"] : "opening" as const,
+        evidenceIds: evidenceIds(change?.evidence_ids, allowed, limitations),
       }))
-      .filter((change: FactChange) => change.text);
+      .filter((change: FactChange) => {
+        if (!change.text) return false;
+        if (!change.evidenceIds?.length) { limitations.push("A proposed canonical change without a valid evidence id was dropped."); return false; }
+        return true;
+      });
     return {
       comparison: {
-        findings, proposedChanges,
+        findings: numberedFindings, proposedChanges,
         limitations: [...limitations, "Comparison is evidence-backed; absent evidence is never treated as proof of absence."],
         comparedAt: new Date().toISOString(), comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
       },
@@ -273,7 +363,7 @@ export class WhisperTurboAsr implements AsrAdapter {
     this.app = app;
   }
 
-  async transcribe(input: { audio: string; offsetSeconds: number; bindingId: string; signal?: AbortSignal }): Promise<ObservationDialogue> {
+  async transcribe(input: { audio: string; offsetSeconds: number; fps: number; bindingId: string; signal?: AbortSignal }): Promise<ObservationDialogue> {
     const audio: FileValue = { bytes: new Uint8Array(readFileSync(input.audio)), name: basename(input.audio), type: "audio/wav" };
     const { outputs } = await this.runner.runTexts(this.app, {
       audio, model: "large-v3-turbo", device: "auto", task: "transcribe",
@@ -290,7 +380,7 @@ export class WhisperTurboAsr implements AsrAdapter {
       return {
         id: `utterance-${String(index + 1).padStart(3, "0")}`,
         startSeconds: +Math.max(0, start).toFixed(3), endSeconds: +Math.max(start, end).toFixed(3),
-        startFrame: Math.round(start * 24), endFrame: Math.round(Math.max(start, end) * 24),
+        startFrame: Math.round(start * input.fps), endFrame: Math.round(Math.max(start, end) * input.fps),
         text,
         ...(segment?.language ? { language: String(segment.language) } : {}),
         confidence: null,

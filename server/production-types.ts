@@ -221,6 +221,7 @@ export type ObservationVisual = {
   actions: { description: string; evidenceIds: string[] }[];
   composition: { description: string; evidenceIds: string[] }[];
   expressions: { description: string; evidenceIds: string[] }[];
+  stylisticEffects?: { description: string; evidenceIds: string[] }[];
   artifacts: { description: string; evidenceIds: string[] }[];
   openingState?: { description: string; evidenceIds: string[] };
   closingState?: { description: string; evidenceIds: string[] };
@@ -263,6 +264,7 @@ export type ObservationFinding = {
   classification: ObservationConfidence;
   rationale: string;
   evidenceIds: string[];
+  dialogueMatch?: "exact" | "partial" | "mismatch" | "none";
   proposedChange?: FactChange;
 };
 
@@ -294,6 +296,13 @@ export type ObservationReport = {
   };
   createdAt: string;
   technical: ObservationTechnical;
+  evidenceBudget?: {
+    maxFrames: number;
+    extractedFrames: number;
+    visualFrames: number;
+    mandatoryShotCoverage: true;
+    semantics: "hard-cap-with-mandatory-shot-coverage";
+  };
   nativeBoundaries: { bindingId: string; segmentIndex: number; startFrame: number; endFrame: number; startSeconds: number; endSeconds: number }[];
   shots: ObservationShot[];
   visual?: ObservationVisual;
@@ -355,6 +364,7 @@ export type FactChange = {
   subjectIds?: string[];
   tags?: string[];
   data?: unknown;
+  evidenceIds?: string[];
   sceneId?: string;
   phase?: FactPhase;
   provenance?: Partial<Provenance>;

@@ -88,7 +88,7 @@ export type ObservationDeps = {
 
 const nowIso = () => new Date().toISOString();
 const done = (status: ObservationJobStatus) => ["succeeded", "failed", "canceled", "lost"].includes(status);
-const stageNames: ObservationStageName[] = ["resolve", "evidence", "visual", "asr", "comparison", "report"];
+const stageNames: ObservationStageName[] = ["resolve", "evidence", "asr", "visual", "comparison", "report"];
 
 function stageList(): ObservationStage[] {
   return stageNames.map((name) => ({ name, status: "pending" as const }));
@@ -331,6 +331,35 @@ export class ObservationManager {
 
       await this.inference(`Observe ${scene.title}`, async () => {
         controller.signal.throwIfAborted();
+        // Whisper first, then Qwen visual + comparison consecutively. The visual pass
+        // still receives neither the transcript nor the intended screenplay.
+        if (job.options.asr && this.asr && bundle.audio.length) {
+          this.stage(job, "asr", "running");
+          try {
+            const parts: ObservationDialogue[] = [];
+            for (const clip of bundle.audio) {
+              if (controller.signal.aborted) throw new Error("Observation canceled");
+              const boundary = bundle.nativeBoundaries.find((item) => item.bindingId === clip.bindingId);
+              parts.push(await this.asr.transcribe({
+                audio: clip.path!, offsetSeconds: boundary?.startSeconds ?? 0,
+                fps: bundle.technical.fps,
+                bindingId: clip.bindingId ?? "", signal: controller.signal,
+              }));
+            }
+            dialogue = mergeDialogue(parts, bundle.audio.map((clip) => clip.id));
+            writeArtifact("asr-raw-transcript.txt", parts.map((part) => part.rawTranscript ?? part.text).join("\n\n"), true);
+            writeArtifact("asr-raw-segments.json", parts.map((part) => ({ part: part.rawSegments ?? null, text: part.text })));
+            writeArtifact("asr-parsed.json", dialogue);
+            this.stage(job, "asr", "succeeded");
+          } catch (error) {
+            const message = (error as Error).message;
+            stageErrors.push(`asr: ${message}`);
+            this.stage(job, "asr", controller.signal.aborted ? "canceled" : "failed", message);
+          }
+        } else {
+          this.stage(job, "asr", "skipped");
+        }
+
         if (job.options.visual && this.observer) {
           this.stage(job, "visual", "running");
           try {
@@ -359,39 +388,12 @@ export class ObservationManager {
           this.stage(job, "visual", "skipped");
         }
 
-        if (job.options.asr && this.asr && bundle.audio.length) {
-          this.stage(job, "asr", "running");
-          try {
-            const parts: ObservationDialogue[] = [];
-            for (const clip of bundle.audio) {
-              if (controller.signal.aborted) throw new Error("Observation canceled");
-              const boundary = bundle.nativeBoundaries.find((item) => item.bindingId === clip.bindingId);
-              parts.push(await this.asr.transcribe({
-                audio: clip.path!, offsetSeconds: boundary?.startSeconds ?? 0,
-                bindingId: clip.bindingId ?? "", signal: controller.signal,
-              }));
-            }
-            dialogue = mergeDialogue(parts, bundle.audio.map((clip) => clip.id));
-            writeArtifact("asr-raw-transcript.txt", parts.map((part) => part.rawTranscript ?? part.text).join("\n\n"), true);
-            writeArtifact("asr-raw-segments.json", parts.map((part) => ({ part: part.rawSegments ?? null, text: part.text })));
-            writeArtifact("asr-parsed.json", dialogue);
-            this.stage(job, "asr", "succeeded");
-          } catch (error) {
-            const message = (error as Error).message;
-            stageErrors.push(`asr: ${message}`);
-            this.stage(job, "asr", controller.signal.aborted ? "canceled" : "failed", message);
-          }
-        } else {
-          this.stage(job, "asr", "skipped");
-        }
-
         if (job.options.comparison && this.observer?.compare) {
           this.stage(job, "comparison", "running");
           try {
             const context = buildProductionContext(snap, { sceneId: scene.id, maxChars: 8000 });
             comparison = await this.observer.compare({
               intended: [scene.summary, candidate.prompt].filter(Boolean).join("\n\n"),
-              candidatePrompt: candidate.prompt ?? "",
               canonicalOpening: context.text,
               observation: {
                 visual: visual?.visual, dialogue,
@@ -436,7 +438,13 @@ export class ObservationManager {
             comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
           },
         },
-        createdAt: this.now().toISOString(), technical: bundle.technical, nativeBoundaries: bundle.nativeBoundaries,
+        createdAt: this.now().toISOString(), technical: bundle.technical,
+        evidenceBudget: {
+          maxFrames: job.options.maxFrames, extractedFrames: bundle.frames.length,
+          visualFrames: bundle.visualFrameIds.length, mandatoryShotCoverage: true,
+          semantics: "hard-cap-with-mandatory-shot-coverage",
+        },
+        nativeBoundaries: bundle.nativeBoundaries,
         shots: bundle.shots, ...(visual ? { visual: visual.visual } : {}), ...(dialogue ? { dialogue } : {}),
         ...(comparison ? { comparison: comparison.comparison } : {}),
         observedEvents: observedEvents(visual?.visual, dialogue), evidence: [...bundle.frames, ...bundle.audio],
@@ -476,7 +484,25 @@ export class ObservationManager {
       if (artifactDir) {
         try {
           appendFileSync(join(artifactDir, "memory.jsonl"), `${JSON.stringify(sampleMemory())}\n`);
-          writeArtifact("backend-log-after.txt", fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log"), true);
+          const backendLog = fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log", 400_000);
+          writeArtifact("backend-log-after.txt", backendLog, true);
+          const lines = backendLog.split(/\r?\n/);
+          writeArtifact("profile.json", {
+            stageSeconds: Object.fromEntries(job.stages.map((stage) => [stage.name,
+              stage.startedAt && stage.finishedAt ? Math.round((Date.parse(stage.finishedAt) - Date.parse(stage.startedAt)) / 100) / 10 : null])),
+            backend: {
+              promptExecutions: [...backendLog.matchAll(/Prompt executed in ([0-9:.]+)(?: seconds)?/g)].map((match) => match[1]).slice(-8),
+              modelLoads: lines.filter((line) => /Requested to load|loaded completely|CLIP\/text encoder model load/.test(line)).slice(-20),
+              generationTail: lines.filter((line) => /Generating tokens:/.test(line)).slice(-3),
+            },
+            instrumentation: {
+              prefill: "not separately exposed by the installed TextGenerateV2/ComfyUI log",
+              decode: "not separately exposed; only total prompt execution and token progress are available",
+              visionEncoding: "not separately exposed; vision frames are encoded inside the TextGenerateV2 prompt",
+              modelLoading: "derived from backend Requested to load / loaded completely lines",
+            },
+            note: "Stage timings include shared-queue waiting and model startup. No timing value is presented as a prefill/decode split it does not measure.",
+          });
           writeArtifact("job-final.json", job);
           const started = job.startedAt ? Date.parse(job.startedAt) : null;
           const finished = job.finishedAt ? Date.parse(job.finishedAt) : null;
@@ -499,10 +525,33 @@ export class ObservationManager {
     const snap = this.productions.snapshot(productionId);
     const observation = snap.observations[observationId];
     if (!observation?.report) throw new ObservationError("UNKNOWN_OBSERVATION", "No structured observation with this id");
-    const changes = (observation.report.comparison?.proposedChanges ?? []).map((change) => ({
-      ...change, sceneId: observation.sceneId,
-    })) as FactChange[];
-    if (!changes.length) throw new ObservationError("NO_PROPOSED_CHANGES", "This observation has no proposed canonical changes");
+    const allowedEvidence = new Set(observation.report.evidence.map((item) => item.id));
+    const changes: FactChange[] = [];
+    for (const raw of observation.report.comparison?.proposedChanges ?? []) {
+      const evidenceIds = (raw.evidenceIds ?? []).filter((id) => allowedEvidence.has(id));
+      if (!evidenceIds.length) continue;
+      const text = String(raw.text ?? "").trim();
+      if (!text) continue;
+      const subjectIds = [...new Set((raw.subjectIds ?? []).map((id) => String(id).trim()).filter(Boolean))];
+      if (raw.category === "identity" && !subjectIds.length) continue;
+      // Clothing, hair styling and props visible in one scene are current state, not
+      // permanent identity. Keep a genuinely stable identity fact only when it has
+      // no wardrobe/scene-state wording; otherwise propose a scene-scoped State fact.
+      const clothingOrState = /\b(wears?|wearing|dress|shirt|trousers?|robe|suit|coat|jacket|outfit|wardrobe|gown|skirt|hat|shoes?|clothing|holding|holds?)\b/i.test(text);
+      const category = raw.category === "identity" && clothingOrState ? "state" : raw.category;
+      const phase = raw.phase ?? (category === "episodic" ? "closing" : "opening");
+      changes.push({
+        op: raw.op ?? "add",
+        category,
+        text,
+        subjectIds,
+        tags: [...new Set([...(raw.tags ?? []), ...(category !== raw.category ? ["scene-state", "wardrobe-not-identity"] : [])])],
+        evidenceIds,
+        sceneId: observation.sceneId,
+        phase,
+      });
+    }
+    if (!changes.length) throw new ObservationError("NO_PROPOSED_CHANGES", "This observation has no evidence-backed proposed canonical changes");
     return this.productions.propose(productionId, {
       title: "Observed change proposal", note, expectedRevision: snap.revision, changes,
     }, actor, `observation:propose:${observationId}`);

@@ -49,7 +49,7 @@ export type ObservationEvidenceBundle = {
   sourceHash: string;
 };
 
-type EvidenceManifest = Omit<ObservationEvidenceBundle, "dir"> & { complete: true; createdAt: string; schemaVersion: 1 };
+type EvidenceManifest = Omit<ObservationEvidenceBundle, "dir"> & { complete: true; createdAt: string; schemaVersion: 4 };
 
 const frameRate = (value: string | undefined): number => {
   const [num, den] = String(value ?? "").split("/").map(Number);
@@ -96,10 +96,14 @@ function jsonProbe(path: string): { video?: Record<string, string>; audio?: Reco
   }
 }
 
-/** Clamp final-output frames to what the actual file contains. */
-function clampFrame(value: number, frameCount: number | undefined): number {
+/** Final-output binding ranges are half-open: [start, end). */
+function clampStartFrame(value: number, frameCount: number | undefined): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(Math.trunc(value), Math.max(0, (frameCount ?? Math.round(value)) - 1)));
+}
+function clampEndFrame(value: number, frameCount: number | undefined): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(Math.trunc(value), Math.max(0, frameCount ?? Math.round(value))));
 }
 
 function detectCuts(path: string, startSeconds: number, duration: number, threshold: number): number[] {
@@ -136,7 +140,10 @@ export function extractObservationEvidence(input: {
     throw new ObservationError("INVALID_OBSERVATION_CONFIG", "maxFrames must be between 1 and 48");
   }
   if (!Number.isInteger(config.visualFrames) || config.visualFrames < 1 || config.visualFrames > 9) {
-    throw new ObservationError("INVALID_OBSERVATION_CONFIG", "visualFrames must be between 1 and 9");
+    throw new ObservationError("INVALID_OBSERVATION_CONFIG", "visualFrames must be between 1 and 9 (the Qwen image limit)");
+  }
+  if (config.visualFrames > config.maxFrames) {
+    throw new ObservationError("INVALID_OBSERVATION_CONFIG", "visualFrames cannot exceed maxFrames");
   }
   if (!(config.sampleIntervalSeconds >= 0.25)) throw new ObservationError("INVALID_OBSERVATION_CONFIG", "sampleIntervalSeconds must be at least 0.25");
   if (!(config.sceneThreshold > 0 && config.sceneThreshold < 1)) throw new ObservationError("INVALID_OBSERVATION_CONFIG", "sceneThreshold must be between 0 and 1");
@@ -162,7 +169,7 @@ export function extractObservationEvidence(input: {
   if (!(fps > 0) || !(duration > 0)) throw new ObservationError("OBSERVATION_MEDIA_INVALID", "The selected output has no countable video timeline");
 
   const cacheKey = createHash("sha256").update(JSON.stringify({
-    schema: 1, sceneId: input.sceneId, candidateHash: input.candidate.contentHash, sourceHash,
+    schema: 4, sceneId: input.sceneId, candidateHash: input.candidate.contentHash, sourceHash,
     bindingIds: input.bindings.map((binding) => binding.id).sort(), config,
   })).digest("hex").slice(0, 32);
   const dir = join(input.outDir, "observations", "evidence", input.productionId, input.sceneId, cacheKey);
@@ -187,8 +194,8 @@ export function extractObservationEvidence(input: {
   if (config.includeAudio) mkdirSync(join(dir, "audio"), { recursive: true });
 
   const nativeBoundaries = input.bindings.map((binding) => {
-    const start = clampFrame(binding.timelineStartFrame, frameCount);
-    const end = Math.min(clampFrame(binding.timelineEndFrame, frameCount), frameCount ?? binding.timelineEndFrame);
+    const start = clampStartFrame(binding.timelineStartFrame, frameCount);
+    const end = clampEndFrame(binding.timelineEndFrame, frameCount);
     if (end <= start) throw new ObservationError("OBSERVATION_BINDING_INVALID", `Binding ${binding.id} is empty after clamping to the source`);
     return { bindingId: binding.id, segmentIndex: binding.segmentIndex, startFrame: start, endFrame: end, startSeconds: start / fps, endSeconds: end / fps };
   });
@@ -199,6 +206,7 @@ export function extractObservationEvidence(input: {
   let frameNumber = 0;
 
   const addFrame = (timestampSeconds: number, kind: ObservationEvidence["kind"], bindingId: string, shotId?: string) => {
+    if (frames.length >= config.maxFrames) return undefined;
     const frame = Math.max(0, Math.min(Math.round(timestampSeconds * fps), Math.max(0, (frameCount ?? Math.round(timestampSeconds * fps)) - 1)));
     const key = Math.round(frame);
     if (frameByTime.has(key)) return frameByTime.get(key)!;
@@ -218,8 +226,8 @@ export function extractObservationEvidence(input: {
     return evidence;
   };
 
+  const plans: { shotId: string; bindingId: string; segmentIndex: number; startSeconds: number; endSeconds: number; detector: ObservationShot["detector"] }[] = [];
   for (const boundary of nativeBoundaries) {
-    const binding = input.bindings.find((item) => item.id === boundary.bindingId)!;
     const durationSeconds = boundary.endSeconds - boundary.startSeconds;
     const cuts = detectCuts(source, boundary.startSeconds, durationSeconds, config.sceneThreshold);
     const points = [0, ...cuts, boundary.endSeconds - boundary.startSeconds]
@@ -229,27 +237,42 @@ export function extractObservationEvidence(input: {
       const startSeconds = boundary.startSeconds + points[index];
       const endSeconds = boundary.startSeconds + points[index + 1];
       if (endSeconds - startSeconds < 0.12) continue;
-      const shotId = `${boundary.bindingId}-shot-${String(shots.length + 1).padStart(2, "0")}`;
-      const opening = addFrame(startSeconds + 1 / fps, "opening_frame", boundary.bindingId, shotId);
-      const closing = addFrame(Math.max(startSeconds, endSeconds - 1 / fps), "closing_frame", boundary.bindingId, shotId);
-      const middle = addFrame((startSeconds + endSeconds) / 2, "shot_frame", boundary.bindingId, shotId);
-      shots.push({
-        id: shotId, bindingId: boundary.bindingId, segmentIndex: boundary.segmentIndex,
-        startFrame: Math.round(startSeconds * fps), endFrame: Math.round(endSeconds * fps),
-        startSeconds: +startSeconds.toFixed(4), endSeconds: +endSeconds.toFixed(4),
-        detector: cuts.length ? "ffmpeg-scene" : "native-segment",
-        evidenceIds: [opening.id, middle.id, closing.id],
+      plans.push({
+        shotId: `${boundary.bindingId}-shot-${String(plans.length + 1).padStart(2, "0")}`,
+        bindingId: boundary.bindingId, segmentIndex: boundary.segmentIndex,
+        startSeconds, endSeconds, detector: cuts.length ? "ffmpeg-scene" : "native-segment",
       });
     }
   }
 
-  // Configurable extra samples are bounded; opening/closing/shot evidence wins first.
+  // Mandatory coverage: one representative per detected shot plus global opening and
+  // closing. maxFrames is a hard total cap; it must be able to hold that minimum.
+  if (!plans.length) throw new ObservationError("OBSERVATION_NO_SHOTS", "No detectable shot was found in the selected binding range");
+  if (config.maxFrames < plans.length + 2) {
+    throw new ObservationError("OBSERVATION_FRAME_BUDGET",
+      `maxFrames=${config.maxFrames} cannot cover ${plans.length} detected shots plus opening and closing; use at least ${plans.length + 2}`);
+  }
+  for (const plan of plans) addFrame((plan.startSeconds + plan.endSeconds) / 2, "shot_frame", plan.bindingId, plan.shotId);
+  addFrame(plans[0].startSeconds + 1 / fps, "opening_frame", plans[0].bindingId, plans[0].shotId);
+  addFrame(Math.max(plans.at(-1)!.startSeconds, plans.at(-1)!.endSeconds - 1 / fps), "closing_frame", plans.at(-1)!.bindingId, plans.at(-1)!.shotId);
+  for (const plan of plans) {
+    addFrame(plan.startSeconds + 1 / fps, "opening_frame", plan.bindingId, plan.shotId);
+    addFrame(Math.max(plan.startSeconds, plan.endSeconds - 1 / fps), "closing_frame", plan.bindingId, plan.shotId);
+  }
   for (const boundary of nativeBoundaries) {
     if (frames.length >= config.maxFrames) break;
     for (let seconds = boundary.startSeconds + config.sampleIntervalSeconds; seconds < boundary.endSeconds; seconds += config.sampleIntervalSeconds) {
       if (frames.length >= config.maxFrames) break;
       addFrame(seconds, "sample_frame", boundary.bindingId);
     }
+  }
+  for (const plan of plans) {
+    shots.push({
+      id: plan.shotId, bindingId: plan.bindingId, segmentIndex: plan.segmentIndex,
+      startFrame: Math.round(plan.startSeconds * fps), endFrame: Math.round(plan.endSeconds * fps),
+      startSeconds: +plan.startSeconds.toFixed(4), endSeconds: +plan.endSeconds.toFixed(4), detector: plan.detector,
+      evidenceIds: frames.filter((frame) => frame.shotId === plan.shotId).map((frame) => frame.id),
+    });
   }
 
   const audio: ObservationEvidence[] = [];
@@ -284,8 +307,8 @@ export function extractObservationEvidence(input: {
     const candidates = shotFrames(shot.id);
     addVisual(candidates.find((frame) => frame.kind === "shot_frame") ?? candidates[0]);
   }
-  addVisual(frames.find((frame) => frame.kind === "opening_frame"));
-  addVisual([...frames].reverse().find((frame) => frame.kind === "closing_frame"));
+  addVisual(frames.find((frame) => frame.kind === "opening_frame" && frame.shotId === shots[0]?.id));
+  addVisual(frames.find((frame) => frame.kind === "closing_frame" && frame.shotId === shots.at(-1)?.id));
   for (const frame of [...frames].sort((a, b) => (a.timestampSeconds ?? 0) - (b.timestampSeconds ?? 0))) addVisual(frame);
   const visualFrameIds = selectedVisual.slice(0, config.visualFrames).map((frame) => frame.id);
 
@@ -308,7 +331,7 @@ export function extractObservationEvidence(input: {
   };
 
   const manifest: EvidenceManifest = {
-    schemaVersion: 1, complete: true, createdAt: new Date().toISOString(), cacheKey,
+    schemaVersion: 4, complete: true, createdAt: new Date().toISOString(), cacheKey,
     source: { path: source, hash: sourceHash, ...(expectedHash ? { expectedHash } : {}), verified: technical.sourceVerified },
     technical, nativeBoundaries, shots, frames, audio, visualFrameIds, config, sourceHash,
   };

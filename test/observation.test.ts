@@ -99,7 +99,7 @@ const fakeComparison: ObservationComparison = {
     id: "finding-001", category: "dialogue", expected: "Hello.", observed: "Hello.",
     classification: "confirmed", rationale: "The transcript matches.", evidenceIds: ["frame-0001"],
   }],
-  proposedChanges: [{ op: "add", category: "episodic", text: "Akari greets Daichi in the bar.", phase: "closing" }],
+  proposedChanges: [{ op: "add", category: "episodic", text: "Akari greets Daichi in the bar.", phase: "closing", evidenceIds: ["frame-0001"] }],
   limitations: ["One sampled frame."], comparedAt: now, comparisonPromptVersion: "test-v1",
 };
 
@@ -195,5 +195,37 @@ test("a failed visual stage keeps the evidence and still records a partial repor
     assert.equal(observation.report?.dialogue?.text, "Hello.");
     assert.ok(observation.report?.stages.some((stage) => stage.name === "visual" && stage.status === "failed"));
     assert.ok(observation.report?.evidence.length);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test("observed wardrobe becomes scene state, not permanent identity", async () => {
+  const { out, store } = fixture();
+  try {
+    const observations = new ObservationManager({
+      outDir: out, productions: store, runner: {} as Runner, inference: async (_label, work) => work(),
+      evidence: (input) => fakeEvidence(input),
+      observer: {
+        observe: async () => ({ visual: fakeVisual, model: "mock", version: "test", promptVersion: "test", configuration: {}, rawText: "{}" }),
+        compare: async () => ({
+          comparison: {
+            ...fakeComparison,
+            proposedChanges: [{
+              op: "add", category: "identity", text: "Akari wears a red satin dress and robe.",
+              subjectIds: ["akari"], evidenceIds: ["frame-0001"], phase: "opening",
+            }],
+          },
+          rawText: "{}", promptVersion: "test",
+        }),
+      },
+      asr: { transcribe: async () => fakeDialogue }, mediaRoots: [join(out, "media")], now: () => new Date(now),
+    });
+    const done = await finished(observations, observations.start("suite-404", { sceneId: "scene-a", candidateId: "candidate-a" }, actor).id);
+    const result = observations.proposeChanges("suite-404", done.observationId!, actor);
+    const snap = store.snapshot("suite-404");
+    const proposal = Object.values(snap.proposals)[0]!;
+    assert.equal(proposal.changes[0]?.category, "state");
+    assert.ok(proposal.changes[0]?.tags?.includes("wardrobe-not-identity"));
+    assert.deepEqual(proposal.changes[0]?.evidenceIds, ["frame-0001"]);
+    assert.equal(snap.revision, 0);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
