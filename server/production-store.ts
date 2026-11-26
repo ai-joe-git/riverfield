@@ -627,6 +627,36 @@ export class ProductionStore {
     return this.append(productionId, "asset.indexed", { asset }, actor, commandKey ?? `asset:index:${id}`);
   }
 
+  private validateProposal(snap: ProductionSnapshot, proposal: CanonProposal) {
+    const seen = new Set<string>();
+    for (const [index, change] of proposal.changes.entries()) {
+      if (!MEMORY_CATEGORIES.includes(change.category)) throw new ProductionError("INVALID_FACT", "Unknown memory category");
+      if (!change.text?.trim()) throw new ProductionError("INVALID_FACT", "Every proposed fact needs text");
+      const id = change.factId ?? factId(proposal.id, index);
+      if (seen.has(id)) throw new ProductionError("INVALID_FACT", `Duplicate fact id ${id}`);
+      seen.add(id);
+      const list = snap.bible[change.category];
+      if (change.op === "update") {
+        if (!change.factId) throw new ProductionError("INVALID_FACT", "An update needs factId");
+        if (!list.some((fact) => fact.id === change.factId)) throw new ProductionError("INVALID_FACT", `Unknown fact to update: ${change.factId}`);
+      } else if (list.some((fact) => fact.id === id)) {
+        throw new ProductionError("INVALID_FACT", `Fact already exists: ${id}`);
+      }
+    }
+    if (proposal.sceneDecision) {
+      const { sceneId, candidateId, decision } = proposal.sceneDecision;
+      if (!snap.scenes.some((scene) => scene.id === sceneId)) throw new ProductionError("UNKNOWN_SCENE", `Unknown scene ${sceneId}`);
+      if (!snap.candidates[candidateId]) throw new ProductionError("UNKNOWN_CANDIDATE", `Unknown candidate ${candidateId}`);
+      const bindings = (snap.bindings[candidateId] ?? []).filter((binding) => binding.sceneId === sceneId);
+      if (!bindings.length) throw new ProductionError("INVALID_SCENE_DECISION", "Candidate has no binding for this scene");
+      if (decision === "canon" && !bindings.length) throw new ProductionError("INVALID_SCENE_DECISION", "A canonical scene needs at least one binding");
+      if (proposal.sceneDecision.bindingIds?.length) {
+        const known = new Set(bindings.map((binding) => binding.id));
+        if (proposal.sceneDecision.bindingIds.some((id) => !known.has(id))) throw new ProductionError("INVALID_SCENE_DECISION", "Every selected binding must belong to this scene and candidate");
+      }
+    }
+  }
+
   propose(productionId: string, input: ProposeCanonInput, actor: Actor, commandKey?: string): { proposal: CanonProposal; snapshot: ProductionSnapshot } {
     const snap = this.snapshot(productionId);
     const expectedRevision = input.expectedRevision ?? snap.revision;
@@ -658,6 +688,7 @@ export class ProductionStore {
       fingerprint: proposalFingerprint(base), status: "proposed", createdAt: nowIso(),
       createdBy: actor.id ?? actor.kind, createdByKind: actor.kind,
     };
+    this.validateProposal(snap, proposal);
     const next = this.append(productionId, "canon.proposed", { proposal }, actor, commandKey ?? `canon:propose:${proposal.id}`);
     return { proposal, snapshot: next };
   }
@@ -671,6 +702,7 @@ export class ProductionStore {
       if (proposal.expectedRevision !== snap.revision) {
         throw new ProductionError("STALE_PROPOSAL", `Proposal expects revision ${proposal.expectedRevision}, current canonical revision is ${snap.revision}`);
       }
+      this.validateProposal(snap, proposal);
       const check: ApprovalCheck = { fingerprint: proposal.fingerprint, expectedRevision: snap.revision, action: "proposal" };
       if (!this.verifyApproval(approval, check)) throw new ProductionError("HUMAN_APPROVAL_REQUIRED", "Canonical approval must come from the interactive human approval boundary");
       return this.appendLocked(productionId, "canon.approved", { proposal, approval }, { kind: "human", id: approval.approvedBy }, commandKey ?? `canon:approve:${proposalId}`).snapshot;
