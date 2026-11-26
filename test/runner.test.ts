@@ -275,6 +275,17 @@ test("the extra Qwen3.8 uncensored prompt models are selectable wherever Qwen3.8
   for (const file of files) assert.ok(clip.options?.some((o) => o.value === file), `studio-director: clip_name lacks ${file}`);
 });
 
+test("the prompt enhancer accepts all nine ordered director picture slots", () => {
+  const app = byId("prompt-enhancer");
+  const pictures = app.inputs.filter((i) => i.id.startsWith("image")).map((i) => i.id);
+  assert.deepEqual(pictures, ["image1", "image2", "image3", "image4", "image5", "image6", "image7", "image8", "image9"]);
+  const graph = app.graph as Record<string, any>;
+  for (let n = 1; n <= 9; n += 1) {
+    assert.ok(graph[`img${n}`], `missing LoadImage node img${n}`);
+    assert.deepEqual(graph.gen.inputs[`images.image${n}`], [`img${n}`, 0]);
+  }
+});
+
 test("the Flash director exposes the Flash step ladder and video VAE", () => {
   const app = byId("h3-studio-director-flash");
   const steps = app.inputs.find((i) => i.id === "steps")!;

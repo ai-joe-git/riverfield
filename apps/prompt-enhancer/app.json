@@ -10,7 +10,7 @@
   "source": {
     "template": "Minimax h3 prompt Generator.json",
     "comfyui": "0.46.0",
-    "notes": "Standalone Qwen3.8 prompt writer based on the user-supplied MiniMax H3 prompt generator. TextGenerateV2 receives text, optional images and optional video frames; the system prompt switches between the T2VA/I2VA/FL2VA/L2VA writer and the full-reference Ref2VA writer. Output is saved as a text result for the Library. No inference is launched by this manifest."
+    "notes": "Standalone Qwen3.8 prompt writer based on the user-supplied MiniMax H3 prompt generator. TextGenerateV2 receives text, up to nine optional pictures and three optional video frames; the system prompt switches between the T2VA/I2VA/FL2VA/L2VA writer and the full-reference Ref2VA writer. Output is saved as a text result for the Library. No inference is launched by this manifest."
   },
   "inputs": [
     {
@@ -199,6 +199,116 @@
         {
           "node": "gen",
           "field": "images.image4"
+        }
+      ]
+    },
+    {
+      "id": "image5",
+      "type": "image",
+      "label": "Picture 5",
+      "required": false,
+      "help": "Optional visual reference for the writer. Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img5",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image5"
+        }
+      ]
+    },
+    {
+      "id": "image6",
+      "type": "image",
+      "label": "Picture 6",
+      "required": false,
+      "help": "Optional visual reference for the writer. Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img6",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image6"
+        }
+      ]
+    },
+    {
+      "id": "image7",
+      "type": "image",
+      "label": "Picture 7",
+      "required": false,
+      "help": "Optional visual reference for the writer. Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img7",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image7"
+        }
+      ]
+    },
+    {
+      "id": "image8",
+      "type": "image",
+      "label": "Picture 8",
+      "required": false,
+      "help": "Optional visual reference for the writer. Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img8",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image8"
+        }
+      ]
+    },
+    {
+      "id": "image9",
+      "type": "image",
+      "label": "Picture 9",
+      "required": false,
+      "help": "Optional visual reference for the writer. Empty slots are ignored.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img9",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image9"
         }
       ]
     },

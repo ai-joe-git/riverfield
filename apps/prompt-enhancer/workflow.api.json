@@ -73,6 +73,26 @@
       "videos.video3": [
         "vid3c",
         0
+      ],
+      "images.image5": [
+        "img5",
+        0
+      ],
+      "images.image6": [
+        "img6",
+        0
+      ],
+      "images.image7": [
+        "img7",
+        0
+      ],
+      "images.image8": [
+        "img8",
+        0
+      ],
+      "images.image9": [
+        "img9",
+        0
       ]
     },
     "_meta": {
@@ -199,6 +219,51 @@
     },
     "_meta": {
       "title": "Save generated prompt"
+    }
+  },
+  "img5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "Picture 5"
+    }
+  },
+  "img6": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "Picture 6"
+    }
+  },
+  "img7": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "Picture 7"
+    }
+  },
+  "img8": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "Picture 8"
+    }
+  },
+  "img9": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "Picture 9"
     }
   }
 }

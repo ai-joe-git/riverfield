@@ -185,7 +185,7 @@ export function build(base=BASE): McpServer {
     description: "Promote a succeeded H3 Director Build & Test preview to a new Production generation. The preview's exact creative payload (timeline, prompts, references, seed, checkpoint, sampler, steps, aspect) is preserved; only rendering parameters change (default 0.3 MP and RelayVSR x2, with off/x4 optional). Both outputs stay in history and are linked. This is a new generation, NOT a pixel-identical reconstruction of the preview.",
     inputSchema: {
       id: z.string().describe("history entry id of the succeeded preview"),
-      production_megapixels: z.number().min(0.1).max(16).optional().describe("generation resolution in MP; defaults to the Director's saved production preference or 0.4"),
+      production_megapixels: z.number().min(0.1).max(16).optional().describe("generation resolution in MP; defaults to the Director's saved production preference, or the app's production_megapixels default (0.3 on the current H3 directors)"),
       production_upscale: z.enum(["off", "x2", "x4"]).optional().describe("RelayVSR factor; 'off' disables upscaling"),
       production_upscale_detail: z.number().min(0).max(1).optional().describe("RelayVSR decoder detail, when upscaling"),
       request_id: z.string().max(200).optional().describe("optional durable idempotency key"),

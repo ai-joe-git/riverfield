@@ -47,7 +47,7 @@ import {projectTool} from "./agent-project.ts";
 import {askTool} from "./production.ts";
 import {inputErrorBody} from "./input-error.ts";
 import {defaultDirectorForm} from "./director-form.ts";
-import {directorDurations,planDirectorSegments} from "./h3-plan.ts";
+import {directorDurations,planDirectorSegments,directorPromptMode} from "./h3-plan.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -286,27 +286,30 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
 
   const flexMode = String(next.flex_mode ?? "");
   const hasSegmentReferences = target.kind === "windows" && target.spec.windows.some((w: any) => Array.isArray(w.images) && w.images.length);
-  const mode = app.id.startsWith("ltx-") ? "t2v" : flexMode === "ref2va" || (!flexMode && hasSegmentReferences) ? "ref2va" : "t2va";
-  // Use the ordered references attached to THIS segment. Fall back to the global
-  // first four pictures only when the segment has no explicit image order.
+  const hasVisual = ["image1","image2","image3","image4","image5","image6","image7","image8","image9","video1","video2","video3"].some((id) => next[id] !== undefined);
+  const mode = directorPromptMode({ flexMode, hasVisual, hasSegmentReferences, ltx: app.id.startsWith("ltx-") });
+  // Use the ordered references attached to THIS segment. The prompt writer has nine
+  // picture slots, matching the Director media bin. Fall back to the global pictures
+  // only when the segment has no explicit image order.
   const mediaForSegment = (i: number): Record<string, unknown> => {
     const media: Record<string, unknown> = {};
     const w = target!.kind === "windows" ? target!.spec.windows[i] : null;
     const refs = Array.isArray(w?.images) ? w.images : [];
     if (refs.length) {
-      refs.slice(0, 4).forEach((slot: unknown, j: number) => {
+      refs.slice(0, 9).forEach((slot: unknown, j: number) => {
         const value = next[`image${Number(slot) + 1}`];
         if (value !== undefined) media[`image${j + 1}`] = value;
       });
     } else {
-      for (let j = 1; j <= 4; j += 1) if (next[`image${j}`] !== undefined) media[`image${j}`] = next[`image${j}`];
+      for (let j = 1; j <= 9; j += 1) if (next[`image${j}`] !== undefined) media[`image${j}`] = next[`image${j}`];
     }
     for (let j = 1; j <= 3; j += 1) if (next[`video${j}`] !== undefined) media[`video${j}`] = next[`video${j}`];
     return media;
   };
   const MAX_CONTEXT_CHARS = 14000;
   const clipPrompt = (text: string, max: number) => text.length > max ? `${text.slice(0, max)}…` : text;
-  const previousContext = (list: string[]): string => {
+  // Bounded recall: older prompts are trimmed, not semantically summarized yet.
+  const contextFor = (list: string[]): string => {
     if (!list.length) return "";
     const recent = list.slice(-4);
     const earlier = list.slice(0, -4);
@@ -332,13 +335,13 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     // For one segment, it sees the earlier prompts already in the timeline.
     const previous = only === undefined ? done : target.prompts.slice(0, i).filter(Boolean);
     const suppliedContext = target.kind === "prompt" ? String(next.prompt_context ?? "").trim() : "";
-    const supplied = previousContext(suppliedContext ? [suppliedContext] : []);
+    const supplied = contextFor(suppliedContext ? [suppliedContext] : []);
     const segmentRefs = target.kind === "windows" ? (target.spec.windows[i]?.images || []) : [];
     const refsHint = segmentRefs.length
       ? `The supplied pictures are this segment's ordered references: ${segmentRefs.map((slot: unknown, n: number) => `Picture ${n + 1} = <Picture ${Number(slot) + 1}>`).join(", ")}. Preserve their order and reference relationships.`
       : "";
     const context = previous.length
-      ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${previousContext(previous)}`
+      ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${contextFor(previous)}`
       : supplied
         ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${supplied}`
         : "This is the first scene in the timeline; there is no previous scene.";

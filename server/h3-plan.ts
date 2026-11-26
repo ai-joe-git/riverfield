@@ -63,3 +63,16 @@ export function validateH3(values:Record<string,unknown>){
   previous=w;
  }
 }
+
+/** Resolve an adaptive flex mode before the prompt writer chooses its guide. */
+export function effectiveFlexMode(flexMode: string | undefined, hasVisual: boolean): string {
+  if (flexMode === "auto") return hasVisual ? "ref2va" : "fl2va";
+  return flexMode ?? "";
+}
+
+/** The prompt writer guide for a director segment. LTX has its own guide. */
+export function directorPromptMode(input: { flexMode?: string; hasVisual: boolean; hasSegmentReferences: boolean; ltx?: boolean }): "t2v" | "ref2va" | "t2va" {
+  if (input.ltx) return "t2v";
+  const flex = effectiveFlexMode(input.flexMode, input.hasVisual);
+  return flex === "ref2va" || (!flex && input.hasSegmentReferences) ? "ref2va" : "t2va";
+}

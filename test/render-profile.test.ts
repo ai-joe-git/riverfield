@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadRegistry } from "../server/registry.ts";
 import { applyInputs, resolveValues, type Settable, type Values } from "../server/runner.ts";
-import { planDirectorSegments } from "../server/h3-plan.ts";
+import { directorPromptMode, planDirectorSegments } from "../server/h3-plan.ts";
 import { DirectorStore } from "../server/director-store.ts";
 import { History } from "../server/history.ts";
 import { renderMetadataFor, productionRequestFromPreview, renderProfileCapability } from "../server/render-profile.ts";
@@ -172,6 +172,14 @@ test("FL2VA director mode keeps the same Production recipe and auto-selects for 
   assert.equal(pikaEmpty.upscale, "x2");
   assert.equal(pikaEmpty.prompt_enhancer, true);
   assert.equal(pikaEmpty.enhancer_model, "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors");
+});
+
+test("auto flex mode resolves the writer guide from the actual material", () => {
+  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: true, hasSegmentReferences: true }), "ref2va");
+  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: false, hasSegmentReferences: false }), "t2va");
+  assert.equal(directorPromptMode({ flexMode: "fl2va", hasVisual: true, hasSegmentReferences: true }), "t2va", "explicit FL2VA keeps its text-to-video writer");
+  assert.equal(directorPromptMode({ flexMode: undefined, hasVisual: true, hasSegmentReferences: true }), "ref2va");
+  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: true, hasSegmentReferences: true, ltx: true }), "t2v");
 });
 
 test("a Production request cannot force RelayVSR onto an app that has no upscale input", () => {
