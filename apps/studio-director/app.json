@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-h3",
   "status": "ready",
-  "summary": "Free-form H3 director: any model, LoRA, sampler, scheduler and steps, plus Material Planner segments. Locked Pika recipe: pika-studio-director.",
+  "summary": "Free-form H3 director: any model, optional LoRA, sampler/scheduler, H3 12/3 sigma shift and beta57, plus Material Planner segments.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "RiverField_Director_studio.json",
@@ -589,124 +589,34 @@
       ]
     },
     {
-      "id": "unet_name",
-      "type": "select",
-      "label": "Diffusion model",
-      "default": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-      "options": [
-        {
-          "value": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
-          "label": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors"
-        },
-        {
-          "value": "fasth3_omniref_8step_pruned_int8_convrot.safetensors",
-          "label": "fasth3_omniref_8step_pruned_int8_convrot.safetensors"
-        },
-        {
-          "value": "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors",
-          "label": "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors"
-        },
-        {
-          "value": "flux3-image-klein-int8-convrot.safetensors",
-          "label": "flux3-image-klein-int8-convrot.safetensors"
-        },
-        {
-          "value": "flux3_image_klein_int8_convrot.safetensors",
-          "label": "flux3_image_klein_int8_convrot.safetensors"
-        },
-        {
-          "value": "flux3_image_klein_sd_int8_convrot.safetensors",
-          "label": "flux3_image_klein_sd_int8_convrot.safetensors"
-        },
-        {
-          "value": "krea2_turbo_int8_convrot.safetensors",
-          "label": "krea2_turbo_int8_convrot.safetensors"
-        },
-        {
-          "value": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
-          "label": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors"
-        },
-        {
-          "value": "ming_image_0.1_design_int8_convrot.safetensors",
-          "label": "ming_image_0.1_design_int8_convrot.safetensors"
-        },
-        {
-          "value": "ming_image_0.1_design_layer_int8_convrot.safetensors",
-          "label": "ming_image_0.1_design_layer_int8_convrot.safetensors"
-        },
-        {
-          "value": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-          "label": "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
-        },
-        {
-          "value": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-          "label": "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
-        },
-        {
-          "value": "minimax_music3_dit_fp16.safetensors",
-          "label": "minimax_music3_dit_fp16.safetensors"
-        },
-        {
-          "value": "minimax_music3_dit_int8_convrot.safetensors",
-          "label": "minimax_music3_dit_int8_convrot.safetensors"
-        },
-        {
-          "value": "moss_image_sft_int8_convrot.safetensors",
-          "label": "moss_image_sft_int8_convrot.safetensors"
-        },
-        {
-          "value": "pixal3d_int8_convrot.safetensors",
-          "label": "pixal3d_int8_convrot.safetensors"
-        },
-        {
-          "value": "qwen_image_2.1_int8_convrot.safetensors",
-          "label": "qwen_image_2.1_int8_convrot.safetensors"
-        },
-        {
-          "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
-          "label": "qwen_image_2.1_turbo_int8_convrot.safetensors"
-        },
-        {
-          "value": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
-          "label": "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
-        },
-        {
-          "value": "seedvr2_3b_int8_convrot.safetensors",
-          "label": "seedvr2_3b_int8_convrot.safetensors"
-        },
-        {
-          "value": "trellis_2_int8_convrot.safetensors",
-          "label": "trellis_2_int8_convrot.safetensors"
-        },
-        {
-          "value": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
-          "label": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors"
-        },
-        {
-          "value": "wan2.1_i2v_480p_14B_fp8_scaled.safetensors",
-          "label": "wan2.1_i2v_480p_14B_fp8_scaled.safetensors"
-        },
-        {
-          "value": "wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors",
-          "label": "wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors"
-        },
-        {
-          "value": "wan2.2_fun_camera_low_noise_14B_fp8_scaled.safetensors",
-          "label": "wan2.2_fun_camera_low_noise_14B_fp8_scaled.safetensors"
-        },
-        {
-          "value": "wan_animate_2_distill_int8_convrot.safetensors",
-          "label": "wan_animate_2_distill_int8_convrot.safetensors"
-        },
-        {
-          "value": "z_image_turbo_int8_convrot.safetensors",
-          "label": "z_image_turbo_int8_convrot.safetensors"
-        }
-      ],
+      "id": "shift_audio",
+      "type": "slider",
+      "label": "Audio sigma shift",
+      "min": 0.01,
+      "max": 100.0,
+      "step": 0.01,
+      "default": 3.0,
+      "help": "H3 flow shift for audio. The merged H3 variants default to 12/3.",
       "bind": [
         {
-          "node": "1",
-          "field": "unet_name"
+          "node": "62",
+          "field": "shift_audio"
+        }
+      ]
+    },
+    {
+      "id": "shift_video",
+      "type": "slider",
+      "label": "Video sigma shift",
+      "min": 0.01,
+      "max": 100.0,
+      "step": 0.01,
+      "default": 12.0,
+      "help": "H3 flow shift for video. The merged H3 variants default to 12/3.",
+      "bind": [
+        {
+          "node": "62",
+          "field": "shift_video"
         }
       ]
     },
@@ -1221,13 +1131,145 @@
     {
       "id": "turbo",
       "type": "toggle",
-      "label": "Turbo (apply the LoRA)",
-      "default": true,
-      "help": "On: the LoRA below is applied (pika flex, a 4/8-step turbo, a style…). Off: raw model, full freedom.",
+      "label": "Apply optional LoRA",
+      "default": false,
+      "help": "On: apply the selected LoRA at the chosen strength. Off: raw model. This is for style/character/other LoRAs as well as turbo; the two merged H3 variants do not require a turbo LoRA.",
       "bind": [
         {
           "node": "61",
           "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "unet_name",
+      "type": "select",
+      "label": "Diffusion model",
+      "default": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "flux3-image-klein-int8-convrot.safetensors",
+          "label": "flux3-image-klein-int8-convrot.safetensors"
+        },
+        {
+          "value": "flux3_image_klein_int8_convrot.safetensors",
+          "label": "flux3_image_klein_int8_convrot.safetensors"
+        },
+        {
+          "value": "flux3_image_klein_sd_int8_convrot.safetensors",
+          "label": "flux3_image_klein_sd_int8_convrot.safetensors"
+        },
+        {
+          "value": "krea2_turbo_int8_convrot.safetensors",
+          "label": "krea2_turbo_int8_convrot.safetensors"
+        },
+        {
+          "value": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+          "label": "ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors"
+        },
+        {
+          "value": "ming_image_0.1_design_int8_convrot.safetensors",
+          "label": "ming_image_0.1_design_int8_convrot.safetensors"
+        },
+        {
+          "value": "ming_image_0.1_design_layer_int8_convrot.safetensors",
+          "label": "ming_image_0.1_design_layer_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "label": "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "label": "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
+        },
+        {
+          "value": "minimax_music3_dit_fp16.safetensors",
+          "label": "minimax_music3_dit_fp16.safetensors"
+        },
+        {
+          "value": "minimax_music3_dit_int8_convrot.safetensors",
+          "label": "minimax_music3_dit_int8_convrot.safetensors"
+        },
+        {
+          "value": "moss_image_sft_int8_convrot.safetensors",
+          "label": "moss_image_sft_int8_convrot.safetensors"
+        },
+        {
+          "value": "pixal3d_int8_convrot.safetensors",
+          "label": "pixal3d_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+          "label": "qwen_image_2.1_turbo_int8_convrot.safetensors"
+        },
+        {
+          "value": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+          "label": "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+        },
+        {
+          "value": "seedvr2_3b_int8_convrot.safetensors",
+          "label": "seedvr2_3b_int8_convrot.safetensors"
+        },
+        {
+          "value": "trellis_2_int8_convrot.safetensors",
+          "label": "trellis_2_int8_convrot.safetensors"
+        },
+        {
+          "value": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
+          "label": "wan2.1_14B_SCAIL_2_int8_convrot.safetensors"
+        },
+        {
+          "value": "wan2.1_i2v_480p_14B_fp8_scaled.safetensors",
+          "label": "wan2.1_i2v_480p_14B_fp8_scaled.safetensors"
+        },
+        {
+          "value": "wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors",
+          "label": "wan2.2_fun_camera_high_noise_14B_fp8_scaled.safetensors"
+        },
+        {
+          "value": "wan2.2_fun_camera_low_noise_14B_fp8_scaled.safetensors",
+          "label": "wan2.2_fun_camera_low_noise_14B_fp8_scaled.safetensors"
+        },
+        {
+          "value": "wan_animate_2_distill_int8_convrot.safetensors",
+          "label": "wan_animate_2_distill_int8_convrot.safetensors"
+        },
+        {
+          "value": "z_image_turbo_int8_convrot.safetensors",
+          "label": "z_image_turbo_int8_convrot.safetensors"
+        },
+        {
+          "value": "Sulphur3_10ErosMax_SingularityV2_TriPRISM_TurboFusion_realism_int8_convrot.safetensors",
+          "label": "Sulphur3 / 10ErosMax / TriPRISM — 8-step, no turbo LoRA",
+          "sets": [
+            {
+              "node": "61",
+              "field": "value",
+              "value": false
+            }
+          ]
+        },
+        {
+          "value": "PRISM_DMAD_PDMD_int8.safetensors",
+          "label": "PRISM DMAD/PDMD — 8-step, no turbo LoRA",
+          "sets": [
+            {
+              "node": "61",
+              "field": "value",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "bind": [
+        {
+          "node": "1",
+          "field": "unet_name"
         }
       ]
     },
@@ -1805,11 +1847,15 @@
       "min": 1,
       "max": 60,
       "step": 1,
-      "default": 6,
-      "help": "Steps for the scheduler. 4-6 with a turbo/lightning LoRA, 20-40 without.",
+      "default": 8,
+      "help": "Steps for the BasicScheduler or Beta57 scheduler. The merged H3 variants default to 8; optional LoRAs can change the ideal count.",
       "bind": [
         {
           "node": "9",
+          "field": "steps"
+        },
+        {
+          "node": "63",
           "field": "steps"
         }
       ]
@@ -1818,45 +1864,151 @@
       "id": "scheduler",
       "type": "select",
       "label": "Scheduler",
-      "default": "simple",
+      "default": "beta57",
       "options": [
         {
           "value": "simple",
-          "label": "simple"
+          "label": "simple",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "simple"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "sgm_uniform",
-          "label": "sgm_uniform"
+          "label": "sgm_uniform",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "sgm_uniform"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "karras",
-          "label": "karras"
+          "label": "karras",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "karras"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "exponential",
-          "label": "exponential"
+          "label": "exponential",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "exponential"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "ddim_uniform",
-          "label": "ddim_uniform"
+          "label": "ddim_uniform",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "ddim_uniform"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "beta",
-          "label": "beta"
+          "label": "beta",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "beta"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "normal",
-          "label": "normal"
+          "label": "normal",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "normal"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
         },
         {
           "value": "linear_quadratic",
-          "label": "linear_quadratic"
-        }
-      ],
-      "bind": [
+          "label": "linear_quadratic",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "linear_quadratic"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": false
+            }
+          ]
+        },
         {
-          "node": "9",
-          "field": "scheduler"
+          "value": "beta57",
+          "label": "beta57 — alpha 0.5 / beta 0.7",
+          "sets": [
+            {
+              "node": "9",
+              "field": "scheduler",
+              "value": "beta"
+            },
+            {
+              "node": "65",
+              "field": "value",
+              "value": true
+            }
+          ]
         }
       ]
     },
@@ -2268,6 +2420,6 @@
     }
   ],
   "higgsfield_feature": "AI Director",
-  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you.",
+  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you.\n\nH3 merged variants: Sulphur3/10ErosMax/TriPRISM and PRISM DMAD/PDMD are merged checkpoints that do not need a turbo LoRA. Selecting either disables the optional LoRA; the director defaults are 8 steps, Euler, beta57 scheduler and 12/3 H3 sigma shift, which remain user-adjustable. Beta57 is ComfyUI BetaSamplingScheduler with alpha=0.5, beta=0.7. The optional LoRA toggle remains available for style/character LoRAs; it is not turbo-specific.",
   "layout": "director"
 }

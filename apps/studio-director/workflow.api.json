@@ -113,7 +113,7 @@
         0
       ],
       "sigmas": [
-        "9",
+        "64",
         0
       ],
       "seed": 42,
@@ -153,7 +153,7 @@
     "class_type": "H3SLAAttentionROCM",
     "inputs": {
       "model": [
-        "60",
+        "62",
         0
       ],
       "sparsity_ratio": 0.9,
@@ -216,10 +216,10 @@
     },
     "inputs": {
       "scheduler": "simple",
-      "steps": 6,
+      "steps": 8,
       "denoise": 1,
       "model": [
-        "60",
+        "62",
         0
       ]
     }
@@ -251,6 +251,64 @@
         "1",
         0
       ]
+    }
+  },
+  "62": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "60",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    },
+    "_meta": {
+      "title": "MiniMax H3 Sigma Shift (12/3)"
+    }
+  },
+  "63": {
+    "class_type": "BetaSamplingScheduler",
+    "inputs": {
+      "model": [
+        "62",
+        0
+      ],
+      "steps": 8,
+      "alpha": 0.5,
+      "beta": 0.7
+    },
+    "_meta": {
+      "title": "Beta57 Scheduler (0.5/0.7)"
+    }
+  },
+  "64": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "switch": [
+        "65",
+        0
+      ],
+      "on_false": [
+        "9",
+        0
+      ],
+      "on_true": [
+        "63",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Choose Basic or Beta57 sigmas"
+    }
+  },
+  "65": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "Use Beta57 Scheduler"
     }
   }
 }
