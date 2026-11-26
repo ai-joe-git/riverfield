@@ -10,7 +10,7 @@
   "source": {
     "template": "RiverField_Director_studio.json (Pika-locked variant)",
     "comfyui": "0.43.0",
-    "notes": "Same graph as studio-director, with the recipe the Pika Flex LoRA is distilled for: sampler lcm, ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0, the Pika Flex adapter at 1.0, minimax_h3 int8 + qwen3vl nvfp4 encoder + lynnreal light VAE, SLA on Sol-Attn. The only model choice is the adapter: ref2va (minimax_h3_ref2va + pika_h3_flex_ref2va) for reference material, fl2va (minimax_h3_fl2va + pika_h3_flex_fl2va) for plain text-to-video — each LoRA moves with the H3 model it was distilled for, on the same lcm + 6-step schedule. Sampler and sigma choices are not exposed: this app cannot be broken by a wrong preset. Use studio-director when you want to experiment with other models or schedules. SelfLift two-stage requires the Euler sampler; the Pika LoRA is lcm-distilled and collapses with euler (measured), so two-stage is not offered here. Use studio-director with a non-LCM model for two-stage."
+    "notes": "Same graph as studio-director, with the recipe the Pika Flex LoRA is distilled for: sampler lcm, ManualSigmas 1.0,0.972973,0.923077,0.8,0.571429,0.333333,0.0, the Pika Flex adapter at 1.0, minimax_h3 int8 + p-H3 image int8 encoder + lynnreal light VAE, SLA on Sol-Attn. The only model choice is the adapter: ref2va (minimax_h3_ref2va + pika_h3_flex_ref2va) for reference material, fl2va (minimax_h3_fl2va + pika_h3_flex_fl2va) for plain text-to-video — each LoRA moves with the H3 model it was distilled for, on the same lcm + 6-step schedule. Sampler and sigma choices are not exposed: this app cannot be broken by a wrong preset. Use studio-director when you want to experiment with other models or schedules. SelfLift two-stage requires the Euler sampler; the Pika LoRA is lcm-distilled and collapses with euler (measured), so two-stage is not offered here. Use studio-director with a non-LCM model for two-stage."
   },
   "inputs": [
     {
@@ -410,7 +410,7 @@
       "id": "prompt_enhancer",
       "type": "toggle",
       "label": "Enhance prompt with Qwen3.8",
-      "default": false,
+      "default": true,
       "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order with the matching Pika writer guide (Ref2VA or FL2VA), feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
       "bind": [
         {
@@ -423,7 +423,7 @@
       "id": "enhancer_model",
       "type": "select",
       "label": "Prompt enhancer model",
-      "default": "qwen3.8_27b_w4a8.safetensors",
+      "default": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
       "options": [
         {
           "value": "qwen3.8_27b_w4a8.safetensors",
@@ -635,8 +635,8 @@
       "min": 0.1,
       "max": 2.0,
       "step": 0.1,
-      "default": 0.4,
-      "help": "Economical native pixel budget: 0.4 MP before any separate RelayVSR upscale. Final dimensions are rounded to the selected multiple.",
+      "default": 0.3,
+      "help": "Native pixel budget: 0.3 MP in Production or 0.1 MP in Build & Test before any separate RelayVSR upscale. Final dimensions are rounded to the selected multiple.",
       "bind": [
         {
           "node": "41",
@@ -655,12 +655,13 @@
         },
         {
           "value": "production",
-          "label": "Production — 0.4 MP default, optional RelayVSR"
+          "label": "Production — 0.3 MP, RelayVSR x2 by default"
         }
       ],
       "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
       "hidden": true,
-      "derived": true
+      "derived": true,
+      "default": "production"
     },
     {
       "id": "production_megapixels",
@@ -669,7 +670,7 @@
       "min": 0.1,
       "max": 2.0,
       "step": 0.1,
-      "default": 0.4,
+      "default": 0.3,
       "help": "Remembered Production generation resolution. Build & Test never reads it and never changes it.",
       "hidden": true,
       "derived": true
@@ -678,7 +679,7 @@
       "id": "production_upscale",
       "type": "select",
       "label": "Production upscale",
-      "default": "",
+      "default": "x2",
       "options": [
         {
           "value": "",
@@ -713,7 +714,7 @@
       "id": "upscale",
       "type": "select",
       "label": "Upscale",
-      "default": "",
+      "default": "x2",
       "hidden": true,
       "options": [
         {
@@ -846,7 +847,7 @@
       "id": "clip_name",
       "type": "select",
       "label": "Text encoder",
-      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "default": "p-h3-image_text_encoder_int8_convrot.safetensors",
       "options": [
         {
           "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
@@ -880,8 +881,8 @@
       "min": 0.8,
       "max": 0.95,
       "step": 0.05,
-      "default": 0.85,
-      "help": "Sparsity (higher = faster). 0.9 is what the Pika template uses; 0.85 keeps more exact blocks.",
+      "default": 0.8,
+      "help": "Sparsity (higher = faster). 0.80 is the current shared recipe; 0.85 keeps more exact blocks than 0.9.",
       "bind": [
         {
           "node": "42",
@@ -996,7 +997,7 @@
       "id": "dense_backend",
       "type": "select",
       "label": "Dense fallback backend",
-      "default": "comfy_kitchen",
+      "default": "auto",
       "options": [
         {
           "value": "pytorch",
@@ -1190,12 +1191,21 @@
       "optional": true
     },
     {
+      "repo": "PrunaAI/p-h3-image-comfy",
+      "file": "text_encoders/p-h3-image_text_encoder_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 4.8,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
       "repo": "Comfy-Org/MiniMax-H3",
       "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
       "dir": "text_encoders",
       "gb": 14.61,
       "phase": "encode",
-      "license": "MiniMax H3 Community License"
+      "license": "MiniMax H3 Community License",
+      "optional": true
     },
     {
       "repo": "Comfy-Org/MiniMax-H3",
@@ -1296,5 +1306,5 @@
   ],
   "workflow": "workflow.api.json",
   "layout": "director",
-  "notes": " The Pika Director now follows the latest Director shell: Build & Test / Production profiles, optional RelayVSR x2/x4 on the final clip, auto adapter selection for an empty bin, and the shared advanced H3 attention/cache controls. The lcm sampler and six-step sigma ladder remain locked. Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites every Material Planner segment in order with the matching Pika Ref2VA/FL2VA writer guide, feeding previous scenes as context and using supplied pictures/clips."
+  "notes": " The Pika Director now follows the latest Director shell: Build & Test / Production profiles, optional RelayVSR x2/x4 on the final clip, auto adapter selection for an empty bin, and the shared advanced H3 attention/cache controls. The lcm sampler and six-step sigma ladder remain locked. Qwen3.8 Heretic prompt enhancement is enabled by default; it rewrites every Material Planner segment in order with the matching Pika Ref2VA/FL2VA writer guide, feeding previous scenes as context and using each segment's ordered pictures/clips."
 }

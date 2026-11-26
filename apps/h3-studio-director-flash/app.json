@@ -10,7 +10,7 @@
   "source": {
     "template": "RiverField_Director_studio.json (HyperFlow Flash variant)",
     "comfyui": "0.45.0",
-    "notes": "Built from the Pika Studio Director graph (RiverFieldH3Planner + MiniMaxH3TimelinePlanner + MiniMaxH3FiniteSegmentVideoSampler) with the HyperFlow H3 Flash INT8 stack: HyperFlowINT8Loader (ref2va/fl2va, legacy patcher), HyperFlowSigmas at 4/6/8 steps (default 6), KSamplerSelect euler, Qwen3VL int8 encoder, selectable video VAE (Lynnreal light int8 by default), audio VAE, SLA 0.85, multiple 32. The Pika LoRA, lcm sampler and ManualSigmas are removed; the Flash model carries its own HyperFlow schedule. The Flash single-clip apps (h3-video-flash, h3-r2v-flash, h3-i2v-flash, h3-flf2v-flash) are the measured baseline; this director combination has not been rendered yet. Start with one 7.3 s segment."
+    "notes": "Built from the Pika Studio Director graph (RiverFieldH3Planner + MiniMaxH3TimelinePlanner + MiniMaxH3FiniteSegmentVideoSampler) with the HyperFlow H3 Flash INT8 stack: HyperFlowINT8Loader (ref2va/fl2va, legacy patcher), HyperFlowSigmas at 4/6/8 steps (default 8), KSamplerSelect euler, p-H3 image int8 encoder by default, selectable video VAE (Lynnreal light int8 by default), audio VAE, SLA 0.80, multiple 32. The Pika LoRA, lcm sampler and ManualSigmas are removed; the Flash model carries its own HyperFlow schedule. The Flash single-clip apps (h3-video-flash, h3-r2v-flash, h3-i2v-flash, h3-flf2v-flash) are the measured baseline; this director combination has been rendered at the Production recipe below. Start with one 7.3 s segment."
   },
   "inputs": [
     {
@@ -410,8 +410,8 @@
       "id": "prompt_enhancer",
       "type": "toggle",
       "label": "Enhance prompt with Qwen3.8",
-      "default": false,
-      "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order, feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
+      "default": true,
+      "help": "On by default. Qwen3.8 rewrites the global prompt and every Material Planner segment in order, feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
       "bind": [
         {
           "node": "enh_on",
@@ -423,7 +423,7 @@
       "id": "enhancer_model",
       "type": "select",
       "label": "Prompt enhancer model",
-      "default": "qwen3.8_27b_w4a8.safetensors",
+      "default": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
       "options": [
         {
           "value": "qwen3.8_27b_w4a8.safetensors",
@@ -556,7 +556,7 @@
           ]
         }
       ],
-      "help": "The Flash H3 model moves with the mode: ref2va for reference material, fl2va for plain text-to-video (empty bin). Both use the same HyperFlow sigmas (4/6/8 steps), euler and SLA 0.85."
+      "help": "The Flash H3 model moves with the mode: ref2va for reference material, fl2va for plain text-to-video (empty bin). Both use the same HyperFlow sigmas (4/6/8 steps), euler and SLA 0.80."
     },
     {
       "id": "aspect",
@@ -611,7 +611,7 @@
       "min": 0.1,
       "max": 3.0,
       "step": 0.1,
-      "default": 1.0,
+      "default": 0.3,
       "hidden": true,
       "help": "Native pixel budget, 0.1–3.0 MP, owned by the Director's Render profile strip. Build & Test always runs at 0.1 MP; Production uses its own remembered resolution.",
       "bind": [
@@ -632,12 +632,13 @@
         },
         {
           "value": "production",
-          "label": "Production — 0.4 MP default, optional RelayVSR"
+          "label": "Production — 0.3 MP, RelayVSR x2 by default"
         }
       ],
-      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. The Director panel writes it; agents may request it directly.",
+      "help": "Explicit Build & Test or Production request. Omitting it uses the manifest's declared starting profile, or the historical legacy settings when the app declares none. The Director panel writes it; agents may request it directly.",
       "hidden": true,
-      "derived": true
+      "derived": true,
+      "default": "production"
     },
     {
       "id": "production_megapixels",
@@ -646,7 +647,7 @@
       "min": 0.1,
       "max": 3.0,
       "step": 0.1,
-      "default": 0.4,
+      "default": 0.3,
       "help": "Remembered Production generation resolution. Build & Test never reads it and never changes it.",
       "hidden": true,
       "derived": true
@@ -655,7 +656,7 @@
       "id": "production_upscale",
       "type": "select",
       "label": "Production upscale",
-      "default": "",
+      "default": "x2",
       "options": [
         {
           "value": "",
@@ -690,7 +691,7 @@
       "id": "upscale",
       "type": "select",
       "label": "Upscale",
-      "default": "",
+      "default": "x2",
       "hidden": true,
       "options": [
         {
@@ -811,7 +812,7 @@
       "id": "steps",
       "type": "select",
       "label": "Steps",
-      "default": 6,
+      "default": 8,
       "options": [
         {
           "value": 4,
@@ -819,11 +820,11 @@
         },
         {
           "value": 6,
-          "label": "6 (default)"
+          "label": "6 (fast)"
         },
         {
           "value": 8,
-          "label": "8 (most detailed)"
+          "label": "8 (default, most detailed)"
         }
       ],
       "help": "HyperFlow's sigma schedule: 4, 6 or 8 steps at CFG 1.0.",
@@ -851,7 +852,7 @@
       "id": "clip_name",
       "type": "select",
       "label": "Text encoder",
-      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "default": "p-h3-image_text_encoder_int8_convrot.safetensors",
       "options": [
         {
           "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
@@ -912,8 +913,8 @@
       "min": 0.8,
       "max": 0.95,
       "step": 0.05,
-      "default": 0.85,
-      "help": "Sparsity (higher = faster). 0.85 is the Flash default; 0.9 is faster.",
+      "default": 0.8,
+      "help": "Sparsity (higher = faster). 0.80 is the current Flash recipe; 0.9 is faster.",
       "bind": [
         {
           "node": "42",
@@ -1025,12 +1026,21 @@
       "optional": true
     },
     {
+      "repo": "PrunaAI/p-h3-image-comfy",
+      "file": "text_encoders/p-h3-image_text_encoder_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 4.8,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
       "repo": "Comfy-Org/MiniMax-H3",
       "file": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
       "dir": "text_encoders",
       "gb": 27.14,
       "phase": "encode",
-      "license": "MiniMax H3 Community License"
+      "license": "MiniMax H3 Community License",
+      "optional": true
     },
     {
       "repo": "Comfy-Org/MiniMax-H3",
@@ -1143,7 +1153,7 @@
   "workflow": "workflow.api.json",
   "layout": "director",
   "panel_title": "Flash H3 Director",
-  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave the bin empty for plain text-to-video). The first/last-frame endpoint inputs are not exposed here; use h3-flf2v-flash for endpoint conditioning. 6 steps, euler, SLA 0.85 and multiple 32 are studio-managed. The first render is untested; start with one 7.3 s segment. Build & Test runs at 0.1 MP with RelayVSR off; Production defaults to 0.4 MP with its own remembered resolution and optional RelayVSR x2/x4. Switching profiles never changes the timeline, prompts, references or seed, and never starts a render. A succeeded preview can be promoted to Production from the history; the production request keeps the preview's exact creative payload, and both jobs stay linked in the history. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render. Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites every Material Planner segment in order, feeding previous scenes as context and using supplied pictures/clips.",
+  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave the bin empty for plain text-to-video). The first/last-frame endpoint inputs are not exposed here; use h3-flf2v-flash for endpoint conditioning. 8 steps, euler, SLA 0.80 and multiple 32 are studio-managed. The Production recipe has been rendered; start with one 7.3 s segment. Build & Test runs at 0.1 MP with RelayVSR off; Production defaults to 0.3 MP with its own remembered resolution and RelayVSR x2. Switching profiles never changes the timeline, prompts, references or seed, and never starts a render. A succeeded preview can be promoted to Production from the history; the production request keeps the preview's exact creative payload, and both jobs stay linked in the history. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render. Qwen3.8 Heretic prompt enhancement is enabled by default; it rewrites every Material Planner segment in order, feeding previous scenes as context and using each segment's ordered pictures/clips.",
   "custom_nodes": [
     {
       "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",

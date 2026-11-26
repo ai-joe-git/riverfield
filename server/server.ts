@@ -284,11 +284,38 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
   if (!target) target = { kind: "global", prompts: [String(next.global_prompt ?? "")] };
   if (!target.prompts.some((p) => p.trim())) return next;
 
-  const mode = app.id.startsWith("ltx-") ? "t2v" : app.id === "pika-studio-director" && next.flex_mode === "ref2va" ? "ref2va" : "t2va";
-  const media: Record<string, unknown> = {};
-  for (const id of ["image1", "image2", "image3", "image4", "video1", "video2", "video3"]) {
-    if (next[id] !== undefined) media[id] = next[id];
-  }
+  const flexMode = String(next.flex_mode ?? "");
+  const hasSegmentReferences = target.kind === "windows" && target.spec.windows.some((w: any) => Array.isArray(w.images) && w.images.length);
+  const mode = app.id.startsWith("ltx-") ? "t2v" : flexMode === "ref2va" || (!flexMode && hasSegmentReferences) ? "ref2va" : "t2va";
+  // Use the ordered references attached to THIS segment. Fall back to the global
+  // first four pictures only when the segment has no explicit image order.
+  const mediaForSegment = (i: number): Record<string, unknown> => {
+    const media: Record<string, unknown> = {};
+    const w = target!.kind === "windows" ? target!.spec.windows[i] : null;
+    const refs = Array.isArray(w?.images) ? w.images : [];
+    if (refs.length) {
+      refs.slice(0, 4).forEach((slot: unknown, j: number) => {
+        const value = next[`image${Number(slot) + 1}`];
+        if (value !== undefined) media[`image${j + 1}`] = value;
+      });
+    } else {
+      for (let j = 1; j <= 4; j += 1) if (next[`image${j}`] !== undefined) media[`image${j}`] = next[`image${j}`];
+    }
+    for (let j = 1; j <= 3; j += 1) if (next[`video${j}`] !== undefined) media[`video${j}`] = next[`video${j}`];
+    return media;
+  };
+  const MAX_CONTEXT_CHARS = 14000;
+  const clipPrompt = (text: string, max: number) => text.length > max ? `${text.slice(0, max)}…` : text;
+  const previousContext = (list: string[]): string => {
+    if (!list.length) return "";
+    const recent = list.slice(-4);
+    const earlier = list.slice(0, -4);
+    const parts: string[] = [];
+    if (earlier.length) parts.push(`Earlier scenes (compact; preserve continuity):\n${earlier.map((p, n) => `[Segment ${n + 1}] ${clipPrompt(p, 320)}`).join("\n")}`);
+    if (recent.length) parts.push(`Recent scenes (full):\n${recent.map((p, n) => `[Segment ${list.length - recent.length + n + 1}] ${clipPrompt(p, 1800)}`).join("\n\n")}`);
+    const text = parts.join("\n\n");
+    return text.length > MAX_CONTEXT_CHARS ? `${text.slice(0, MAX_CONTEXT_CHARS)}\n…` : text;
+  };
   const model = String(next.enhancer_model || "qwen3.8_27b_w4a8.safetensors");
   const order = only === undefined ? target.prompts.map((_, i) => i) : [only];
   if (order.some((i) => !Number.isInteger(i) || i < 0 || i >= target.prompts.length)) {
@@ -305,20 +332,26 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     // For one segment, it sees the earlier prompts already in the timeline.
     const previous = only === undefined ? done : target.prompts.slice(0, i).filter(Boolean);
     const suppliedContext = target.kind === "prompt" ? String(next.prompt_context ?? "").trim() : "";
+    const supplied = previousContext(suppliedContext ? [suppliedContext] : []);
+    const segmentRefs = target.kind === "windows" ? (target.spec.windows[i]?.images || []) : [];
+    const refsHint = segmentRefs.length
+      ? `The supplied pictures are this segment's ordered references: ${segmentRefs.map((slot: unknown, n: number) => `Picture ${n + 1} = <Picture ${Number(slot) + 1}>`).join(", ")}. Preserve their order and reference relationships.`
+      : "";
     const context = previous.length
-      ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${previous.map((p, n) => `[Segment ${n + 1}] ${p}`).join("\n\n")}`
-      : suppliedContext
-        ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${suppliedContext}`
+      ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${previousContext(previous)}`
+      : supplied
+        ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${supplied}`
         : "This is the first scene in the timeline; there is no previous scene.";
     const prompt = [
       `You are writing segment ${i + 1} of ${target.prompts.length} for ${app.name}.`,
       timing,
       context,
       `Current draft for segment ${i + 1}:\n${draft}`,
-      `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready H3 prompt for this segment. Do not add a segment heading or commentary.`,
+      refsHint,
+      `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready prompt for this segment. Do not add a segment heading or commentary.`,
     ].filter(Boolean).join("\n\n");
     const text = await runner.generateText(enhancer, {
-      ...media,
+      ...mediaForSegment(i),
       prompt_mode: mode,
       model,
       prompt,
@@ -708,7 +741,7 @@ const server = createServer(async (req, res) => {
             production_upscale_detail: raw?.production_upscale_detail ?? saved.production_upscale_detail,
           };
           const production = productionRequestFromPreview(app, preview.values as Values, choices);
-          const values: Values = { ...production.values };
+          const values: Values = { ...production.values, prompt_enhancer: false };
           for (const input of preview.inputs) {
             const file = history.file(id, input.file, me);
             if (!file) throw new InputError(`The preview input ${input.id} is no longer on disk`);

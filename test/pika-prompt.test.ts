@@ -45,7 +45,7 @@ test("official upstream Ref2VA prompts accept nested Picture roles, optional tas
 test("Alex binds two real image slots and introduces S1 inline using the official English dialogue syntax",()=>{
  const payload=JSON.parse(readFileSync("apps/pika-studio-director/request-example.json","utf8")),w=JSON.parse(payload.values.segment_windows).windows[0];
  assert.deepEqual(validatePikaPrompt(w.prompt,ctx),[]);assert.equal((w.end-w.start-5)%17,0);assert.deepEqual(w.images,[0,1]);
- assert.equal(payload.values.aspect,"9:16 (Portrait Widescreen)");assert.equal(payload.values.megapixels,.4);
+ assert.equal(payload.values.aspect,"9:16 (Portrait Widescreen)");assert.equal(payload.values.megapixels,.3);
  assert.match(w.prompt,/<Subject 1> \(appears in \[Shot 1\]\): fully_preserved/);assert.match(w.prompt,/<Subject 2> \(appears in \[Shot 1\]\): fully_preserved/);
  assert.match(w.prompt,/<Subject 1> \(S1\).*<d>\[English\] Done\.<\/d>/);
  const file={bytes:new Uint8Array([1]),name:"ref.png"};assert.doesNotThrow(()=>validatePikaValues({...payload.values,image1:file,image2:file}));
@@ -63,10 +63,10 @@ test("per-segment material order and total duration stay separate from generatio
  assert.throws(()=>planH3({seconds:30,total_seconds:30,prompts:Array(6).fill(pilot)}),/seconds is per segment/);
  assert.throws(()=>planH3({seconds:5,prompts:[pilot,pilot],segment_images:[[0]]}),/one entry per prompt/);
 });
-test("runner preserves exact 9:16 and 0.4 MP, rejects invalid geometry and prompts before GPU",()=>{
+test("runner preserves exact 9:16 and the Production 0.3 MP budget, rejects invalid geometry and prompts before GPU",()=>{
  const app=loadRegistry(process.cwd()).apps.find(a=>a.id==="pika-studio-director")!,file={bytes:new Uint8Array([1]),name:"ref.png"};
  const values={flex_mode:"ref2va",aspect:"9:16 (Portrait Widescreen)",megapixels:0.4,image1:file,image2:file,segment_windows:planH3({seconds:5,prompts:[pilot],images:[0,1]}).segment_windows};
- const out=resolveValues(app,values);assert.equal(out.aspect,values.aspect);assert.equal(out.megapixels,0.4);
+ const out=resolveValues(app,values);assert.equal(out.aspect,values.aspect);assert.equal(out.megapixels,0.3);
  assert.throws(()=>resolveValues(app,{...values,aspect:"3:4"}),/not one of the options/);
  assert.throws(()=>resolveValues(app,{...values,segment_windows:JSON.stringify({windows:[{start:0,end:120,prompt:pilot,images:[0,1]}]})}),/5 \+ 17/);
  assert.throws(()=>resolveValues(app,{...values,segment_windows:planH3({seconds:5,prompts:["plain prose"],images:[0,1]}).segment_windows}),/sections/);

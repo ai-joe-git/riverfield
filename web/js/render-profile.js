@@ -4,8 +4,10 @@
 // A profile is an explicit rendering contract. It never touches the creative payload:
 // timeline windows, segment prompts, the global prompt, references, seed, checkpoint or
 // sampling settings stay exactly as they are. Build & Test forces 0.1 MP and no upscale;
-// Production defaults to 0.4 MP and may use the app's own RelayVSR x2/x4 pair when the
-// manifest exposes one. Values without render_profile keep their historical meaning.
+// Production uses the app's production_megapixels default and may use the app's own
+// RelayVSR x2/x4 pair when the manifest exposes one. The shared 0.4 MP value is only a
+// fallback for manifests that do not declare their own Production budget. Values without
+// render_profile keep their historical meaning.
 
 export const BUILD_MEGAPIXELS = 0.1;
 export const PRODUCTION_DEFAULT_MEGAPIXELS = 0.4;
@@ -68,6 +70,7 @@ export function renderProfileCapability(app) {
   const megapixelsInput = input(app, "megapixels");
   if (!profileInput || !megapixelsInput || !input(app, "segment_windows")) return null;
   const productionInput = input(app, "production_megapixels") || megapixelsInput;
+  const productionDefault = number(productionInput.default, PRODUCTION_DEFAULT_MEGAPIXELS);
   const min = number(productionInput.min ?? megapixelsInput.min, BUILD_MEGAPIXELS);
   const max = number(productionInput.max ?? megapixelsInput.max, 3);
   const step = number(productionInput.step ?? megapixelsInput.step, 0.1);
@@ -87,7 +90,7 @@ export function renderProfileCapability(app) {
   return {
     supported: true,
     build_megapixels: clamp(BUILD_MEGAPIXELS, min, max),
-    production_default_megapixels: clamp(PRODUCTION_DEFAULT_MEGAPIXELS, min, max),
+    production_default_megapixels: clamp(productionDefault, min, max),
     generation: { min, max, step },
     upscale: upscaleInput ? { options, relay_vsr: options.some((option) => Boolean(option.checkpoint_pair)) } : null,
     detail: detailInput
@@ -299,8 +302,9 @@ export function switchRenderProfile(app, values = {}, profile) {
 
 /**
  * Give a saved session a profile when it predates profiles. A brand-new session starts in
- * Build & Test. An existing workflow that already carries a resolution keeps it as the
- * starting Production preference, so opening it does not silently change what it renders.
+ * Build & Test unless the manifest itself declares an explicit starting profile. An existing
+ * workflow that already carries a resolution keeps it as the starting Production preference,
+ * so opening it does not silently change what it renders.
  */
 export function migrateRenderProfile(app, values = {}, { fresh = false } = {}) {
   const capability = renderProfileCapability(app);

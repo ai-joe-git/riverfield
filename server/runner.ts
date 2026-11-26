@@ -86,10 +86,13 @@ export function textValues(app: App, values: Values): Values {
 
 /** Fill defaults, coerce types, check required fields. File inputs pass through as FileValue. */
 export function resolveValues(app: App, values: Values): Values {
-  // Explicit render profiles are resolved before defaults: Build & Test must force 0.1 MP
-  // and no upscale, Production must apply its own resolution/upscale. A request without
-  // render_profile is left exactly as it was, so legacy runs keep their old meaning.
-  values = applyRenderProfile(app, values);
+  // Resolve manifest defaults first, then apply the declared render profile. Build & Test
+  // still forces 0.1 MP/no upscale, and an explicit Production default is honoured for
+  // web, MCP and Agent calls. Apps with a null/default-less render_profile stay legacy.
+  // Validate an explicitly requested profile against the raw values first, so choices
+  // for inputs this app does not expose (for example RelayVSR on a legacy app) are not
+  // silently dropped by the defaults pass.
+  if(values.render_profile === "build" || values.render_profile === "production") applyRenderProfile(app, values);
   if(app.id==="relayvsr-upscale"){
     values={...values};
     for(const [source,target] of [["unet_name","vae_name"],["vae_name","unet_name"]])if(values[source]!==undefined&&values[target]===undefined){
@@ -97,7 +100,7 @@ export function resolveValues(app: App, values: Values): Values {
       if(option?.sync?.[target]!==undefined)values[target]=option.sync[target];
     }
   }
-  const out: Values = {};
+  let out: Values = {};
   for (const input of app.inputs) {
     let v = values[input.id];
     // "" is a choice when a select offers it ("Any" in a builder writes nothing); elsewhere it means "use the default"
@@ -124,6 +127,7 @@ export function resolveValues(app: App, values: Values): Values {
       out[input.id] = coerce(input, v);
     }
   }
+  out = applyRenderProfile(app, out);
   // The video app exposes a hidden "Use last frame" switch. Derive it from the optional
   // file so the UI only has to show a last-frame dropzone: upload it and it is used,
   // leave it empty and the original first-frame-only graph stays untouched.

@@ -38,7 +38,7 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
   const described=resultData(await client.call("get_app",{app:"pika-studio-director"})),example=resultData(await client.call("examples",{app:"pika-studio-director"}));
   const payload=JSON.parse(readFileSync("apps/pika-studio-director/request-example.json","utf8"));
   assert.deepEqual(described.example.values,payload.values);assert.deepEqual(example.values,payload.values);assert.equal(example.inputs.length,2);
-  assert.equal(described.effectiveTechnicalDefaults.detail,.85);assert.equal(described.delivery.defaultScale,"x2");assert.equal(described.delivery.separateRun,true);assert.ok(!described.agentWritableInputs.includes("clip_name"));assert.ok(!described.agentWritableInputs.includes("segment_prompts"));
+  assert.equal(described.effectiveTechnicalDefaults.detail,.8);assert.equal(described.delivery.defaultScale,"x2");assert.equal(described.delivery.separateRun,true);assert.ok(!described.agentWritableInputs.includes("clip_name"));assert.ok(!described.agentWritableInputs.includes("segment_prompts"));
   // Keep the same test portable; locally these are the two original accepted MOSS outputs.
   for(const [key,path] of Object.entries(payload.files) as [string,string][]){if(!existsSync(path)){const mock=join(dir,`${key}.png`);writeFileSync(mock,Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5m0AAAAASUVORK5CYII=","base64"));payload.files[key]=mock;}}
   const originalPrompt=JSON.parse(payload.values.segment_windows).windows[0].prompt;
@@ -55,13 +55,13 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
   const accepted=await client.call("run_app",payload);assert.ok(!accepted.isError,JSON.stringify(accepted));assert.ok(resultData(accepted).id);
   const submitted=await waitDispatch(dispatch);
   assert.equal(requests.length,1);assert.equal(uploads.length,2);
-  const graph=submitted.workflow;assert.equal(graph.rfplan.inputs.segment_windows,payload.values.segment_windows);assert.equal(graph[41].inputs.aspect_ratio,"9:16 (Portrait Widescreen)");assert.equal(graph[41].inputs.megapixels,0.4);
+  const graph=submitted.workflow;assert.equal(graph.rfplan.inputs.segment_windows,payload.values.segment_windows);assert.equal(graph[41].inputs.aspect_ratio,"9:16 (Portrait Widescreen)");assert.equal(graph[41].inputs.megapixels,0.3);
   assert.equal(graph[13].inputs.sampler_name,"lcm");assert.deepEqual(JSON.parse(graph.rfplan.inputs.segment_windows).windows[0].images,[0,1]);
   assert.ok(graph.rfplan.inputs.image1);assert.ok(graph.rfplan.inputs.image2);assert.notDeepEqual(graph.rfplan.inputs.image1,graph.rfplan.inputs.image2);
   assert.deepEqual(graph[50].inputs,JSON.parse(readFileSync("apps/pika-studio-director/workflow.api.json","utf8"))[50].inputs,"the locked sigma recipe is unchanged");
   // Same real HTTP/SDK path for empty-bin FL2VA: no picture uploads or fake endpoint fields.
   const flDispatch=new Promise<any>(resolve=>dispatched=resolve);
-  const fl=await client.call("run_app",{app:payload.app,values:{duration:20,start_seconds:55,aspect:payload.values.aspect,megapixels:.4,global_prompt:"integrated_multimodal_description:\n[Shot 1] A quiet apartment at night.\noverall_soundscape:\nSoft room tone.\nnon_diegetic_music:\nN/A"}});assert.ok(!fl.isError,JSON.stringify(fl));
+  const fl=await client.call("run_app",{app:payload.app,values:{duration:20,start_seconds:55,aspect:payload.values.aspect,megapixels:.4,prompt_enhancer:false,global_prompt:"integrated_multimodal_description:\n[Shot 1] A quiet apartment at night.\noverall_soundscape:\nSoft room tone.\nnon_diegetic_music:\nN/A"}});assert.ok(!fl.isError,JSON.stringify(fl));
   const flGraph=(await waitDispatch(flDispatch)).workflow;assert.equal(uploads.length,2);assert.equal(flGraph.rfplan.inputs.generation_seconds,7.3);assert.equal(flGraph.rfplan.inputs.start_seconds,0);assert.match(flGraph[1].inputs.unet_name,/fl2va/);assert.match(flGraph[40].inputs.lora_name,/fl2va/);
   // Sound reference + multiple segments: keep the creative inputs but prevent custom geometry.
   const audio=join(dir,"room-tone.wav");writeFileSync(audio,Buffer.from("RIFFmock WAVE"));
@@ -69,8 +69,8 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
   const autoRefValues={...payload.values,duration:11,start_seconds:12,detail:.1,multiple:8,sla:false,clip_name:"qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",audio_mode:"reference",segment_windows:JSON.stringify(withAudio)};delete autoRefValues.flex_mode;
   const audioDispatch=new Promise<any>(resolve=>dispatched=resolve),audioResult=await client.call("run_app",{...payload,files:{...payload.files,audio1:audio},values:autoRefValues});assert.ok(!audioResult.isError,JSON.stringify(audioResult));
   const audioGraph=(await waitDispatch(audioDispatch)).workflow,audioWindows=JSON.parse(audioGraph.rfplan.inputs.segment_windows).windows;
-  assert.deepEqual(audioWindows.map((w:any)=>[w.start,w.end]),[[0,175],[136,311]]);assert.equal(audioWindows[0].prompt,withAudio.windows[0].prompt);assert.deepEqual(audioWindows[0].audios,[0]);assert.ok(audioGraph.rfplan.inputs.audio1);assert.equal(audioGraph.rfplan.inputs.generation_seconds,7.3);assert.equal(audioGraph.rfplan.inputs.start_seconds,0);assert.equal(audioGraph[41].inputs.megapixels,.4);assert.equal(requests.length,3);
-  assert.equal(audioGraph[42].inputs.sparsity_ratio,.85);assert.equal(audioGraph[42].inputs.enabled,true);assert.equal(audioGraph[41].inputs.multiple,32);assert.equal(audioGraph[2].inputs.clip_name,"qwen3vl_32b_minimax_h3_int8_convrot.safetensors");
+  assert.deepEqual(audioWindows.map((w:any)=>[w.start,w.end]),[[0,175],[136,311]]);assert.equal(audioWindows[0].prompt,withAudio.windows[0].prompt);assert.deepEqual(audioWindows[0].audios,[0]);assert.ok(audioGraph.rfplan.inputs.audio1);assert.equal(audioGraph.rfplan.inputs.generation_seconds,7.3);assert.equal(audioGraph.rfplan.inputs.start_seconds,0);assert.equal(audioGraph[41].inputs.megapixels,.3);assert.equal(requests.length,3);
+  assert.equal(audioGraph[42].inputs.sparsity_ratio,.8);assert.equal(audioGraph[42].inputs.enabled,true);assert.equal(audioGraph[41].inputs.multiple,32);assert.equal(audioGraph[2].inputs.clip_name,"p-h3-image_text_encoder_int8_convrot.safetensors");
   assert.match(audioGraph[1].inputs.unet_name,/ref2va/);assert.match(audioGraph[40].inputs.lora_name,/ref2va/);
   // Existing Relay app remains a separate utility with its OWN paired models and one-step sampler.
   const relay=resultData(await client.call("get_app",{app:"relayvsr-upscale"})),dit4=relay.inputs.find((i:any)=>i.id==="unet_name").options[1],vae2=relay.inputs.find((i:any)=>i.id==="vae_name").options[0],clip=join(dir,"mock-source-video.mp4");writeFileSync(clip,"mock source bytes; no decoder is invoked by this backend");
@@ -83,7 +83,7 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
    const args=variant==="paths-in-values"?{app:payload.app,values:{...payload.values,aspect:"9:16",segment_windows:mayaWindows,image1:payload.files.image1,image2:payload.files.image2}}:{...payload,values:{...payload.values,segment_windows:mayaWindows,image:[0,1]}};
    const mayaDispatch=new Promise<any>(resolve=>dispatched=resolve);
    const mayaResult:any=await client.call("run_app",args);assert.ok(!mayaResult.isError,JSON.stringify(mayaResult));const mayaGraph=(await waitDispatch(mayaDispatch)).workflow;
-   assert.deepEqual(JSON.parse(mayaGraph.rfplan.inputs.segment_windows).windows.map((w:any)=>[w.start,w.end,w.images]),[[0,175,[0,1]],[136,311,[0,1]],[272,447,[0,1]]]);assert.equal(mayaGraph[41].inputs.aspect_ratio,"9:16 (Portrait Widescreen)");assert.equal(mayaGraph[41].inputs.megapixels,.4);assert.ok(mayaGraph.rfplan.inputs.image1);assert.ok(mayaGraph.rfplan.inputs.image2);
+   assert.deepEqual(JSON.parse(mayaGraph.rfplan.inputs.segment_windows).windows.map((w:any)=>[w.start,w.end,w.images]),[[0,175,[0,1]],[136,311,[0,1]],[272,447,[0,1]]]);assert.equal(mayaGraph[41].inputs.aspect_ratio,"9:16 (Portrait Widescreen)");assert.equal(mayaGraph[41].inputs.megapixels,.3);assert.ok(mayaGraph.rfplan.inputs.image1);assert.ok(mayaGraph.rfplan.inputs.image2);
   }
   assert.equal(requests.length,6);
   // Guided mode: fixed form -> plain-text writer -> code-built run, with NO LLM tool calls.

@@ -410,8 +410,8 @@
       "id": "prompt_enhancer",
       "type": "toggle",
       "label": "Enhance prompt with Qwen3.8",
-      "default": false,
-      "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order, feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
+      "default": true,
+      "help": "On by default. Qwen3.8 rewrites the global prompt and every Material Planner segment in order, feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
       "bind": [
         {
           "node": "enh_on",
@@ -423,7 +423,7 @@
       "id": "enhancer_model",
       "type": "select",
       "label": "Prompt enhancer model",
-      "default": "qwen3.8_27b_w4a8.safetensors",
+      "default": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
       "options": [
         {
           "value": "qwen3.8_27b_w4a8.safetensors",
@@ -639,7 +639,7 @@
       "min": 0.1,
       "max": 2.0,
       "step": 0.1,
-      "default": 0.8,
+      "default": 0.3,
       "hidden": true,
       "help": "Rounded to the dimension multiple below. Owned by the Director's Render profile strip.",
       "bind": [
@@ -660,12 +660,13 @@
         },
         {
           "value": "production",
-          "label": "Production — 0.4 MP default, optional RelayVSR"
+          "label": "Production — 0.3 MP, RelayVSR x2 by default"
         }
       ],
       "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
       "hidden": true,
-      "derived": true
+      "derived": true,
+      "default": "production"
     },
     {
       "id": "production_megapixels",
@@ -674,7 +675,7 @@
       "min": 0.1,
       "max": 2.0,
       "step": 0.1,
-      "default": 0.4,
+      "default": 0.3,
       "help": "Remembered Production generation resolution. Build & Test never reads it and never changes it.",
       "hidden": true,
       "derived": true
@@ -683,7 +684,7 @@
       "id": "production_upscale",
       "type": "select",
       "label": "Production upscale",
-      "default": "",
+      "default": "x2",
       "options": [
         {
           "value": "",
@@ -718,7 +719,7 @@
       "id": "upscale",
       "type": "select",
       "label": "Upscale",
-      "default": "",
+      "default": "x2",
       "hidden": true,
       "options": [
         {
@@ -881,7 +882,7 @@
       "id": "clip_name",
       "type": "select",
       "label": "Text encoder",
-      "default": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "default": "p-h3-image_text_encoder_int8_convrot.safetensors",
       "options": [
         {
           "value": "gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors",
@@ -2331,7 +2332,7 @@
       "min": 0.0,
       "max": 0.95,
       "step": 0.05,
-      "default": 0.9,
+      "default": 0.8,
       "help": "Fraction of key blocks skipped. Lower = more exact blocks = better detail, slower.",
       "bind": [
         {
@@ -2425,7 +2426,7 @@
       "id": "dense_backend",
       "type": "select",
       "label": "Dense fallback backend",
-      "default": "comfy_kitchen",
+      "default": "auto",
       "options": [
         {
           "value": "pytorch",
@@ -2610,12 +2611,21 @@
       "license": "MiniMax H3 Community License"
     },
     {
+      "repo": "PrunaAI/p-h3-image-comfy",
+      "file": "text_encoders/p-h3-image_text_encoder_int8_convrot.safetensors",
+      "dir": "text_encoders",
+      "gb": 4.8,
+      "phase": "encode",
+      "license": "MiniMax H3 Community License"
+    },
+    {
       "repo": "Comfy-Org/MiniMax-H3",
       "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
       "dir": "text_encoders",
       "gb": 14.61,
       "phase": "encode",
-      "license": "MiniMax H3 Community License"
+      "license": "MiniMax H3 Community License",
+      "optional": true
     },
     {
       "repo": "Comfy-Org/MiniMax-H3",
@@ -2706,6 +2716,6 @@
     }
   ],
   "higgsfield_feature": "AI Director",
-  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you.\n\nH3 merged variants: Sulphur3/10ErosMax/TriPRISM and PRISM DMAD/PDMD are merged checkpoints that do not need a turbo LoRA. Selecting either disables the optional LoRA; the director defaults are 8 steps, Euler, beta57 scheduler and 12/3 H3 sigma shift, which remain user-adjustable. Beta57 is ComfyUI BetaSamplingScheduler with alpha=0.5, beta=0.7. The optional LoRA toggle remains available for style/character LoRAs; it is not turbo-specific. Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites every Material Planner segment in order, feeding previous scenes as context and using supplied pictures/clips. RelayVSR x2/x4 is available in Production on the final clip, using the matching RelayVSR DIT and Flash VAE.",
+  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you.\n\nH3 merged variants: Sulphur3/10ErosMax/TriPRISM and PRISM DMAD/PDMD are merged checkpoints that do not need a turbo LoRA. Selecting either disables the optional LoRA; the director defaults are 8 steps, Euler, beta57 scheduler and 12/3 H3 sigma shift, which remain user-adjustable. Beta57 is ComfyUI BetaSamplingScheduler with alpha=0.5, beta=0.7. The optional LoRA toggle remains available for style/character LoRAs; it is not turbo-specific. Qwen3.8 Heretic prompt enhancement is enabled by default; it rewrites every Material Planner segment in order, feeding previous scenes as context and using each segment's ordered pictures/clips. RelayVSR x2/x4 is available in Production on the final clip, using the matching RelayVSR DIT and Flash VAE.",
   "layout": "director"
 }

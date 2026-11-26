@@ -12,7 +12,7 @@
   "2": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "clip_name": "p-h3-image_text_encoder_int8_convrot.safetensors",
       "type": "minimax",
       "device": "default"
     },
@@ -128,7 +128,7 @@
     "class_type": "ResolutionSelector",
     "inputs": {
       "aspect_ratio": "16:9 (Widescreen)",
-      "megapixels": 1.0,
+      "megapixels": 0.3,
       "multiple": 32
     },
     "_meta": {
@@ -142,7 +142,7 @@
         "1",
         0
       ],
-      "sparsity_ratio": 0.85,
+      "sparsity_ratio": 0.8,
       "block_size": "64",
       "min_seq_len": 8192,
       "dense_last_steps": 0,

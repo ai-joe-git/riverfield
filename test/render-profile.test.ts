@@ -11,7 +11,6 @@ import { History } from "../server/history.ts";
 import { renderMetadataFor, productionRequestFromPreview, renderProfileCapability } from "../server/render-profile.ts";
 import {
   BUILD_MEGAPIXELS,
-  PRODUCTION_DEFAULT_MEGAPIXELS,
   productionValuesFromPreview,
   relayVSRPair,
   renderMetadata,
@@ -68,14 +67,14 @@ function withoutRendering(values: Record<string, unknown>) {
 test("the H3 directors advertise the profile contract; other H3 engines do not inherit it", () => {
   const capability = renderProfileCapability(flash)!;
   assert.equal(capability.build_megapixels, 0.1);
-  assert.equal(capability.production_default_megapixels, 0.4);
+  assert.equal(capability.production_default_megapixels, 0.3);
   assert.equal(capability.generation.min, 0.1);
   assert.equal(capability.generation.max, 3.0);
   assert.deepEqual(capability.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"]);
   assert.deepEqual(renderProfileCapability(piflow)?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "pi-H3 Director exposes RelayVSR");
   assert.deepEqual(renderProfileCapability(byId("pika-studio-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "Pika Director exposes RelayVSR");
   assert.deepEqual(renderProfileCapability(byId("studio-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "Studio Director exposes RelayVSR");
-  assert.equal(renderProfileCapability(byId("studio-director"))?.production_default_megapixels, 0.4);
+  assert.equal(renderProfileCapability(byId("studio-director"))?.production_default_megapixels, 0.3);
   assert.deepEqual(renderProfileCapability(byId("ltx-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "LTX Director exposes RelayVSR");
 });
 
@@ -109,17 +108,18 @@ test("Build & Test forces 0.1 MP and disables upscale, without forgetting Produc
   assert.equal(meta.output?.height, 256);
 });
 
-test("Production defaults to 0.4 MP and leaves upscaling off unless chosen", () => {
+test("Production defaults to 0.3 MP with RelayVSR x2", () => {
   const values = resolveValues(flash, creative({ render_profile: "production" })) as Record<string, any>;
-  assert.equal(values.megapixels, PRODUCTION_DEFAULT_MEGAPIXELS);
-  assert.equal(values.upscale, "");
+  assert.equal(values.megapixels, 0.3);
+  assert.equal(values.upscale, "x2");
   const meta = renderMetadataFor(flash, values)!;
   assert.equal(meta.profile, "production");
-  assert.equal(meta.generation.requested_megapixels, 0.4);
-  assert.equal(meta.generation.width, 864);
-  assert.equal(meta.generation.height, 480);
-  assert.equal(meta.upscale, "off");
-  assert.equal(meta.output?.width, 864);
+  assert.equal(meta.generation.requested_megapixels, 0.3);
+  assert.equal(meta.generation.width, 736);
+  assert.equal(meta.generation.height, 416);
+  assert.equal(meta.upscale, "x2");
+  assert.equal(meta.output?.width, 1472);
+  assert.equal(meta.output?.height, 832);
 });
 
 test("Production resolution is adjustable and X2/X4 use the right linear and area factors", () => {
@@ -213,8 +213,9 @@ test("a new session defaults to Build & Test; an unprofiled legacy project keeps
   assert.equal(migrated.values.seed, 77);
 });
 
-test("a request without render_profile keeps the legacy manifest meaning", () => {
-  const values = resolveValues(flash, {
+test("an app without a declared profile keeps the legacy manifest meaning", () => {
+  const legacyApp = { ...flash, inputs: flash.inputs.map((input) => input.id === "render_profile" ? { ...input, default: undefined } : input) };
+  const values = resolveValues(legacyApp, {
     segment_windows: TIMELINE,
     image1: IMAGE,
     global_prompt: "x",

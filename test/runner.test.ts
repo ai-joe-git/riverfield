@@ -279,7 +279,7 @@ test("the Flash director exposes the Flash step ladder and video VAE", () => {
   const app = byId("h3-studio-director-flash");
   const steps = app.inputs.find((i) => i.id === "steps")!;
   assert.deepEqual(steps.options?.map((o) => o.value), [4, 6, 8]);
-  assert.equal(steps.default, 6);
+  assert.equal(steps.default, 8);
   assert.deepEqual(steps.bind, [{ node: "50", field: "steps" }]);
 
   const vae = app.inputs.find((i) => i.id === "vae_name")!;

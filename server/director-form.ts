@@ -134,7 +134,7 @@ export function compileDirectorRun(c:Conversation,action:string,index=0,instruct
   return f.mode==="ref2va"?`subject_definitions:\n${definitions}\nsummary:\n[reference generation] One continuous scene featuring ${f.actors.map(a=>line(a.name)).join(", ")}.\nretention_analysis:\n${retention}\ndetailed_description:\n${visual}\noverall_soundscape:\n${sound}\nnon_diegetic_music:\n${line(s.music)||"N/A"}`:`integrated_multimodal_description:\n${textVisual}\noverall_soundscape:\n${sound}\nnon_diegetic_music:\n${line(s.music)||"N/A"}`;
  });
  const plan=planDirectorSegments({prompts,images:imageSlots,audios:audioSlots});
- return {app:"pika-studio-director",values:directorValues({flex_mode:f.mode,aspect:f.aspect,megapixels:f.megapixels,audio_mode:f.audioMode,video_audio:true,segment_windows:plan.segment_windows},files),files,target:"video"};
+ return {app:"pika-studio-director",values:{...directorValues({flex_mode:f.mode,aspect:f.aspect,megapixels:f.megapixels,audio_mode:f.audioMode,video_audio:true,segment_windows:plan.segment_windows},files),prompt_enhancer:false},files,target:"video"};
 }
 
 export function creativeField(form:DirectorForm,path:string){

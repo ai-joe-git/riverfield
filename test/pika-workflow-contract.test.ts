@@ -8,13 +8,13 @@ import {directorValues,DIRECTOR_DELIVERY} from "../server/h3-plan.ts";
 const apps=loadRegistry(process.cwd()).apps,pika=apps.find(a=>a.id==="pika-studio-director")!,relay=apps.find(a=>a.id==="relayvsr-upscale")!;
 const file={bytes:new Uint8Array([1]),name:"reference.png"},example=JSON.parse(readFileSync("apps/pika-studio-director/request-example.json","utf8"));
 
-test("effective Pika defaults retain LCM/six sigmas and use 0.4 MP, sparsity 0.85 and the default encoder",()=>{
+test("effective Pika defaults retain LCM/six sigmas and use 0.3 MP, sparsity 0.80 and the p-H3 encoder",()=>{
  const values=resolveValues(pika,directorValues({...example.values,image1:file,image2:file,clip_name:"qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",detail:.1,multiple:8,sla:false,codec:"av1",filename_prefix:"invented"})),graph=structuredClone(pika.graph!);
  applyInputs(pika,values,{json:graph,setInput:(node,field,value)=>{graph[node].inputs[field]=value;}},()=>"reference.png");
  assert.equal(graph[13].inputs.sampler_name,"lcm");assert.equal(graph[50].inputs.sigmas,"1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0");
  assert.equal(String(graph[50].inputs.sigmas).split(",").length-1,6);assert.equal(graph[40].inputs.strength_model,1);
- assert.equal(graph[41].inputs.megapixels,.4);assert.equal(graph[41].inputs.multiple,32);assert.equal(graph[42].inputs.sparsity_ratio,.85);assert.equal(graph[42].inputs.enabled,true);
- assert.equal(graph[2].inputs.clip_name,"qwen3vl_32b_minimax_h3_int8_convrot.safetensors");assert.equal(graph[29].inputs["format.codec"],"h264");assert.equal(graph[29].inputs.filename_prefix,"riverfield/pika-studio-director");
+ assert.equal(graph[41].inputs.megapixels,.3);assert.equal(graph[41].inputs.multiple,32);assert.equal(graph[42].inputs.sparsity_ratio,.8);assert.equal(graph[42].inputs.enabled,true);
+ assert.equal(graph[2].inputs.clip_name,"p-h3-image_text_encoder_int8_convrot.safetensors");assert.equal(graph[29].inputs["format.codec"],"h264");assert.equal(graph[29].inputs.filename_prefix,"riverfield/pika-studio-director");
  assert.equal(graph.rfplan.inputs.two_stage,false);assert.equal(graph[30].inputs.continue_audio_latent,"match");assert.equal(graph[30].inputs.ref_image_size,"match");
 });
 test("global prompt fallback matches the native finite sampler; line-split multi-line prompts cannot slip through",()=>{
