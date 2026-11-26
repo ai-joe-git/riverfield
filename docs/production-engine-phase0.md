@@ -281,3 +281,102 @@ Automatic video observation, ASR, embeddings, vector databases and multi-agent o
 still out of scope. Reference assets are browsable in the Production Bible; automatic transfer
 of reference files into a Director bin is intentionally not performed because it would duplicate
 existing media. The approval boundary remains local-TTY based rather than device-attested.
+
+---
+
+# Phase 0.2 — Production Integrity
+
+Phase 0.2 hardens the existing engine and studio. It adds no automatic observation and starts no
+inference.
+
+## Media boundary
+
+All candidate and asset files now pass through a single production media boundary:
+
+- explicit allowed roots (`out/media`, `out/history`, `out/productions`, plus
+  `RIVERFIELD_PRODUCTION_MEDIA_ROOTS`);
+- canonical path resolution;
+- symlink rejection along the requested path;
+- regular-file and supported-media checks;
+- SHA-256 verification, with the actual file hash replacing any caller-supplied value;
+- the media endpoint re-validates the path before every response.
+
+For a History-backed candidate, the server ignores caller-supplied outputs, prompts and rendering
+settings. It derives the output list, file names, hashes, segment prompts, references, render
+metadata and actual video probe from the succeeded History entry.
+
+External assets are indexed only inside the allowed roots. Removing an asset removes its index
+entry, never its source file.
+
+## Historical state and chronology
+
+- Canonical facts now retain their previous revisions.
+- Fact updates preserve the old value, scene scope and opening/closing phase.
+- Context reconstruction uses season/episode/scene chronology, not canonical approval revision.
+- A fact scoped to scene N with phase `opening` is visible at that scene's opening. A fact with
+  phase `closing` is the scene outcome and is not fed back as its own opening condition.
+- Recent canonical scene summaries come only from approved Episodic facts in previous scenes.
+- The complete rendered context, including headings and summaries, is bounded by `maxChars`.
+- Essential continuity tags (`continuity`, `constraint`, `must`, `critical`, `essential`) are
+  prioritised. If they cannot fit, the context reports `budget.sufficient=false` and lists the
+  omitted IDs instead of silently presenting a misleading partial instruction.
+
+## Rendering provenance and review
+
+History-backed candidates now record:
+
+- the original brief and every segment prompt;
+- ordered picture/audio references per segment;
+- effective render settings;
+- final-output frame bindings;
+- output SHA-256, FPS, frame count and duration when ffprobe can verify them;
+- segment overlap and the final-output timebase.
+
+Legacy candidates without embedded provenance recover it from History in the candidate view.
+The UI marks probed values as verified and does not call legacy/estimated values verified.
+
+Candidate review supports all bindings for the selected scene, a scene-duration calculation,
+ordered playback with seeking/replay, and side-by-side comparison. A multi-scene run shows the
+other scenes it covers but never presents the whole run as one approved scene.
+
+## Assets tab and editorial controls
+
+The Production Studio now has a dedicated **Assets** tab per production:
+
+- 48 real SUITE 404 assets are browsable, searchable and filterable by image/video/audio and tags;
+- labels and tags can be edited without touching the file;
+- an asset can be removed from the production index without deleting the original file;
+- **New H3 Image** opens the existing `h3-image` app;
+- **p-H3 Edit** loads the selected asset into the existing p-H3 image edit app
+  (`h3-image-edit`) in an empty picture slot;
+- **Add from History** indexes a succeeded run output as a production asset.
+
+Scenes can be edited (title, brief, characters, locations, number) or deleted when they are not
+canonical and have no candidate bindings or pending proposals.
+
+## Director handoff
+
+The scene handoff now offers ordered reference-image selection. The Director:
+
+- keeps its existing UI, profile, timeline and workflow;
+- receives production and scene association, the scene brief and selected images in click order;
+- fills only empty picture slots and never silently replaces an occupied slot or saved project;
+- starts no render on open;
+- registers successful runs only through an explicit, idempotent candidate registration flow;
+- never canonizes a successful render.
+
+## SUITE 404
+
+The live fixture still has its original media, 17 draft scenes (including the experimental Velvet
+Moon scene), 26 imported candidates, 51 bindings and 48 assets. Canonical revision remains **0**.
+No observation, approval or fact is invented; no media is moved, copied, regenerated or modified.
+
+## Remaining limitations
+
+- No automatic video observation, ASR, embeddings, vector database or multi-agent orchestration.
+- Reference transfer to a Director is browser-memory based and fills only empty slots; it does not
+  rewrite an existing saved Director project.
+- Source files are not deleted when an asset is removed from a production.
+- Legacy imported candidates are recovered from History; their old bindings are not re-probed
+  retroactively.
+- Canonical approval remains a local interactive TTY operation.

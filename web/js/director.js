@@ -372,19 +372,37 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   }
   /** One-shot handoff from Production Studio. It associates the existing Director project
    * with a production scene; it never clears the timeline or starts a render. */
-  function applyProductionHandoff() {
+  async function applyProductionHandoff() {
     const handoff = store.get("production.handoff");
     if (!handoff || handoff.app !== app.id || !handoff.productionId || !handoff.sceneId) return;
     store.set("production.handoff", null);
     f.values.production_id = handoff.productionId;
     f.values.production_scene_id = handoff.sceneId;
     if (handoff.brief && !String(f.values.global_prompt || "").trim()) f.values.global_prompt = handoff.brief;
+    // Transfer selected images into EMPTY picture slots only. Never overwrite an existing
+    // picture or silently clear the saved Director project.
+    const chosen = Array.isArray(handoff.referenceAssetIds) ? handoff.referenceAssetIds : [];
+    const slots = app.inputs.filter((input) => input.type === "image").map((input) => input.id);
+    const free = slots.filter((slot) => !f.files?.[slot]);
+    let loaded = 0;
+    for (const [index, assetId] of chosen.entries()) {
+      const slot = free[index];
+      if (!slot) break;
+      try {
+        const response = await fetch(`/api/productions/${encodeURIComponent(handoff.productionId)}/media?assetId=${encodeURIComponent(String(assetId))}`);
+        if (!response.ok) continue;
+        const blob = await response.blob();
+        const file = new File([blob], `production-reference-${index + 1}.${(blob.type.split("/")[1] || "png").replace("jpeg", "jpg")}`, { type: blob.type || "image/png" });
+        f.files[slot] = { file, url: URL.createObjectURL(file) };
+        loaded += 1;
+      } catch { /* leave the slot empty; the Director remains usable */ }
+    }
     persistState(app, f, st);
     localSavedAt = Date.now();
     store.set(`dir.saved.${app.id}`, localSavedAt);
     saveDirty();
     draw();
-    toast(`Associated with ${handoff.productionId} · ${handoff.sceneTitle || handoff.sceneId}. Canonical memory will be used by the prompt enhancer.`);
+    toast(`Associated with ${handoff.productionId} · ${handoff.sceneTitle || handoff.sceneId}${loaded ? ` · ${loaded} reference${loaded === 1 ? "" : "s"} loaded` : ""}. Canonical memory will be used by the prompt enhancer.`);
   }
 
   async function restoreProject() {
@@ -422,7 +440,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     if (push) await pushServerState();
     draw();
     if (useServer && root.isConnected) onRestored?.();
-    applyProductionHandoff();
+    void applyProductionHandoff();
   }
   async function restoreMediaFiles() {
     try {

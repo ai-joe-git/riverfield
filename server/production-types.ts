@@ -53,7 +53,7 @@ export type Scene = {
   episodeId: string;
   number: number;
   title: string;
-  status: "draft" | "canon";
+  status: "draft" | "canon" | "archived";
   characterIds: string[];
   locationIds: string[];
   summary: string;
@@ -66,6 +66,29 @@ export type CandidateOutput = {
   name: string;
   path: string;
   hash?: string;
+  fps?: number;
+  frameCount?: number;
+  duration?: number;
+  verified?: boolean;
+};
+
+export type CandidateSegment = {
+  index: number;
+  prompt: string;
+  images: number[];
+  audios: number[];
+  videos?: number[];
+  startFrame?: number;
+  endFrame?: number;
+};
+
+export type CandidateProvenance = {
+  brief?: string;
+  segments: CandidateSegment[];
+  render?: Record<string, unknown>;
+  output?: { fps?: number; frameCount?: number; duration?: number; verified: boolean };
+  timebase: "final-output";
+  overlaps?: number[];
 };
 
 export type Candidate = {
@@ -79,6 +102,7 @@ export type Candidate = {
   outputs: CandidateOutput[];
   bindings: SceneRenderBinding[];
   render?: Record<string, unknown>;
+  provenance?: CandidateProvenance;
   createdAt: string;
   createdBy: string;
   /** Immutable content hash; a different candidate can never reuse it silently. */
@@ -99,6 +123,22 @@ export type SceneRenderBinding = {
   sourceEndFrame?: number;
   outputHash?: string;
   fps?: number;
+};
+
+export type FactPhase = "opening" | "closing" | "global";
+
+export type FactRevision = {
+  revision: number;
+  text: string;
+  subjectIds: string[];
+  tags: string[];
+  sceneId?: string;
+  phase: FactPhase;
+  data?: unknown;
+  provenance: Provenance;
+  approvedAt: string;
+  approvedBy: string;
+  sourceEventId: string;
 };
 
 export type Observation = {
@@ -124,6 +164,10 @@ export type BibleFact = {
   data?: unknown;
   /** Scene at which this fact becomes applicable; omitted means production-global. */
   sceneId?: string;
+  /** opening applies before the scene; closing is the scene outcome. */
+  phase: FactPhase;
+  /** Previous canonical values, retained for historical context reconstruction. */
+  history: FactRevision[];
   provenance: Provenance;
   revision: number;
   approvedAt: string;
@@ -140,6 +184,7 @@ export type FactChange = {
   tags?: string[];
   data?: unknown;
   sceneId?: string;
+  phase?: FactPhase;
   provenance?: Partial<Provenance>;
 };
 
@@ -187,6 +232,7 @@ export type Asset = {
   sourceRunId?: string;
   path: string;
   hash?: string;
+  tags: string[];
   createdAt: string;
   createdBy: string;
 };
@@ -216,9 +262,13 @@ export type ProductionEventType =
   | "season.created"
   | "episode.created"
   | "scene.created"
+  | "scene.updated"
+  | "scene.removed"
   | "candidate.registered"
   | "observation.recorded"
   | "asset.indexed"
+  | "asset.updated"
+  | "asset.removed"
   | "canon.proposed"
   | "canon.approved"
   | "canon.rolled_back";

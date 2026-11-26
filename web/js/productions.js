@@ -146,6 +146,9 @@ function proposalDialog(productionId, snapshot, options = {}) {
   let category = options.category || "identity";
   const categoryInput = el("select", { "aria-label": "Memory category" }, ...[["identity", "Identity"], ["state", "State"], ["episodic", "Episodic"], ["narrative", "Narrative"]].map(([value, label]) => el("option", { value, selected: String(value) === category }, label)));
   categoryInput.onchange = () => { category = categoryInput.value; };
+  let phase = options.phase || (category === "episodic" ? "closing" : "opening");
+  const phaseInput = el("select", { "aria-label": "Narrative phase" }, ...[["opening", "Opening — before this scene"], ["closing", "Closing — outcome of this scene"], ["global", "Global — production-wide"]].map(([value, label]) => el("option", { value, selected: String(value) === phase }, label)));
+  phaseInput.onchange = () => { phase = phaseInput.value; };
   const text = field("Canonical fact or change", options.text || "", "textarea");
   const subjects = field("Subject IDs (comma separated)", (options.subjectIds || []).join(", "));
   const tags = field("Tags (comma separated; continuity/constraint are preserved first)", (options.tags || []).join(", "));
@@ -160,7 +163,7 @@ function proposalDialog(productionId, snapshot, options = {}) {
     title.node,
     scene ? el("p", { class: "help" }, `Scene: ${scene.title}`) : null,
     decisionWrap,
-    categoryInput,
+    categoryInput, phaseInput,
     text.node, subjects.node, tags.node, sceneField.node, note.node);
   const submit = el("button", { class: "btn lime", type: "button" }, icon("check"), "Prepare proposal");
   submit.onclick = async () => {
@@ -174,6 +177,7 @@ function proposalDialog(productionId, snapshot, options = {}) {
         subjectIds: subjects.input.value.split(",").map((x) => x.trim()).filter(Boolean),
         tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean),
         ...(sceneField.input.value.trim() ? { sceneId: sceneField.input.value.trim() } : {}),
+        phase,
       }] : [];
       const body = {
         title: title.input.value.trim() || "Canonical update",
@@ -250,23 +254,128 @@ function openRegisterRun(productionId, snapshot, scene, onDone) {
   dialog.showModal(); run.input.focus();
 }
 
+function openSceneEdit(productionId, scene, onDone) {
+  const dialog = modal("Edit scene", "Editorial metadata only. This does not change candidates or canonical decisions.");
+  const number = field("Number", String(scene.number), "number");
+  const title = field("Title", scene.title);
+  const summary = field("Brief / description", scene.summary || "", "textarea");
+  const characters = field("Character IDs (comma separated)", (scene.characterIds || []).join(", "));
+  const locations = field("Location IDs (comma separated)", (scene.locationIds || []).join(", "));
+  const save = el("button", { class: "btn lime", type: "button" }, icon("check"), "Save scene");
+  save.onclick = async () => {
+    try {
+      await api(`/api/productions/${encodeURIComponent(productionId)}/scenes/${encodeURIComponent(scene.id)}`, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ number: Number(number.input.value), title: title.input.value.trim(), summary: summary.input.value.trim(), characterIds: characters.input.value.split(",").map((x) => x.trim()).filter(Boolean), locationIds: locations.input.value.split(",").map((x) => x.trim()).filter(Boolean) }),
+      });
+      dialog.close(); onDone?.();
+    } catch (error) { toast(error.message, { error: true }); }
+  };
+  dialog.append(el("div", { class: "ag-dialog-form" }, number.node, title.node, summary.node, characters.node, locations.node),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), save));
+  dialog.showModal();
+}
+
+function deleteScene(productionId, snapshot, scene, onDone) {
+  const dialog = modal("Delete scene", "Draft scenes without candidates can be removed. Canonical scenes and scenes with candidate bindings are protected.");
+  dialog.append(el("p", { class: "help" }, `${scene.title} — ${sceneCandidates(snapshot, scene.id).length} candidates.`),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"),
+      el("button", { class: "btn danger", type: "button", onclick: async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/scenes/${encodeURIComponent(scene.id)}`, { method: "DELETE" }); dialog.close(); toast("Scene removed."); onDone?.(); } catch (error) { toast(error.message, { error: true }); } } }, icon("trash"), "Delete scene")));
+  dialog.showModal();
+}
+
+function openAssetEdit(productionId, asset, onDone) {
+  const dialog = modal("Edit asset metadata", "The original media file is never rewritten. Only the Production Engine index is edited.");
+  const label = field("Label", asset.label);
+  const tags = field("Tags (comma separated)", (asset.tags || []).join(", "));
+  const save = el("button", { class: "btn lime", type: "button" }, icon("check"), "Save asset");
+  save.onclick = async () => {
+    try {
+      await api(`/api/productions/${encodeURIComponent(productionId)}/assets/${encodeURIComponent(asset.id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ label: label.input.value.trim(), tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
+      dialog.close(); onDone?.();
+    } catch (error) { toast(error.message, { error: true }); }
+  };
+  dialog.append(el("div", { class: "ag-dialog-form" }, label.node, tags.node), el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), save));
+  dialog.showModal();
+}
+
+function deleteAsset(productionId, asset, onDone) {
+  const dialog = modal("Remove asset from production", "The source file stays on disk. Only its production index entry is removed.");
+  dialog.append(el("p", { class: "help" }, asset.label),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"),
+      el("button", { class: "btn danger", type: "button", onclick: async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/assets/${encodeURIComponent(asset.id)}`, { method: "DELETE" }); dialog.close(); toast("Asset removed from production."); onDone?.(); } catch (error) { toast(error.message, { error: true }); } } }, icon("trash"), "Remove asset")));
+  dialog.showModal();
+}
+
+function openAssetFromHistory(productionId, snapshot, onDone) {
+  const dialog = modal("Add an asset from History", "A succeeded run output becomes an indexed production asset. The file stays in History.");
+  const run = field("History run ID", "");
+  const output = field("Output index", "0", "number");
+  const label = field("Label", "");
+  const tags = field("Tags", "");
+  const add = el("button", { class: "btn lime", type: "button" }, icon("plus"), "Add asset");
+  add.onclick = async () => {
+    try {
+      if (!run.input.value.trim()) throw new Error("Enter a succeeded run ID");
+      await api(`/api/productions/${encodeURIComponent(productionId)}/assets`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId: run.input.value.trim(), outputIndex: Number(output.input.value) || 0, label: label.input.value.trim(), tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
+      dialog.close(); toast("Asset indexed from History."); onDone?.();
+    } catch (error) { toast(error.message, { error: true }); }
+  };
+  dialog.append(el("div", { class: "ag-dialog-form" }, run.node, output.node, label.node, tags.node),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), add));
+  dialog.showModal();
+}
+
+async function editAssetInApp(appId, asset) {
+  try {
+    const { formFor } = await import("./workspace.js");
+    const app = apps.find((item) => item.id === appId);
+    if (!app) throw new Error(`${appId} is not installed`);
+    const f = formFor(app);
+    const slots = app.inputs.filter((input) => input.type === "image");
+    const slot = slots.find((input) => !f.files?.[input.id]);
+    if (!slot) throw new Error(`No empty picture slot in ${app.name}; remove a picture there first`);
+    const blob = await fetch(assetUrl(location.hash.match(/^#\/productions\/([\w-]+)/)?.[1] || "", asset.id)).then((response) => {
+      if (!response.ok) throw new Error(`Asset media answered ${response.status}`);
+      return response.blob();
+    });
+    const file = new File([blob], asset.label || `${asset.id}.png`, { type: blob.type || "image/png" });
+    f.files[slot.id] = { file, url: URL.createObjectURL(file) };
+    toast(`Loaded ${asset.label} in ${slot.label || slot.id}. Review the existing project before generating.`);
+    location.hash = `#/app/${encodeURIComponent(app.id)}`;
+  } catch (error) { toast(error.message, { error: true }); }
+}
+
 function openDirectorHandoff(productionId, snapshot, scene) {
   const directors = DIRECTOR_APPS();
   if (!directors.length) return toast("No Director application is installed.", { error: true });
-  const dialog = modal("Open scene in a Director", "The Director keeps its normal UI and profiles. The Production Engine only supplies the association and canonical context.");
+  const dialog = modal("Open scene in a Director", "The Director keeps its normal UI and profiles. The Production Engine supplies the association, brief and selected references without replacing existing bins.");
   const appSelect = el("select", { "aria-label": "Director app" }, ...directors.map((app) => el("option", { value: app.id }, app.name)));
   const brief = field("Scene brief", scene.summary || "", "textarea");
-  const note = el("p", { class: "help" }, "Opening never starts inference. The scene association is stored in the Director project; its prompt enhancer will retrieve canonical memory.");
+  const imageAssets = Object.values(snapshot.assets).filter((asset) => asset.kind === "image");
+  const selected = [];
+  const refs = el("div", { class: "prod-ref-picker" }, ...imageAssets.slice(0, 24).map((asset) => {
+    const checkbox = el("input", { type: "checkbox", value: asset.id, "aria-label": asset.label });
+    checkbox.onchange = () => {
+      const index = selected.indexOf(asset.id);
+      if (checkbox.checked && index < 0) selected.push(asset.id);
+      else if (!checkbox.checked && index >= 0) selected.splice(index, 1);
+    };
+    return el("label", { class: "prod-ref-choice" }, checkbox, el("img", { src: assetUrl(productionId, asset.id), alt: "" }), el("span", {}, asset.label));
+  }));
+  const note = el("p", { class: "help" }, "Opening never starts inference. Selected images fill only empty picture slots in the Director; an existing saved timeline or occupied slot is never silently replaced.");
   const open = el("button", { class: "btn lime", type: "button" }, icon("ext"), "Open Director");
   open.onclick = () => {
     store.set("production.handoff", {
       app: appSelect.value, productionId, sceneId: scene.id, sceneTitle: scene.title,
-      brief: brief.input.value.trim(),
+      brief: brief.input.value.trim(), referenceAssetIds: selected,
     });
     dialog.close();
     location.hash = `#/app/${encodeURIComponent(appSelect.value)}/director`;
   };
-  dialog.append(el("div", { class: "ag-dialog-form" }, el("label", { class: "ag-field" }, el("span", {}, "Director app"), appSelect), brief.node, note),
+  dialog.append(el("div", { class: "ag-dialog-form" }, el("label", { class: "ag-field" }, el("span", {}, "Director app"), appSelect), brief.node,
+    imageAssets.length ? el("div", { class: "prod-ref-section" }, el("b", {}, "Reference images"), el("p", { class: "help" }, "Selection order is the reference order: selected files fill the next empty picture slots."), refs) : null,
+    note),
     el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), open));
   dialog.showModal();
 }
@@ -336,9 +445,9 @@ export function productionView(productionId) {
   const params = new URLSearchParams(location.hash.split("?")[1] || "");
   const initialTab = params.get("tab");
   const state = {
-    snapshot: null, tab: initialTab === "bible" || initialTab === "history" ? initialTab : "episodes",
+    snapshot: null, tab: ["bible", "history", "assets"].includes(initialTab) ? initialTab : "episodes",
     seasonId: params.get("season") || "", episodeId: params.get("episode") || "", sceneId: params.get("scene") || "",
-    history: null, historyOpen: false, error: "", subject: "",
+    history: null, historyOpen: false, error: "", subject: "", assetFilter: "all", assetQuery: "",
   };
   const draw = async () => {
     body.replaceChildren(el("div", { class: "empty" }, "Loading production…"));
@@ -362,7 +471,7 @@ export function productionView(productionId) {
     const cover = coverFor(snap);
     const progress = snap.scenes.length ? Math.round((Object.values(snap.sceneDecisions).filter((decision) => decision.status === "canon").length / snap.scenes.length) * 100) : 0;
     const tabs = el("div", { class: "prod-tabs", role: "tablist" },
-      ...[["episodes", "Episodes"], ["bible", "Production Bible"], ["history", "Canon history"]].map(([id, label]) =>
+      ...[["episodes", "Episodes"], ["bible", "Production Bible"], ["assets", "Assets"], ["history", "Canon history"]].map(([id, label]) =>
         el("button", { type: "button", role: "tab", "aria-selected": String(state.tab === id), onclick: () => { state.tab = id; if (id === "history") void loadHistory(); paint(); } }, label)));
     const head = el("div", { class: "prod-hero" },
       coverNode(cover, snap.production.title),
@@ -379,7 +488,7 @@ export function productionView(productionId) {
         el("div", { class: "prod-progress wide" }, el("i", { style: { width: `${progress}%` } }), el("span", {}, `${progress}% canonical`))));
     body.replaceChildren(head, el("div", { class: "prod-studio-bar" }, tabs,
       el("div", { class: "row" }, el("button", { class: "btn small ghost", type: "button", onclick: reload }, icon("redo"), "Refresh"))),
-      state.tab === "episodes" ? episodesPanel(snap) : state.tab === "bible" ? biblePanel(snap) : historyPanel(snap));
+      state.tab === "episodes" ? episodesPanel(snap) : state.tab === "bible" ? biblePanel(snap) : state.tab === "assets" ? assetsPanel(snap) : historyPanel(snap));
   };
   const loadHistory = async () => {
     try {
@@ -421,7 +530,9 @@ export function productionView(productionId) {
           candidates.length > 1 ? el("button", { class: "btn small ghost", type: "button", onclick: () => openCompareCandidates(productionId, scene, candidates, snap) }, icon("compare"), "Compare") : null,
           el("button", { class: "btn small ghost", type: "button", onclick: () => openDirectorHandoff(productionId, snap, scene) }, icon("ext"), "Open in Director"),
           el("button", { class: "btn small ghost", type: "button", onclick: () => openRegisterRun(productionId, snap, scene, reload) }, icon("plus"), "Register run"),
-          el("button", { class: "btn small ghost", type: "button", onclick: () => openObservation(productionId, snap, scene, reload) }, icon("eye"), "Observe"))),
+          el("button", { class: "btn small ghost", type: "button", onclick: () => openObservation(productionId, snap, scene, reload) }, icon("eye"), "Observe"),
+          el("button", { class: "btn small ghost", type: "button", onclick: () => openSceneEdit(productionId, scene, reload) }, icon("sliders"), "Edit scene"),
+          el("button", { class: "btn small ghost danger", type: "button", title: "Delete this draft scene; canonical scenes and scenes with candidates are protected", onclick: () => deleteScene(productionId, snap, scene, reload) }, icon("trash"), "Delete"))),
       el("div", { class: "prod-scene-summary" },
         el("span", { class: "tag dark" }, `Decision: ${statusLabel(decisions?.status || "draft")}`),
         decisions?.canonicalCandidateId ? el("span", { class: "tag lime" }, `Canonical: ${snap.candidates[decisions.canonicalCandidateId]?.label || decisions.canonicalCandidateId}`) : null,
@@ -441,6 +552,65 @@ export function productionView(productionId) {
       detail);
   }
 
+  function sceneDuration(bindings) {
+    const ranges = bindings.map((binding) => [binding.timelineStartFrame, binding.timelineEndFrame, binding.fps || 24]).sort((a, b) => a[0] - b[0]);
+    let total = 0, cursor = -1;
+    for (const [start, end] of ranges) {
+      const fps = ranges.find((range) => range[0] === start)?.[2] || 24;
+      const from = Math.max(start, cursor);
+      if (end > from) total += (end - from) / fps;
+      cursor = Math.max(cursor, end);
+    }
+    return total;
+  }
+
+  function openCandidatePlayback(productionId, candidate, bindings) {
+    const ordered = bindings.slice().sort((a, b) => a.timelineStartFrame - b.timelineStartFrame);
+    const output = candidate.outputs.find((item) => item.type === "video");
+    if (!output || !ordered.length) return toast("This candidate has no video binding for the scene.", { error: true });
+    const video = el("video", { class: "prod-media", src: candidateUrl(productionId, candidate.id, candidate.outputs.indexOf(output)), controls: true, muted: true, playsinline: true, preload: "metadata" });
+    const status = el("p", { class: "help" }, `Scene duration ${fmtSeconds(sceneDuration(ordered))}`);
+    let index = 0;
+    const seek = () => {
+      const binding = ordered[index];
+      video.currentTime = binding.timelineStartFrame / (binding.fps || 24);
+      status.textContent = `Binding ${index + 1}/${ordered.length} · final ${binding.timelineStartFrame}–${binding.timelineEndFrame} · scene duration ${fmtSeconds(sceneDuration(ordered))}`;
+    };
+    video.addEventListener("loadedmetadata", seek);
+    video.addEventListener("timeupdate", () => {
+      const binding = ordered[index];
+      if (!binding) return;
+      if (video.currentTime >= binding.timelineEndFrame / (binding.fps || 24)) {
+        index += 1;
+        if (index < ordered.length) seek(); else { index = ordered.length - 1; video.pause(); }
+      }
+    });
+    const replay = el("button", { class: "btn small ghost", type: "button", onclick: () => { index = 0; seek(); void video.play(); } }, icon("redo"), "Replay scene");
+    const d = modal(`Play ${candidate.label}`, "Bindings are played in narrative order and clipped to their final-output frame ranges.");
+    d.append(video, status, el("div", { class: "ag-dialog-actions" }, replay, el("button", { class: "btn ghost", type: "button", onclick: () => d.close() }, "Close")));
+    d.showModal();
+    requestAnimationFrame(() => { seek(); void video.play().catch(() => {}); });
+  }
+
+  function candidateProvenance(snap, candidate, bindings) {
+    const provenance = candidate.provenance;
+    const segmentRows = provenance?.segments?.length
+      ? provenance.segments.map((segment) => el("div", { class: "prod-segment" },
+          el("b", {}, `Segment ${segment.index + 1}`),
+          el("span", {}, `refs ${segment.images.length ? segment.images.map((n) => `<Picture ${n + 1}>`).join(", ") : "none"}${segment.audios.length ? ` · audio ${segment.audios.map((n) => n + 1).join(", ")}` : ""}`),
+          el("p", {}, segment.prompt)))
+      : null;
+    return el("details", { class: "prod-details" },
+      el("summary", {}, "Rendering provenance"),
+      provenance?.brief ? el("p", { class: "help" }, `Brief: ${provenance.brief}`) : null,
+      segmentRows ? el("div", { class: "prod-segments" }, ...segmentRows) : el("p", { class: "help" }, "Exact per-segment prompts are not embedded in this legacy candidate; history recovery is available below."),
+      el("div", { class: "prod-fact-meta" },
+        el("span", {}, `scene duration ${fmtSeconds(sceneDuration(bindings))}`),
+        provenance?.output ? el("span", {}, `output ${provenance.output.verified ? "verified" : "unverified"}${provenance.output.fps ? ` · ${provenance.output.fps.toFixed(2)} fps` : ""}${provenance.output.frameCount ? ` · ${provenance.output.frameCount} frames` : ""}`) : el("span", {}, "output probe not recorded"),
+        provenance?.overlaps?.length ? el("span", {}, `overlaps ${provenance.overlaps.join(", ")} frames`) : null),
+      provenance?.render ? el("pre", { class: "prod-prompt" }, JSON.stringify(provenance.render, null, 2)) : null);
+  }
+
   function candidateCard(snap, scene, candidate, decision, proposals, reload) {
     const bindings = candidate.bindings.filter((binding) => binding.sceneId === scene.id);
     const stateName = candidateState(snap, scene.id, candidate.id);
@@ -449,17 +619,30 @@ export function productionView(productionId) {
       el("div", { class: "prod-candidate-head" }, el("div", {}, el("b", {}, candidate.label), el("small", {}, candidate.sourceRunId ? `run ${candidate.sourceRunId}` : candidate.id)), statusTag(stateName),
         otherScenes > 0 ? el("span", { class: "tag dark" }, `also covers ${otherScenes} scene${otherScenes === 1 ? "" : "s"}`) : null),
       bindings.map((binding) => mediaPreview(productionId, candidate, binding)),
+      candidateProvenance(snap, candidate, bindings),
       candidate.prompt ? el("details", { class: "prod-details" }, el("summary", {}, "Submitted prompt"), el("pre", { class: "prod-prompt" }, candidate.prompt)) : null,
       candidate.render ? el("details", { class: "prod-details" }, el("summary", {}, "Rendering parameters"), el("pre", { class: "prod-prompt" }, JSON.stringify(candidate.render, null, 2))) : null,
       el("div", { class: "prod-candidate-actions" },
+        el("button", { class: "btn small ghost", type: "button", onclick: () => openCandidatePlayback(productionId, candidate, bindings) }, icon("play"), "Play scene"),
         el("button", { class: "btn small ghost", type: "button", onclick: () => proposalDialog(productionId, snap, { scene, candidates: [candidate], candidateId: candidate.id, decision: "canon", title: `Canonize ${scene.title}`, onDone: reload }) }, icon("check"), "Canon proposal"),
         el("button", { class: "btn small ghost", type: "button", onclick: () => proposalDialog(productionId, snap, { scene, candidates: [candidate], candidateId: candidate.id, decision: "alternate", title: `Keep ${scene.title} alternate`, onDone: reload }) }, icon("layers"), "Alternate"),
         el("button", { class: "btn small ghost danger", type: "button", onclick: () => proposalDialog(productionId, snap, { scene, candidates: [candidate], candidateId: candidate.id, decision: "reject", title: `Reject ${scene.title} candidate`, onDone: reload }) }, icon("x"), "Reject")),
       proposals.filter((proposal) => proposal.sceneDecision?.candidateId === candidate.id).map(proposalRow));
-    if (!candidate.render && candidate.sourceRunId) {
+    if (!candidate.provenance && candidate.sourceRunId) {
       void api(`/api/history/${encodeURIComponent(candidate.sourceRunId)}`).then((run) => {
-        if (!run?.render) return;
-        const details = el("details", { class: "prod-details" }, el("summary", {}, "Rendering parameters"), el("pre", { class: "prod-prompt" }, JSON.stringify(run.render, null, 2)));
+        if (!run) return;
+        const windows = (() => {
+          const raw = run.values?.segment_windows;
+          if (typeof raw !== "string") return [];
+          try { return JSON.parse(raw)?.windows ?? []; } catch { return []; }
+        })();
+        const details = el("details", { class: "prod-details" }, el("summary", {}, "Recovered rendering provenance"),
+          windows.length ? el("div", { class: "prod-segments" }, ...windows.map((window, index) => el("div", { class: "prod-segment" },
+            el("b", {}, `Segment ${index + 1}`),
+            el("span", {}, `refs ${(window.images || []).length ? (window.images || []).map((n) => `<Picture ${n + 1}>`).join(", ") : "none"}${(window.audios || []).length ? ` · audio ${(window.audios || []).map((n) => n + 1).join(", ")}` : ""}`),
+            el("p", {}, window.prompt || "No prompt recorded")))) : el("p", { class: "help" }, "No segment prompts recorded in History."),
+          run.render ? el("pre", { class: "prod-prompt" }, JSON.stringify(run.render, null, 2)) : null,
+          el("small", { class: "dim" }, "Recovered from History; this legacy candidate has no embedded probe metadata."));
         card.insertBefore(details, card.querySelector(".prod-candidate-actions"));
       }).catch(() => {});
     }
@@ -517,7 +700,7 @@ export function productionView(productionId) {
 
   function factCard(snap, fact) {
     return el("article", { class: "prod-fact" },
-      el("div", { class: "prod-fact-head" }, el("b", {}, fact.text), el("button", { class: "btn small ghost", type: "button", onclick: () => proposalDialog(productionId, snap, { category: fact.category, factId: fact.id, text: fact.text, subjectIds: fact.subjectIds, tags: fact.tags, sceneId: fact.sceneId, title: `Update ${fact.id}`, onDone: reload }) }, icon("sliders"), "Propose edit")),
+      el("div", { class: "prod-fact-head" }, el("b", {}, fact.text), el("button", { class: "btn small ghost", type: "button", onclick: () => proposalDialog(productionId, snap, { category: fact.category, factId: fact.id, text: fact.text, subjectIds: fact.subjectIds, tags: fact.tags, sceneId: fact.sceneId, phase: fact.phase, title: `Update ${fact.id}`, onDone: reload }) }, icon("sliders"), "Propose edit")),
       el("div", { class: "prod-fact-meta" },
         el("span", {}, fact.provenance?.source || "unknown"),
         el("span", {}, `revision ${fact.revision}`),
@@ -525,6 +708,35 @@ export function productionView(productionId) {
         fact.sceneId ? el("span", {}, `scene ${snap.scenes.find((scene) => scene.id === fact.sceneId)?.title || fact.sceneId}`) : el("span", {}, "production-global"),
         fact.tags.length ? el("span", {}, fact.tags.join(", ")) : null),
       fact.provenance?.sourceEventId ? el("small", { class: "dim" }, `evidence event ${fact.provenance.sourceEventId}`) : null);
+  }
+
+  function assetsPanel(snap) {
+    const assets = Object.values(snap.assets)
+      .filter((asset) => (state.assetFilter === "all" || asset.kind === state.assetFilter) && (!state.assetQuery || `${asset.label} ${(asset.tags || []).join(" ")} ${asset.sourceRunId || ""}`.toLowerCase().includes(state.assetQuery.toLowerCase())))
+      .sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label));
+    const search = el("input", { class: "prod-search", type: "search", placeholder: "Search assets, tags or run IDs", value: state.assetQuery });
+    search.oninput = () => { state.assetQuery = search.value; paint(); };
+    const filters = el("div", { class: "pills" }, ...[["all", "All"], ["image", "Images"], ["video", "Video"], ["audio", "Audio"]].map(([value, label]) =>
+      el("button", { type: "button", "aria-pressed": String(state.assetFilter === value), onclick: () => { state.assetFilter = value; paint(); } }, label)));
+    const grid = el("div", { class: "prod-assets large" }, ...assets.map((asset) => el("article", { class: "prod-asset-card" },
+      asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id), alt: asset.label, loading: "lazy" })
+        : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id), muted: true, preload: "metadata" })
+          : el("div", { class: "prod-asset-icon" }, icon("audio")),
+      el("div", { class: "prod-asset-copy" }, el("b", {}, asset.label),
+        el("small", {}, `${asset.kind}${asset.sourceRunId ? ` · ${asset.sourceRunId}` : ""}`),
+        asset.tags?.length ? el("span", { class: "prod-asset-tags" }, ...asset.tags.map((tag) => el("span", { class: "tag dark" }, tag))) : null),
+      el("div", { class: "prod-asset-actions" },
+        el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetEdit(productionId, asset, reload) }, icon("sliders"), "Edit"),
+        asset.kind === "image" ? el("button", { class: "btn small ghost", type: "button", onclick: () => void editAssetInApp("h3-image-edit", asset) }, icon("wand"), "p-H3 Edit") : null,
+        el("button", { class: "btn small ghost danger", type: "button", onclick: () => deleteAsset(productionId, asset, reload) }, icon("trash"), "Remove")))));
+    if (!assets.length) grid.append(el("div", { class: "prod-empty" }, icon("image"), el("h3", {}, "No assets in this filter"), el("p", {}, "Add an existing History output, or generate a new image with MiniMax H3 Image.")));
+    return el("div", { class: "prod-assets-layout" },
+      el("div", { class: "prod-toolbar" }, el("div", {}, el("h2", {}, "Production assets"), el("p", {}, "Reference stills, plates, characters and generated media for this production. Assets are indexed in place; removing one never deletes the original file.")),
+        el("div", { class: "row" },
+          el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetFromHistory(productionId, snap, reload) }, icon("plus"), "Add from History"),
+          el("button", { class: "btn small lime", type: "button", onclick: () => { location.hash = "#/app/h3-image"; toast("Generate an image, then index its History output in Production assets."); } }, icon("spark"), "New H3 Image"))),
+      el("div", { class: "prod-assets-toolbar" }, el("label", { class: "search" }, icon("search"), search), filters, el("span", { class: "tag dark" }, `${assets.length} assets`)),
+      grid);
   }
 
   function historyPanel(snap) {

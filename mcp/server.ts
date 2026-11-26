@@ -298,6 +298,7 @@ export function build(base=BASE): McpServer {
         op: z.enum(["add", "update"]), category: z.enum(["identity", "state", "episodic", "narrative"]),
         factId: z.string().optional(), text: z.string().min(1), subjectIds: z.array(z.string()).optional(),
         tags: z.array(z.string()).optional(), data: z.any().optional(), sceneId: z.string().optional(),
+        phase: z.enum(["opening", "closing", "global"]).optional(),
         provenance: z.record(z.string(), z.any()).optional(),
       })).optional(),
     },

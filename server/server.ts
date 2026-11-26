@@ -51,6 +51,7 @@ import {defaultDirectorForm} from "./director-form.ts";
 import {directorDurations,planDirectorSegments,directorPromptMode} from "./h3-plan.ts";
 import { ProductionStore, ProductionError, type CreateEpisodeInput, type CreateSceneInput, type CreateSeasonInput, type IndexAssetInput, type ProposeCanonInput, type RegisterCandidateInput, type RegisterObservationInput } from "./production-store.ts";
 import { buildProductionContext } from "./production-context.ts";
+import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
 import type { Actor } from "./production-types.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
@@ -108,7 +109,7 @@ const history = new History(join(outDir, "history"), {
 });
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
 const directors = new DirectorStore(outDir, byId);
-const productions = new ProductionStore(outDir);
+const productions = new ProductionStore(outDir, { mediaRoots: productionMediaRoots(outDir) });
 const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
 const mcpURL=process.env.RIVERFIELD_AGENT_MCP_URL||`${studioURL}/mcp`;
 const native=new NativeRuntime(join(outDir,"native-runtime"));
@@ -613,7 +614,11 @@ const server = createServer(async (req, res) => {
             path = candidate?.outputs[index]?.path;
           } else if (assetId) path = snap.assets[assetId]?.path;
           if (!path) return send(res, 404, { error: "not found" });
-          return sendFile(req, res, path, "private, max-age=31536000, immutable");
+          try {
+            return sendFile(req, res, resolveMediaPath(path, productionMediaRoots(outDir)), "private, max-age=31536000, immutable");
+          } catch {
+            return send(res, 404, { error: "media unavailable" });
+          }
         }
         if (id && req.method === "GET" && sub === "context") {
           const numbers = (name: string) => (url.searchParams.get(name) ?? "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -628,8 +633,33 @@ const server = createServer(async (req, res) => {
         if (id && req.method === "POST" && sub === "seasons") return send(res, 201, productions.createSeason(id, await jsonBody() as CreateSeasonInput, actor));
         if (id && req.method === "POST" && sub === "episodes") return send(res, 201, productions.createEpisode(id, await jsonBody() as CreateEpisodeInput, actor));
         if (id && req.method === "POST" && sub === "scenes") return send(res, 201, productions.createScene(id, await jsonBody() as CreateSceneInput, actor));
+        if (id && req.method === "PATCH" && sub === "scenes" && arg) return send(res, 200, productions.updateScene(id, arg, await jsonBody() as { title?: string; summary?: string; characterIds?: string[]; locationIds?: string[]; number?: number }, actor));
+        if (id && req.method === "DELETE" && sub === "scenes" && arg) return send(res, 200, productions.removeScene(id, arg, actor));
         if (id && req.method === "POST" && sub === "observations") return send(res, 201, productions.recordObservation(id, await jsonBody() as RegisterObservationInput, actor));
-        if (id && req.method === "POST" && sub === "assets") return send(res, 201, productions.indexAsset(id, await jsonBody() as IndexAssetInput, actor));
+        if (id && req.method === "POST" && sub === "assets") {
+          const body = await jsonBody();
+          let input = body as unknown as IndexAssetInput;
+          if (typeof body.runId === "string") {
+            const run = history.get(body.runId, me);
+            if (!run || run.status !== "succeeded") throw new InputError("Only a succeeded history run can provide an asset");
+            const index = Number.isInteger(body.outputIndex) ? Number(body.outputIndex) : 0;
+            const output = run.outputs[index];
+            if (!output) throw new InputError(`History output ${index} is missing`);
+            const path = history.file(run.id, output.file, me);
+            if (!path) throw new InputError("History output file is missing");
+            if (!["image", "video", "audio"].includes(output.type)) throw new InputError("That output is not a production asset");
+            input = {
+              id: typeof body.id === "string" ? body.id : `asset-${run.id}-${index + 1}`,
+              kind: output.type as "image" | "video" | "audio",
+              label: typeof body.label === "string" ? body.label : output.name || output.file,
+              sourceRunId: run.id, path,
+              ...(Array.isArray(body.tags) ? { tags: body.tags.map(String) } : {}),
+            };
+          }
+          return send(res, 201, productions.indexAsset(id, input, actor));
+        }
+        if (id && req.method === "PATCH" && sub === "assets" && arg) return send(res, 200, productions.updateAsset(id, arg, await jsonBody() as { label?: string; tags?: string[] }, actor));
+        if (id && req.method === "DELETE" && sub === "assets" && arg) return send(res, 200, productions.removeAsset(id, arg, actor));
         if (id && req.method === "POST" && sub === "proposals") return send(res, 201, productions.propose(id, await jsonBody() as ProposeCanonInput, actor));
         if (id && req.method === "POST" && sub === "candidates") {
           const body = await jsonBody();
@@ -638,22 +668,43 @@ const server = createServer(async (req, res) => {
             const run = history.get(body.runId, me);
             if (!run) throw new InputError(`Unknown history run ${body.runId}`);
             if (run.status !== "succeeded") throw new InputError("Only a succeeded history run can become a candidate");
+            // History is authoritative. Caller-supplied outputs, prompts and render settings
+            // are ignored so a request cannot replace a real run with an arbitrary file.
+            const windows = (() => {
+              const raw = run.values.segment_windows;
+              if (typeof raw !== "string") return [] as { start?: number; end?: number; prompt?: string; images?: number[]; audios?: number[] }[];
+              try { return ((JSON.parse(raw) as { windows?: { start?: number; end?: number; prompt?: string; images?: number[]; audios?: number[] }[] }).windows ?? []); } catch { return []; }
+            })();
             const outputs = run.outputs.map((output) => {
               const path = history.file(run.id, output.file, me);
               if (!path) throw new InputError(`History output ${output.file} is missing`);
-              return { type: output.type as "video" | "image" | "audio" | "text" | "file", file: output.file, name: output.name, path };
+              const hash = hashFile(path);
+              const probe = output.type === "video" ? probeMedia(path) : null;
+              return {
+                type: output.type as "video" | "image" | "audio" | "text" | "file", file: output.file, name: output.name, path, hash,
+                ...(probe?.fps ? { fps: probe.fps } : {}), ...(probe?.frameCount ? { frameCount: probe.frameCount } : {}),
+                ...(probe?.duration ? { duration: probe.duration } : {}), ...(probe ? { verified: probe.verified } : {}),
+              };
             });
-            const firstPrompt = (() => {
-              const raw = run.values.segment_windows;
-              if (typeof raw !== "string") return String(run.values.global_prompt ?? "");
-              try { return String((JSON.parse(raw) as { windows?: { prompt?: string }[] }).windows?.[0]?.prompt ?? ""); } catch { return ""; }
-            })();
+            const videoProbe = outputs.find((output) => output.type === "video");
             input = {
               ...input,
               label: String(input.label ?? run.values.filename_prefix ?? run.id),
-              source: "history", sourceRunId: run.id, app: run.app, prompt: input.prompt ?? firstPrompt,
-              outputs: input.outputs?.length ? input.outputs : outputs,
-              render: input.render ?? run.render,
+              source: "history", sourceRunId: run.id, app: run.app,
+              prompt: windows[0]?.prompt ?? String(run.values.global_prompt ?? ""),
+              outputs,
+              render: run.render,
+              provenance: {
+                brief: String(run.values.global_prompt ?? ""),
+                segments: windows.map((window, index) => ({
+                  index, prompt: String(window.prompt ?? ""), images: window.images ?? [], audios: window.audios ?? [],
+                  ...(window.start !== undefined ? { startFrame: Number(window.start) } : {}), ...(window.end !== undefined ? { endFrame: Number(window.end) } : {}),
+                })),
+                render: run.render,
+                ...(videoProbe ? { output: { ...(videoProbe.fps ? { fps: videoProbe.fps } : {}), ...(videoProbe.frameCount ? { frameCount: videoProbe.frameCount } : {}), ...(videoProbe.duration ? { duration: videoProbe.duration } : {}), verified: Boolean(videoProbe.verified) } } : {}),
+                timebase: "final-output" as const,
+                overlaps: windows.slice(1).map((window, index) => Math.max(0, Number(windows[index]?.end ?? 0) - Number(window.start ?? 0))),
+              },
             };
           }
           return send(res, 201, productions.registerCandidate(id, input, actor));

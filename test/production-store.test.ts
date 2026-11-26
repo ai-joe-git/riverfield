@@ -31,9 +31,13 @@ function fixture() {
 test("ProductionStore persists hierarchy and immutable multi-scene candidates", () => {
   const { out, store } = fixture();
   try {
+    const mediaDir = join(out, "media");
+    mkdirSync(mediaDir, { recursive: true });
+    const mediaFile = join(mediaDir, "candidate.mp4");
+    writeFileSync(mediaFile, Buffer.from("candidate media"));
     const candidate = store.registerCandidate("suite-404", {
       id: "candidate-a", label: "V7", source: "import", sourceRunId: "run-a", app: "h3-studio-director-flash",
-      prompt: "the intended scene", outputs: [{ type: "video", file: "out.mp4", name: "out.mp4", path: "/tmp/out.mp4" }],
+      prompt: "the intended scene", outputs: [{ type: "video", file: "out.mp4", name: "out.mp4", path: mediaFile }],
       bindings: [
         { id: "candidate-a-b1", sceneId: "suite-404-s01e01-sc01", segmentIndex: 0, timelineStartFrame: 0, timelineEndFrame: 294 },
         { id: "candidate-a-b2", sceneId: "suite-404-s01e01-sc01", segmentIndex: 1, timelineStartFrame: 200, timelineEndFrame: 494 },
@@ -159,7 +163,7 @@ test("ProductionContext enforces chronology, scene state and the complete text b
       changes: [
         { op: "add", category: "state", factId: "early-state", sceneId: "zzz-early-scene", text: "Akari is in the early room." },
         { op: "add", category: "episodic", factId: "early-summary", sceneId: "zzz-early-scene", text: "Approved early scene summary." },
-        { op: "add", category: "identity", factId: "identity-heavy", text: "Identity ".repeat(200) },
+        { op: "add", category: "identity", factId: "identity-heavy", tags: ["continuity"], text: "Identity ".repeat(200) },
       ],
     }, actor, "early-proposal").proposal;
     store.approveProposal("suite-404", early.id, human(early.fingerprint, 0), "early-approved");
@@ -179,17 +183,48 @@ test("ProductionContext enforces chronology, scene state and the complete text b
     assert.doesNotMatch(historical.text, /This future state must not leak/);
     assert.doesNotMatch(historical.text, /This future summary must not leak/);
     assert.doesNotMatch(historical.text, /Draft intention/);
-    assert.match(historical.text, /Approved early scene summary/);
-    assert.equal(historical.recentScenes.length, 1);
-    assert.equal(historical.recentScenes[0]?.id, "zzz-early-scene");
+    assert.doesNotMatch(historical.text, /Approved early scene summary/, "the scene's own closing outcome is not its opening");
+    assert.equal(historical.recentScenes.length, 0);
+    assert.equal(historical.budget.sufficient, false, "omitted essential identity must be reported");
 
     const latest = buildProductionContext(store.snapshot("suite-404"), { sceneId: "aaa-late-scene", maxChars: 700, recentScenes: 5 });
     assert.match(latest.text, /This future state must not leak/);
     assert.match(latest.text, /Keep the same hotel corridor geography/);
+    assert.match(latest.text, /Approved early scene summary/);
+    assert.equal(latest.recentScenes.length, 1);
+    assert.equal(latest.recentScenes[0]?.id, "zzz-early-scene");
     assert.ok(latest.text.length <= 700);
     // Identity was huge; it must not consume the whole budget before State/Narrative.
     assert.ok(latest.sections.state.facts.length + latest.sections.narrative.facts.length > 0);
     assert.ok(latest.sections.identity.facts.length < 200, "identity is bounded by its category budget");
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test("fact updates preserve earlier historical values and scene closing outcomes", () => {
+  const { out, store } = fixture();
+  try {
+    const first = store.propose("suite-404", {
+      expectedRevision: 0,
+      changes: [
+        { op: "add", category: "state", factId: "wardrobe", sceneId: "suite-404-s01e01-sc01", phase: "opening", text: "Akari wears the blue coat." },
+        { op: "add", category: "episodic", factId: "outcome", sceneId: "suite-404-s01e01-sc01", phase: "closing", text: "The blue coat is soaked." },
+      ],
+    }, actor, "first-fact").proposal;
+    store.approveProposal("suite-404", first.id, human(first.fingerprint, 0), "first-approved");
+    const update = store.propose("suite-404", {
+      expectedRevision: 1,
+      changes: [{ op: "update", category: "state", factId: "wardrobe", sceneId: "suite-404-s01e01-sc02", phase: "opening", text: "Akari changed into the red coat." }],
+    }, actor, "update-fact").proposal;
+    store.approveProposal("suite-404", update.id, human(update.fingerprint, 1), "update-approved");
+    const before = buildProductionContext(store.snapshot("suite-404"), { sceneId: "suite-404-s01e01-sc01", maxChars: 3000 });
+    assert.match(before.text, /Akari wears the blue coat/);
+    assert.doesNotMatch(before.text, /red coat/);
+    assert.doesNotMatch(before.text, /blue coat is soaked/, "closing outcome not used as its own opening");
+    const after = buildProductionContext(store.snapshot("suite-404"), { sceneId: "suite-404-s01e01-sc02", maxChars: 3000 });
+    assert.match(after.text, /Akari changed into the red coat/);
+    assert.doesNotMatch(after.text, /Akari wears the blue coat/);
   } finally {
     rmSync(out, { recursive: true, force: true });
   }

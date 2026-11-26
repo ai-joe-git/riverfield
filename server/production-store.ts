@@ -4,13 +4,14 @@ import {
   closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { hashFile, mediaKind, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
 import {
   PRODUCTION_SCHEMA_VERSION, MEMORY_CATEGORIES, hashValue, proposalFingerprint,
   rollbackFingerprint, verifyHumanApproval,
   type Actor, type ApprovalCheck, type Asset, type BibleFact, type Candidate, type CanonProposal,
   type FactChange, type HumanApproval, type Observation, type ProductionEvent, type ProductionEventType,
   type ProductionMeta, type ProductionSnapshot, type ProductionSummary, type Scene, type SceneDecision,
-  type SceneRenderBinding, type Season, type Episode, type MemoryCategory, type Provenance,
+  type SceneRenderBinding, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance,
 } from "./production-types.ts";
 
 export class ProductionError extends Error {
@@ -50,6 +51,7 @@ export type RegisterCandidateInput = {
   outputs?: Candidate["outputs"];
   bindings?: (Omit<SceneRenderBinding, "candidateId" | "timebase"> & { timebase?: SceneRenderBinding["timebase"] })[];
   render?: Record<string, unknown>;
+  provenance?: CandidateProvenance;
 };
 export type RegisterObservationInput = {
   id?: string;
@@ -66,6 +68,7 @@ export type IndexAssetInput = {
   sourceRunId?: string;
   path: string;
   hash?: string;
+  tags?: string[];
 };
 export type ProposeCanonInput = {
   id?: string;
@@ -77,6 +80,7 @@ export type ProposeCanonInput = {
 };
 export type StoreOptions = {
   approvalVerifier?: (approval: HumanApproval | undefined, check: ApprovalCheck) => boolean;
+  mediaRoots?: string[];
 };
 
 const APPROVAL_TIMEOUT = 60 * 60 * 1000;
@@ -168,10 +172,12 @@ function assertFiniteFrame(value: unknown, field: string): number {
 export class ProductionStore {
   private readonly root: string;
   private readonly verifyApproval: NonNullable<StoreOptions["approvalVerifier"]>;
+  private readonly mediaRoots: string[];
 
   constructor(outDir: string, options: StoreOptions = {}) {
     this.root = join(outDir, "productions");
     this.verifyApproval = options.approvalVerifier ?? verifyHumanApproval;
+    this.mediaRoots = options.mediaRoots ?? productionMediaRoots(outDir);
   }
 
   private dir(id: string) { return join(this.root, id); }
@@ -308,6 +314,16 @@ export class ProductionStore {
           };
           break;
         }
+        case "scene.updated": {
+          const scene = event.payload.scene as Scene;
+          const index = snap.scenes.findIndex((item) => item.id === scene.id);
+          if (index >= 0) snap.scenes[index] = { ...snap.scenes[index], ...scene };
+          break;
+        }
+        case "scene.removed": {
+          snap.scenes = snap.scenes.filter((scene) => scene.id !== String(event.payload.sceneId));
+          break;
+        }
         case "candidate.registered": {
           const candidate = event.payload.candidate as Candidate;
           snap.candidates[candidate.id] = candidate;
@@ -321,7 +337,16 @@ export class ProductionStore {
         }
         case "asset.indexed": {
           const asset = event.payload.asset as Asset;
-          snap.assets[asset.id] = asset;
+          snap.assets[asset.id] = { ...asset, tags: Array.isArray(asset.tags) ? asset.tags : [] };
+          break;
+        }
+        case "asset.updated": {
+          const asset = event.payload.asset as Asset;
+          if (snap.assets[asset.id]) snap.assets[asset.id] = { ...snap.assets[asset.id], ...asset };
+          break;
+        }
+        case "asset.removed": {
+          delete snap.assets[String(event.payload.assetId)];
           break;
         }
         case "canon.proposed": {
@@ -418,11 +443,19 @@ export class ProductionStore {
     if (change.op === "update") {
       const hit = change.factId ? list.find((fact) => fact.id === change.factId) : undefined;
       if (!hit) throw new ProductionError("INVALID_FACT", `Unknown fact to update: ${change.factId ?? "(missing factId)"}`);
+      const previous = {
+        revision: hit.revision, text: hit.text, subjectIds: [...hit.subjectIds], tags: [...hit.tags],
+        ...(hit.sceneId ? { sceneId: hit.sceneId } : {}), phase: hit.phase ?? "opening",
+        ...(hit.data !== undefined ? { data: hit.data } : {}), provenance: hit.provenance,
+        approvedAt: hit.approvedAt, approvedBy: hit.approvedBy, sourceEventId: hit.sourceEventId,
+      };
       hit.text = change.text;
       hit.subjectIds = unique(change.subjectIds ?? hit.subjectIds);
       hit.tags = unique(change.tags ?? hit.tags);
+      hit.history = [...(hit.history ?? []), previous];
       if (change.data !== undefined) hit.data = change.data;
       if (sceneId) hit.sceneId = sceneId;
+      hit.phase = change.phase ?? (change.category === "episodic" ? "closing" : "opening");
       hit.provenance = { ...hit.provenance, ...provenance };
       hit.revision = revision;
       hit.approvedAt = approval.approvedAt;
@@ -441,6 +474,8 @@ export class ProductionStore {
       tags: unique(change.tags ?? []),
       ...(change.data !== undefined ? { data: change.data } : {}),
       ...(sceneId ? { sceneId } : {}),
+      phase: change.phase ?? (change.category === "episodic" ? "closing" : "opening"),
+      history: [],
       provenance,
       revision,
       approvedAt: approval.approvedAt,
@@ -576,6 +611,54 @@ export class ProductionStore {
     return this.append(productionId, "scene.created", { scene }, actor, commandKey ?? `scene:create:${id}`);
   }
 
+  updateScene(productionId: string, sceneId: string, input: { title?: string; summary?: string; characterIds?: string[]; locationIds?: string[]; number?: number }, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    const current = snap.scenes.find((scene) => scene.id === sceneId);
+    if (!current) throw new ProductionError("UNKNOWN_SCENE", `Unknown scene ${sceneId}`);
+    const scene: Scene = {
+      ...current,
+      ...(input.title !== undefined ? { title: String(input.title).trim() || current.title } : {}),
+      ...(input.summary !== undefined ? { summary: String(input.summary).trim() } : {}),
+      ...(input.characterIds ? { characterIds: unique(input.characterIds.map(String)) } : {}),
+      ...(input.locationIds ? { locationIds: unique(input.locationIds.map(String)) } : {}),
+      ...(input.number !== undefined ? { number: Number(input.number) } : {}),
+    };
+    if (!Number.isInteger(scene.number) || scene.number < 1) throw new ProductionError("INVALID_SCENE", "Scene number must be a positive integer");
+    return this.append(productionId, "scene.updated", { scene }, actor, commandKey ?? `scene:update:${sceneId}:${scene.number}:${scene.title}`);
+  }
+
+  removeScene(productionId: string, sceneId: string, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    if (!snap.scenes.some((scene) => scene.id === sceneId)) throw new ProductionError("UNKNOWN_SCENE", `Unknown scene ${sceneId}`);
+    const decision = snap.sceneDecisions[sceneId];
+    if (decision?.status === "canon") throw new ProductionError("SCENE_CANONICAL", "A canonical scene cannot be deleted; prepare a rollback or a new canonical decision");
+    if (Object.values(snap.candidates).some((candidate) => candidate.bindings.some((binding) => binding.sceneId === sceneId))) {
+      throw new ProductionError("SCENE_HAS_CANDIDATES", "Remove or retain candidate bindings before deleting this scene");
+    }
+    if (Object.values(snap.proposals).some((proposal) => proposal.sceneDecision?.sceneId === sceneId && proposal.status === "proposed")) {
+      throw new ProductionError("SCENE_HAS_PROPOSALS", "Resolve pending proposals before deleting this scene");
+    }
+    return this.append(productionId, "scene.removed", { sceneId }, actor, commandKey ?? `scene:remove:${sceneId}`);
+  }
+
+  updateAsset(productionId: string, assetId: string, input: { label?: string; tags?: string[] }, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    const current = snap.assets[assetId];
+    if (!current) throw new ProductionError("UNKNOWN_ASSET", `Unknown asset ${assetId}`);
+    const asset: Asset = {
+      ...current,
+      ...(input.label !== undefined ? { label: String(input.label).trim() || current.label } : {}),
+      ...(input.tags !== undefined ? { tags: unique(input.tags.map(String)) } : {}),
+    };
+    return this.append(productionId, "asset.updated", { asset }, actor, commandKey ?? `asset:update:${assetId}:${JSON.stringify(asset.tags)}:${asset.label}`);
+  }
+
+  removeAsset(productionId: string, assetId: string, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    if (!snap.assets[assetId]) throw new ProductionError("UNKNOWN_ASSET", `Unknown asset ${assetId}`);
+    return this.append(productionId, "asset.removed", { assetId }, actor, commandKey ?? `asset:remove:${assetId}`);
+  }
+
   registerCandidate(productionId: string, input: RegisterCandidateInput, actor: Actor, commandKey?: string): ProductionSnapshot {
     const snap = this.snapshot(productionId);
     const id = input.id ?? randomUUID();
@@ -597,6 +680,21 @@ export class ProductionStore {
         ...(binding.fps !== undefined ? { fps: Number(binding.fps) } : {}),
       } satisfies SceneRenderBinding;
     });
+    const outputs = (input.outputs ?? []).map((output, index) => {
+      const path = resolveMediaPath(output.path, this.mediaRoots);
+      const kind = mediaKind(path);
+      if (!kind) throw new ProductionError("UNSUPPORTED_MEDIA", `Unsupported media for output ${index + 1}`);
+      if (!["video", "image", "audio", "text", "file"].includes(output.type)) throw new ProductionError("INVALID_CANDIDATE", `Invalid output type ${String(output.type)}`);
+      const hash = hashFile(path);
+      if (output.hash && hash !== output.hash) throw new ProductionError("MEDIA_HASH_MISMATCH", `Output hash does not match ${output.name}`);
+      const probe = kind === "video" ? probeMedia(path) : undefined;
+      return {
+        ...output, path, hash,
+        ...(probe?.fps ? { fps: probe.fps } : {}), ...(probe?.frameCount ? { frameCount: probe.frameCount } : {}),
+        ...(probe?.duration ? { duration: probe.duration } : {}), ...(probe ? { verified: probe.verified } : {}),
+      };
+    });
+    const provenance = input.provenance;
     const existing = snap.candidates[id];
     if (existing) {
       if (commandKey) return snap;
@@ -605,8 +703,8 @@ export class ProductionStore {
     const withoutHash = {
       id, productionId, label: String(input.label ?? id).trim(), source: input.source ?? "manual",
       ...(input.sourceRunId ? { sourceRunId: input.sourceRunId } : {}), ...(input.app ? { app: input.app } : {}),
-      ...(input.prompt ? { prompt: input.prompt } : {}), outputs: input.outputs ?? [], bindings,
-      ...(input.render ? { render: input.render } : {}),
+      ...(input.prompt ? { prompt: input.prompt } : {}), outputs, bindings,
+      ...(input.render ? { render: input.render } : {}), ...(provenance ? { provenance } : {}),
       createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
     } satisfies Omit<Candidate, "contentHash">;
     const candidate: Candidate = { ...withoutHash, contentHash: candidateHash(withoutHash) };
@@ -638,10 +736,15 @@ export class ProductionStore {
       if (commandKey) return snap;
       throw new ProductionError("ASSET_EXISTS", `Asset ${id} already exists`);
     }
+    const canonical = resolveMediaPath(path, this.mediaRoots);
+    const actualKind = mediaKind(canonical);
+    if (!actualKind || actualKind !== input.kind) throw new ProductionError("UNSUPPORTED_MEDIA", `Asset must be a supported ${input.kind} file`);
+    const hash = hashFile(canonical);
+    if (input.hash && hash !== input.hash) throw new ProductionError("MEDIA_HASH_MISMATCH", "Asset hash does not match its file");
     const asset: Asset = {
       id, productionId, kind: input.kind, label: String(input.label ?? id),
-      ...(input.sourceRunId ? { sourceRunId: input.sourceRunId } : {}), path,
-      ...(input.hash ? { hash: input.hash } : {}), createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
+      ...(input.sourceRunId ? { sourceRunId: input.sourceRunId } : {}), path: canonical,
+      hash, tags: unique((input.tags ?? []).map(String)), createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
     };
     return this.append(productionId, "asset.indexed", { asset }, actor, commandKey ?? `asset:index:${id}`);
   }
