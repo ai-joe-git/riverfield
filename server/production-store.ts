@@ -9,7 +9,7 @@ import {
   PRODUCTION_SCHEMA_VERSION, MEMORY_CATEGORIES, hashValue, proposalFingerprint,
   rollbackFingerprint, verifyHumanApproval,
   type Actor, type ApprovalCheck, type Asset, type BibleFact, type Candidate, type CanonProposal,
-  type FactChange, type HumanApproval, type Observation, type ProductionEvent, type ProductionEventType,
+  type FactChange, type HumanApproval, type Observation, type ObservationReport, type ProductionEvent, type ProductionEventType,
   type ProductionMeta, type ProductionSnapshot, type ProductionSummary, type Scene, type SceneDecision,
   type SceneRenderBinding, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
 } from "./production-types.ts";
@@ -60,6 +60,10 @@ export type RegisterObservationInput = {
   runId?: string;
   text: string;
   evidence?: Observation["evidence"];
+  kind?: Observation["kind"];
+  revision?: number;
+  previousRevisionId?: string;
+  report?: ObservationReport;
 };
 export type CreateAssetBuildInput = {
   id?: string;
@@ -758,11 +762,28 @@ export class ProductionStore {
     if (input.candidateId && !snap.candidates[input.candidateId]) throw new ProductionError("UNKNOWN_CANDIDATE", `Unknown candidate ${input.candidateId}`);
     const text = String(input.text ?? "").trim();
     if (!text) throw new ProductionError("INVALID_OBSERVATION", "An observation needs text");
+    if (input.report) {
+      if (input.report.productionId !== productionId || input.report.sceneId !== input.sceneId) {
+        throw new ProductionError("INVALID_OBSERVATION", "The report production and scene must match the observation");
+      }
+      if (input.candidateId && input.report.candidateId !== input.candidateId) {
+        throw new ProductionError("INVALID_OBSERVATION", "The report candidate must match the observation");
+      }
+    }
+    const prior = Object.values(snap.observations)
+      .filter((item) => item.productionId === productionId && item.sceneId === input.sceneId &&
+        (input.candidateId ? item.candidateId === input.candidateId : !item.candidateId))
+      .sort((a, b) => (a.revision ?? 0) - (b.revision ?? 0) || a.createdAt.localeCompare(b.createdAt));
+    const revision = input.revision ?? ((prior.at(-1)?.revision ?? 0) + 1);
+    const previousRevisionId = input.previousRevisionId ?? prior.at(-1)?.id;
     const observation: Observation = {
       id: input.id ?? randomUUID(), productionId, sceneId: input.sceneId,
       ...(input.candidateId ? { candidateId: input.candidateId } : {}),
       ...(input.runId ? { runId: input.runId } : {}),
-      text, evidence: input.evidence ?? [], createdAt: nowIso(), createdBy: actor.id ?? actor.kind, source: actor.kind,
+      text, evidence: input.evidence ?? [], kind: input.kind ?? (input.report ? "analysis" : "manual"),
+      revision, ...(previousRevisionId ? { previousRevisionId } : {}),
+      ...(input.report ? { report: input.report } : {}),
+      createdAt: nowIso(), createdBy: actor.id ?? actor.kind, source: actor.kind,
     };
     return this.append(productionId, "observation.recorded", { observation }, actor, commandKey ?? `observation:record:${observation.id}`);
   }

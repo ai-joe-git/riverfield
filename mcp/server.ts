@@ -436,6 +436,106 @@ export function build(base=BASE): McpServer {
     } catch (e) { return fail(e); }
   });
 
+  server.registerTool("analyze_scene", {
+    title: "Analyze a scene candidate",
+    description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. It extracts cached FFmpeg evidence, runs the local Qwen observer and the Whisper Turbo ASR adapter through the shared queue, then records a structured observation report. It does not approve or canonize anything.",
+    inputSchema: {
+      productionId: z.string(), sceneId: z.string(), candidateId: z.string(),
+      bindingIds: z.array(z.string()).optional().describe("only these scene bindings; default all bindings for the scene"),
+      maxFrames: z.number().int().min(1).max(48).optional(),
+      visualFrames: z.number().int().min(1).max(9).optional(),
+      sampleIntervalSeconds: z.number().min(0.25).max(30).optional(),
+      sceneThreshold: z.number().gt(0).lt(1).optional(),
+      includeAudio: z.boolean().optional(), visual: z.boolean().optional(), asr: z.boolean().optional(), comparison: z.boolean().optional(),
+      referenceAssetIds: z.array(z.string()).optional().describe("production image assets to compare against identity; not proof of appearance"),
+      request_id: z.string().max(200).optional(),
+    },
+  }, async ({ productionId, request_id, ...body }) => {
+    try {
+      const payload: Any = { ...body };
+      if (body.maxFrames !== undefined || body.visualFrames !== undefined || body.sampleIntervalSeconds !== undefined || body.sceneThreshold !== undefined || body.includeAudio !== undefined || body.visual !== undefined || body.asr !== undefined || body.comparison !== undefined) {
+        payload.options = {
+          ...(body.maxFrames !== undefined ? { maxFrames: body.maxFrames } : {}),
+          ...(body.visualFrames !== undefined ? { visualFrames: body.visualFrames } : {}),
+          ...(body.sampleIntervalSeconds !== undefined ? { sampleIntervalSeconds: body.sampleIntervalSeconds } : {}),
+          ...(body.sceneThreshold !== undefined ? { sceneThreshold: body.sceneThreshold } : {}),
+          ...(body.includeAudio !== undefined ? { includeAudio: body.includeAudio } : {}),
+          ...(body.visual !== undefined ? { visual: body.visual } : {}),
+          ...(body.asr !== undefined ? { asr: body.asr } : {}),
+          ...(body.comparison !== undefined ? { comparison: body.comparison } : {}),
+        };
+        delete payload.maxFrames; delete payload.visualFrames; delete payload.sampleIntervalSeconds; delete payload.sceneThreshold;
+        delete payload.includeAudio; delete payload.visual; delete payload.asr; delete payload.comparison;
+      }
+      if (request_id) payload.requestKey = request_id;
+      return text(await call(`/api/productions/${encodeURIComponent(productionId)}/observation-jobs`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(payload) }));
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_observation_job", {
+    title: "Observation job status",
+    description: "Read a durable observation job: stage, percent, failures, evidence directory and the observation id once recorded.",
+    inputSchema: { id: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ id }) => {
+    try { return text(await call(`/api/observation-jobs/${encodeURIComponent(id)}`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("cancel_observation_job", {
+    title: "Cancel an observation",
+    description: "Cancel a running observation. Already extracted evidence is retained and the candidate is untouched.",
+    inputSchema: { id: z.string() },
+  }, async ({ id }) => {
+    try { return text(await call(`/api/observation-jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_scene_observations", {
+    title: "Read scene observations",
+    description: "All immutable manual and automated observations for one scene, ordered by revision. Structured reports are never canonical facts.",
+    inputSchema: { productionId: z.string(), sceneId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, sceneId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/scenes/${encodeURIComponent(sceneId)}/observations`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_observation_evidence", {
+    title: "Read observation evidence",
+    description: "Evidence files and their frame/time references for one observation job. Paths are relative to the evidence directory and are served by the local studio.",
+    inputSchema: { jobId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ jobId }) => {
+    try {
+      const job = await call(`/api/observation-jobs/${encodeURIComponent(jobId)}`);
+      if (!job?.observationId) return text({ job, evidence: [], note: "No structured observation was recorded; inspect the job stages." });
+      const observations = await call(`/api/productions/${encodeURIComponent(job.productionId)}/scenes/${encodeURIComponent(job.sceneId)}/observations`);
+      const observation = (observations.observations || []).find((item: Any) => item.id === job.observationId);
+      return text({ jobId, observationId: job.observationId, evidenceDir: job.evidenceDir, evidence: observation?.report?.evidence ?? [], shots: observation?.report?.shots ?? [], limitations: observation?.report?.limitations ?? [] });
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("compare_scene", {
+    title: "Read the observation comparison",
+    description: "Read the comparison already produced by an observation: intended scene, observed evidence, canonical opening context, findings and proposed changes. This does not canonize or approve.",
+    inputSchema: { productionId: z.string(), sceneId: z.string(), observationId: z.string().optional() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, sceneId, observationId }) => {
+    try {
+      const result = await call(`/api/productions/${encodeURIComponent(productionId)}/scenes/${encodeURIComponent(sceneId)}/observations`);
+      const list = (result.observations || []).filter((item: Any) => item.report?.comparison);
+      const observation = observationId ? list.find((item: Any) => item.id === observationId) : list.at(-1);
+      if (!observation) return text({ comparison: null, note: "No comparison has been recorded for this scene yet." });
+      return text({ observationId: observation.id, comparison: observation.report.comparison, limitations: observation.report.limitations });
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("propose_observed_state_changes", {
+    title: "Prepare observed changes",
+    description: "Turn the proposed State/Episodic/Narrative changes of a structured observation into a normal canonical proposal. A human must still approve it through the interactive CLI; this tool cannot canonize.",
+    inputSchema: { productionId: z.string(), observationId: z.string() },
+  }, async ({ productionId, observationId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/observations/${encodeURIComponent(observationId)}/propose`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: "{}" })); } catch (e) { return fail(e); }
+  });
+
   server.registerTool("media",{
     title:"Scoped local media utilities",
     description:"Generic CPU probe/frame/concat/mix. Paths must be existing History media, user Agent uploads, web examples or outputs of this tool. No arbitrary shell/filters. probe returns dimensions/duration/audio; frame extracts one timestamp; concat normalizes and exports H264/AAC MP4; mix combines up to four audio streams. Editing is bounded to 120 seconds and 4.2 MP. Outputs are real files reusable by run_app.",

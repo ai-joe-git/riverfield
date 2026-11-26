@@ -141,6 +141,170 @@ export type FactRevision = {
   sourceEventId: string;
 };
 
+// Phase 1 — Audiovisual Observer contracts. These are evidence records, never canonical facts.
+export const OBSERVATION_SCHEMA_VERSION = 1 as const;
+export type ObservationConfidence = "confirmed" | "probable" | "uncertain" | "not_observable";
+export type ObservationStageName = "resolve" | "evidence" | "visual" | "asr" | "comparison" | "report";
+export type ObservationStageStatus = "pending" | "running" | "succeeded" | "failed" | "skipped" | "canceled";
+export type ObservationStage = {
+  name: ObservationStageName;
+  status: ObservationStageStatus;
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+};
+
+export type ObservationEvidence = {
+  id: string;
+  kind: "opening_frame" | "closing_frame" | "shot_frame" | "sample_frame" | "reference_frame" | "audio";
+  file: string;
+  path?: string;
+  hash?: string;
+  mime?: string;
+  timestampSeconds?: number;
+  frame?: number;
+  bindingId?: string;
+  shotId?: string;
+  label?: string;
+};
+
+export type ObservationTechnical = {
+  sourcePath: string;
+  sourceHash: string;
+  sourceVerified: boolean;
+  width?: number;
+  height?: number;
+  fps: number;
+  frameCount?: number;
+  duration: number;
+  videoCodec?: string;
+  audioStreams: { codec?: string; sampleRate?: number; channels?: number; duration?: number }[];
+  sceneStartFrame: number;
+  sceneEndFrame: number;
+  sceneStartSeconds: number;
+  sceneEndSeconds: number;
+};
+
+export type ObservationShot = {
+  id: string;
+  bindingId: string;
+  segmentIndex: number;
+  startFrame: number;
+  endFrame: number;
+  startSeconds: number;
+  endSeconds: number;
+  detector: "ffmpeg-scene" | "native-segment";
+  evidenceIds: string[];
+};
+
+export type ObservationClaim = {
+  text: string;
+  evidenceIds: string[];
+  confidence: ObservationConfidence;
+};
+
+export type ObservationCharacter = {
+  description: string;
+  identityMatch: "matches" | "probable" | "uncertain" | "not_observable";
+  identitySubject?: string;
+  clothing?: string;
+  hair?: string;
+  physicalAppearance?: string;
+  evidenceIds: string[];
+  uncertainties?: string[];
+};
+
+export type ObservationVisual = {
+  characters: ObservationCharacter[];
+  location?: { description: string; evidenceIds: string[]; confidence: ObservationConfidence };
+  props: { description: string; state?: string; evidenceIds: string[] }[];
+  actions: { description: string; evidenceIds: string[] }[];
+  composition: { description: string; evidenceIds: string[] }[];
+  expressions: { description: string; evidenceIds: string[] }[];
+  artifacts: { description: string; evidenceIds: string[] }[];
+  openingState?: { description: string; evidenceIds: string[] };
+  closingState?: { description: string; evidenceIds: string[] };
+  uncertainties: string[];
+  claims: ObservationClaim[];
+};
+
+export type ObservationUtterance = {
+  id: string;
+  startSeconds: number;
+  endSeconds: number;
+  startFrame?: number;
+  endFrame?: number;
+  text: string;
+  language?: string;
+  confidence?: number | null;
+  speaker?: { label: string; attribution: "confirmed" | "probable" | "unknown" };
+  unclear: boolean;
+  evidenceIds: string[];
+};
+
+export type ObservationDialogue = {
+  provider: "whisper-turbo" | "manual" | "none";
+  model?: string;
+  text: string;
+  language?: string;
+  utterances: ObservationUtterance[];
+  limitations: string[];
+  evidenceIds: string[];
+};
+
+export type ObservationFinding = {
+  id: string;
+  category: "character" | "wardrobe" | "prop" | "action" | "dialogue" | "event" | "location" | "continuity" | "creative_deviation" | "coverage";
+  expected: string;
+  observed: string;
+  classification: ObservationConfidence;
+  rationale: string;
+  evidenceIds: string[];
+  proposedChange?: FactChange;
+};
+
+export type ObservationComparison = {
+  findings: ObservationFinding[];
+  proposedChanges: FactChange[];
+  limitations: string[];
+  comparedAt: string;
+  comparisonPromptVersion: string;
+};
+
+export type ObservationReport = {
+  schemaVersion: typeof OBSERVATION_SCHEMA_VERSION;
+  reportVersion: number;
+  productionId: string;
+  episodeId: string;
+  sceneId: string;
+  candidateId: string;
+  sourceRunId?: string;
+  sourceOutputHash: string;
+  bindingIds: string[];
+  timebase: "final-output";
+  observer: {
+    model: string;
+    provider: "qwen-comfyui" | "mock";
+    version: string;
+    promptVersion: string;
+    configuration: Record<string, unknown>;
+  };
+  createdAt: string;
+  technical: ObservationTechnical;
+  nativeBoundaries: { bindingId: string; segmentIndex: number; startFrame: number; endFrame: number; startSeconds: number; endSeconds: number }[];
+  shots: ObservationShot[];
+  visual?: ObservationVisual;
+  dialogue?: ObservationDialogue;
+  comparison?: ObservationComparison;
+  observedEvents: { text: string; evidenceIds: string[]; confidence: ObservationConfidence }[];
+  evidence: ObservationEvidence[];
+  confidence: ObservationConfidence;
+  uncertainties: string[];
+  limitations: string[];
+  stages: ObservationStage[];
+  failure?: { stage: ObservationStageName; message: string };
+};
+
 export type Observation = {
   id: string;
   productionId: string;
@@ -149,6 +313,11 @@ export type Observation = {
   runId?: string;
   text: string;
   evidence: { type: string; path: string; startFrame?: number; endFrame?: number }[];
+  /** Manual notes and automated reports share this immutable record. */
+  kind?: "manual" | "analysis";
+  revision?: number;
+  previousRevisionId?: string;
+  report?: ObservationReport;
   createdAt: string;
   createdBy: string;
   source: ActorKind;

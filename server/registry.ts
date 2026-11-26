@@ -40,7 +40,7 @@ export type Input = {
   bind?: Bind[];
 };
 export type Preset = { id: string; label: string; sets: SetField[] };
-export type Output = { node: string; type: "image" | "video" | "audio"; label?: string };
+export type Output = { node: string; type: "image" | "video" | "audio" | "text"; label?: string };
 export type Model = {
   repo: string;
   file: string;

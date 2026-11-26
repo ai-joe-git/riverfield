@@ -545,6 +545,170 @@ function openDirectorHandoff(productionId, snapshot, scene) {
   dialog.showModal();
 }
 
+function analysisTag(value) {
+  const tone = value === "confirmed" ? "lime" : value === "probable" ? "violet" : value === "not_observable" ? "red" : "dark";
+  return el("span", { class: `tag ${tone}` }, String(value ?? "uncertain").replace(/_/g, " "));
+}
+
+function reportEvidenceUrl(productionId, jobId, evidence) {
+  return `/api/observation-jobs/${encodeURIComponent(jobId)}/evidence?file=${encodeURIComponent(evidence.file || "")}`;
+}
+
+function reportEvidenceCard(productionId, jobId, evidence) {
+  const src = reportEvidenceUrl(productionId, jobId, evidence);
+  const media = evidence.mime?.startsWith("audio/")
+    ? el("audio", { src, controls: true, preload: "metadata" })
+    : el("img", { src, alt: evidence.label || evidence.id, loading: "lazy" });
+  return el("figure", { class: "prod-analysis-evidence-card" }, media,
+    el("figcaption", {}, el("b", {}, evidence.id), el("small", {}, `${evidence.kind}${evidence.timestampSeconds !== undefined ? ` · ${fmtSeconds(evidence.timestampSeconds)}` : ""}`)));
+}
+
+function observationReportNode(productionId, job, observation, onPropose) {
+  const report = observation?.report;
+  if (!report) return el("div", { class: "prod-empty small" }, "No structured report was recorded for this job.");
+  const evidenceById = new Map((report.evidence || []).map((item) => [item.id, item]));
+  const evidenceCards = (report.evidence || []).filter((item) => item.kind !== "audio").slice(0, 24).map((item) => reportEvidenceCard(productionId, job.id, item));
+  const dialogue = report.dialogue?.utterances?.length
+    ? el("div", { class: "prod-analysis-list" }, ...report.dialogue.utterances.map((utterance) => el("div", { class: "prod-analysis-line" },
+      el("b", {}, `${fmtSeconds(utterance.startSeconds)}–${fmtSeconds(utterance.endSeconds)}`),
+      el("p", {}, utterance.text),
+      el("small", {}, `${utterance.speaker?.label || "Unattributed"} · speaker ${utterance.speaker?.attribution || "unknown"}${utterance.unclear ? " · unclear" : ""}`))))
+    : el("p", { class: "help" }, report.dialogue?.limitations?.join(" ") || "ASR did not return timestamped utterances.");
+  const findings = report.comparison?.findings?.length
+    ? el("div", { class: "prod-analysis-findings" }, ...report.comparison.findings.map((finding) => el("article", { class: "prod-analysis-finding" },
+      el("div", { class: "prod-analysis-line-head" }, el("b", {}, finding.category), analysisTag(finding.classification)),
+      el("p", {}, el("strong", {}, "Expected: "), finding.expected || "—"),
+      el("p", {}, el("strong", {}, "Observed: "), finding.observed || "—"),
+      finding.rationale ? el("small", {}, finding.rationale) : null,
+      finding.evidenceIds?.length ? el("small", { class: "dim" }, `Evidence: ${finding.evidenceIds.join(", ")}`) : null)))
+    : el("p", { class: "help" }, "No comparison findings were recorded.");
+  const proposed = report.comparison?.proposedChanges?.length
+    ? el("div", { class: "prod-analysis-proposals" }, el("p", { class: "help" }, "These are proposals only. A human must approve any canonical change."),
+      ...report.comparison.proposedChanges.map((change) => el("div", { class: "prod-analysis-proposal" },
+        el("b", {}, `${change.category} · ${change.phase || "opening"}`), el("p", {}, change.text))),
+      el("button", { class: "btn small ghost", type: "button", onclick: () => onPropose?.(observation.id) }, icon("check"), "Prepare canonical proposal"))
+    : null;
+  const stages = el("div", { class: "prod-analysis-stages" }, ...(report.stages || []).map((stage) => el("span", { class: `tag ${stage.status === "succeeded" ? "lime" : stage.status === "failed" ? "red" : stage.status === "skipped" ? "dark" : "violet"}`, title: stage.error || "" }, `${stage.name}: ${stage.status}`)));
+  return el("div", { class: "prod-analysis-report" },
+    el("div", { class: "prod-analysis-stats" },
+      el("span", { class: "tag dark" }, `report v${report.reportVersion}`),
+      el("span", { class: "tag dark" }, `${report.shots.length} shot${report.shots.length === 1 ? "" : "s"}`),
+      el("span", { class: "tag dark" }, `${report.evidence.length} evidence items`),
+      el("span", { class: "tag dark" }, report.technical?.width ? `${report.technical.width}×${report.technical.height}` : "technical unknown"),
+      analysisTag(report.confidence)),
+    stages,
+    el("h3", {}, "Evidence"),
+    evidenceCards.length ? el("div", { class: "prod-analysis-evidence" }, ...evidenceCards) : el("p", { class: "help" }, "No visual evidence frames are available."),
+    el("h3", {}, "Shot timeline"),
+    el("div", { class: "prod-analysis-shots" }, ...(report.shots || []).map((shot) => el("div", { class: "prod-analysis-shot" },
+      el("b", {}, shot.id), el("span", {}, `${fmtSeconds(shot.startSeconds)}–${fmtSeconds(shot.endSeconds)}`), el("small", {}, `${shot.detector} · ${shot.evidenceIds.join(", ")}`)))),
+    el("h3", {}, "Actual dialogue (ASR, uncorrected)"),
+    dialogue,
+    el("h3", {}, "Opening / closing state"),
+    el("div", { class: "prod-analysis-states" },
+      el("div", {}, el("b", {}, "Opening"), el("p", {}, report.visual?.openingState?.description || "Not observable")),
+      el("div", {}, el("b", {}, "Closing"), el("p", {}, report.visual?.closingState?.description || "Not observable"))),
+    el("h3", {}, "Intent versus observed"),
+    findings,
+    proposed,
+    el("details", { class: "prod-details" }, el("summary", {}, "Limitations and uncertainties"),
+      el("pre", { class: "prod-prompt" }, JSON.stringify({ limitations: report.limitations, uncertainties: report.uncertainties }, null, 2))));
+}
+
+function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, onDone) {
+  const dialog = modal(`Analyze ${scene.title}`, "Runs an explicit evidence-only observation on this immutable candidate. No candidate, scene or canonical fact is changed.");
+  const status = el("div", { class: "prod-analysis-status" }, "Not started. The independent visual pass receives no intended prompt.");
+  const progress = el("div", { class: "prod-progress wide" }, el("i", { style: { width: "0%" } }));
+  const characterAssets = Object.values(snapshot.assets).filter((asset) => asset.kind === "image" && asset.category === "characters");
+  const referenceSelect = el("select", { multiple: true, size: "4", "aria-label": "Identity reference assets" },
+    ...characterAssets.map((asset) => el("option", { value: asset.id }, asset.label)));
+  const referenceField = characterAssets.length
+    ? el("label", { class: "ag-field" }, el("span", {}, "Identity references (optional; they are not proof of appearance)"), referenceSelect)
+    : null;
+  const body = el("div", { class: "prod-analysis-body" });
+  let job = null;
+  let timer = null;
+  const cancelButton = el("button", { class: "btn small ghost danger", type: "button", disabled: true }, icon("x"), "Cancel analysis");
+  const startButton = el("button", { class: "btn lime", type: "button" }, icon("play"), "Start analysis");
+  const stop = () => { if (timer) clearInterval(timer); timer = null; };
+  const render = () => {
+    if (!job) return;
+    const pct = Math.max(0, Math.min(100, Number(job.progress?.percent) || 0));
+    progress.firstElementChild.style.width = `${pct}%`;
+    status.replaceChildren(el("b", {}, `${job.status} · ${job.progress?.stage || "queued"} · ${pct}%`),
+      job.error ? el("small", { class: "dim" }, job.error) : null);
+  };
+  const loadObservation = async () => {
+    const snap = await api(`/api/productions/${encodeURIComponent(productionId)}`);
+    const all = Object.values(snap.observations).filter((observation) => observation.sceneId === scene.id && observation.candidateId === candidate.id && observation.report);
+    const latest = job?.observationId ? snap.observations[job.observationId] : all.sort((a, b) => (a.revision || 0) - (b.revision || 0)).at(-1);
+    body.replaceChildren();
+    if (latest?.report) body.append(observationReportNode(productionId, job, latest, (observationId) => proposeObservedChanges(productionId, observationId, () => loadObservation())));
+    const previous = all.filter((observation) => observation.id !== latest?.id);
+    if (previous.length) body.append(el("section", { class: "prod-section" }, el("h3", {}, "Previous observation revisions"),
+      ...previous.map((observation) => el("details", { class: "prod-details" }, el("summary", {}, `Revision ${observation.revision || "?"} · ${dateLabel(observation.createdAt)}`),
+        el("p", { class: "help" }, observation.text),
+        observation.report ? el("p", { class: "help" }, `${observation.report.shots.length} shots · ${observation.report.dialogue?.utterances.length || 0} transcript utterances`) : null))));
+  };
+  const poll = async () => {
+    if (!job) return;
+    try {
+      job = await api(`/api/observation-jobs/${encodeURIComponent(job.id)}`);
+      render();
+      if (["succeeded", "failed", "canceled", "lost"].includes(job.status)) {
+        stop(); startButton.disabled = true; cancelButton.disabled = true;
+        if (job.status === "succeeded") await loadObservation();
+        else body.replaceChildren(el("p", { class: "help" }, job.error || "The analysis job ended before a report was recorded. Extracted evidence is retained."));
+      }
+    } catch (error) {
+      stop(); status.textContent = `Could not read the analysis job: ${error.message}`;
+    }
+  };
+  startButton.onclick = async () => {
+    startButton.disabled = true;
+    status.textContent = "Submitting the observation job…";
+    try {
+      job = await api(`/api/productions/${encodeURIComponent(productionId)}/observation-jobs`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          sceneId: scene.id, candidateId: candidate.id, bindingIds: bindings.map((binding) => binding.id),
+          referenceAssetIds: [...referenceSelect.selectedOptions].map((option) => option.value),
+          options: { maxFrames: 12, visualFrames: Math.max(1, 9 - [...referenceSelect.selectedOptions].length), sampleIntervalSeconds: 2, sceneThreshold: 0.3, includeAudio: true, visual: true, asr: true, comparison: true },
+        }),
+      });
+      cancelButton.disabled = false; render();
+      timer = setInterval(() => { void poll(); }, 1500);
+      void poll();
+    } catch (error) {
+      startButton.disabled = false;
+      status.textContent = error.message;
+      toast(error.message, { error: true });
+    }
+  };
+  cancelButton.onclick = async () => {
+    if (!job) return;
+    cancelButton.disabled = true;
+    try { job = await api(`/api/observation-jobs/${encodeURIComponent(job.id)}/cancel`, { method: "POST" }); render(); }
+    catch (error) { toast(error.message, { error: true }); }
+  };
+  const previous = Object.values(snapshot.observations).filter((observation) => observation.sceneId === scene.id && observation.candidateId === candidate.id).sort((a, b) => (a.revision || 0) - (b.revision || 0));
+  if (previous.length) body.append(el("section", { class: "prod-section" }, el("h3", {}, "Previous observations"),
+    ...previous.map((observation) => el("div", { class: "prod-observation" }, el("b", {}, `Revision ${observation.revision || "?"} · ${dateLabel(observation.createdAt)}`), el("p", {}, observation.text)))));
+  dialog.append(status, progress, referenceField, body,
+    el("p", { class: "help" }, "The source video is verified and read only. Evidence is cached under out/observations; a failed stage never removes the candidate."),
+    el("div", { class: "ag-dialog-actions" },
+      el("button", { class: "btn ghost", type: "button", onclick: () => { stop(); dialog.close(); onDone?.(); } }, "Close"),
+      cancelButton, startButton));
+  dialog.showModal();
+}
+
+async function proposeObservedChanges(productionId, observationId, onDone) {
+  try {
+    const result = await api(`/api/productions/${encodeURIComponent(productionId)}/observations/${encodeURIComponent(observationId)}/propose`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    toast("Canonical proposal prepared. Human approval is still required.");
+    onDone?.(result);
+  } catch (error) { toast(error.message, { error: true }); }
+}
+
 function openCompareCandidates(productionId, scene, candidates, snapshot) {
   const dialog = modal(`Compare ${scene.title}`, "Each candidate keeps its own scene decision. A run covering several scenes is never globally approved.");
   const grid = el("div", { class: "prod-compare-grid" }, ...candidates.map((candidate) => {
@@ -789,6 +953,7 @@ export function productionView(productionId) {
       candidate.render ? el("details", { class: "prod-details" }, el("summary", {}, "Rendering parameters"), el("pre", { class: "prod-prompt" }, JSON.stringify(candidate.render, null, 2))) : null,
       el("div", { class: "prod-candidate-actions" },
         el("button", { class: "btn small ghost", type: "button", onclick: () => openCandidatePlayback(productionId, candidate, bindings) }, icon("play"), "Play scene"),
+        el("button", { class: "btn small ghost", type: "button", onclick: () => openAnalyzeScene(productionId, snap, scene, candidate, bindings, reload) }, icon("eye"), "Analyze scene"),
         el("button", { class: "btn small ghost", type: "button", onclick: () => proposalDialog(productionId, snap, { scene, candidates: [candidate], candidateId: candidate.id, decision: "canon", title: `Canonize ${scene.title}`, onDone: reload }) }, icon("check"), "Canon proposal"),
         el("button", { class: "btn small ghost", type: "button", onclick: () => proposalDialog(productionId, snap, { scene, candidates: [candidate], candidateId: candidate.id, decision: "alternate", title: `Keep ${scene.title} alternate`, onDone: reload }) }, icon("layers"), "Alternate"),
         el("button", { class: "btn small ghost danger", type: "button", onclick: () => proposalDialog(productionId, snap, { scene, candidates: [candidate], candidateId: candidate.id, decision: "reject", title: `Reject ${scene.title} candidate`, onDone: reload }) }, icon("x"), "Reject")),

@@ -1,0 +1,194 @@
+{
+  "clip": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3.8_27b_w4a8.safetensors",
+      "type": "stable_diffusion",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Load Qwen3.8 observer model"
+    }
+  },
+  "sys": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": ""
+    },
+    "_meta": {
+      "title": "Observer system prompt"
+    }
+  },
+  "prompt_source": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": ""
+    },
+    "_meta": {
+      "title": "Observer evidence prompt"
+    }
+  },
+  "img1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-1.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 1"
+    }
+  },
+  "img2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-2.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 2"
+    }
+  },
+  "img3": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-3.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 3"
+    }
+  },
+  "img4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-4.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 4"
+    }
+  },
+  "img5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-5.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 5"
+    }
+  },
+  "img6": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-6.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 6"
+    }
+  },
+  "img7": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-7.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 7"
+    }
+  },
+  "img8": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-8.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 8"
+    }
+  },
+  "img9": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "observer-frame-9.png"
+    },
+    "_meta": {
+      "title": "Evidence frame 9"
+    }
+  },
+  "gen": {
+    "class_type": "TextGenerateV2",
+    "inputs": {
+      "clip": [
+        "clip",
+        0
+      ],
+      "prompt": [
+        "prompt_source",
+        0
+      ],
+      "system_prompt": [
+        "sys",
+        0
+      ],
+      "max_length": 6144,
+      "sampling_mode": "on",
+      "sampling_mode.temperature": 0.1,
+      "sampling_mode.top_k": 64,
+      "sampling_mode.top_p": 0.9,
+      "sampling_mode.min_p": 0.0,
+      "sampling_mode.repetition_penalty": 1.05,
+      "sampling_mode.presence_penalty": 0,
+      "sampling_mode.seed": 0,
+      "thinking": false,
+      "use_default_template": true,
+      "mtp": "auto",
+      "images.image1": [
+        "img1",
+        0
+      ],
+      "images.image2": [
+        "img2",
+        0
+      ],
+      "images.image3": [
+        "img3",
+        0
+      ],
+      "images.image4": [
+        "img4",
+        0
+      ],
+      "images.image5": [
+        "img5",
+        0
+      ],
+      "images.image6": [
+        "img6",
+        0
+      ],
+      "images.image7": [
+        "img7",
+        0
+      ],
+      "images.image8": [
+        "img8",
+        0
+      ],
+      "images.image9": [
+        "img9",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Independent observation"
+    }
+  },
+  "save": {
+    "class_type": "SaveText",
+    "inputs": {
+      "text": [
+        "gen",
+        0
+      ],
+      "filename_prefix": "riverfield/observer",
+      "format": "txt"
+    },
+    "_meta": {
+      "title": "Save observation JSON"
+    }
+  }
+}

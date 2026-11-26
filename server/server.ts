@@ -53,6 +53,8 @@ import { ProductionStore, ProductionError, type CreateAssetBuildInput, type Crea
 import { buildProductionContext } from "./production-context.ts";
 import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
 import type { Actor } from "./production-types.ts";
+import { ObservationManager, type StartObservationInput } from "./observation.ts";
+import { ObservationError } from "./observation-evidence.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -110,6 +112,11 @@ const history = new History(join(outDir, "history"), {
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
 const directors = new DirectorStore(outDir, byId);
 const productions = new ProductionStore(outDir, { mediaRoots: productionMediaRoots(outDir) });
+let observationManager: ObservationManager | null = null;
+const observations = () => observationManager ??= new ObservationManager({
+  outDir, productions, inference: inference.run, runner: getRunner(),
+  mediaRoots: productionMediaRoots(outDir), whisperApp: byId.get("whisper-turbo"),
+});
 const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
 const mcpURL=process.env.RIVERFIELD_AGENT_MCP_URL||`${studioURL}/mcp`;
 const native=new NativeRuntime(join(outDir,"native-runtime"));
@@ -666,8 +673,35 @@ const server = createServer(async (req, res) => {
         if (id && req.method === "POST" && sub === "seasons") return send(res, 201, productions.createSeason(id, await jsonBody() as CreateSeasonInput, actor));
         if (id && req.method === "POST" && sub === "episodes") return send(res, 201, productions.createEpisode(id, await jsonBody() as CreateEpisodeInput, actor));
         if (id && req.method === "POST" && sub === "scenes") return send(res, 201, productions.createScene(id, await jsonBody() as CreateSceneInput, actor));
+        if (id && req.method === "GET" && sub === "scenes" && arg && parts[5] === "observations") {
+          localAccess(req);
+          const snap = productions.snapshot(id);
+          if (!snap.scenes.some((scene) => scene.id === arg)) return send(res, 404, { error: "unknown scene" });
+          return send(res, 200, { observations: Object.values(snap.observations).filter((observation) => observation.sceneId === arg).sort((a, b) => (a.revision ?? 0) - (b.revision ?? 0) || a.createdAt.localeCompare(b.createdAt)) });
+        }
         if (id && req.method === "PATCH" && sub === "scenes" && arg) return send(res, 200, productions.updateScene(id, arg, await jsonBody() as { title?: string; summary?: string; characterIds?: string[]; locationIds?: string[]; number?: number }, actor));
         if (id && req.method === "DELETE" && sub === "scenes" && arg) return send(res, 200, productions.removeScene(id, arg, actor));
+        if (id && req.method === "POST" && sub === "observation-jobs") {
+          localAccess(req);
+          const body = await jsonBody();
+          if (typeof body.sceneId !== "string" || typeof body.candidateId !== "string") throw new InputError("sceneId and candidateId are required");
+          const job = observations().start(id, {
+            sceneId: body.sceneId, candidateId: body.candidateId,
+            ...(Array.isArray(body.bindingIds) ? { bindingIds: body.bindingIds.map(String) } : {}),
+            ...(body.options && typeof body.options === "object" && !Array.isArray(body.options) ? { options: body.options as Record<string, never> } : {}),
+            ...(Array.isArray(body.referenceAssetIds) ? { referenceAssetIds: body.referenceAssetIds.map(String) } : {}),
+            ...(typeof body.requestKey === "string" ? { requestKey: body.requestKey } : {}),
+          }, actor);
+          return send(res, 202, job);
+        }
+        if (id && req.method === "GET" && sub === "observation-jobs") {
+          localAccess(req);
+          return send(res, 200, { jobs: observations().list(id, url.searchParams.get("sceneId") || undefined) });
+        }
+        if (id && req.method === "POST" && sub === "observations" && arg && parts[5] === "propose") {
+          localAccess(req);
+          return send(res, 201, observations().proposeChanges(id, arg, actor, "Proposed from an evidence-backed observation"));
+        }
         if (id && req.method === "POST" && sub === "observations") return send(res, 201, productions.recordObservation(id, await jsonBody() as RegisterObservationInput, actor));
         if (id && req.method === "POST" && sub === "asset-builds") return send(res, 201, productions.createAssetBuild(id, await jsonBody() as CreateAssetBuildInput, actor));
         if (id && req.method === "POST" && sub === "assets") {
@@ -1042,6 +1076,22 @@ const server = createServer(async (req, res) => {
           return send(res, history.remove(id, me) ? 200 : 404, { removed: id });
         }
       }
+      if (area === "observation-jobs") {
+        localAccess(req);
+        if (req.method === "GET" && !id) return send(res, 200, { jobs: observations().list() });
+        if (req.method === "GET" && id && !sub) {
+          const job = observations().get(id);
+          return job ? send(res, 200, job) : send(res, 404, { error: "unknown observation job" });
+        }
+        if (req.method === "POST" && id && sub === "cancel") {
+          const job = observations().cancel(id);
+          return job ? send(res, 200, job) : send(res, 404, { error: "unknown observation job" });
+        }
+        if (req.method === "GET" && id && sub === "evidence") {
+          const file = observations().evidenceFile(id, url.searchParams.get("file") || "");
+          return file ? sendFile(req, res, file, "private, max-age=31536000, immutable") : send(res, 404, { error: "evidence not found" });
+        }
+      }
       if (area === "gpu") {
         if (req.method === "GET" && !id) return send(res, 200, await gpuStatus(url.searchParams.get("device") === "1"));
         if (req.method === "POST" && id === "wake") {
@@ -1085,6 +1135,7 @@ const server = createServer(async (req, res) => {
     return send(res, 404, { error: "not found" });
   } catch (e) {
     if (e instanceof ProductionError) return send(res, 400, { error: e.message, code: e.code });
+    if (e instanceof ObservationError) return send(res, 400, { error: e.message, code: e.code });
     if(e instanceof InputError){const body=inputErrorBody(e);if(req.url?.startsWith("/api/agent")){body.error=agent.providers.redact(e);body.issues=body.issues.map(i=>({...i,message:agent.providers.redactText(i.message)}));}return send(res,400,body);}
     const status = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : e instanceof InputError || req.url?.startsWith("/api/agent") ? 400 : 500;
     if (status === 500) console.error(e);

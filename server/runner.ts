@@ -439,6 +439,29 @@ export class Runner {
     return new TextDecoder().decode(await output.toBytes()).trim();
   }
 
+  /**
+   * Submit a text-producing workflow and return every text output with its node id.
+   * Used by the Observer: cancellation is forwarded to the backend job, not just the
+   * local poll, and the caller can keep a durable stage status around it.
+   */
+  async runTexts(app: App, rawValues: Values, signal?: AbortSignal): Promise<{ job: Awaited<ReturnType<Runner["submit"]>>; outputs: { nodeId: string; name: string; text: string }[] }> {
+    const job = await this.submit(app, rawValues);
+    const cancel = () => { void job.cancel().catch(() => undefined); };
+    signal?.addEventListener("abort", cancel, { once: true });
+    try {
+      await job.wait(undefined, signal);
+    } finally {
+      signal?.removeEventListener("abort", cancel);
+    }
+    if (job.status !== "succeeded") throw new Error(`${app.id} ended ${job.status}${job.error?.message ? `: ${job.error.message}` : ""}`);
+    const outputs: { nodeId: string; name: string; text: string }[] = [];
+    for (const output of job.outputs) {
+      if (output.type !== "text" && !/\.txt$/i.test(output.name)) continue;
+      outputs.push({ nodeId: output.nodeId, name: output.name, text: new TextDecoder().decode(await output.toBytes()).trim() });
+    }
+    return { job, outputs };
+  }
+
   jobs() {
     return this.comfy.jobs;
   }
