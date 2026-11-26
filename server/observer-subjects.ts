@@ -132,6 +132,17 @@ function requireCharacter(subjects: string[], registry: ProductionSubject[]): bo
   return subjects.some((id) => byId.get(id)?.type === "character");
 }
 
+/** Clothing observed in a scene is scene state, never permanent identity. */
+export function normalizeObservedChange(change: FactChange): FactChange {
+  const text = String(change.text ?? "").trim();
+  const clothingOrState = /\b(wears?|wearing|dress|shirt|trousers?|robe|suit|coat|jacket|outfit|wardrobe|gown|skirt|hat|shoes?|clothing|holding|holds?)\b/i.test(text);
+  const category = change.category === "identity" && clothingOrState ? "state" : change.category;
+  return {
+    ...change, text, category,
+    tags: [...new Set([...(change.tags ?? []), ...(category !== change.category ? ["scene-state", "wardrobe-not-identity"] : [])])],
+  };
+}
+
 export type ValidatedProposal = {
   changes: FactChange[];
   subjects: { raw: string[]; resolved: string[]; addedFallback: boolean }[];
@@ -205,4 +216,31 @@ export function validateObservedProposals(input: {
     subjectAudit.push({ raw: rawSubjects, resolved, addedFallback });
   }
   return { changes: output, subjects: subjectAudit };
+}
+
+export type ProposalAudit = {
+  accepted: FactChange[];
+  rejected: { change: FactChange; code: string; message: string }[];
+};
+
+/** Audit without creating a canonical proposal: each observed change is validated independently. */
+export function auditObservedProposals(input: {
+  changes: FactChange[];
+  snapshot: ProductionSnapshot;
+  sceneId: string;
+  allowedEvidence: Set<string>;
+}): ProposalAudit {
+  const accepted: FactChange[] = [];
+  const rejected: ProposalAudit["rejected"] = [];
+  for (const raw of input.changes) {
+    const change = normalizeObservedChange(raw);
+    try {
+      const result = validateObservedProposals({ changes: [change], snapshot: input.snapshot, sceneId: input.sceneId, allowedEvidence: input.allowedEvidence });
+      accepted.push(...result.changes);
+    } catch (error) {
+      const item = error as ObserverProposalError;
+      rejected.push({ change, code: item.code ?? "OBSERVER_PROPOSAL_INVALID", message: item.message });
+    }
+  }
+  return { accepted, rejected };
 }

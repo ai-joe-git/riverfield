@@ -61,3 +61,42 @@ test("intended brief extracts compact shots and a scene brief deterministically"
   assert.match(brief.shots[0]?.text ?? "", /\[dialogue\]/);
   assert.equal(brief.utterances.length, 2);
 });
+
+test("monotonic alignment never reuses an ASR utterance unintentionally", () => {
+  const alignment = alignDialogue([
+    { id: "i1", text: "You're late", normalized: "you're late", source: "scene" },
+    { id: "i2", text: "I was just about to drink this too", normalized: "i was just about to drink this too", source: "scene" },
+  ], {
+    ...dialogue,
+    utterances: [{ id: "u1", startSeconds: 0, endSeconds: 3, text: "you're late i was just about to drink this too", speaker: { label: "Unattributed speaker", attribution: "unknown" }, unclear: false, evidenceIds: ["audio-01"] }],
+  });
+  assert.equal(alignment.matches.length, 1);
+  assert.equal(alignment.matches[0]?.grouping, "merged-asr");
+  assert.deepEqual(alignment.matches[0]?.intendedIds, ["i1", "i2"]);
+  assert.deepEqual(alignment.matches[0]?.utteranceIds, ["u1"]);
+  assert.equal(alignment.matches.flatMap((match) => match.utteranceIds).length, 1);
+});
+
+test("alignment supports an intended utterance split across consecutive ASR segments", () => {
+  const alignment = alignDialogue([
+    { id: "i1", text: "You're late Daichi I was just about to drink this one too", normalized: "you're late daichi i was just about to drink this one too", source: "scene" },
+  ], {
+    ...dialogue,
+    utterances: [
+      { id: "u1", startSeconds: 0, endSeconds: 1, text: "you're late daichi", speaker: { label: "Unattributed speaker", attribution: "unknown" }, unclear: false, evidenceIds: ["audio-01"] },
+      { id: "u2", startSeconds: 1, endSeconds: 3, text: "i was just about to drink this one too", speaker: { label: "Unattributed speaker", attribution: "unknown" }, unclear: false, evidenceIds: ["audio-01"] },
+    ],
+  });
+  assert.equal(alignment.matches.length, 1);
+  assert.equal(alignment.matches[0]?.grouping, "split-asr");
+  assert.deepEqual(alignment.matches[0]?.utteranceIds, ["u1", "u2"]);
+  assert.equal("overlapSeconds" in (alignment.matches[0]?.timing ?? {}), false);
+  assert.equal(alignment.matches[0]?.timing.precision, "coarse-asr-segment");
+});
+
+test("shot extraction ignores [Shot 1] in introductory prose and keeps soundscape/music separate", () => {
+  const brief = extractIntendedBrief("At 0.00 seconds, <Picture 1> (from [Shot 1]) is referenced.\n\n[Shot 1] A wide shot. <d>Hello.</d>\n[Shot 2] A reply. <d>Hi.</d>\n\noverall_soundscape: soft jazz and a chair creak.\n\nnon_diegetic_music: slow piano.", "candidate-prompt");
+  assert.deepEqual(brief.shots.map((shot) => shot.index), [1, 2]);
+  assert.match(brief.soundscape ?? "", /soft jazz/);
+  assert.match(brief.music ?? "", /slow piano/);
+});

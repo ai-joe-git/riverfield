@@ -25,7 +25,8 @@ import {
   type AsrAdapter, type ComparisonResult, type SceneComparator, type VisualObserver, type VisualObserverResult,
 } from "./observer-inference.ts";
 import { createObserverApp } from "./observer-app.ts";
-import { ObserverProposalError, buildProductionSubjects, validateObservedProposals } from "./observer-subjects.ts";
+import { ObserverProposalError, auditObservedProposals, buildProductionSubjects, normalizeObservedChange, validateObservedProposals } from "./observer-subjects.ts";
+import { analysisImageManifest, createAnalysisImages, type AnalysisImage } from "./evidence-images.ts";
 import { alignDialogue, dialogueAlignmentMarkdown, extractIntendedBrief, type DialogueAlignment, type IntendedBrief } from "./dialogue-alignment.ts";
 import { observerProfile, profileDefaults, isObserverProfileId, type ObserverProfileId } from "./observer-profiles.ts";
 import {
@@ -354,8 +355,9 @@ export class ObservationManager {
     const visualModel = resolveSelected(options.visualModel);
     const comparisonModel = resolveSelected(options.comparisonModel);
     assertObserverModalities(visualModel, { video: options.nativeVideo, audio: options.nativeAudio });
-    if (referenceAssetIds.length > 2) throw new ObservationError("OBSERVER_REFERENCE_BUDGET", "At most two identity reference images are supported; references are never silently dropped");
-    if (options.visualFrames + referenceAssetIds.length > 9) throw new ObservationError("OBSERVER_IMAGE_BUDGET", "Evidence frames plus identity references exceed the nine-image workflow capacity");
+    if (options.visualFrames + referenceAssetIds.length > 9) {
+      throw new ObservationError("OBSERVER_IMAGE_BUDGET", `${options.visualFrames} evidence frames plus ${referenceAssetIds.length} reference images exceed the nine-image workflow capacity`);
+    }
     if (!comparisonModel.modalities.text) throw new ObserverModelError("OBSERVER_MODEL_INCOMPATIBLE", `${comparisonModel.label} cannot perform the text comparison pass`);
     if ((options.nativeVideo || options.nativeAudio) && bindings.length !== 1) {
       throw new ObservationError("OBSERVATION_NATIVE_MULTI_BINDING", "Native video/audio is limited to one selected scene binding; multiple or discontinuous bindings are rejected rather than assembled with hidden gaps");
@@ -415,6 +417,7 @@ export class ObservationManager {
       const selectedFrames = bundle.visualFrameIds
         .map((id) => bundle.frames.find((frame) => frame.id === id))
         .filter((frame): frame is ObservationEvidence => Boolean(frame));
+      let analysisImages: AnalysisImage[] = [];
       const coveredShots = new Set(selectedFrames.map((frame) => frame.shotId).filter(Boolean));
       writeArtifact("configuration.json", {
         jobId: job.id, productionId: job.productionId, sceneId: job.sceneId, candidateId: job.candidateId,
@@ -454,12 +457,23 @@ export class ObservationManager {
           label: `reference:${asset.label}`,
           file: { bytes: new Uint8Array(readFileSync(resolveMediaPath(asset.path, this.mediaRoots))), name: basename(asset.path), type: "image/png" },
         }));
+      if (job.options.visual) {
+        const referenceInputs = job.options.referenceAssetIds
+          .map((assetId) => snap.assets[assetId])
+          .filter(Boolean)
+          .map((asset) => ({ id: asset.id, label: `reference:${asset.label}`, path: resolveMediaPath(asset.path, this.mediaRoots), hash: asset.hash }));
+        analysisImages = createAnalysisImages({
+          frames: selectedFrames, references: referenceInputs,
+          outputDir: join(artifactDir, "analysis"),
+        });
+        writeArtifact("analysis-images.json", analysisImageManifest(analysisImages));
+      }
 
       const visualModel = job.modelBindings?.visual ?? observerModel(job.options.visualModel || DEFAULT_OBSERVER_MODEL_ID);
       const comparisonModel = job.modelBindings?.comparison ?? observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID);
       const visualBackend: VisualObserver = this.visualObserver ?? this.observer ?? new QwenVisualObserver(
         this.runner, createObserverApp(visualModel), {
-          model: visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: 2,
+          model: visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: Math.max(0, 9 - job.options.visualFrames),
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
           checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family },
@@ -572,7 +586,7 @@ export class ObservationManager {
                 .map((id) => bundle.frames.find((frame) => frame.id === id))
                 .filter((frame): frame is ObservationEvidence => Boolean(frame)),
               referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
-              nativeEvidence,
+              nativeEvidence, analysisImages,
               signal: controller.signal,
             });
             if (job.options.profile === "experimental-av") markExperimentalAudioUnverified(visual);
@@ -632,6 +646,14 @@ export class ObservationManager {
 
       controller.signal.throwIfAborted();
       this.stage(job, "report", "running");
+      let proposalAudit: ObservationReport["proposalAudit"];
+      if (comparison) {
+        const allowedEvidence = new Set([...bundle.frames, ...bundle.audio, ...nativeEvidence].map((item) => item.id));
+        proposalAudit = auditObservedProposals({
+          changes: comparison.comparison.proposedChanges, snapshot: snap, sceneId: scene.id, allowedEvidence,
+        });
+        writeArtifact("proposal-validation.json", proposalAudit);
+      }
       const revision = Math.max(0, ...Object.values(snap.observations)
         .filter((item) => item.sceneId === scene.id && item.candidateId === candidate.id)
         .map((item) => item.revision ?? 0)) + 1;
@@ -672,11 +694,13 @@ export class ObservationManager {
         },
         nativeBoundaries: bundle.nativeBoundaries,
         shots: bundle.shots, intendedBrief, ...(dialogueAlignment ? { dialogueAlignment } : {}),
+        ...(analysisImages.length ? { analysisImages } : {}),
         ...(visual ? { visual: visual.visual } : {}),
         ...(visual?.audiovisual ? { audiovisual: visual.audiovisual } : {}),
         ...(nativeEvidence.length ? { nativeEvidence } : {}),
         ...(dialogue ? { dialogue } : {}),
         ...(comparison ? { comparison: comparison.comparison } : {}),
+        ...(proposalAudit ? { proposalAudit } : {}),
         observedEvents: observedEvents(visual?.visual, dialogue), evidence: [...bundle.frames, ...bundle.audio],
         confidence: visual?.visual.claims.some((claim) => claim.confidence === "confirmed") ? "confirmed" : visual ? "probable" : "not_observable",
         uncertainties: [...(visual?.visual.uncertainties ?? []), ...(dialogue?.limitations ?? [])],
@@ -911,20 +935,7 @@ export class ObservationManager {
       ...(observation.report.nativeEvidence ?? []).map((item) => item.id),
     ]);
     const rawChanges = observation.report.comparison?.proposedChanges ?? [];
-    const normalized: FactChange[] = [];
-    for (const raw of rawChanges) {
-      const text = String(raw.text ?? "").trim();
-      if (!text) continue;
-      // Clothing, hair styling and props visible in one scene are current state, not
-      // permanent identity. Keep a genuinely stable identity fact only when it has
-      // no wardrobe/scene-state wording; otherwise propose a scene-scoped State fact.
-      const clothingOrState = /\b(wears?|wearing|dress|shirt|trousers?|robe|suit|coat|jacket|outfit|wardrobe|gown|skirt|hat|shoes?|clothing|holding|holds?)\b/i.test(text);
-      const category = raw.category === "identity" && clothingOrState ? "state" : raw.category;
-      normalized.push({
-        ...raw, text, category,
-        tags: [...new Set([...(raw.tags ?? []), ...(category !== raw.category ? ["scene-state", "wardrobe-not-identity"] : [])])],
-      });
-    }
+    const normalized = rawChanges.filter((raw) => String(raw.text ?? "").trim()).map(normalizeObservedChange);
     let changes: FactChange[];
     try {
       changes = validateObservedProposals({

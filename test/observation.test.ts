@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProductionStore } from "../server/production-store.ts";
@@ -41,7 +42,7 @@ function fakeEvidence(input: Parameters<NonNullable<ObservationDeps["evidence"]>
   const dir = join(input.outDir, "observations", "test-evidence");
   mkdirSync(join(dir, "frames"), { recursive: true });
   mkdirSync(join(dir, "audio"), { recursive: true });
-  writeFileSync(join(dir, "frames", "frame-0001.jpg"), "frame");
+  execFileSync("ffmpeg", ["-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=white:s=16x16", "-frames:v", "1", "-q:v", "2", join(dir, "frames", "frame-0001.jpg")]);
   writeFileSync(join(dir, "audio", "audio-01.wav"), "audio");
   const frame: ObservationEvidence = {
     id: "frame-0001", kind: "opening_frame", file: "frames/frame-0001.jpg", path: join(dir, "frames", "frame-0001.jpg"),

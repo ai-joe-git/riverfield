@@ -23,6 +23,8 @@ export type IntendedBrief = {
   sceneBrief?: string;
   shots: IntendedShot[];
   utterances: IntendedUtterance[];
+  soundscape?: string;
+  music?: string;
   limitations: string[];
 };
 
@@ -37,11 +39,14 @@ export type DialogueTiming = {
   observedStartSeconds?: number;
   observedEndSeconds?: number;
   startDeltaSeconds?: number;
-  overlapSeconds?: number;
+  /** ASR segments are coarse; this is not a word-level onset measurement. */
+  precision: "coarse-asr-segment";
 };
 
 export type DialogueAlignmentMatch = {
   intendedId: string;
+  intendedIds: string[];
+  grouping: "single" | "split-asr" | "merged-asr" | "grouped";
   utteranceIds: string[];
   textMatch: DialogueTextMatch;
   normalizedIntended: string;
@@ -191,7 +196,7 @@ export function extractIntendedBrief(source: string | undefined, kind: "candidat
   const text = String(source ?? "");
   const utterances = extractIntendedUtterances(text, kind);
   const shots: IntendedShot[] = [];
-  const shotRegex = /\[Shot\s+(\d+)\]\s*([\s\S]*?)(?=\n\s*\[Shot\s+\d+\]|\n\s*overall_soundscape:|\n\s*non_diegetic_music:|$)/gi;
+  const shotRegex = /(?:^|\n)\s*\[Shot\s+(\d+)\]\s*([\s\S]*?)(?=\n\s*\[Shot\s+\d+\]|\n\s*overall_soundscape:|\n\s*non_diegetic_music:|$)/gi;
   for (const match of text.matchAll(shotRegex)) {
     const cleaned = String(match[2] ?? "")
       .replace(/<d>[\s\S]*?<\/d>/gi, "[dialogue]")
@@ -201,11 +206,15 @@ export function extractIntendedBrief(source: string | undefined, kind: "candidat
     const dialogueIds = utterances.filter((utterance) => cleaned.includes("[dialogue]") && utterance.startSeconds === undefined).map((utterance) => utterance.id);
     shots.push({ index: Number(match[1]), text: cleaned.slice(0, 700), dialogueIds });
   }
+  const soundscape = /(?:^|\n)\s*overall_soundscape\s*:\s*([\s\S]*?)(?=\n\s*non_diegetic_music\s*:|$)/i.exec(text)?.[1]?.trim();
+  const music = /(?:^|\n)\s*non_diegetic_music\s*:\s*([\s\S]*)$/i.exec(text)?.[1]?.trim();
   return {
     source: kind,
     ...(text.trim() ? { sceneBrief: text.trim().slice(0, 500) } : {}),
     shots,
     utterances,
+    ...(soundscape ? { soundscape: soundscape.slice(0, 900) } : {}),
+    ...(music ? { music: music.slice(0, 900) } : {}),
     limitations: [
       "Intended dialogue is extracted mechanically from the submitted prompt; it is not evidence that the rendered clip contains it.",
       "Shot timing and speaker labels are parsed from prompt text and are not inferred from the rendered video.",
@@ -218,74 +227,81 @@ export function alignDialogue(
   transcript: ObservationDialogue | undefined,
 ): DialogueAlignment {
   const utterances = transcript?.utterances ?? [];
-  const observed = utterances.map((utterance: ObservationUtterance) => ({
-    id: utterance.id,
-    utterance,
-    tokens: dialogueTokens(utterance.text),
-  }));
-  const matches: DialogueAlignmentMatch[] = [];
+  const intendedTokens = intended.map((item) => dialogueTokens(item.text));
+  const observedTokens = utterances.map((utterance) => dialogueTokens(utterance.text));
+  type Group = { i: number; n: number; j: number; m: number; score: number };
+  const memo = new Map<string, { score: number; groups: Group[] }>();
+  const solve = (i: number, j: number): { score: number; groups: Group[] } => {
+    const key = `${i}:${j}`;
+    const cached = memo.get(key);
+    if (cached) return cached;
+    if (i >= intended.length || j >= utterances.length) return { score: 0, groups: [] };
+    let best: { score: number; groups: Group[] } = { score: 0, groups: [] };
+    // Skip an unmatched intended utterance or transcript segment.
+    const skipIntended = solve(i + 1, j);
+    if (skipIntended.score > best.score) best = skipIntended;
+    const skipObserved = solve(i, j + 1);
+    if (skipObserved.score > best.score) best = skipObserved;
+    for (let n = 1; i + n <= intended.length; n += 1) {
+      const a = intendedTokens.slice(i, i + n).flat();
+      for (let m = 1; j + m <= utterances.length; m += 1) {
+        const b = observedTokens.slice(j, j + m).flat();
+        const coverage = lcs(a, b).length / Math.max(1, Math.max(a.length, b.length));
+        if (coverage < 0.35) continue;
+        const rest = solve(i + n, j + m);
+        // Favor one-to-one alignment when it is equally supported. Grouping is used
+        // only when it explains a split/merged ASR segment better.
+        const score = coverage * Math.min(n, m) - 0.05 * (n + m - 2) + rest.score;
+        if (score > best.score + 1e-9) best = { score, groups: [{ i, n, j, m, score: coverage }, ...rest.groups] };
+      }
+    }
+    memo.set(key, best);
+    return best;
+  };
+  const solution = solve(0, 0);
+  const usedIntended = new Set<number>();
   const usedTranscript = new Set<string>();
-  for (const item of intended) {
-    const intendedTokens = dialogueTokens(item.text);
-    let best: { utterance: ObservationUtterance; tokens: string[]; score: number } | undefined;
-    for (const candidate of observed) {
-      const score = intendedTokens.length && candidate.tokens.length
-        ? lcs(intendedTokens, candidate.tokens).length / Math.max(intendedTokens.length, candidate.tokens.length) : 0;
-      if (!best || score > best.score) best = { utterance: candidate.utterance, tokens: candidate.tokens, score };
-    }
-    if (!best) {
-      matches.push({
-        intendedId: item.id, utteranceIds: [], textMatch: "mismatch",
-        normalizedIntended: item.normalized, normalizedObserved: "",
-        missingWords: intendedTokens, extraWords: [], repeatedWords: repeated(intendedTokens),
-        hesitations: { intended: hesitations(intendedTokens), observed: [] },
-        speaker: { status: "not_available", ...(item.speakerLabel ? { intendedLabel: item.speakerLabel } : {}) },
-        timing: { status: "not_available", ...(item.startSeconds !== undefined ? { intendedStartSeconds: item.startSeconds } : {}) },
-        audioDelivery: "not_observable", evidenceIds: [],
-      });
-      continue;
-    }
-    usedTranscript.add(best.utterance.id);
-    const observedTokens = best.tokens;
-    const difference = tokenDiff(intendedTokens, observedTokens);
-    const intendedOnly = difference.missing;
-    const observedOnly = difference.extra;
-    const intendedLabel = item.speakerLabel;
-    const observedLabel = best.utterance.speaker?.label;
-    const attribution = best.utterance.speaker?.attribution;
-    const speakerStatus: DialogueSpeakerMatch = !intendedLabel ? "not_available"
+  const matches: DialogueAlignmentMatch[] = [];
+  for (const group of solution.groups) {
+    const intendedGroup = intended.slice(group.i, group.i + group.n);
+    const transcriptGroup = utterances.slice(group.j, group.j + group.m);
+    intendedGroup.forEach((item) => usedIntended.add(intended.indexOf(item)));
+    transcriptGroup.forEach((utterance) => usedTranscript.add(utterance.id));
+    const a = intendedTokens.slice(group.i, group.i + group.n).flat();
+    const b = observedTokens.slice(group.j, group.j + group.m).flat();
+    const difference = tokenDiff(a, b);
+    const intendedLabels = [...new Set(intendedGroup.map((item) => item.speakerLabel).filter(Boolean))];
+    const attribution = transcriptGroup.find((utterance) => utterance.speaker?.attribution)?.speaker?.attribution;
+    const observedLabel = transcriptGroup[0]?.speaker?.label;
+    const speakerStatus: DialogueSpeakerMatch = !intendedLabels.length ? "not_available"
       : attribution === "unknown" || !attribution ? "unknown"
-      : normalizeDialogue(intendedLabel) === normalizeDialogue(observedLabel ?? "") ? "same_label" : "different_label";
-    let timing: DialogueTiming = {
-      status: "not_available",
-      ...(item.startSeconds !== undefined ? { intendedStartSeconds: item.startSeconds } : {}),
-      observedStartSeconds: best.utterance.startSeconds,
-      observedEndSeconds: best.utterance.endSeconds,
+      : intendedLabels.length === 1 && normalizeDialogue(intendedLabels[0]!) === normalizeDialogue(observedLabel ?? "") ? "same_label" : "different_label";
+    const intendedStart = intendedGroup[0]?.startSeconds;
+    const observedStart = transcriptGroup[0]?.startSeconds;
+    const observedEnd = transcriptGroup.at(-1)?.endSeconds;
+    const timing: DialogueTiming = {
+      status: intendedStart === undefined || observedStart === undefined ? "not_available" : Math.abs(observedStart - intendedStart) <= 2 ? "aligned" : "offset",
+      ...(intendedStart !== undefined ? { intendedStartSeconds: intendedStart } : {}),
+      ...(observedStart !== undefined ? { observedStartSeconds: observedStart } : {}),
+      ...(observedEnd !== undefined ? { observedEndSeconds: observedEnd } : {}),
+      ...(intendedStart !== undefined && observedStart !== undefined ? { startDeltaSeconds: +(observedStart - intendedStart).toFixed(3) } : {}),
+      precision: "coarse-asr-segment",
     };
-    if (item.startSeconds !== undefined) {
-      const delta = best.utterance.startSeconds - item.startSeconds;
-      const overlap = Math.max(0, Math.min(best.utterance.endSeconds, item.startSeconds + 4) - Math.max(best.utterance.startSeconds, item.startSeconds));
-      timing = { ...timing, status: Math.abs(delta) <= 2 ? "aligned" : "offset", startDeltaSeconds: +delta.toFixed(3), overlapSeconds: +overlap.toFixed(3) };
-    }
+    const grouping = group.n === 1 && group.m === 1 ? "single" : group.n === 1 ? "split-asr" : group.m === 1 ? "merged-asr" : "grouped";
     matches.push({
-      intendedId: item.id,
-      utteranceIds: [best.utterance.id],
-      textMatch: textMatch(intendedTokens, best.tokens),
-      normalizedIntended: item.normalized,
-      normalizedObserved: normalizeDialogue(best.utterance.text),
-      missingWords: intendedOnly,
-      extraWords: observedOnly,
-      repeatedWords: [...new Set([...repeated(intendedTokens), ...repeated(observedTokens)])],
-      hesitations: { intended: [...new Set(hesitations(intendedTokens))], observed: [...new Set(hesitations(observedTokens))] },
+      intendedId: intendedGroup[0]!.id, intendedIds: intendedGroup.map((item) => item.id), grouping,
+      utteranceIds: transcriptGroup.map((utterance) => utterance.id),
+      textMatch: textMatch(a, b),
+      normalizedIntended: normalizeDialogue(intendedGroup.map((item) => item.text).join(" ")),
+      normalizedObserved: normalizeDialogue(transcriptGroup.map((utterance) => utterance.text).join(" ")),
+      missingWords: difference.missing, extraWords: difference.extra,
+      repeatedWords: [...new Set([...repeated(a), ...repeated(b)])],
+      hesitations: { intended: [...new Set(hesitations(a))], observed: [...new Set(hesitations(b))] },
       speaker: {
-        status: speakerStatus,
-        ...(intendedLabel ? { intendedLabel } : {}),
-        ...(observedLabel ? { observedLabel } : {}),
-        ...(attribution ? { observedAttribution: attribution } : {}),
+        status: speakerStatus, ...(intendedLabels.length ? { intendedLabel: intendedLabels.join(", ") } : {}),
+        ...(observedLabel ? { observedLabel } : {}), ...(attribution ? { observedAttribution: attribution } : {}),
       },
-      timing,
-      audioDelivery: "not_observable",
-      evidenceIds: best.utterance.evidenceIds ?? [],
+      timing, audioDelivery: "not_observable", evidenceIds: [...new Set(transcriptGroup.flatMap((utterance) => utterance.evidenceIds ?? []))],
     });
   }
   return {
@@ -297,12 +313,12 @@ export function alignDialogue(
       evidenceIds: utterance.evidenceIds ?? [],
     })),
     matches,
-    unmatchedIntended: intended.filter((item) => !matches.some((match) => match.intendedId === item.id && match.utteranceIds.length)).map((item) => item.id),
+    unmatchedIntended: intended.filter((item, index) => !usedIntended.has(index)).map((item) => item.id),
     unmatchedTranscript: utterances.filter((utterance) => !usedTranscript.has(utterance.id)).map((utterance) => utterance.id),
     limitations: [
       "Punctuation and capitalization are normalized; text matching is deterministic.",
       "Speaker attribution is reported separately from text matching; Whisper has no diarization here.",
-      "Timing is reported separately from text matching; ASR segment boundaries are not word-level alignment.",
+      "Timing is coarse ASR-segment metadata, not verified dialogue onset or lip synchronization.",
       "Audio delivery (prosody, voice quality, acting) is marked not_observable because Whisper Turbo does not measure it.",
       "Missing/extra words are computed by longest common subsequence; no semantic rewriting or repair is performed.",
     ],

@@ -787,8 +787,8 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const referenceSelect = el("select", { multiple: true, size: "4", "aria-label": "Identity reference assets" },
     ...characterAssets.map((asset) => el("option", { value: asset.id }, asset.label)));
   const referenceField = characterAssets.length
-    ? el("label", { class: "ag-field" }, el("span", {}, "Identity references (optional, up to two; they are not proof of appearance)"), referenceSelect,
-      el("small", { class: "help" }, "Evidence frames use seven of the nine image slots; the two identity references are never silently dropped."))
+    ? el("label", { class: "ag-field" }, el("span", {}, "Identity references (optional; limited by the nine-image capacity)"), referenceSelect,
+      el("small", { class: "help" }, "Evidence frames and references share nine workflow slots; over-budget requests fail instead of dropping an image."))
     : null;
   const body = el("div", { class: "prod-analysis-body" });
   let job = null;

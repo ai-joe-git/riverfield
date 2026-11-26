@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProductionStore } from "../server/production-store.ts";
-import { buildProductionSubjects, validateObservedProposals } from "../server/observer-subjects.ts";
+import { auditObservedProposals, buildProductionSubjects, validateObservedProposals } from "../server/observer-subjects.ts";
 import type { FactChange } from "../server/production-types.ts";
 
 const actor = { kind: "agent" as const, id: "subject-test" };
@@ -49,5 +49,22 @@ test("proposal validation rejects unknown subjects, invalid evidence and invalid
     assert.throws(() => validateObservedProposals({
       changes: [{ ...base, factId: "some-fact" } as FactChange], snapshot: snap, sceneId: "scene", allowedEvidence: new Set(["frame-0001"]),
     }), /must not carry a factId/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("proposal audit records rejected observations without creating a proposal", () => {
+  const { dir, snap } = snapshot();
+  try {
+    const audit = auditObservedProposals({
+      changes: [
+        { op: "add", category: "state", text: "Akari stands by the bar.", evidenceIds: ["frame-0001"], subjectIds: ["akari"] },
+        { op: "update", category: "state", text: "Akari sits.", evidenceIds: ["frame-0001"], subjectIds: ["akari"] },
+      ],
+      snapshot: snap, sceneId: "scene", allowedEvidence: new Set(["frame-0001"]),
+    });
+    assert.equal(audit.accepted.length, 1);
+    assert.equal(audit.rejected.length, 1);
+    assert.match(audit.rejected[0]?.code ?? "", /UPDATE_WITHOUT_FACT/);
+    assert.equal(Object.keys(snap.proposals).length, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

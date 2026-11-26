@@ -2,6 +2,7 @@
 // cinematic prompt-writer prompts: the first visual pass never receives the intent.
 import type { ObservationEvidence, ObservationNativeEvidence, ObservationShot, ObservationTechnical } from "./production-types.ts";
 import type { DialogueAlignment, IntendedBrief } from "./dialogue-alignment.ts";
+import type { AnalysisImage } from "./evidence-images.ts";
 
 export const OBSERVER_VERSION = "phase1-observer";
 export const OBSERVER_PROMPT_VERSION = "visual-independent-v2";
@@ -13,7 +14,7 @@ You describe only what is visible in the supplied evidence images. You never rec
 Treat every image as a sampled frame, not as a complete record of the video. An object or person absent from a frame may exist outside the sample.
 Do not identify a character as a named production character unless the visual evidence itself makes that identity clear. If a reference image is supplied, compare appearance only and state uncertainty; a supplied reference does not prove that character appears.
 Report concrete observable details: people, approximate identity match, hair, clothing, body appearance, location, props and their visible state, actions and reactions, framing, camera changes, facial expression and body language, the opening frame state, the closing frame state, visible artifacts, and anything unobservable.
-Every meaningful factual claim must cite one or more frame ids from the supplied mapping. If you cannot support a claim with a frame id, put it under uncertainties or limitations instead.
+Every meaningful factual claim must cite one or more evidence aliases or frame ids from the supplied mapping. The alias mapping records the immutable evidence id; cite only an alias or id that appears in the mapping. If you cannot support a claim, put it under uncertainties or limitations instead.
 Keep each claim atomic: do not combine a visible object/action with a sound, a previous movement, or an inferred cause. Do not repeat the same fact across sections. Put intentional stylistic effects (sweat drops, blush marks, speed lines, sparkles, shock crosses, cartoon pops that are visibly drawn) under stylistic_effects, and only unintended rendering defects under artifacts.
 Never describe voice identity, acting quality, audio mixing or lip sync from images alone.
 Return only one JSON object, no Markdown, no prose before or after it:
@@ -36,7 +37,7 @@ Return only one JSON object, no Markdown, no prose before or after it:
 export const AUDIOVISUAL_OBSERVER_SYSTEM_PROMPT = `You are Riverfield's independent audiovisual observer.
 You describe only what the supplied sampled frames, native scene video and native scene audio actually show or sound like. You never receive, infer or repeat an intended screenplay, canonical text or previous comparison in this pass.
 The native media are evidence, not proof that a model capability is reliable. State confidence and limitations explicitly. A model accepting audio or video input does not by itself prove that it heard or understood the content.
-Visible claims must cite the supplied frame ids. Native video claims may cite the native video id. Audio, music, sound-effect, voice-delivery and synchronization claims may cite the native audio id or native video id; they are not required to cite a visual frame.
+Visible claims must cite a supplied evidence alias or frame id. Native video claims may cite the native video id. Audio, music, sound-effect, voice-delivery and synchronization claims may cite the native audio id or native video id; they are not required to cite a visual frame.
 Do not assume that an object, person or sound absent from the sample is absent from the whole scene. Do not infer dialogue or voice identity from images alone. Do not use the ASR transcript as if it were an intended screenplay; it is a separate evidence source.
 Keep claims atomic: separate visible action, dialogue content, audible reaction, music, environmental sound, comedic effect, voice delivery, synchronization and artifacts. If you cannot support a claim with a valid evidence id, put it under limitations instead of inventing an id.
 Return only one JSON object, no Markdown, no prose before or after it:
@@ -88,15 +89,18 @@ export function visualObserverPrompt(input: {
   shots: ObservationShot[];
   frames: ObservationEvidence[];
   referenceLabels?: string[];
+  analysisImages?: AnalysisImage[];
 }): string {
-  const frameLines = input.frames.map((frame, index) =>
-    `${index + 1}. ${frame.id} · ${frame.timestampSeconds?.toFixed(3) ?? "?"}s · frame ${frame.frame ?? "?"} · ${frame.kind}${frame.shotId ? ` · ${frame.shotId}` : ""}`,
+  const frameLines = (input.analysisImages?.length ? input.analysisImages : input.frames.map((frame, index) => ({
+    alias: frame.id, evidenceId: frame.id, label: frame.id, timestampSeconds: frame.timestampSeconds, frame: frame.frame, kind: frame.kind, shotId: frame.shotId,
+  } as any))).map((image: any, index: number) =>
+    `${index + 1}. ${image.alias} → immutable ${image.evidenceId} · ${image.timestampSeconds?.toFixed(3) ?? "?"}s · frame ${image.frame ?? "?"} · ${image.kind}${image.shotId ? ` · ${image.shotId}` : ""}`,
   );
   const shotLines = input.shots.map((shot) =>
     `${shot.id}: ${shot.startSeconds.toFixed(3)}–${shot.endSeconds.toFixed(3)}s (frames ${shot.startFrame}–${shot.endFrame}, ${shot.detector})`,
   );
   return [
-    "EVIDENCE MAP — images are supplied in this exact order.",
+    "EVIDENCE MAP — model-facing aliases and immutable evidence ids, in this exact order. Cite the alias or immutable id exactly.",
     ...frameLines.map((line) => `- ${line}`),
     "",
     "DETECTED SHOTS (computed from FFmpeg scene changes and native segment boundaries):",
@@ -115,9 +119,12 @@ export function audiovisualObserverPrompt(input: {
   frames: ObservationEvidence[];
   nativeEvidence: ObservationNativeEvidence[];
   referenceLabels?: string[];
+  analysisImages?: AnalysisImage[];
 }): string {
-  const frameLines = input.frames.map((frame, index) =>
-    `${index + 1}. ${frame.id} · ${frame.timestampSeconds?.toFixed(3) ?? "?"}s · frame ${frame.frame ?? "?"} · ${frame.kind}${frame.shotId ? ` · ${frame.shotId}` : ""}`,
+  const frameLines = (input.analysisImages?.length ? input.analysisImages : input.frames.map((frame, index) => ({
+    alias: frame.id, evidenceId: frame.id, label: frame.id, timestampSeconds: frame.timestampSeconds, frame: frame.frame, kind: frame.kind, shotId: frame.shotId,
+  } as any))).map((image: any, index: number) =>
+    `${index + 1}. ${image.alias} → immutable ${image.evidenceId} · ${image.timestampSeconds?.toFixed(3) ?? "?"}s · frame ${image.frame ?? "?"} · ${image.kind}${image.shotId ? ` · ${image.shotId}` : ""}`,
   );
   const nativeLines = input.nativeEvidence.map((item) =>
     `${item.id} · ${item.kind} · ${item.startSeconds.toFixed(3)}–${item.endSeconds.toFixed(3)}s (${item.durationSeconds.toFixed(3)}s) · hash ${item.hash}${item.fps ? ` · ${item.fps} fps` : ""}${item.frameCount ? ` · ${item.frameCount} frames` : ""}${item.sampleRate ? ` · ${item.sampleRate} Hz` : ""}${item.backendPreprocessing ? ` · ${item.backendPreprocessing}` : ""}`,
@@ -127,7 +134,7 @@ export function audiovisualObserverPrompt(input: {
   );
   const supplied = input.nativeEvidence.map((item) => item.id).join(", ") || "none";
   return [
-    "EVIDENCE MAP — sampled images are supplied in this exact order.",
+    "EVIDENCE MAP — model-facing aliases and immutable evidence ids, in this exact order.",
     ...frameLines.map((line) => `- ${line}`),
     "",
     "NATIVE AUDIOVISUAL EVIDENCE — actual media supplied to the workflow:",
@@ -195,6 +202,12 @@ export function comparisonPrompt(input: {
     "",
     "INTENDED ACTIONS (deterministically extracted from the submitted prompt):",
     ...(actionLines.length ? actionLines : ["- none extracted"]),
+    "",
+    "INTENDED SOUNDSCAPE (separate requirement; actual fulfillment may be not_observable):",
+    input.intendedBrief?.soundscape || "(none specified)",
+    "",
+    "INTENDED MUSIC (separate requirement; actual fulfillment may be not_observable):",
+    input.intendedBrief?.music || "(none specified)",
     "",
     "DETERMINISTIC DIALOGUE ALIGNMENT (computed by code; inspect text, speaker, timing and audio delivery separately):",
     alignment ? JSON.stringify(alignment, null, 2) : "(not available)",

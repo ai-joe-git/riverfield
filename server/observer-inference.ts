@@ -17,6 +17,7 @@ import {
 } from "./observer-prompts.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import type { DialogueAlignment, IntendedBrief } from "./dialogue-alignment.ts";
+import type { AnalysisImage } from "./evidence-images.ts";
 
 export type VisualObserverResult = {
   visual: ObservationVisual;
@@ -27,6 +28,7 @@ export type VisualObserverResult = {
   inputModalities?: { text: true; image: true; video: boolean; audio: boolean };
   observationMode?: "visual" | "audiovisual";
   audiovisual?: ObservationAudiovisual;
+  analysisImages?: AnalysisImage[];
   nativeEvidence?: ObservationNativeEvidence[];
   checkpoint?: { file: string; quantization: string; clipType: string; family: string };
   rawText: string;
@@ -59,6 +61,7 @@ export interface VisualObserver {
     video?: FileValue;
     audio?: FileValue;
     nativeEvidence?: ObservationNativeEvidence[];
+    analysisImages?: AnalysisImage[];
     signal?: AbortSignal;
   }): Promise<VisualObserverResult>;
 }
@@ -219,6 +222,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     video?: FileValue;
     audio?: FileValue;
     nativeEvidence?: ObservationNativeEvidence[];
+    analysisImages?: AnalysisImage[];
     signal?: AbortSignal;
   }): Promise<VisualObserverResult> {
     const references = input.referenceFiles ?? [];
@@ -233,17 +237,28 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     }
     const frames = input.frames;
     const nativeEvidence = input.nativeEvidence ?? [];
+    const analysisImages = input.analysisImages ?? [];
+    if (analysisImages.length && analysisImages.length !== frames.length + references.length) {
+      throw new ObservationError("OBSERVER_ANALYSIS_IMAGE_COUNT", `Analysis image count ${analysisImages.length} does not match ${frames.length} frames + ${references.length} references`);
+    }
     const audiovisualMode = Boolean(input.video || input.audio);
-    const allowed = new Set(frames.map((frame) => frame.id));
+    const aliases = new Map(analysisImages.filter((image) => image.kind === "evidence").map((image) => [image.alias, image.evidenceId]));
+    const allowed = new Set([...frames.map((frame) => frame.id), ...aliases.keys()]);
     const audiovisualAllowed = new Set([...allowed, ...nativeEvidence.map((item) => item.id)]);
+    const resolveVisualIds = (value: unknown, limitations: string[]) =>
+      evidenceIds(value, allowed, limitations).map((id) => aliases.get(id) ?? id);
+    const resolveAvIds = (value: unknown, limitations: string[]) =>
+      evidenceIds(value, audiovisualAllowed, limitations).map((id) => aliases.get(id) ?? id);
     const prompt = audiovisualMode
       ? audiovisualObserverPrompt({
           technical: input.technical, shots: input.shots, frames, nativeEvidence,
           referenceLabels: references.map((reference) => reference.label),
+          analysisImages,
         })
       : visualObserverPrompt({
           technical: input.technical, shots: input.shots, frames,
           referenceLabels: references.map((reference) => reference.label),
+          analysisImages,
         });
     const systemPrompt = audiovisualMode ? AUDIOVISUAL_OBSERVER_SYSTEM_PROMPT : VISUAL_OBSERVER_SYSTEM_PROMPT;
     const values: Record<string, unknown> = {
@@ -253,7 +268,17 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       ...(input.video ? { video1: input.video } : {}),
       ...(input.audio ? { audio1: input.audio } : {}),
     };
-    const visualImages = [
+    const analysisVisualImages = analysisImages.map((image) => ({
+      file: { bytes: new Uint8Array(readFileSync(image.derivativePath)), name: basename(image.derivativePath), type: "image/jpeg" } as FileValue,
+      meta: {
+        id: image.alias, label: image.label, kind: image.kind, file: image.derivativePath,
+        evidenceId: image.evidenceId, originalHash: image.originalHash, hash: image.derivativeHash,
+        ...(image.timestampSeconds !== undefined ? { timestampSeconds: image.timestampSeconds } : {}),
+        ...(image.frame !== undefined ? { frame: image.frame } : {}),
+        ...(image.shotId ? { shotId: image.shotId } : {}),
+      },
+    }));
+    const visualImages = analysisVisualImages.length ? analysisVisualImages : [
       ...frames.map((frame) => ({
         file: frameFile(frame),
         meta: {
@@ -284,13 +309,13 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       ...(entry?.clothing ? { clothing: String(entry.clothing) } : {}),
       ...(entry?.hair ? { hair: String(entry.hair) } : {}),
       ...(entry?.physical_appearance ? { physicalAppearance: String(entry.physical_appearance) } : {}),
-      evidenceIds: evidenceIds(entry?.evidence_ids, allowed, limitations),
+      evidenceIds: resolveVisualIds(entry?.evidence_ids, limitations),
       ...(strings(entry?.uncertainties).length ? { uncertainties: strings(entry.uncertainties) } : {}),
     })).filter((entry: any) => entry.description), (entry: any) => norm(entry.description));
     const mapList = (value: unknown, keys: string[]) => (Array.isArray(value) ? value : []).map((entry: any) => {
       const out: Record<string, unknown> = {};
       for (const key of keys) if (entry?.[key] !== undefined) out[key] = String(entry[key]);
-      out.evidenceIds = evidenceIds(entry?.evidence_ids, allowed, limitations);
+      out.evidenceIds = resolveVisualIds(entry?.evidence_ids, limitations);
       return out;
     });
     const visual: ObservationVisual = {
@@ -298,7 +323,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       ...(parsed.location && typeof parsed.location === "object" ? {
         location: {
           description: String((parsed.location as any).description ?? ""),
-          evidenceIds: evidenceIds((parsed.location as any).evidence_ids, allowed, limitations),
+          evidenceIds: resolveVisualIds((parsed.location as any).evidence_ids, limitations),
           confidence: asConfidence((parsed.location as any).confidence),
         },
       } : {}),
@@ -309,15 +334,15 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       stylisticEffects: [],
       artifacts: [],
       ...(parsed.opening_state && typeof parsed.opening_state === "object" ? {
-        openingState: { description: String((parsed.opening_state as any).description ?? ""), evidenceIds: evidenceIds((parsed.opening_state as any).evidence_ids, allowed, limitations) },
+        openingState: { description: String((parsed.opening_state as any).description ?? ""), evidenceIds: resolveVisualIds((parsed.opening_state as any).evidence_ids, limitations) },
       } : {}),
       ...(parsed.closing_state && typeof parsed.closing_state === "object" ? {
-        closingState: { description: String((parsed.closing_state as any).description ?? ""), evidenceIds: evidenceIds((parsed.closing_state as any).evidence_ids, allowed, limitations) },
+        closingState: { description: String((parsed.closing_state as any).description ?? ""), evidenceIds: resolveVisualIds((parsed.closing_state as any).evidence_ids, limitations) },
       } : {}),
       uncertainties,
       claims: dedupeBy((Array.isArray(parsed.claims) ? parsed.claims : []).map((claim: any) => ({
         text: String(claim?.text ?? "").trim(),
-        evidenceIds: evidenceIds(claim?.evidence_ids, allowed, limitations),
+        evidenceIds: resolveVisualIds(claim?.evidence_ids, limitations),
         confidence: asConfidence(claim?.confidence),
       })).filter((claim: any) => claim.text), (claim: any) => norm(claim.text)),
     };
@@ -335,7 +360,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         ? parsed.audiovisual as Record<string, unknown> : null;
       const avList = (value: unknown): ObservationAudiovisualClaim[] => (Array.isArray(value) ? value : []).map((entry: any) => ({
         description: String(entry?.description ?? "").trim(),
-        evidenceIds: evidenceIds(entry?.evidence_ids, audiovisualAllowed, limitations),
+        evidenceIds: resolveAvIds(entry?.evidence_ids, limitations),
         confidence: asConfidence(entry?.confidence),
       })).filter((entry) => entry.description);
       const avLimitations = rawAv ? strings(rawAv.limitations, 30) : [];
@@ -370,10 +395,12 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         temperature: this.temperature, maxLength: this.maxOutputTokens, topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
         observationMode: audiovisualMode ? "audiovisual" : "visual",
         nativeEvidenceIds: nativeEvidence.map((item) => item.id),
+        analysisImages: analysisImages.length,
       },
       inputModalities: { text: true, image: true, video: Boolean(input.video), audio: Boolean(input.audio) },
       observationMode: audiovisualMode ? "audiovisual" : "visual",
       ...(audiovisual ? { audiovisual } : {}),
+      ...(analysisImages.length ? { analysisImages } : {}),
       nativeEvidence,
       ...(this.checkpoint ? { checkpoint: this.checkpoint } : {}),
       rawText, systemPrompt, inputPrompt: prompt,

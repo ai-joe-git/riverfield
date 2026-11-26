@@ -2,6 +2,7 @@
 // These types are engine-independent: H3, Pika, pi-H3 and LTX are execution clients.
 import { createHash } from "node:crypto";
 import type { DialogueAlignment } from "./dialogue-alignment.ts";
+import type { AnalysisImage } from "./evidence-images.ts";
 
 export const PRODUCTION_SCHEMA_VERSION = 1 as const;
 export const MEMORY_CATEGORIES = ["identity", "state", "episodic", "narrative"] as const;
@@ -375,12 +376,14 @@ export type ObservationReport = {
   nativeBoundaries: { bindingId: string; segmentIndex: number; startFrame: number; endFrame: number; startSeconds: number; endSeconds: number }[];
   shots: ObservationShot[];
   visual?: ObservationVisual;
+  analysisImages?: AnalysisImage[];
   intendedBrief?: import("./dialogue-alignment.ts").IntendedBrief;
   dialogueAlignment?: DialogueAlignment;
   audiovisual?: ObservationAudiovisual;
   nativeEvidence?: ObservationNativeEvidence[];
   dialogue?: ObservationDialogue;
   comparison?: ObservationComparison;
+  proposalAudit?: { accepted: FactChange[]; rejected: { change: FactChange; code: string; message: string }[] };
   observedEvents: { text: string; evidenceIds: string[]; confidence: ObservationConfidence }[];
   evidence: ObservationEvidence[];
   confidence: ObservationConfidence;
