@@ -156,7 +156,7 @@ export type ObservationStage = {
 
 export type ObservationEvidence = {
   id: string;
-  kind: "opening_frame" | "closing_frame" | "shot_frame" | "sample_frame" | "reference_frame" | "audio";
+  kind: "opening_frame" | "closing_frame" | "shot_frame" | "sample_frame" | "reference_frame" | "audio" | "video";
   file: string;
   path?: string;
   hash?: string;
@@ -227,6 +227,46 @@ export type ObservationVisual = {
   closingState?: { description: string; evidenceIds: string[] };
   uncertainties: string[];
   claims: ObservationClaim[];
+};
+
+export type ObservationNativeEvidence = {
+  id: string;
+  kind: "video" | "audio";
+  file: string;
+  path?: string;
+  hash: string;
+  mime: string;
+  startSeconds: number;
+  endSeconds: number;
+  durationSeconds: number;
+  fps?: number;
+  frameCount?: number;
+  sampleRate?: number;
+  bindingId?: string;
+  sourceHash: string;
+  /** How the backend consumes the native media, where it is known. */
+  backendPreprocessing?: string;
+};
+
+export type ObservationAudiovisualClaim = {
+  description: string;
+  evidenceIds: string[];
+  confidence: ObservationConfidence;
+};
+
+export type ObservationAudiovisual = {
+  mode: "audiovisual";
+  supplied: { videoId?: string; audioId?: string };
+  temporalActions: ObservationAudiovisualClaim[];
+  dialogueAndReactions: ObservationAudiovisualClaim[];
+  music: ObservationAudiovisualClaim[];
+  environmentalSound: ObservationAudiovisualClaim[];
+  soundEffects: ObservationAudiovisualClaim[];
+  synchronization: ObservationAudiovisualClaim[];
+  voiceDelivery: ObservationAudiovisualClaim[];
+  audioArtifacts: ObservationAudiovisualClaim[];
+  visualArtifacts: ObservationAudiovisualClaim[];
+  limitations: string[];
 };
 
 export type ObservationUtterance = {
@@ -301,6 +341,7 @@ export type ObservationReport = {
       id: string; file: string; label: string; family: string; quantization: string; clipType: string;
     };
     inputModalities?: { text: true; image: boolean; video: boolean; audio: boolean };
+    observationMode?: "visual" | "audiovisual";
     effectiveConfiguration?: Record<string, unknown>;
     nativeInputs?: {
       video?: { file: string; hash: string; startSeconds: number; endSeconds: number; sourceHash: string };
@@ -319,6 +360,8 @@ export type ObservationReport = {
   nativeBoundaries: { bindingId: string; segmentIndex: number; startFrame: number; endFrame: number; startSeconds: number; endSeconds: number }[];
   shots: ObservationShot[];
   visual?: ObservationVisual;
+  audiovisual?: ObservationAudiovisual;
+  nativeEvidence?: ObservationNativeEvidence[];
   dialogue?: ObservationDialogue;
   comparison?: ObservationComparison;
   observedEvents: { text: string; evidenceIds: string[]; confidence: ObservationConfidence }[];

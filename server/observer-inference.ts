@@ -8,11 +8,12 @@ import type { Runner, FileValue } from "./runner.ts";
 import type {
   ObservationComparison, ObservationConfidence, ObservationDialogue, ObservationEvidence,
   ObservationFinding, ObservationReport, ObservationShot, ObservationTechnical, ObservationUtterance,
-  ObservationVisual, FactChange,
+  ObservationVisual, ObservationAudiovisual, ObservationAudiovisualClaim, ObservationNativeEvidence, FactChange,
 } from "./production-types.ts";
 import {
+  AUDIOVISUAL_OBSERVER_PROMPT_VERSION, AUDIOVISUAL_OBSERVER_SYSTEM_PROMPT,
   COMPARISON_PROMPT_VERSION, COMPARISON_SYSTEM_PROMPT, OBSERVER_PROMPT_VERSION, OBSERVER_VERSION,
-  VISUAL_OBSERVER_SYSTEM_PROMPT, comparisonPrompt, visualObserverPrompt,
+  VISUAL_OBSERVER_SYSTEM_PROMPT, audiovisualObserverPrompt, comparisonPrompt, visualObserverPrompt,
 } from "./observer-prompts.ts";
 import { ObservationError } from "./observation-evidence.ts";
 
@@ -23,6 +24,9 @@ export type VisualObserverResult = {
   promptVersion: string;
   configuration: Record<string, unknown>;
   inputModalities?: { text: true; image: true; video: boolean; audio: boolean };
+  observationMode?: "visual" | "audiovisual";
+  audiovisual?: ObservationAudiovisual;
+  nativeEvidence?: ObservationNativeEvidence[];
   checkpoint?: { file: string; quantization: string; clipType: string; family: string };
   rawText: string;
   systemPrompt?: string;
@@ -53,6 +57,7 @@ export interface VisualObserver {
     referenceFiles?: { label: string; file: FileValue }[];
     video?: FileValue;
     audio?: FileValue;
+    nativeEvidence?: ObservationNativeEvidence[];
     signal?: AbortSignal;
   }): Promise<VisualObserverResult>;
 }
@@ -61,7 +66,7 @@ export interface SceneComparator {
   compare(input: {
     intended: string;
     canonicalOpening: string;
-    observation: Pick<ObservationReport, "visual" | "dialogue" | "technical" | "shots" | "evidence">;
+    observation: Pick<ObservationReport, "visual" | "audiovisual" | "nativeEvidence" | "dialogue" | "technical" | "shots" | "evidence">;
     coverage: string;
     signal?: AbortSignal;
   }): Promise<ComparisonResult>;
@@ -115,6 +120,14 @@ function jsonObject(text: string): Record<string, unknown> {
   }
 }
 
+function parseRaw(text: string): Record<string, unknown> {
+  try { return jsonObject(text); }
+  catch (error) {
+    (error as Error & { rawText?: string }).rawText = text;
+    throw error;
+  }
+}
+
 function evidenceIds(value: unknown, allowed: Set<string>, limitations: string[]): string[] {
   const ids = strings(value).filter((id) => allowed.has(id));
   if (strings(value).length && !ids.length) limitations.push("The observer cited evidence ids that were not in the evidence map.");
@@ -130,6 +143,8 @@ export type ObserverBackendOptions = {
   model?: string;
   clipType?: string;
   maxImages?: number;
+  /** Identity references are separate from evidence frames; total images still <= maxImages. */
+  maxReferenceImages?: number;
   maxOutputTokens?: number;
   temperature?: number;
   topK?: number;
@@ -147,6 +162,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
   private readonly runner: Runner;
   private readonly app: App;
   private readonly maxImages: number;
+  private readonly maxReferenceImages: number;
   private readonly maxOutputTokens: number;
   private readonly temperature: number;
   private readonly clipType: string;
@@ -162,6 +178,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     this.model = options.model ?? "qwen3.8_27b_w4a8.safetensors";
     this.clipType = options.clipType ?? "stable_diffusion";
     this.maxImages = Math.max(1, Math.min(9, options.maxImages ?? 9));
+    this.maxReferenceImages = Math.max(0, Math.min(9, options.maxReferenceImages ?? 9));
     this.maxOutputTokens = options.maxOutputTokens ?? 4096;
     this.temperature = options.temperature ?? 0.1;
     this.topK = options.topK ?? 64;
@@ -191,18 +208,37 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     referenceFiles?: { label: string; file: FileValue }[];
     video?: FileValue;
     audio?: FileValue;
+    nativeEvidence?: ObservationNativeEvidence[];
     signal?: AbortSignal;
   }): Promise<VisualObserverResult> {
-    const frames = input.frames.slice(0, this.maxImages);
-    const references = (input.referenceFiles ?? []).slice(0, Math.max(0, this.maxImages - frames.length));
+    const references = input.referenceFiles ?? [];
+    if (input.frames.length > this.maxImages) {
+      throw new ObservationError("OBSERVER_IMAGE_BUDGET", `The visual pass was given ${input.frames.length} evidence frames but the workflow has ${this.maxImages} image slots`);
+    }
+    if (references.length > this.maxReferenceImages) {
+      throw new ObservationError("OBSERVER_REFERENCE_BUDGET", `The visual pass was given ${references.length} identity references but the configured reference budget is ${this.maxReferenceImages}`);
+    }
+    if (input.frames.length + references.length > this.maxImages) {
+      throw new ObservationError("OBSERVER_IMAGE_BUDGET", `Evidence frames and identity references total ${input.frames.length + references.length}, over the workflow capacity of ${this.maxImages}`);
+    }
+    const frames = input.frames;
+    const nativeEvidence = input.nativeEvidence ?? [];
+    const audiovisualMode = Boolean(input.video || input.audio);
     const allowed = new Set(frames.map((frame) => frame.id));
-    const prompt = visualObserverPrompt({
-      technical: input.technical, shots: input.shots, frames,
-      referenceLabels: references.map((reference) => reference.label),
-    });
+    const audiovisualAllowed = new Set([...allowed, ...nativeEvidence.map((item) => item.id)]);
+    const prompt = audiovisualMode
+      ? audiovisualObserverPrompt({
+          technical: input.technical, shots: input.shots, frames, nativeEvidence,
+          referenceLabels: references.map((reference) => reference.label),
+        })
+      : visualObserverPrompt({
+          technical: input.technical, shots: input.shots, frames,
+          referenceLabels: references.map((reference) => reference.label),
+        });
+    const systemPrompt = audiovisualMode ? AUDIOVISUAL_OBSERVER_SYSTEM_PROMPT : VISUAL_OBSERVER_SYSTEM_PROMPT;
     const values: Record<string, unknown> = {
       ...this.graphValues(),
-      system_prompt: VISUAL_OBSERVER_SYSTEM_PROMPT,
+      system_prompt: systemPrompt,
       prompt,
       ...(input.video ? { video1: input.video } : {}),
       ...(input.audio ? { audio1: input.audio } : {}),
@@ -222,11 +258,11 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         file: reference.file,
         meta: { id: reference.label, label: reference.label, kind: "reference" as const, file: reference.file.name },
       })),
-    ].slice(0, this.maxImages);
+    ];
     visualImages.forEach((image, index) => { values[`frame${index + 1}`] = image.file; });
     const { outputs } = await this.runner.runTexts(this.app, values, input.signal);
     const rawText = outputs[0]?.text ?? "";
-    const parsed = jsonObject(rawText);
+    const parsed = parseRaw(rawText);
     const limitations = strings(parsed.limitations, 30);
     const uncertainties = strings(parsed.uncertainties, 30);
     const characters = dedupeBy((Array.isArray(parsed.characters) ? parsed.characters : []).map((entry: any) => ({
@@ -283,18 +319,54 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     const artifacts = mapList(parsed.artifacts, ["description"]).filter((entry: any) => entry.description) as ObservationVisual["artifacts"];
     visual.stylisticEffects = dedupeBy([...styled, ...artifacts.filter((entry) => stylePattern.test(entry.description))], (entry) => norm(entry.description));
     visual.artifacts = dedupeBy(artifacts.filter((entry) => !stylePattern.test(entry.description)), (entry) => norm(entry.description));
+    let audiovisual: ObservationAudiovisual | undefined;
+    if (audiovisualMode) {
+      const rawAv = parsed.audiovisual && typeof parsed.audiovisual === "object" && !Array.isArray(parsed.audiovisual)
+        ? parsed.audiovisual as Record<string, unknown> : null;
+      const avList = (value: unknown): ObservationAudiovisualClaim[] => (Array.isArray(value) ? value : []).map((entry: any) => ({
+        description: String(entry?.description ?? "").trim(),
+        evidenceIds: evidenceIds(entry?.evidence_ids, audiovisualAllowed, limitations),
+        confidence: asConfidence(entry?.confidence),
+      })).filter((entry) => entry.description);
+      const avLimitations = rawAv ? strings(rawAv.limitations, 30) : [];
+      if (!rawAv) limitations.push("The audiovisual observer returned no audiovisual contract; audio/video findings are unavailable.");
+      audiovisual = {
+        mode: "audiovisual",
+        supplied: {
+          ...(nativeEvidence.find((item) => item.kind === "video") ? { videoId: nativeEvidence.find((item) => item.kind === "video")!.id } : {}),
+          ...(nativeEvidence.find((item) => item.kind === "audio") ? { audioId: nativeEvidence.find((item) => item.kind === "audio")!.id } : {}),
+        },
+        temporalActions: avList(rawAv?.temporal_actions),
+        dialogueAndReactions: avList(rawAv?.dialogue_and_reactions),
+        music: avList(rawAv?.music),
+        environmentalSound: avList(rawAv?.environmental_sound),
+        soundEffects: avList(rawAv?.sound_effects),
+        synchronization: avList(rawAv?.synchronization),
+        voiceDelivery: avList(rawAv?.voice_delivery),
+        audioArtifacts: avList(rawAv?.audio_artifacts),
+        visualArtifacts: avList(rawAv?.visual_artifacts),
+        limitations: avLimitations,
+      };
+    }
     if (!characters.length && !visual.actions.length && !visual.claims.length) {
       limitations.push("The observer returned no evidence-backed visual claims; the visual stage is inconclusive.");
     }
     return {
-      visual, model: this.model, version: this.version, promptVersion: this.promptVersion,
+      visual, model: this.model, version: this.version,
+      promptVersion: audiovisualMode ? AUDIOVISUAL_OBSERVER_PROMPT_VERSION : this.promptVersion,
       configuration: {
-        clipType: this.clipType, maxImages: this.maxImages, frames: frames.length, referenceFrames: references.length,
+        clipType: this.clipType, maxImages: this.maxImages, maxReferenceImages: this.maxReferenceImages,
+        frames: frames.length, referenceFrames: references.length,
         temperature: this.temperature, maxLength: this.maxOutputTokens, topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
+        observationMode: audiovisualMode ? "audiovisual" : "visual",
+        nativeEvidenceIds: nativeEvidence.map((item) => item.id),
       },
       inputModalities: { text: true, image: true, video: Boolean(input.video), audio: Boolean(input.audio) },
+      observationMode: audiovisualMode ? "audiovisual" : "visual",
+      ...(audiovisual ? { audiovisual } : {}),
+      nativeEvidence,
       ...(this.checkpoint ? { checkpoint: this.checkpoint } : {}),
-      rawText, systemPrompt: VISUAL_OBSERVER_SYSTEM_PROMPT, inputPrompt: prompt,
+      rawText, systemPrompt, inputPrompt: prompt,
       images: visualImages.map((image, index) => ({ order: index + 1, ...image.meta })),
     };
   }
@@ -302,7 +374,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
   async compare(input: {
     intended: string;
     canonicalOpening: string;
-    observation: Pick<ObservationReport, "visual" | "dialogue" | "technical" | "shots" | "evidence">;
+    observation: Pick<ObservationReport, "visual" | "audiovisual" | "nativeEvidence" | "dialogue" | "technical" | "shots" | "evidence">;
     coverage: string;
     signal?: AbortSignal;
   }): Promise<ComparisonResult> {
@@ -312,8 +384,11 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       system_prompt: COMPARISON_SYSTEM_PROMPT, prompt,
     }, input.signal);
     const rawText = outputs[0]?.text ?? "";
-    const parsed = jsonObject(rawText);
-    const allowed = new Set(input.observation.evidence.map((entry) => entry.id));
+    const parsed = parseRaw(rawText);
+    const allowed = new Set([
+      ...input.observation.evidence.map((entry) => entry.id),
+      ...(input.observation.nativeEvidence ?? []).map((entry) => entry.id),
+    ]);
     const limitations = strings(parsed.limitations, 30);
     const findings: ObservationFinding[] = [];
     const rawFindings = Array.isArray(parsed.findings) ? parsed.findings : [];

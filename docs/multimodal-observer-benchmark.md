@@ -160,3 +160,41 @@ TextGenerateV2 log; the profile reports that limitation rather than inventing a 
 - Do not introduce another inference runtime.
 - Do not treat absent evidence as proof of absence.
 - Do not canonize any observation or apply any proposal.
+
+## Preflight corrections applied before execution
+
+- Evidence frames and identity references have separate budgets: seven evidence
+  frames + two references = nine workflow images. Over-budget requests fail instead of
+  silently dropping references.
+- Matrix B uses a separate audiovisual prompt and structured contract; Matrix A keeps
+  the visual-only prompt unchanged.
+- Native video/audio is limited to one selected binding. Multiple or discontinuous
+  bindings are rejected before inference.
+- Native evidence ids, hashes and temporal ranges are recorded and validated against
+  the media actually supplied.
+- Raw model text is retained when a parser fails.
+- The exact nine-image input is asserted in an integration test.
+
+## Executed benchmark
+
+The six authorized rows were run sequentially on 2026-11-26. Results, per-run raw
+artifacts and the comparative report are in:
+
+```text
+out/observations/benchmark-20261126/
+out/observations/velvet-moon-multimodal-benchmark.zip
+```
+
+Summary:
+
+- A1 Qwen3.8 27B: best visual/comparison accuracy, 981 s, 27,992 MB peak GTT.
+- A2 Qwen3.5 9B: 640 s, good visual basics, weak atomic dialogue comparison.
+- A3 Gemma 4 12B: best speed/quality balance, 461 s.
+- A4 Gemma 4 E2B: fastest visual row, 361 s, unreliable comparison grounding.
+- B1 Gemma 4 12B AV: structured audiovisual output, comparison invalid JSON (raw
+  recovered, not retried), overconfident audio claims.
+- B2 Gemma 4 E2B AV: completed both stages, but hallucinated music, invented raw
+  frame ids and produced no evidence-backed comparison findings.
+
+No model was automatically retried. Canonical revision remains 0, no proposal was
+created, no candidate was approved and no Bible change was applied.

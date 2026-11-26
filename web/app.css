@@ -1174,6 +1174,12 @@ body.dir-dragging * { cursor: grabbing !important; }
 .prod-observer-modalities { display: flex; gap: 14px; flex-wrap: wrap; color: var(--dim); font-size: 11px; }
 .prod-observer-modalities label { display: inline-flex; align-items: center; gap: 6px; }
 .prod-analysis-evidence-card video { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 7px; background: #05080d; }
+.prod-analysis-native { display: grid; gap: 6px; }
+.prod-analysis-native-line { display: grid; gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.prod-analysis-native-line span { color: var(--dim); font-size: 11px; }
+.prod-analysis-av { display: grid; gap: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #090e15; }
+.prod-analysis-av-group { display: grid; gap: 4px; padding-top: 5px; border-top: 1px solid var(--line); }
+.prod-analysis-av-group p { margin: 2px 0; line-height: 1.4; }
 .prod-analysis-evidence { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 7px; }
 .prod-analysis-evidence-card { margin: 0; display: grid; gap: 3px; min-width: 0; }
 .prod-analysis-evidence-card img, .prod-analysis-evidence-card audio { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 7px; background: #05080d; }

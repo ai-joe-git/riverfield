@@ -11,10 +11,10 @@ import type { FileValue, Runner } from "./runner.ts";
 import type { App } from "./registry.ts";
 import { ProductionStore } from "./production-store.ts";
 import { buildProductionContext } from "./production-context.ts";
-import { hashFile, resolveMediaPath } from "./production-media.ts";
+import { hashFile, probeMedia, resolveMediaPath } from "./production-media.ts";
 import type {
   Actor, Candidate, FactChange, Observation, ObservationDialogue, ObservationEvidence, ObservationFinding,
-  ObservationReport, ObservationStage, ObservationStageName, ObservationVisual, Scene, SceneRenderBinding,
+  ObservationReport, ObservationStage, ObservationStageName, ObservationVisual, ObservationNativeEvidence, Scene, SceneRenderBinding,
 } from "./production-types.ts";
 import {
   DEFAULT_OBSERVATION_EVIDENCE_CONFIG, ObservationError, extractObservationEvidence,
@@ -310,7 +310,12 @@ export class ObservationManager {
     const visualModel = resolveSelected(options.visualModel);
     const comparisonModel = resolveSelected(options.comparisonModel);
     assertObserverModalities(visualModel, { video: options.nativeVideo, audio: options.nativeAudio });
+    if (referenceAssetIds.length > 2) throw new ObservationError("OBSERVER_REFERENCE_BUDGET", "At most two identity reference images are supported; references are never silently dropped");
+    if (options.visualFrames + referenceAssetIds.length > 9) throw new ObservationError("OBSERVER_IMAGE_BUDGET", "Evidence frames plus identity references exceed the nine-image workflow capacity");
     if (!comparisonModel.modalities.text) throw new ObserverModelError("OBSERVER_MODEL_INCOMPATIBLE", `${comparisonModel.label} cannot perform the text comparison pass`);
+    if ((options.nativeVideo || options.nativeAudio) && bindings.length !== 1) {
+      throw new ObservationError("OBSERVATION_NATIVE_MULTI_BINDING", "Native video/audio is limited to one selected scene binding; multiple or discontinuous bindings are rejected rather than assembled with hidden gaps");
+    }
     const modelBindings = { visual: visualModel, comparison: comparisonModel };
     const prior = this.list(productionId, scene.id).find((job) => job.requestKey && job.requestKey === input.requestKey);
     if (input.requestKey && prior) return prior;
@@ -403,7 +408,7 @@ export class ObservationManager {
       const comparisonModel = job.modelBindings?.comparison ?? observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID);
       const visualBackend: VisualObserver = this.visualObserver ?? this.observer ?? new QwenVisualObserver(
         this.runner, createObserverApp(visualModel), {
-          model: visualModel.file, clipType: visualModel.clipType, maxImages: job.options.visualFrames,
+          model: visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: 2,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
           checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family },
@@ -418,7 +423,9 @@ export class ObservationManager {
         });
 
       const nativeInputs: NonNullable<ObservationReport["observer"]["nativeInputs"]> = {};
+      const nativeEvidence: ObservationNativeEvidence[] = [];
       const nativeLimitations: string[] = [];
+      const selectedBoundary = bundle.nativeBoundaries[0];
       let nativeVideo: FileValue | undefined;
       let nativeAudio: FileValue | undefined;
       if (job.options.nativeVideo) {
@@ -428,6 +435,18 @@ export class ObservationManager {
         });
         nativeVideo = { bytes: new Uint8Array(readFileSync(clip.path)), name: "scene.mp4", type: "video/mp4" };
         nativeInputs.video = { file: "native/scene.mp4", hash: clip.hash, startSeconds: bundle.technical.sceneStartSeconds, endSeconds: bundle.technical.sceneEndSeconds, sourceHash: bundle.technical.sourceHash };
+        const clipProbe = probeMedia(clip.path);
+        nativeEvidence.push({
+          id: "video-01", kind: "video", file: "native/scene.mp4", path: clip.path, hash: clip.hash, mime: "video/mp4",
+          startSeconds: selectedBoundary?.startSeconds ?? bundle.technical.sceneStartSeconds,
+          endSeconds: selectedBoundary?.endSeconds ?? bundle.technical.sceneEndSeconds,
+          durationSeconds: clipProbe.duration ?? ((selectedBoundary?.endSeconds ?? bundle.technical.sceneEndSeconds) - (selectedBoundary?.startSeconds ?? bundle.technical.sceneStartSeconds)),
+          fps: clipProbe.fps ?? bundle.technical.fps,
+          ...(clipProbe.frameCount ? { frameCount: clipProbe.frameCount } : {}),
+          ...(selectedBoundary ? { bindingId: selectedBoundary.bindingId } : {}),
+          sourceHash: bundle.technical.sourceHash,
+          backendPreprocessing: "GetVideoComponents supplies source-rate IMAGE frames; TextGenerateV2's videos input assumes 24 fps and subsamples internally",
+        });
         if (bundle.technical.fps !== 24) nativeLimitations.push(`Native video frames were extracted at ${bundle.technical.fps} fps; TextGenerateV2's video input assumes 24 fps.`);
         if (bindings.length > 1) nativeLimitations.push("Native video spans the union of the selected bindings, including any gap between them.");
       }
@@ -435,10 +454,19 @@ export class ObservationManager {
         const clip = bundle.audio[0];
         if (!clip?.path) throw new ObserverModelError("OBSERVATION_NATIVE_AUDIO_MISSING", "Native audio was requested but no scene audio stream was extracted");
         nativeAudio = { bytes: new Uint8Array(readFileSync(clip.path)), name: basename(clip.path), type: "audio/wav" };
-        nativeInputs.audio = { file: clip.file, hash: clip.hash ?? hashFile(clip.path), startSeconds: clip.timestampSeconds ?? 0, endSeconds: bundle.technical.sceneEndSeconds, sourceHash: bundle.technical.sourceHash };
-        if (bundle.audio.length > 1) nativeLimitations.push("Multiple scene audio ranges exist; the first range was supplied as the native audio input.");
+        nativeInputs.audio = { file: clip.file, hash: clip.hash ?? hashFile(clip.path), startSeconds: clip.timestampSeconds ?? 0, endSeconds: selectedBoundary?.endSeconds ?? bundle.technical.sceneEndSeconds, sourceHash: bundle.technical.sourceHash };
+        nativeEvidence.push({
+          id: clip.id, kind: "audio", file: clip.file, path: clip.path, hash: clip.hash ?? hashFile(clip.path), mime: clip.mime ?? "audio/wav",
+          startSeconds: clip.timestampSeconds ?? selectedBoundary?.startSeconds ?? 0,
+          endSeconds: selectedBoundary?.endSeconds ?? bundle.technical.sceneEndSeconds,
+          durationSeconds: (selectedBoundary?.endSeconds ?? bundle.technical.sceneEndSeconds) - (clip.timestampSeconds ?? selectedBoundary?.startSeconds ?? 0),
+          sampleRate: 16000,
+          ...(selectedBoundary ? { bindingId: selectedBoundary.bindingId } : {}),
+          sourceHash: bundle.technical.sourceHash,
+          backendPreprocessing: "scene WAV: mono 16 kHz PCM s16le; LoadAudio -> TextGenerateV2 audios.audio1",
+        });
       }
-      writeArtifact("native-inputs.json", { requested: { video: job.options.nativeVideo, audio: job.options.nativeAudio }, supplied: nativeInputs, limitations: nativeLimitations });
+      writeArtifact("native-inputs.json", { requested: { video: job.options.nativeVideo, audio: job.options.nativeAudio }, supplied: nativeInputs, evidence: nativeEvidence, limitations: nativeLimitations });
 
       await this.inference(`Observe ${scene.title}`, async () => {
         controller.signal.throwIfAborted();
@@ -478,6 +506,7 @@ export class ObservationManager {
               technical: bundle.technical, shots: bundle.shots,
               frames: bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id)),
               referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
+              nativeEvidence,
               signal: controller.signal,
             });
             writeArtifact("visual-system-prompt.txt", visual.systemPrompt ?? "", true);
@@ -493,6 +522,8 @@ export class ObservationManager {
             this.stage(job, "visual", "succeeded");
           } catch (error) {
             const message = (error as Error).message;
+            const raw = (error as Error & { rawText?: string }).rawText;
+            if (raw) writeArtifact("visual-raw.txt", raw, true);
             stageErrors.push(`visual: ${message}`);
             this.stage(job, "visual", controller.signal.aborted ? "canceled" : "failed", message);
           }
@@ -508,7 +539,7 @@ export class ObservationManager {
               intended: [scene.summary, candidate.prompt].filter(Boolean).join("\n\n"),
               canonicalOpening: context.text,
               observation: {
-                visual: visual?.visual, dialogue,
+                visual: visual?.visual, audiovisual: visual?.audiovisual, nativeEvidence, dialogue,
                 technical: bundle.technical, shots: bundle.shots, evidence: [...bundle.frames, ...bundle.audio],
               },
               coverage: `${bundle.frames.length} sampled frames across ${bundle.shots.length} detected shots; ${bundle.audio.length} scene audio range(s). Absence from a sample is not proof of absence.`,
@@ -521,6 +552,8 @@ export class ObservationManager {
             this.stage(job, "comparison", "succeeded");
           } catch (error) {
             const message = (error as Error).message;
+            const raw = (error as Error & { rawText?: string }).rawText;
+            if (raw) writeArtifact("comparison-raw.txt", raw, true);
             stageErrors.push(`comparison: ${message}`);
             this.stage(job, "comparison", controller.signal.aborted ? "canceled" : "failed", message);
           }
@@ -552,6 +585,7 @@ export class ObservationManager {
           },
           visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel),
           inputModalities: visual?.inputModalities ?? { text: true, image: job.options.visual, video: Boolean(nativeVideo), audio: Boolean(nativeAudio) },
+          observationMode: visual?.observationMode ?? (nativeVideo || nativeAudio ? "audiovisual" : "visual"),
           effectiveConfiguration: {
             visual: { ...(visual?.configuration ?? {}), checkpoint: modelCheckpoint(visualModel) },
             comparison: { ...(comparison?.configuration ?? {}), checkpoint: modelCheckpoint(comparisonModel) },
@@ -566,7 +600,10 @@ export class ObservationManager {
           semantics: "hard-cap-with-mandatory-shot-coverage",
         },
         nativeBoundaries: bundle.nativeBoundaries,
-        shots: bundle.shots, ...(visual ? { visual: visual.visual } : {}), ...(dialogue ? { dialogue } : {}),
+        shots: bundle.shots, ...(visual ? { visual: visual.visual } : {}),
+        ...(visual?.audiovisual ? { audiovisual: visual.audiovisual } : {}),
+        ...(nativeEvidence.length ? { nativeEvidence } : {}),
+        ...(dialogue ? { dialogue } : {}),
         ...(comparison ? { comparison: comparison.comparison } : {}),
         observedEvents: observedEvents(visual?.visual, dialogue), evidence: [...bundle.frames, ...bundle.audio],
         confidence: visual?.visual.claims.some((claim) => claim.confidence === "confirmed") ? "confirmed" : visual ? "probable" : "not_observable",

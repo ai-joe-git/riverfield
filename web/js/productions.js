@@ -622,6 +622,27 @@ function observationReportNode(productionId, job, observation, onPropose) {
         el("b", {}, `${change.category} · ${change.phase || "opening"}`), el("p", {}, change.text))),
       el("button", { class: "btn small ghost", type: "button", onclick: () => onPropose?.(observation.id) }, icon("check"), "Prepare canonical proposal"))
     : null;
+  const nativeEvidence = report.nativeEvidence?.length
+    ? el("div", { class: "prod-analysis-native" }, el("h3", {}, "Native evidence sources"),
+      ...report.nativeEvidence.map((item) => el("div", { class: "prod-analysis-native-line" },
+        el("b", {}, `${item.id} · ${item.kind}`),
+        el("span", {}, `${fmtSeconds(item.startSeconds)}–${fmtSeconds(item.endSeconds)} · ${item.durationSeconds?.toFixed?.(3) ?? item.durationSeconds}s${item.fps ? ` · ${item.fps} fps` : ""}${item.sampleRate ? ` · ${item.sampleRate} Hz` : ""}`),
+        el("small", { class: "dim" }, `hash ${item.hash}${item.backendPreprocessing ? ` · ${item.backendPreprocessing}` : ""}`))))
+    : null;
+  const av = report.audiovisual;
+  const avRow = (label, items) => items?.length
+    ? el("div", { class: "prod-analysis-av-group" }, el("b", {}, label),
+      ...items.map((item) => el("p", {}, `${item.description} `, analysisTag(item.confidence), el("small", { class: "dim" }, ` ${item.evidenceIds.join(", ")}`))))
+    : null;
+  const audiovisual = av
+    ? el("div", { class: "prod-analysis-av" }, el("h3", {}, "Audiovisual observation"),
+      avRow("Temporal actions", av.temporalActions), avRow("Dialogue and reactions", av.dialogueAndReactions),
+      avRow("Music", av.music), avRow("Environmental sound", av.environmentalSound),
+      avRow("Sound effects", av.soundEffects), avRow("Synchronization", av.synchronization),
+      avRow("Voice delivery", av.voiceDelivery), avRow("Audio artifacts", av.audioArtifacts),
+      avRow("Visual artifacts", av.visualArtifacts),
+      av.limitations?.length ? el("p", { class: "help" }, av.limitations.join(" ")) : null)
+    : null;
   const stages = el("div", { class: "prod-analysis-stages" }, ...(report.stages || []).map((stage) => el("span", { class: `tag ${stage.status === "succeeded" ? "lime" : stage.status === "failed" ? "red" : stage.status === "skipped" ? "dark" : "violet"}`, title: stage.error || "" }, `${stage.name}: ${stage.status}`)));
   return el("div", { class: "prod-analysis-report" },
     el("div", { class: "prod-analysis-stats" },
@@ -629,6 +650,8 @@ function observationReportNode(productionId, job, observation, onPropose) {
       el("span", { class: "tag dark" }, `${report.shots.length} shot${report.shots.length === 1 ? "" : "s"}`),
       el("span", { class: "tag dark" }, `${report.evidence.length} evidence items`),
       el("span", { class: "tag dark" }, report.technical?.width ? `${report.technical.width}×${report.technical.height}` : "technical unknown"),
+      el("span", { class: "tag dark" }, report.observer?.observationMode || "visual"),
+      report.nativeEvidence?.length ? el("span", { class: "tag violet" }, `${report.nativeEvidence.length} native evidence source${report.nativeEvidence.length === 1 ? "" : "s"}`) : null,
       analysisTag(report.confidence)),
     el("div", { class: "prod-analysis-model-meta" },
       el("small", {}, `Visual: ${report.observer?.visualCheckpoint?.label || report.observer?.model || "unknown"}${report.observer?.visualCheckpoint?.quantization ? ` · ${report.observer.visualCheckpoint.quantization}` : ""}`),
@@ -637,11 +660,13 @@ function observationReportNode(productionId, job, observation, onPropose) {
     stages,
     el("h3", {}, "Evidence"),
     evidenceCards.length ? el("div", { class: "prod-analysis-evidence" }, ...evidenceCards) : el("p", { class: "help" }, "No visual evidence frames are available."),
+    nativeEvidence,
     el("h3", {}, "Shot timeline"),
     el("div", { class: "prod-analysis-shots" }, ...(report.shots || []).map((shot) => el("div", { class: "prod-analysis-shot" },
       el("b", {}, shot.id), el("span", {}, `${fmtSeconds(shot.startSeconds)}–${fmtSeconds(shot.endSeconds)}`), el("small", {}, `${shot.detector} · ${shot.evidenceIds.join(", ")}`)))),
     el("h3", {}, "Actual dialogue (ASR, uncorrected)"),
     dialogue,
+    audiovisual,
     el("h3", {}, "Opening / closing state"),
     el("div", { class: "prod-analysis-states" },
       el("div", {}, el("b", {}, "Opening"), el("p", {}, report.visual?.openingState?.description || "Not observable")),
@@ -717,7 +742,8 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const referenceSelect = el("select", { multiple: true, size: "4", "aria-label": "Identity reference assets" },
     ...characterAssets.map((asset) => el("option", { value: asset.id }, asset.label)));
   const referenceField = characterAssets.length
-    ? el("label", { class: "ag-field" }, el("span", {}, "Identity references (optional; they are not proof of appearance)"), referenceSelect)
+    ? el("label", { class: "ag-field" }, el("span", {}, "Identity references (optional, up to two; they are not proof of appearance)"), referenceSelect,
+      el("small", { class: "help" }, "Evidence frames use seven of the nine image slots; the two identity references are never silently dropped."))
     : null;
   const body = el("div", { class: "prod-analysis-body" });
   let job = null;
