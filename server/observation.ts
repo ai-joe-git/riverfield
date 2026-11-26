@@ -3,14 +3,15 @@
 // evidence-only inference through the shared queue, records an immutable observation report,
 // and proposes — never approves — canonical changes.
 import { createHash, randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import type { Inference } from "./inference-queue.ts";
-import type { Runner } from "./runner.ts";
+import type { FileValue, Runner } from "./runner.ts";
 import type { App } from "./registry.ts";
 import { ProductionStore } from "./production-store.ts";
 import { buildProductionContext } from "./production-context.ts";
-import { resolveMediaPath } from "./production-media.ts";
+import { hashFile, resolveMediaPath } from "./production-media.ts";
 import type {
   Actor, Candidate, FactChange, Observation, ObservationDialogue, ObservationEvidence, ObservationFinding,
   ObservationReport, ObservationStage, ObservationStageName, ObservationVisual, Scene, SceneRenderBinding,
@@ -23,7 +24,11 @@ import {
   mergeDialogue, QwenVisualObserver, WhisperTurboAsr,
   type AsrAdapter, type ComparisonResult, type SceneComparator, type VisualObserver, type VisualObserverResult,
 } from "./observer-inference.ts";
-import { observerApp } from "./observer-app.ts";
+import { createObserverApp } from "./observer-app.ts";
+import {
+  DEFAULT_OBSERVER_MODEL, DEFAULT_OBSERVER_MODEL_ID, ObserverModelError,
+  assertObserverModalities, observerModel, type ObserverModel,
+} from "./observer-models.ts";
 import { COMPARISON_PROMPT_VERSION, OBSERVER_PROMPT_VERSION, OBSERVER_VERSION } from "./observer-prompts.ts";
 
 export type ObservationJobStatus = "queued" | "running" | "succeeded" | "failed" | "canceled" | "lost";
@@ -37,9 +42,23 @@ export type ObservationOptions = {
   asr: boolean;
   comparison: boolean;
   referenceAssetIds: string[];
+  /** Selected installed checkpoint ids; the exact filenames are resolved and recorded. */
+  visualModel: string;
+  comparisonModel: string;
+  nativeVideo: boolean;
+  nativeAudio: boolean;
+  temperature: number;
+  maxOutputTokens: number;
+  topK: number;
+  topP: number;
+  seed: number;
+  thinking: boolean;
 };
 export const DEFAULT_OBSERVATION_OPTIONS: ObservationOptions = {
   ...DEFAULT_OBSERVATION_EVIDENCE_CONFIG, visual: true, asr: true, comparison: true, referenceAssetIds: [],
+  visualModel: DEFAULT_OBSERVER_MODEL_ID, comparisonModel: DEFAULT_OBSERVER_MODEL_ID,
+  nativeVideo: false, nativeAudio: false, temperature: 0.1, maxOutputTokens: 4096,
+  topK: 64, topP: 0.9, seed: 0, thinking: false,
 };
 
 export type ObservationJob = {
@@ -58,6 +77,7 @@ export type ObservationJob = {
   evidenceCacheKey?: string;
   artifactDir?: string;
   options: ObservationOptions;
+  modelBindings?: { visual: ObserverModel; comparison: ObserverModel };
   stages: ObservationStage[];
   progress: { stage: ObservationStageName; percent: number };
   owner?: string;
@@ -80,6 +100,8 @@ export type ObservationDeps = {
   runner: Runner;
   whisperApp?: App;
   observer?: VisualObserver & Partial<SceneComparator>;
+  visualObserver?: VisualObserver;
+  comparator?: SceneComparator;
   asr?: AsrAdapter;
   evidence?: (input: Parameters<typeof extractObservationEvidence>[0]) => ObservationEvidenceBundle;
   mediaRoots?: string[];
@@ -125,6 +147,32 @@ function fileTail(file: string, max = 240_000): string {
   } catch { return ""; }
 }
 
+function modelCheckpoint(model: ObserverModel) {
+  return {
+    id: model.id, file: model.file, label: model.label, family: model.family,
+    quantization: model.quantization, clipType: model.clipType,
+  };
+}
+
+function nativeSceneVideo(input: {
+  source: string; startSeconds: number; endSeconds: number; output: string;
+}): { path: string; hash: string } {
+  const duration = input.endSeconds - input.startSeconds;
+  if (!(duration > 0)) throw new ObserverModelError("OBSERVATION_NATIVE_VIDEO_EMPTY", "The scene has no positive duration for native video input");
+  mkdirSync(dirname(input.output), { recursive: true });
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
+    "-ss", input.startSeconds.toFixed(6), "-i", input.source, "-t", duration.toFixed(6),
+    "-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart", input.output,
+  ], { encoding: "utf8", timeout: 180_000, maxBuffer: 8 * 1024 * 1024 });
+  if (result.error || result.status !== 0) {
+    throw new ObserverModelError("OBSERVATION_NATIVE_VIDEO_FAILED",
+      `Could not extract the native scene video: ${String(result.error?.message ?? result.stderr ?? "ffmpeg failed").trim().slice(0, 500)}`);
+  }
+  return { path: input.output, hash: hashFile(input.output) };
+}
+
 function sampleMemory() {
   let memAvailable: number | null = null, memTotal: number | null = null;
   try {
@@ -154,6 +202,8 @@ export class ObservationManager {
   private readonly inference: Inference;
   private readonly runner: Runner;
   private readonly observer?: VisualObserver & Partial<SceneComparator>;
+  private readonly visualObserver?: VisualObserver;
+  private readonly comparator?: SceneComparator;
   private readonly asr?: AsrAdapter;
   private readonly evidence: (input: Parameters<typeof extractObservationEvidence>[0]) => ObservationEvidenceBundle;
   private readonly mediaRoots: string[];
@@ -165,7 +215,9 @@ export class ObservationManager {
     this.productions = deps.productions;
     this.inference = deps.inference;
     this.runner = deps.runner;
-    this.observer = deps.observer ?? new QwenVisualObserver(deps.runner, observerApp);
+    this.observer = deps.observer;
+    this.visualObserver = deps.visualObserver;
+    this.comparator = deps.comparator;
     this.asr = deps.asr ?? (deps.whisperApp ? new WhisperTurboAsr(deps.runner, deps.whisperApp) : undefined);
     this.evidence = deps.evidence ?? extractObservationEvidence;
     this.mediaRoots = deps.mediaRoots ?? [];
@@ -246,12 +298,26 @@ export class ObservationManager {
     const referenceAssetIds = [...new Set([...(rawOptions.referenceAssetIds ?? []), ...(input.referenceAssetIds ?? [])])]
       .filter((id) => snap.assets[id]?.kind === "image");
     const options: ObservationOptions = { ...rawOptions, referenceAssetIds };
+    const resolveSelected = (id: string): ObserverModel => {
+      try { return observerModel(id || DEFAULT_OBSERVER_MODEL_ID); }
+      catch (error) {
+        // Injected test backends do not need the local ComfyUI weights; production
+        // resolution remains strict and never silently substitutes another checkpoint.
+        if ((this.observer || this.visualObserver) && (!id || id === DEFAULT_OBSERVER_MODEL_ID)) return DEFAULT_OBSERVER_MODEL;
+        throw error;
+      }
+    };
+    const visualModel = resolveSelected(options.visualModel);
+    const comparisonModel = resolveSelected(options.comparisonModel);
+    assertObserverModalities(visualModel, { video: options.nativeVideo, audio: options.nativeAudio });
+    if (!comparisonModel.modalities.text) throw new ObserverModelError("OBSERVER_MODEL_INCOMPATIBLE", `${comparisonModel.label} cannot perform the text comparison pass`);
+    const modelBindings = { visual: visualModel, comparison: comparisonModel };
     const prior = this.list(productionId, scene.id).find((job) => job.requestKey && job.requestKey === input.requestKey);
     if (input.requestKey && prior) return prior;
     const id = `obs-${this.now().toISOString().replace(/[-:.TZ]/g, "").slice(0, 17)}-${randomUUID().slice(0, 8)}`;
     const job: ObservationJob = {
       id, productionId, sceneId: scene.id, candidateId: candidate.id, bindingIds: bindings.map((binding) => binding.id),
-      status: "queued", createdAt: this.now().toISOString(), options, stages: stageList(),
+      status: "queued", createdAt: this.now().toISOString(), options, modelBindings, stages: stageList(),
       progress: { stage: "resolve", percent: 0 }, ...(actor.id ? { owner: actor.id } : {}),
       ...(input.requestKey ? { requestKey: input.requestKey } : {}),
     };
@@ -282,7 +348,11 @@ export class ObservationManager {
       const bundle = this.evidence({
         outDir: this.outDir, mediaRoots: this.mediaRoots,
         productionId: job.productionId, sceneId: job.sceneId, candidate, bindings, outputPath: sourcePath,
-        outputHash: sourceHash, config: job.options,
+        outputHash: sourceHash, config: {
+          maxFrames: job.options.maxFrames, visualFrames: job.options.visualFrames,
+          sampleIntervalSeconds: job.options.sampleIntervalSeconds, sceneThreshold: job.options.sceneThreshold,
+          includeAudio: job.options.includeAudio,
+        },
       });
       job.evidenceDir = bundle.dir;
       job.evidenceCacheKey = bundle.cacheKey;
@@ -329,6 +399,47 @@ export class ObservationManager {
           file: { bytes: new Uint8Array(readFileSync(resolveMediaPath(asset.path, this.mediaRoots))), name: basename(asset.path), type: "image/png" },
         }));
 
+      const visualModel = job.modelBindings?.visual ?? observerModel(job.options.visualModel || DEFAULT_OBSERVER_MODEL_ID);
+      const comparisonModel = job.modelBindings?.comparison ?? observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID);
+      const visualBackend: VisualObserver = this.visualObserver ?? this.observer ?? new QwenVisualObserver(
+        this.runner, createObserverApp(visualModel), {
+          model: visualModel.file, clipType: visualModel.clipType, maxImages: job.options.visualFrames,
+          maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
+          topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
+          checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family },
+        });
+      const comparisonBackend: SceneComparator = this.comparator ??
+        (this.observer?.compare ? this.observer as SceneComparator : undefined) ??
+        new QwenVisualObserver(this.runner, createObserverApp(comparisonModel), {
+          model: comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
+          maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
+          topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
+          checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family },
+        });
+
+      const nativeInputs: NonNullable<ObservationReport["observer"]["nativeInputs"]> = {};
+      const nativeLimitations: string[] = [];
+      let nativeVideo: FileValue | undefined;
+      let nativeAudio: FileValue | undefined;
+      if (job.options.nativeVideo) {
+        const clip = nativeSceneVideo({
+          source: bundle.technical.sourcePath, startSeconds: bundle.technical.sceneStartSeconds, endSeconds: bundle.technical.sceneEndSeconds,
+          output: join(artifactDir, "native", "scene.mp4"),
+        });
+        nativeVideo = { bytes: new Uint8Array(readFileSync(clip.path)), name: "scene.mp4", type: "video/mp4" };
+        nativeInputs.video = { file: "native/scene.mp4", hash: clip.hash, startSeconds: bundle.technical.sceneStartSeconds, endSeconds: bundle.technical.sceneEndSeconds, sourceHash: bundle.technical.sourceHash };
+        if (bundle.technical.fps !== 24) nativeLimitations.push(`Native video frames were extracted at ${bundle.technical.fps} fps; TextGenerateV2's video input assumes 24 fps.`);
+        if (bindings.length > 1) nativeLimitations.push("Native video spans the union of the selected bindings, including any gap between them.");
+      }
+      if (job.options.nativeAudio) {
+        const clip = bundle.audio[0];
+        if (!clip?.path) throw new ObserverModelError("OBSERVATION_NATIVE_AUDIO_MISSING", "Native audio was requested but no scene audio stream was extracted");
+        nativeAudio = { bytes: new Uint8Array(readFileSync(clip.path)), name: basename(clip.path), type: "audio/wav" };
+        nativeInputs.audio = { file: clip.file, hash: clip.hash ?? hashFile(clip.path), startSeconds: clip.timestampSeconds ?? 0, endSeconds: bundle.technical.sceneEndSeconds, sourceHash: bundle.technical.sourceHash };
+        if (bundle.audio.length > 1) nativeLimitations.push("Multiple scene audio ranges exist; the first range was supplied as the native audio input.");
+      }
+      writeArtifact("native-inputs.json", { requested: { video: job.options.nativeVideo, audio: job.options.nativeAudio }, supplied: nativeInputs, limitations: nativeLimitations });
+
       await this.inference(`Observe ${scene.title}`, async () => {
         controller.signal.throwIfAborted();
         // Whisper first, then Qwen visual + comparison consecutively. The visual pass
@@ -360,13 +471,14 @@ export class ObservationManager {
           this.stage(job, "asr", "skipped");
         }
 
-        if (job.options.visual && this.observer) {
+        if (job.options.visual) {
           this.stage(job, "visual", "running");
           try {
-            visual = await this.observer.observe({
+            visual = await visualBackend.observe({
               technical: bundle.technical, shots: bundle.shots,
               frames: bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id)),
-              referenceFiles, signal: controller.signal,
+              referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
+              signal: controller.signal,
             });
             writeArtifact("visual-system-prompt.txt", visual.systemPrompt ?? "", true);
             writeArtifact("visual-input-prompt.txt", visual.inputPrompt ?? "", true);
@@ -388,11 +500,11 @@ export class ObservationManager {
           this.stage(job, "visual", "skipped");
         }
 
-        if (job.options.comparison && this.observer?.compare) {
+        if (job.options.comparison) {
           this.stage(job, "comparison", "running");
           try {
             const context = buildProductionContext(snap, { sceneId: scene.id, maxChars: 8000 });
-            comparison = await this.observer.compare({
+            comparison = await comparisonBackend.compare({
               intended: [scene.summary, candidate.prompt].filter(Boolean).join("\n\n"),
               canonicalOpening: context.text,
               observation: {
@@ -429,14 +541,23 @@ export class ObservationManager {
         sourceOutputHash: sourceHash || bundle.source.hash,
         bindingIds: bindings.map((binding) => binding.id), timebase: "final-output",
         observer: {
-          model: visual?.model ?? "qwen3.8_27b_w4a8.safetensors",
-          provider: visual ? "qwen-comfyui" : "mock",
+          model: visualModel.file,
+          provider: visual ? "comfyui" : "mock",
           version: visual?.version ?? OBSERVER_VERSION,
           promptVersion: visual?.promptVersion ?? OBSERVER_PROMPT_VERSION,
           configuration: {
             ...job.options, evidenceCacheKey: bundle.cacheKey,
             comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
+            visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel),
           },
+          visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel),
+          inputModalities: visual?.inputModalities ?? { text: true, image: job.options.visual, video: Boolean(nativeVideo), audio: Boolean(nativeAudio) },
+          effectiveConfiguration: {
+            visual: { ...(visual?.configuration ?? {}), checkpoint: modelCheckpoint(visualModel) },
+            comparison: { ...(comparison?.configuration ?? {}), checkpoint: modelCheckpoint(comparisonModel) },
+            nativeInputs: { video: Boolean(nativeVideo), audio: Boolean(nativeAudio) },
+          },
+          ...(Object.keys(nativeInputs).length ? { nativeInputs } : {}),
         },
         createdAt: this.now().toISOString(), technical: bundle.technical,
         evidenceBudget: {
@@ -453,6 +574,7 @@ export class ObservationManager {
         limitations: [
           "Observation is based on sampled frames, not every frame.",
           "ASR is not corrected against the screenplay and cannot verify speaker identity, voice identity, acting quality, mixing or lip sync.",
+          ...nativeLimitations,
           ...(stageErrors.length ? [`Some stages failed: ${stageErrors.join(" | ")}`] : []),
         ],
         stages: job.stages, ...(stageErrors.length ? { failure: { stage: (job.stages.find((stage) => stage.status === "failed")?.name ?? "report") as ObservationStageName, message: stageErrors.join(" | ") } } : {}),

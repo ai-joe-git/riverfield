@@ -289,10 +289,23 @@ export type ObservationReport = {
   timebase: "final-output";
   observer: {
     model: string;
-    provider: "qwen-comfyui" | "mock";
+    provider: "qwen-comfyui" | "comfyui" | "mock";
     version: string;
     promptVersion: string;
     configuration: Record<string, unknown>;
+    /** Exact selected checkpoint and modality evidence for both independent passes. */
+    visualCheckpoint?: {
+      id: string; file: string; label: string; family: string; quantization: string; clipType: string;
+    };
+    comparisonCheckpoint?: {
+      id: string; file: string; label: string; family: string; quantization: string; clipType: string;
+    };
+    inputModalities?: { text: true; image: boolean; video: boolean; audio: boolean };
+    effectiveConfiguration?: Record<string, unknown>;
+    nativeInputs?: {
+      video?: { file: string; hash: string; startSeconds: number; endSeconds: number; sourceHash: string };
+      audio?: { file: string; hash: string; startSeconds: number; endSeconds: number; sourceHash: string };
+    };
   };
   createdAt: string;
   technical: ObservationTechnical;

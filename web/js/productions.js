@@ -590,7 +590,9 @@ function reportEvidenceCard(productionId, jobId, evidence) {
   const src = reportEvidenceUrl(productionId, jobId, evidence);
   const media = evidence.mime?.startsWith("audio/")
     ? el("audio", { src, controls: true, preload: "metadata" })
-    : el("img", { src, alt: evidence.label || evidence.id, loading: "lazy" });
+    : evidence.mime?.startsWith("video/") || evidence.kind === "video"
+      ? el("video", { src, controls: true, preload: "metadata" })
+      : el("img", { src, alt: evidence.label || evidence.id, loading: "lazy" });
   return el("figure", { class: "prod-analysis-evidence-card" }, media,
     el("figcaption", {}, el("b", {}, evidence.id), el("small", {}, `${evidence.kind}${evidence.timestampSeconds !== undefined ? ` · ${fmtSeconds(evidence.timestampSeconds)}` : ""}`)));
 }
@@ -628,6 +630,10 @@ function observationReportNode(productionId, job, observation, onPropose) {
       el("span", { class: "tag dark" }, `${report.evidence.length} evidence items`),
       el("span", { class: "tag dark" }, report.technical?.width ? `${report.technical.width}×${report.technical.height}` : "technical unknown"),
       analysisTag(report.confidence)),
+    el("div", { class: "prod-analysis-model-meta" },
+      el("small", {}, `Visual: ${report.observer?.visualCheckpoint?.label || report.observer?.model || "unknown"}${report.observer?.visualCheckpoint?.quantization ? ` · ${report.observer.visualCheckpoint.quantization}` : ""}`),
+      el("small", {}, `Comparison: ${report.observer?.comparisonCheckpoint?.label || report.observer?.model || "unknown"}${report.observer?.comparisonCheckpoint?.quantization ? ` · ${report.observer.comparisonCheckpoint.quantization}` : ""}`),
+      report.observer?.inputModalities ? el("small", {}, `Inputs: ${Object.entries(report.observer.inputModalities).filter(([, on]) => on).map(([name]) => name).join(", ")}`) : null),
     stages,
     el("h3", {}, "Evidence"),
     evidenceCards.length ? el("div", { class: "prod-analysis-evidence" }, ...evidenceCards) : el("p", { class: "help" }, "No visual evidence frames are available."),
@@ -651,6 +657,62 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const dialog = modal(`Analyze ${scene.title}`, "Runs an explicit evidence-only observation on this immutable candidate. No candidate, scene or canonical fact is changed.");
   const status = el("div", { class: "prod-analysis-status" }, "Not started. The independent visual pass receives no intended prompt.");
   const progress = el("div", { class: "prod-progress wide" }, el("i", { style: { width: "0%" } }));
+  const visualModelSelect = el("select", { "aria-label": "Visual observer checkpoint" }, el("option", { value: "" }, "Discovering installed observer checkpoints…"));
+  const comparisonModelSelect = el("select", { "aria-label": "Comparison observer checkpoint" }, el("option", { value: "" }, "Discovering installed observer checkpoints…"));
+  const nativeVideo = el("input", { type: "checkbox", disabled: true, "aria-label": "Native scene video input" });
+  const nativeAudio = el("input", { type: "checkbox", disabled: true, "aria-label": "Native scene audio input" });
+  const temperature = el("input", { type: "number", value: "0.1", min: "0.01", max: "2", step: "0.01", "aria-label": "Observer temperature" });
+  const maxTokens = el("input", { type: "number", value: "4096", min: "1", max: "32768", step: "1", "aria-label": "Observer output token budget" });
+  const topK = el("input", { type: "number", value: "64", min: "0", max: "1000", step: "1", "aria-label": "Observer top-k" });
+  const topP = el("input", { type: "number", value: "0.9", min: "0", max: "1", step: "0.01", "aria-label": "Observer top-p" });
+  const capabilityNote = el("p", { class: "help" }, "Loading the installed checkpoint list…");
+  const modelById = new Map();
+  let modelsLoaded = false;
+  const updateCapabilities = () => {
+    const selected = modelById.get(visualModelSelect.value);
+    const video = Boolean(selected?.modalities?.video);
+    const audio = Boolean(selected?.modalities?.audio);
+    nativeVideo.disabled = !video;
+    nativeAudio.disabled = !audio;
+    if (!video) nativeVideo.checked = false;
+    if (!audio) nativeAudio.checked = false;
+    capabilityNote.textContent = selected
+      ? `${selected.label} · ${selected.quantization} · ${selected.clipType} · inputs: ${Object.entries(selected.modalities).filter(([, on]) => on).map(([name]) => name).join(", ")}${video || audio ? "" : " · images only"}`
+      : "No installed compatible checkpoint was discovered.";
+  };
+  const modelOptions = (models) => models.map((model) => el("option", { value: model.id }, `${model.label}${model.compatible ? "" : " · unavailable"}`));
+  void api("/api/observer-models").then((result) => {
+    const installed = (result.models || []).filter((model) => model.installed && model.compatible);
+    for (const model of installed) modelById.set(model.id, model);
+    visualModelSelect.replaceChildren(...modelOptions(installed));
+    comparisonModelSelect.replaceChildren(...modelOptions(installed));
+    const fallback = installed.find((model) => model.id === result.defaultModelId)?.id || installed[0]?.id || "";
+    visualModelSelect.value = fallback;
+    comparisonModelSelect.value = fallback;
+    modelsLoaded = installed.length > 0;
+    visualModelSelect.disabled = !modelsLoaded;
+    comparisonModelSelect.disabled = !modelsLoaded;
+    if (!modelsLoaded) capabilityNote.textContent = "No installed compatible observer checkpoint was discovered in ComfyUI text_encoders.";
+    updateCapabilities();
+    if (startButton) startButton.disabled = !modelsLoaded;
+  }).catch((error) => {
+    capabilityNote.textContent = `Could not discover observer checkpoints: ${error.message}`;
+  });
+  visualModelSelect.onchange = updateCapabilities;
+  const modelField = el("div", { class: "prod-observer-models" },
+    el("label", { class: "ag-field" }, el("span", {}, "Visual observation model"), visualModelSelect),
+    el("label", { class: "ag-field" }, el("span", {}, "Comparison model (independent)"), comparisonModelSelect),
+    el("div", { class: "prod-observer-modalities" },
+      el("label", {}, nativeVideo, " Native scene video"),
+      el("label", {}, nativeAudio, " Native scene audio")),
+    capabilityNote);
+  const tuningField = el("details", { class: "prod-details" }, el("summary", {}, "Effective inference configuration"),
+    el("div", { class: "prod-observer-tuning" },
+      el("label", { class: "ag-field" }, el("span", {}, "Temperature"), temperature),
+      el("label", { class: "ag-field" }, el("span", {}, "Output token budget"), maxTokens),
+      el("label", { class: "ag-field" }, el("span", {}, "Top-k"), topK),
+      el("label", { class: "ag-field" }, el("span", {}, "Top-p"), topP)),
+    el("p", { class: "help" }, "These values are written to the actual CLIPLoader + TextGenerateV2 graph; they are not report-only metadata."));
   const characterAssets = Object.values(snapshot.assets).filter((asset) => asset.kind === "image" && asset.category === "characters");
   const referenceSelect = el("select", { multiple: true, size: "4", "aria-label": "Identity reference assets" },
     ...characterAssets.map((asset) => el("option", { value: asset.id }, asset.label)));
@@ -661,7 +723,7 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   let job = null;
   let timer = null;
   const cancelButton = el("button", { class: "btn small ghost danger", type: "button", disabled: true }, icon("x"), "Cancel analysis");
-  const startButton = el("button", { class: "btn lime", type: "button" }, icon("play"), "Start analysis");
+  const startButton = el("button", { class: "btn lime", type: "button", disabled: true }, icon("play"), "Start analysis");
   const stop = () => { if (timer) clearInterval(timer); timer = null; };
   const render = () => {
     if (!job) return;
@@ -697,6 +759,7 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
     }
   };
   startButton.onclick = async () => {
+    if (!modelsLoaded) return toast("No installed compatible observer checkpoint is available.", { error: true });
     startButton.disabled = true;
     status.textContent = "Submitting the observation job…";
     try {
@@ -704,7 +767,14 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
           sceneId: scene.id, candidateId: candidate.id, bindingIds: bindings.map((binding) => binding.id),
           referenceAssetIds: [...referenceSelect.selectedOptions].map((option) => option.value),
-          options: { maxFrames: 12, visualFrames: Math.max(1, 9 - [...referenceSelect.selectedOptions].length), sampleIntervalSeconds: 2, sceneThreshold: 0.3, includeAudio: true, visual: true, asr: true, comparison: true },
+          options: {
+            maxFrames: 12, visualFrames: Math.max(1, 9 - [...referenceSelect.selectedOptions].length),
+            sampleIntervalSeconds: 2, sceneThreshold: 0.3, includeAudio: true, visual: true, asr: true, comparison: true,
+            visualModel: visualModelSelect.value, comparisonModel: comparisonModelSelect.value,
+            nativeVideo: nativeVideo.checked, nativeAudio: nativeAudio.checked,
+            temperature: Number(temperature.value), maxOutputTokens: Number(maxTokens.value),
+            topK: Number(topK.value), topP: Number(topP.value),
+          },
         }),
       });
       cancelButton.disabled = false; render();
@@ -725,7 +795,7 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const previous = Object.values(snapshot.observations).filter((observation) => observation.sceneId === scene.id && observation.candidateId === candidate.id).sort((a, b) => (a.revision || 0) - (b.revision || 0));
   if (previous.length) body.append(el("section", { class: "prod-section" }, el("h3", {}, "Previous observations"),
     ...previous.map((observation) => el("div", { class: "prod-observation" }, el("b", {}, `Revision ${observation.revision || "?"} · ${dateLabel(observation.createdAt)}`), el("p", {}, observation.text)))));
-  dialog.append(status, progress, referenceField, body,
+  dialog.append(status, progress, modelField, tuningField, referenceField, body,
     el("p", { class: "help" }, "The source video is verified and read only. Evidence is cached under out/observations; a failed stage never removes the candidate."),
     el("div", { class: "ag-dialog-actions" },
       el("button", { class: "btn ghost", type: "button", onclick: () => { stop(); dialog.close(); onDone?.(); } }, "Close"),

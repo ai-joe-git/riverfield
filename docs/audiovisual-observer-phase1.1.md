@@ -92,3 +92,11 @@ Expected semantics:
 - no canonical revision change and no proposal application.
 
 The original observation and package remain the Phase 1 reference. A second benchmark should be a new immutable observation revision, not a replacement.
+
+## Multimodal observer architecture
+
+The model selection, actual CLIPLoader binding, native video/audio inputs and the
+controlled benchmark matrix are documented in
+[`multimodal-observer-benchmark.md`](multimodal-observer-benchmark.md). The internal
+observer remains one `CLIPLoader` + `TextGenerateV2` graph; no separate inference
+runtime or duplicated workflow was introduced.

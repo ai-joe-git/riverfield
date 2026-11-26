@@ -145,6 +145,9 @@ test("observer analyzes only the selected scene binding and records a structured
     assert.equal(observation.report?.dialogue?.utterances[0]?.text, "Hello.");
     assert.equal(observation.report?.comparison?.findings[0]?.classification, "confirmed");
     assert.equal(observation.report?.visual?.characters[0]?.identityMatch, "probable");
+    assert.equal(observation.report?.observer?.visualCheckpoint?.file, "qwen3.8_27b_w4a8.safetensors");
+    assert.equal(observation.report?.observer?.comparisonCheckpoint?.file, "qwen3.8_27b_w4a8.safetensors");
+    assert.deepEqual(observation.report?.observer?.inputModalities, { text: true, image: true, video: false, audio: false });
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
@@ -227,5 +230,16 @@ test("observed wardrobe becomes scene state, not permanent identity", async () =
     assert.ok(proposal.changes[0]?.tags?.includes("wardrobe-not-identity"));
     assert.deepEqual(proposal.changes[0]?.evidenceIds, ["frame-0001"]);
     assert.equal(snap.revision, 0);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+
+test("an unsupported native modality is rejected instead of silently dropped", () => {
+  const { out, store } = fixture();
+  try {
+    const observations = manager(store, out, { bindings: [] });
+    assert.throws(() => observations.start("suite-404", {
+      sceneId: "scene-a", candidateId: "candidate-a", options: { nativeAudio: true },
+    }, actor), /does not expose native audio/);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });

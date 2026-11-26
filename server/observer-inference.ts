@@ -22,6 +22,8 @@ export type VisualObserverResult = {
   version: string;
   promptVersion: string;
   configuration: Record<string, unknown>;
+  inputModalities?: { text: true; image: true; video: boolean; audio: boolean };
+  checkpoint?: { file: string; quantization: string; clipType: string; family: string };
   rawText: string;
   systemPrompt?: string;
   inputPrompt?: string;
@@ -35,6 +37,10 @@ export type ComparisonResult = {
   comparison: ObservationComparison;
   rawText: string;
   promptVersion: string;
+  model?: string;
+  configuration?: Record<string, unknown>;
+  inputModalities?: { text: true; image: boolean; video: boolean; audio: boolean };
+  checkpoint?: { file: string; quantization: string; clipType: string; family: string };
   systemPrompt?: string;
   inputPrompt?: string;
 };
@@ -45,6 +51,8 @@ export interface VisualObserver {
     shots: ObservationShot[];
     frames: ObservationEvidence[];
     referenceFiles?: { label: string; file: FileValue }[];
+    video?: FileValue;
+    audio?: FileValue;
     signal?: AbortSignal;
   }): Promise<VisualObserverResult>;
 }
@@ -118,11 +126,18 @@ function frameFile(frame: ObservationEvidence): FileValue {
 }
 
 export type ObserverBackendOptions = {
-  /** Model id reported in the report; the caller may provide a smaller specialized workflow. */
+  /** Exact CLIPLoader checkpoint filename and recipe, not just a report label. */
   model?: string;
+  clipType?: string;
   maxImages?: number;
   maxOutputTokens?: number;
   temperature?: number;
+  topK?: number;
+  topP?: number;
+  seed?: number;
+  thinking?: boolean;
+  /** Optional immutable checkpoint identity for the report. */
+  checkpoint?: { file: string; quantization: string; clipType: string; family: string };
 };
 
 export class QwenVisualObserver implements VisualObserver, SceneComparator {
@@ -134,14 +149,39 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
   private readonly maxImages: number;
   private readonly maxOutputTokens: number;
   private readonly temperature: number;
+  private readonly clipType: string;
+  private readonly topK: number;
+  private readonly topP: number;
+  private readonly seed: number;
+  private readonly thinking: boolean;
+  private readonly checkpoint?: ObserverBackendOptions["checkpoint"];
 
   constructor(runner: Runner, app: App, options: ObserverBackendOptions = {}) {
     this.runner = runner;
     this.app = app;
     this.model = options.model ?? "qwen3.8_27b_w4a8.safetensors";
+    this.clipType = options.clipType ?? "stable_diffusion";
     this.maxImages = Math.max(1, Math.min(9, options.maxImages ?? 9));
     this.maxOutputTokens = options.maxOutputTokens ?? 4096;
     this.temperature = options.temperature ?? 0.1;
+    this.topK = options.topK ?? 64;
+    this.topP = options.topP ?? 0.9;
+    this.seed = options.seed ?? 0;
+    this.thinking = options.thinking ?? false;
+    this.checkpoint = options.checkpoint;
+  }
+
+  private graphValues(): Record<string, unknown> {
+    return {
+      observer_model: this.model,
+      observer_clip_type: this.clipType,
+      temperature: this.temperature,
+      max_output_tokens: this.maxOutputTokens,
+      top_k: this.topK,
+      top_p: this.topP,
+      seed: this.seed,
+      thinking: this.thinking,
+    };
   }
 
   async observe(input: {
@@ -149,6 +189,8 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     shots: ObservationShot[];
     frames: ObservationEvidence[];
     referenceFiles?: { label: string; file: FileValue }[];
+    video?: FileValue;
+    audio?: FileValue;
     signal?: AbortSignal;
   }): Promise<VisualObserverResult> {
     const frames = input.frames.slice(0, this.maxImages);
@@ -159,8 +201,11 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       referenceLabels: references.map((reference) => reference.label),
     });
     const values: Record<string, unknown> = {
+      ...this.graphValues(),
       system_prompt: VISUAL_OBSERVER_SYSTEM_PROMPT,
       prompt,
+      ...(input.video ? { video1: input.video } : {}),
+      ...(input.audio ? { audio1: input.audio } : {}),
     };
     const visualImages = [
       ...frames.map((frame) => ({
@@ -243,7 +288,12 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     }
     return {
       visual, model: this.model, version: this.version, promptVersion: this.promptVersion,
-      configuration: { maxImages: this.maxImages, frames: frames.length, referenceFrames: references.length, temperature: this.temperature, maxLength: this.maxOutputTokens },
+      configuration: {
+        clipType: this.clipType, maxImages: this.maxImages, frames: frames.length, referenceFrames: references.length,
+        temperature: this.temperature, maxLength: this.maxOutputTokens, topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
+      },
+      inputModalities: { text: true, image: true, video: Boolean(input.video), audio: Boolean(input.audio) },
+      ...(this.checkpoint ? { checkpoint: this.checkpoint } : {}),
       rawText, systemPrompt: VISUAL_OBSERVER_SYSTEM_PROMPT, inputPrompt: prompt,
       images: visualImages.map((image, index) => ({ order: index + 1, ...image.meta })),
     };
@@ -258,6 +308,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
   }): Promise<ComparisonResult> {
     const prompt = comparisonPrompt({ ...input, observationJson: input.observation });
     const { outputs } = await this.runner.runTexts(this.app, {
+      ...this.graphValues(),
       system_prompt: COMPARISON_SYSTEM_PROMPT, prompt,
     }, input.signal);
     const rawText = outputs[0]?.text ?? "";
@@ -349,6 +400,13 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         comparedAt: new Date().toISOString(), comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
       },
       rawText, promptVersion: COMPARISON_PROMPT_VERSION,
+      model: this.model,
+      configuration: {
+        clipType: this.clipType, temperature: this.temperature, maxLength: this.maxOutputTokens,
+        topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
+      },
+      inputModalities: { text: true, image: false, video: false, audio: false },
+      ...(this.checkpoint ? { checkpoint: this.checkpoint } : {}),
       systemPrompt: COMPARISON_SYSTEM_PROMPT, inputPrompt: prompt,
     };
   }

@@ -171,6 +171,14 @@
       "images.image9": [
         "img9",
         0
+      ],
+      "videos.video1": [
+        "video_frames",
+        0
+      ],
+      "audios.audio1": [
+        "audio",
+        0
       ]
     },
     "_meta": {
@@ -189,6 +197,36 @@
     },
     "_meta": {
       "title": "Save observation JSON"
+    }
+  },
+  "video": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "observer-scene.mp4"
+    },
+    "_meta": {
+      "title": "Native scene video (optional)"
+    }
+  },
+  "video_frames": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "video",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Native scene video frames (optional)"
+    }
+  },
+  "audio": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "observer-scene.wav"
+    },
+    "_meta": {
+      "title": "Native scene audio (optional)"
     }
   }
 }

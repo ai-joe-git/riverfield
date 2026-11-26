@@ -55,6 +55,7 @@ import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./
 import type { Actor } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
 import { ObservationError } from "./observation-evidence.ts";
+import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -931,6 +932,11 @@ const server = createServer(async (req, res) => {
         return send(res,404,{error:"Unknown Agent route"});
       }
       if(req.method==="GET" && area==="inference")return send(res,200,inference.snapshot());
+      if(req.method==="GET" && area==="observer-models" && parts.length===2)return send(res,200,{
+        models: discoverObserverModels(), defaultModelId: DEFAULT_OBSERVER_MODEL_ID,
+        source: "local ComfyUI text_encoders safetensors headers; no weights downloaded",
+        generatedAt: new Date().toISOString(),
+      });
       if(area==="media"){
         localAccess(req);if(guard.hosted)throw new InputError("Local media tools are disabled on hosted demos");
         if(req.method==="POST"&&!id)return send(res,200,await media.run(await (await toRequest(req,1)).json()));

@@ -436,9 +436,17 @@ export function build(base=BASE): McpServer {
     } catch (e) { return fail(e); }
   });
 
+  server.registerTool("list_observer_models", {
+    title: "List installed observer models",
+    description: "Discover the observer checkpoints installed under ComfyUI text_encoders, their exact filenames, CLIPLoader recipe, quantization and proven input modalities. Read-only; it does not load weights or start inference.",
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    try { return text(await call("/api/observer-models")); } catch (e) { return fail(e); }
+  });
+
   server.registerTool("analyze_scene", {
     title: "Analyze a scene candidate",
-    description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. It extracts cached FFmpeg evidence, runs the local Qwen observer and the Whisper Turbo ASR adapter through the shared queue, then records a structured observation report. It does not approve or canonize anything.",
+    description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. It extracts cached FFmpeg evidence, runs the selected installed multimodal observer and the Whisper Turbo ASR adapter through the shared queue, then records a structured observation report. It does not approve or canonize anything.",
     inputSchema: {
       productionId: z.string(), sceneId: z.string(), candidateId: z.string(),
       bindingIds: z.array(z.string()).optional().describe("only these scene bindings; default all bindings for the scene"),
@@ -447,25 +455,24 @@ export function build(base=BASE): McpServer {
       sampleIntervalSeconds: z.number().min(0.25).max(30).optional(),
       sceneThreshold: z.number().gt(0).lt(1).optional(),
       includeAudio: z.boolean().optional(), visual: z.boolean().optional(), asr: z.boolean().optional(), comparison: z.boolean().optional(),
+      visualModel: z.string().optional().describe("installed observer model id for the independent visual pass; list_observer_models returns ids"),
+      comparisonModel: z.string().optional().describe("independent installed observer model id for the comparison pass"),
+      nativeVideo: z.boolean().optional().describe("supply an actual scene video through TextGenerateV2 videos; rejected if the visual model lacks video support"),
+      nativeAudio: z.boolean().optional().describe("supply actual scene audio through TextGenerateV2 audios; rejected if the visual model lacks audio support"),
+      temperature: z.number().min(0.01).max(2).optional(),
+      maxOutputTokens: z.number().int().min(1).max(32768).optional(),
+      topK: z.number().int().min(0).max(1000).optional(),
+      topP: z.number().min(0).max(1).optional(),
       referenceAssetIds: z.array(z.string()).optional().describe("production image assets to compare against identity; not proof of appearance"),
       request_id: z.string().max(200).optional(),
     },
   }, async ({ productionId, request_id, ...body }) => {
     try {
       const payload: Any = { ...body };
-      if (body.maxFrames !== undefined || body.visualFrames !== undefined || body.sampleIntervalSeconds !== undefined || body.sceneThreshold !== undefined || body.includeAudio !== undefined || body.visual !== undefined || body.asr !== undefined || body.comparison !== undefined) {
-        payload.options = {
-          ...(body.maxFrames !== undefined ? { maxFrames: body.maxFrames } : {}),
-          ...(body.visualFrames !== undefined ? { visualFrames: body.visualFrames } : {}),
-          ...(body.sampleIntervalSeconds !== undefined ? { sampleIntervalSeconds: body.sampleIntervalSeconds } : {}),
-          ...(body.sceneThreshold !== undefined ? { sceneThreshold: body.sceneThreshold } : {}),
-          ...(body.includeAudio !== undefined ? { includeAudio: body.includeAudio } : {}),
-          ...(body.visual !== undefined ? { visual: body.visual } : {}),
-          ...(body.asr !== undefined ? { asr: body.asr } : {}),
-          ...(body.comparison !== undefined ? { comparison: body.comparison } : {}),
-        };
-        delete payload.maxFrames; delete payload.visualFrames; delete payload.sampleIntervalSeconds; delete payload.sceneThreshold;
-        delete payload.includeAudio; delete payload.visual; delete payload.asr; delete payload.comparison;
+      const optionKeys = ["maxFrames", "visualFrames", "sampleIntervalSeconds", "sceneThreshold", "includeAudio", "visual", "asr", "comparison", "visualModel", "comparisonModel", "nativeVideo", "nativeAudio", "temperature", "maxOutputTokens", "topK", "topP"] as const;
+      if (optionKeys.some((key) => body[key] !== undefined)) {
+        payload.options = Object.fromEntries(optionKeys.filter((key) => body[key] !== undefined).map((key) => [key, body[key]]));
+        for (const key of optionKeys) delete payload[key];
       }
       if (request_id) payload.requestKey = request_id;
       return text(await call(`/api/productions/${encodeURIComponent(productionId)}/observation-jobs`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(payload) }));
