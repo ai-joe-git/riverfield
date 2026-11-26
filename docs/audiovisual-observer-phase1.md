@@ -131,7 +131,7 @@ Each candidate card gets an explicit **Analyze scene** action. Opening the actio
 node --experimental-strip-types --disable-warning=ExperimentalWarning server/suite404-assets.ts
 ```
 
-It preserves asset ids and media paths, updates labels/categories in place, indexes the four official assets that were missing from the production (Akari, Daichi, Bathroom, Bedroom), and moves older duplicate masters to Drafts with a `superseded` tag. The catalog ends at 17 Locations, 15 Characters (14 official + one extra production character), 9 Props and 12 Drafts, with canonical revision 0. It never changes canonical revision.
+It preserves asset ids and media paths, updates labels/categories in place, indexes the four official master assets that were missing (Akari, Daichi, Bathroom, Bedroom) and the three official `Assets/Tests/Qwen2.1` files, and moves older duplicate masters to References with a `superseded` tag. The catalog now uses the same top-level names as the official `Assets/` folder: 14 Characters, 17 Environments, 9 Props, 3 Tests, plus 13 References (12 superseded masters and Megumi). Canonical revision stays 0.
 
 ## Proposed first real Velvet Moon observation (requires human approval)
 

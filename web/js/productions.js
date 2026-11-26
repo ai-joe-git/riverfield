@@ -6,7 +6,7 @@ import { modal } from "./agent-controls.js";
 import { apps, layoutOf } from "./catalog.js";
 
 const LAST = "production.last";
-const ASSET_FOLDERS = [["characters", "Characters"], ["locations", "Locations"], ["props", "Props"], ["drafts", "Drafts"], ["references", "References"]];
+const ASSET_FOLDERS = [["characters", "Characters"], ["environments", "Environments"], ["props", "Props"], ["tests", "Tests"], ["references", "References"]];
 const ASSET_FOLDER_LABEL = Object.fromEntries(ASSET_FOLDERS);
 const DIRECTOR_APPS = () => apps.filter((app) => layoutOf(app) === "director" && app.id !== "ltx-sequential-director");
 const statusLabel = (state) => state === "canon" ? "Canonical" : state === "alternate" ? "Alternate" : state === "rejected" ? "Rejected" : state === "proposed" ? "Proposed" : state === "observed" ? "Observed" : "Draft";

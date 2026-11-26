@@ -2,7 +2,7 @@
 // Asset_Registry/Universe_Asset_Batch catalog and updates existing Production Engine
 // asset labels/categories only; it never copies, moves or renames a media file and it
 // never changes the canonical revision.
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { ProductionStore } from "./production-store.ts";
 import type { Actor, Asset } from "./production-types.ts";
@@ -47,24 +47,41 @@ export type Suite404AssetSyncReport = {
 
 function normalizeCategory(category: string): string {
   const value = category.toLowerCase();
-  if (value === "environments" || value === "environment" || value === "locations") return "locations";
+  if (value === "environments" || value === "environment" || value === "locations") return "environments";
   if (value === "characters" || value === "character") return "characters";
   if (value === "props" || value === "prop") return "props";
-  if (value === "tests" || value === "drafts" || value === "draft") return "drafts";
+  if (value === "tests" || value === "test") return "tests";
+  if (value === "drafts" || value === "draft") return "references";
   return category || "references";
 }
 
 function categoryFromPath(relativePath: string): string {
   const normalized = relativePath.replace(/\\/g, "/");
   if (normalized.includes("/Characters/")) return "characters";
-  if (normalized.includes("/Environments/")) return "locations";
+  if (normalized.includes("/Environments/")) return "environments";
   if (normalized.includes("/Props/")) return "props";
-  if (normalized.includes("/Tests/")) return "drafts";
+  if (normalized.includes("/Tests/")) return "tests";
   return "references";
 }
 
 function stem(path: string): string {
   return path.replace(/\\/g, "/").split("/").pop()?.replace(/\.[^.]+$/, "") || path;
+}
+
+function scanTestAssets(root: string): string[] {
+  const testsRoot = join(root, "Assets", "Tests");
+  if (!existsSync(testsRoot)) return [];
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!entry.isFile() || !/\.(png|jpe?g|webp)$/i.test(entry.name)) continue;
+      out.push(full.replace(root.replace(/[\\/]+$/, ""), "").replace(/^[/\\]/, "").replace(/\\/g, "/"));
+    }
+  };
+  walk(testsRoot);
+  return out;
 }
 
 export function loadOfficialCatalog(root = SUITE404_CATALOG_ROOT): CatalogEntry[] {
@@ -115,6 +132,11 @@ export function loadOfficialCatalog(root = SUITE404_CATALOG_ROOT): CatalogEntry[
     const n = Number(asset.n) || Number(key);
     const path = String(asset.dest || asset.output || "");
     if (n && path && byPath.has(path)) byNumber.set(n, byPath.get(path)!);
+  }
+  // Assets/Tests is a real official folder but is not part of the generated-master registry.
+  for (const relativePath of scanTestAssets(root)) {
+    if (byPath.has(relativePath)) continue;
+    add(stem(relativePath), relativePath, "tests", "official_test", null);
   }
   return [...byPath.values()];
 }
@@ -181,16 +203,32 @@ export function syncSuite404Assets(outDir: string, options: { productionId?: str
   }
   for (const asset of Object.values(snap.assets)) {
     if (asset.kind !== "image") continue;
+    const superseded = (asset.tags ?? []).includes("superseded") || asset.category === "drafts";
+    if (superseded) {
+      const nextTags = [...new Set([
+        ...(asset.tags ?? []).filter((tag) => !["characters", "locations", "props", "drafts", "tests", "references", "environments", "official-catalog"].includes(tag) && !tag.startsWith("official-category:")),
+        "superseded", "official-category:references",
+      ])];
+      if (asset.category !== "references") {
+        store.updateAsset(productionId, asset.id, { category: "references", tags: nextTags }, actor, `suite404:asset:superseded-ref:${asset.id}`);
+        unchanged += 0;
+      }
+      continue;
+    }
     const entry = catalogForAsset(asset, catalog, byJob, byNumber);
     if (!entry) {
       unmatched.push({ id: asset.id, label: asset.label, ...(asset.sourceRunId ? { sourceRunId: asset.sourceRunId } : {}) });
+      if (asset.category !== "references") {
+        const tags = [...new Set([...(asset.tags ?? []), "production-extra", "official-category:references"])];
+        store.updateAsset(productionId, asset.id, { category: "references", tags }, actor, `suite404:asset:extra:${asset.id}`);
+      }
       continue;
     }
     matched += 1;
     const nextLabel = entry.label;
     const nextCategory = entry.category;
     const nextTags = [...new Set([
-      ...(asset.tags ?? []).filter((tag) => !["characters", "locations", "props", "drafts", "references", "environments", "official-catalog"].includes(tag) && !tag.startsWith("official-category:")),
+      ...(asset.tags ?? []).filter((tag) => !["characters", "locations", "props", "drafts", "tests", "references", "environments", "official-catalog"].includes(tag) && !tag.startsWith("official-category:")),
       "suite404", "official-catalog", `official-category:${entry.category}`, entry.relativePath,
     ])];
     if (asset.label === nextLabel && asset.category === nextCategory && JSON.stringify([...asset.tags].sort()) === JSON.stringify([...nextTags].sort())) {
@@ -206,7 +244,7 @@ export function syncSuite404Assets(outDir: string, options: { productionId?: str
   const fresh = store.snapshot(productionId);
   const groups = new Map<string, Asset[]>();
   for (const asset of Object.values(fresh.assets)) {
-    if (asset.category === "drafts" || (asset.tags ?? []).includes("superseded")) continue;
+    if (asset.category === "references" || (asset.tags ?? []).includes("superseded")) continue;
     groups.set(asset.label, [...(groups.get(asset.label) ?? []), asset]);
   }
   for (const [label, list] of groups) {
@@ -218,11 +256,11 @@ export function syncSuite404Assets(outDir: string, options: { productionId?: str
     for (const asset of list) {
       if (asset.id === preferred?.id) continue;
       const nextTags = [...new Set([
-        ...(asset.tags ?? []).filter((tag) => !["official-category:characters", "official-category:locations", "official-category:props", "official-category:drafts"].includes(tag)),
-        "superseded", "official-category:drafts",
+        ...(asset.tags ?? []).filter((tag) => !["official-category:characters", "official-category:environments", "official-category:props", "official-category:tests", "official-category:references", "official-category:locations", "official-category:drafts"].includes(tag)),
+        "superseded", "official-category:references",
       ])];
       store.updateAsset(productionId, asset.id, {
-        label: `${label} (superseded)`, category: "drafts", tags: nextTags,
+        label: `${label} (superseded)`, category: "references", tags: nextTags,
       }, actor, `suite404:asset:superseded:${asset.id}:${label}`);
       superseded += 1;
     }
