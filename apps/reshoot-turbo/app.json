@@ -108,6 +108,29 @@
       ]
     },
     {
+      "id": "clip_name",
+      "type": "select",
+      "label": "Text encoder",
+      "default": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "options": [
+        {
+          "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "label": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+        },
+        {
+          "value": "p-h3-image_text_encoder_int8_convrot.safetensors",
+          "label": "p-h3-image text encoder INT8 — 4.8 GB"
+        }
+      ],
+      "help": "H3 text encoder. p-h3-image is the smaller 4.8 GB encoder used by p-H3 Image Edit.",
+      "bind": [
+        {
+          "node": "15",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
       "id": "sla",
       "type": "toggle",
       "label": "Sparse attention (H3 SLA)",

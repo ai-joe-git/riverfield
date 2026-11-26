@@ -488,11 +488,11 @@ test("the pi-H3 DWD apps expose 2/4 steps and decode without a video VAE", () =>
   }
 });
 
-test("the pi-H3 director and reference apps switch the 2/4-step adapters", () => {
+test("the pi-H3 director and reference apps switch the 2/4-step adapters; the director adds 6", () => {
   for (const id of ["h3-piflow-director", "h3-piflow-r2v"]) {
     const app = byId(id);
     const steps = app.inputs.find((i) => i.id === "steps")!;
-    assert.deepEqual(steps.options?.map((o) => o.value), [2, 4]);
+    assert.deepEqual(steps.options?.map((o) => o.value), id === "h3-piflow-director" ? [2, 4, 6] : [2, 4]);
     assert.deepEqual(steps.bind, [{ node: "39:36", field: "value" }]);
     const graph = app.graph! as Record<string, any>;
     assert.equal(graph["50"].class_type, "pi-Flow Scheduler");
@@ -509,6 +509,10 @@ test("the pi-H3 director and reference apps switch the 2/4-step adapters", () =>
   const director = byId("h3-piflow-director").graph as Record<string, any>;
   assert.equal(director["30"].class_type, "MiniMaxH3FiniteSegmentVideoSampler");
   assert.ok(!Object.values(director).some((n: any) => n.class_type === "DWD Decode"), "the multi-segment sampler decodes with the VAE");
+  assert.equal(director["29"].inputs.video?.[0], "vsr_switch", "the director's final clip goes through the RelayVSR switch");
+  assert.equal(director["vsr_components"].inputs.video?.[0], "30");
+  assert.equal(director["vsr_cond"].inputs.images?.[0], "vsr_components");
+  assert.equal(director["vsr_switch"].inputs.on_false?.[0], "30");
   const ref = byId("h3-piflow-r2v").graph as Record<string, any>;
   assert.equal(ref["136"].class_type, "MiniMaxH3ReferenceToVideo");
   assert.equal(ref["12"].class_type, "DWD Decode");

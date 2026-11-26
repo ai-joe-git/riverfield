@@ -641,6 +641,10 @@
         {
           "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
           "label": "Qwen3-VL 32B Ultra Heretic int8 — community"
+        },
+        {
+          "value": "p-h3-image_text_encoder_int8_convrot.safetensors",
+          "label": "p-h3-image text encoder INT8 — 4.8 GB"
         }
       ],
       "help": "The H3 text encoder. The int8 file is the default; NVFP4 needs a Blackwell GPU; the heretic file is an uncensored community variant.",

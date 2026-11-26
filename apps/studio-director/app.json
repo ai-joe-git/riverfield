@@ -759,6 +759,10 @@
         {
           "value": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
           "label": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+        },
+        {
+          "value": "p-h3-image_text_encoder_int8_convrot.safetensors",
+          "label": "p-h3-image text encoder INT8 — 4.8 GB"
         }
       ],
       "bind": [

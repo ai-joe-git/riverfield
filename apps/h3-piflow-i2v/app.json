@@ -251,6 +251,10 @@
         {
           "value": "qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
           "label": "Qwen3-VL 32B Heretic INT8 (25 GB)"
+        },
+        {
+          "value": "p-h3-image_text_encoder_int8_convrot.safetensors",
+          "label": "p-h3-image text encoder INT8 — 4.8 GB"
         }
       ],
       "bind": [

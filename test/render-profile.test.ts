@@ -65,14 +65,15 @@ function withoutRendering(values: Record<string, unknown>) {
   return copy;
 }
 
-test("the Flash director advertises the profile contract; other H3 engines do not inherit it", () => {
+test("the Flash and pi-H3 directors advertise the profile contract; other H3 engines do not inherit it", () => {
   const capability = renderProfileCapability(flash)!;
   assert.equal(capability.build_megapixels, 0.1);
   assert.equal(capability.production_default_megapixels, 0.4);
   assert.equal(capability.generation.min, 0.1);
   assert.equal(capability.generation.max, 3.0);
   assert.deepEqual(capability.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"]);
-  assert.equal(renderProfileCapability(piflow)?.upscale, null, "pi-H3 has resolution profiles but no RelayVSR");
+  assert.deepEqual(renderProfileCapability(piflow)?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "pi-H3 Director exposes RelayVSR");
+  assert.equal(renderProfileCapability(byId("studio-director"))?.upscale, null, "the generic studio director has no RelayVSR input");
   assert.equal(renderProfileCapability(byId("studio-director"))?.production_default_megapixels, 0.4);
   assert.equal(renderProfileCapability(byId("pika-studio-director")), null, "the locked Pika flow keeps its own contract");
   assert.equal(renderProfileCapability(byId("ltx-director")), null);
@@ -145,11 +146,12 @@ test("Production resolution is adjustable and X2/X4 use the right linear and are
 });
 
 test("a Production request cannot force RelayVSR onto an app that has no upscale input", () => {
+  const noUpscale = byId("studio-director");
   assert.throws(
-    () => resolveValues(piflow, { render_profile: "production", production_megapixels: 0.4, production_upscale: "x2", global_prompt: "x", image1: IMAGE, segment_windows: TIMELINE }),
+    () => resolveValues(noUpscale, { render_profile: "production", production_megapixels: 0.4, production_upscale: "x2", global_prompt: "x", image1: IMAGE, segment_windows: TIMELINE }),
     /no RelayVSR upscale option/,
   );
-  const values = resolveValues(piflow, { render_profile: "production", production_megapixels: 0.4, global_prompt: "x", image1: IMAGE, segment_windows: TIMELINE }) as Record<string, any>;
+  const values = resolveValues(noUpscale, { render_profile: "production", production_megapixels: 0.4, global_prompt: "x", image1: IMAGE, segment_windows: TIMELINE }) as Record<string, any>;
   assert.equal(values.megapixels, 0.4, "compatible H3 directors get the shared production default");
 });
 
@@ -246,6 +248,11 @@ test("preview -> production copies the exact creative payload and only replaces 
 
 test("RelayVSR x2/x4 use the matching DIT and Flash VAE; a mismatched manifest is rejected", () => {
   assert.deepEqual(relayVSRPair(flash, "x2"), {
+    factor: "x2",
+    unet: "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+    vae: "relayvsr_flash_vae_x2_fp32.safetensors",
+  });
+  assert.deepEqual(relayVSRPair(piflow, "x2"), {
     factor: "x2",
     unet: "relayvsr_x2_lightx2v_int8_convrot.safetensors",
     vae: "relayvsr_flash_vae_x2_fp32.safetensors",

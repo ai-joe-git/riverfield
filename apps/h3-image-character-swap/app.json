@@ -237,6 +237,10 @@
         {
           "value": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
           "label": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+        },
+        {
+          "value": "p-h3-image_text_encoder_int8_convrot.safetensors",
+          "label": "p-h3-image text encoder INT8 — 4.8 GB"
         }
       ],
       "bind": [

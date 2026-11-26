@@ -55,7 +55,8 @@
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
         "h3-piflow-r2v",
-        "h3-piflow-t2v"
+        "h3-piflow-t2v",
+        "h3-piflow-director"
       ]
     },
     {
@@ -70,7 +71,8 @@
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
         "h3-piflow-r2v",
-        "h3-piflow-t2v"
+        "h3-piflow-t2v",
+        "h3-piflow-director"
       ]
     },
     {
@@ -237,7 +239,8 @@
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
         "h3-piflow-r2v",
-        "h3-piflow-t2v"
+        "h3-piflow-t2v",
+        "h3-piflow-director"
       ]
     },
     {
@@ -252,7 +255,8 @@
         "h3-piflow-flf2v",
         "h3-piflow-i2v",
         "h3-piflow-r2v",
-        "h3-piflow-t2v"
+        "h3-piflow-t2v",
+        "h3-piflow-director"
       ]
     }
   ]

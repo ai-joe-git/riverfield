@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-h3-piflow",
   "status": "ready",
-  "summary": "pi-H3 Director: multi-shot Material Planner segments on the 2/4-step pi-H3 adapters, with the standard H3 VAE per segment.",
+  "summary": "pi-H3 Director: multi-shot Material Planner segments on the 2/4/6-step pi-H3 adapters, optional RelayVSR x2/x4, with the standard H3 VAE per segment.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "studio-director + pi-H3 DWD adapters",
@@ -554,10 +554,10 @@
         },
         {
           "value": "production",
-          "label": "Production — 0.4 MP default"
+          "label": "Production — 0.4 MP default, optional RelayVSR"
         }
       ],
-      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. This app has no RelayVSR upscale option.",
+      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
       "hidden": true,
       "derived": true
     },
@@ -572,6 +572,127 @@
       "help": "Remembered Production generation resolution. Build & Test never reads it and never changes it.",
       "hidden": true,
       "derived": true
+    },
+    {
+      "id": "production_upscale",
+      "type": "select",
+      "label": "Production upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "Off — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "X2 — 2× linear, 4× pixel area"
+        },
+        {
+          "value": "x4",
+          "label": "X4 — 4× linear, 16× pixel area"
+        }
+      ],
+      "help": "Remembered Production RelayVSR choice. Build & Test always disables upscaling without changing this preference.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_upscale_detail",
+      "type": "slider",
+      "label": "Production upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "Remembered RelayVSR decoder detail for Production.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "upscale",
+      "type": "select",
+      "label": "Upscale",
+      "default": "",
+      "hidden": true,
+      "options": [
+        {
+          "value": "",
+          "label": "None — native model resolution",
+          "sets": [
+            {
+              "node": "vsr_switch",
+              "field": "switch",
+              "value": false
+            }
+          ]
+        },
+        {
+          "value": "x2",
+          "label": "2× — RelayVSR x2 (lightx2v DIT + Flash VAE)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x2_fp32.safetensors"
+            },
+            {
+              "node": "vsr_switch",
+              "field": "switch",
+              "value": true
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RelayVSR x4 (the paper's 4× model)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x4_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x4_fp32.safetensors"
+            },
+            {
+              "node": "vsr_switch",
+              "field": "switch",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "help": "Optional RelayVSR pass on the director's final clip: the video is decoded, upscaled and re-encoded. None keeps the native result; x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "vsr_switch",
+          "field": "on_false"
+        }
+      ]
+    },
+    {
+      "id": "upscale_detail",
+      "type": "slider",
+      "label": "Upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "hidden": true,
+      "help": "RelayVSR: how much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output, lower is calmer and closer to the source.",
+      "bind": [
+        {
+          "node": "vsr_decode",
+          "field": "detail"
+        }
+      ]
     },
     {
       "id": "multiple",
@@ -697,6 +818,10 @@
         {
           "value": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
           "label": "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+        },
+        {
+          "value": "p-h3-image_text_encoder_int8_convrot.safetensors",
+          "label": "p-h3-image text encoder INT8 — 4.8 GB"
         }
       ],
       "bind": [
@@ -1098,9 +1223,13 @@
         {
           "value": 4,
           "label": "4 (more detail)"
+        },
+        {
+          "value": 6,
+          "label": "6 (extra detail)"
         }
       ],
-      "help": "Switches the pi-H3 adapter and the pi-Flow schedule: 2 steps uses max_raw_t 0.93, 4 steps 0.96.",
+      "help": "Switches the pi-H3 adapter and the pi-Flow schedule: 2 steps uses max_raw_t 0.93; 4 and 6 steps use 0.96 with the 4-step adapter (the 4-step adapter works at any step count >= 4).",
       "bind": [
         {
           "node": "39:36",
@@ -1506,10 +1635,46 @@
       "gb": 2.19,
       "phase": "denoise",
       "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
     }
   ],
   "higgsfield_feature": "AI Director",
-  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you.",
+  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you. The 4-step adapter also drives 6-step sampling; RelayVSR x2/x4 can be selected in the Production profile and is applied to the final clip.",
   "layout": "director",
   "custom_nodes": [
     {
