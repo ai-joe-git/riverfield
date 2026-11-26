@@ -169,7 +169,9 @@ pre.code { margin: 0; padding: 12px 14px; border-radius: 10px; background: #0d0d
 .m-item .media.audio { aspect-ratio: 4 / 3; display: grid; place-items: center; }
 .m-item .media.audio > img { height: auto; object-fit: contain; padding: 0 12px; }
 .m-item .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 12px 10px; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .75));
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; opacity: 0; transition: opacity .2s; font-size: 13px; font-weight: 600; }
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; opacity: 0; transition: opacity .2s; font-size: 13px; font-weight: 600; }
+.m-item .cap > span:first-child { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-item .cap > .tag, .m-item .cap > svg { flex: none; }
 .m-item:hover .cap, .m-item:focus-visible .cap { opacity: 1; }
 .how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .how > div { padding: 18px; border-radius: var(--r-lg); background: var(--panel); border: 1px solid #1a2432; }
@@ -232,9 +234,11 @@ pre.code { margin: 0; padding: 12px 14px; border-radius: 10px; background: #0d0d
 .rcard .ov { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 8px; opacity: 0; transition: opacity .15s;
   background: linear-gradient(180deg, rgba(0, 0, 0, .55), transparent 30%, transparent 62%, rgba(0, 0, 0, .7)); }
 .rcard:hover .ov, .rcard:focus-within .ov { opacity: 1; }
-.rcard .ov .row { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
-.rcard .ov .acts { display: flex; gap: 4px; }
-.rcard .ov .meta { font-size: 12px; color: #e3e3e8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rcard .ov .row { display: flex; gap: 6px; align-items: center; justify-content: space-between; flex-wrap: wrap; min-width: 0; }
+.rcard .ov .tag { display: block; flex: 1 1 120px; min-width: 0; max-width: 100%; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
+.rcard .ov .acts { display: flex; gap: 4px; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; margin-left: auto; }
+.rcard .ov .acts .mini { flex: none; }
+.rcard .ov .meta { flex: 1 1 auto; font-size: 12px; color: #e3e3e8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .mini { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; border: 0; background: rgba(15, 15, 17, .75); color: #fff; cursor: pointer;
   backdrop-filter: blur(8px); font-size: 14px; }
 .mini:hover { background: rgba(40, 40, 44, .9); }
@@ -589,6 +593,9 @@ dl.vals dd { margin: 0; overflow-wrap: anywhere; }
   .cmp-row .generate { margin-left: auto; }
   .cmpx .panes { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
   .app-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+}
+@media (hover: none) {
+  .rcard .ov, .m-item .cap { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
