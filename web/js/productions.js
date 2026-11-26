@@ -26,6 +26,20 @@ function command(productionId, proposalId) {
   return `npm run production -- approve ${productionId} ${proposalId}`;
 }
 
+async function createAssetBuild(productionId, appId, category, label, prompt) {
+  const result = await api(`/api/productions/${encodeURIComponent(productionId)}/asset-builds`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ app: appId, category, label, prompt }),
+  });
+  return result.build;
+}
+
+function attachBuild(f, productionId, build, category) {
+  f.values.production_id = productionId;
+  f.values.production_build_id = build.id;
+  f.values.production_asset_folder = category;
+}
+
 function proposalsFor(snapshot, sceneId) {
   return Object.values(snapshot.proposals).filter((proposal) => proposal.sceneDecision?.sceneId === sceneId && proposal.status === "proposed");
 }
@@ -310,6 +324,36 @@ function deleteAsset(productionId, asset, onDone) {
   dialog.showModal();
 }
 
+function openAssetBuilder(productionId) {
+  const dialog = modal("Build a production asset", "Generate an image with H3 Image. A successful run is indexed automatically in the selected production folder.");
+  const label = field("Asset label", "");
+  const category = el("select", { "aria-label": "Asset folder" }, ...ASSET_FOLDERS.map(([value, name]) => el("option", { value, selected: String(value) === "references" }, name)));
+  const prompt = field("Image prompt", "", "textarea");
+  const build = el("button", { class: "btn lime", type: "button" }, icon("spark"), "Open H3 Image");
+  build.onclick = async () => {
+    try {
+      if (!prompt.input.value.trim()) throw new Error("Write an image prompt first");
+      const appId = "h3-image";
+      const app = apps.find((item) => item.id === appId);
+      if (!app) throw new Error("H3 Image is not installed");
+      const { formFor } = await import("./workspace.js");
+      const created = await createAssetBuild(productionId, appId, category.value, label.input.value.trim() || "Production image", prompt.input.value.trim());
+      const f = formFor(app);
+      attachBuild(f, productionId, created, category.value);
+      f.values.prompt = prompt.input.value.trim();
+      f.values.expand = true;
+      if (app.inputs.some((input) => input.id === "aspect")) f.values.aspect = "16:9 (Widescreen)";
+      dialog.close();
+      location.hash = `#/app/${appId}`;
+      toast(`Build ${created.id.slice(0, 8)} ready. A successful run will be indexed automatically in ${category.value}.`);
+    } catch (error) { toast(error.message, { error: true }); }
+  };
+  dialog.append(el("div", { class: "ag-dialog-form" }, label.node, el("label", { class: "ag-field" }, el("span", {}, "Asset folder"), category), prompt.node,
+    el("p", { class: "help" }, "The asset is created only after the H3 Image run succeeds. Opening the builder or the app starts no inference.")),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), build));
+  dialog.showModal(); label.input.focus();
+}
+
 function openCharacterSheet(productionId, snapshot) {
   const dialog = modal("Create a character sheet", "The H3 Image prompt expander is used for text-to-sheet; p-H3 Image Edit transforms an uploaded head, bust or full-body reference.");
   const name = field("Character name", "");
@@ -351,8 +395,12 @@ function openCharacterSheet(productionId, snapshot) {
       const { formFor } = await import("./workspace.js");
       const app = apps.find((item) => item.id === appId);
       if (!app) throw new Error(`${appId} is not installed`);
+      const prompt = promptFor();
+      const label = `Character sheet — ${name.input.value.trim() || "character"}`;
+      const build = await createAssetBuild(productionId, appId, "characters", label, prompt);
       const f = formFor(app);
-      f.values.prompt = promptFor();
+      attachBuild(f, productionId, build, "characters");
+      f.values.prompt = prompt;
       f.values.expand = true;
       if (app.inputs.some((input) => input.id === "aspect")) f.values.aspect = "16:9 (Widescreen)";
       if (image) {
@@ -362,7 +410,7 @@ function openCharacterSheet(productionId, snapshot) {
       }
       dialog.close();
       location.hash = `#/app/${encodeURIComponent(app.id)}`;
-      toast(image ? "Character reference loaded in p-H3 Image Edit. Review the existing form before generating." : "Character-sheet prompt ready in H3 Image. Review before generating.");
+      toast(`Asset build ready. When this ${image ? "p-H3 edit" : "H3 Image"} succeeds, it is indexed automatically in Characters.`);
     } catch (error) { toast(error.message, { error: true }); }
   };
   textButton.onclick = () => void open("h3-image");
@@ -402,6 +450,8 @@ function openAssetFromHistory(productionId, snapshot, onDone) {
 
 async function editAssetInApp(appId, asset) {
   try {
+    const productionId = location.hash.match(/^#\/productions\/([\w-]+)/)?.[1] || "";
+    if (!productionId) throw new Error("Open this asset from a production");
     const { formFor } = await import("./workspace.js");
     const app = apps.find((item) => item.id === appId);
     if (!app) throw new Error(`${appId} is not installed`);
@@ -409,13 +459,18 @@ async function editAssetInApp(appId, asset) {
     const slots = app.inputs.filter((input) => input.type === "image");
     const slot = slots.find((input) => !f.files?.[input.id]);
     if (!slot) throw new Error(`No empty picture slot in ${app.name}; remove a picture there first`);
-    const blob = await fetch(assetUrl(location.hash.match(/^#\/productions\/([\w-]+)/)?.[1] || "", asset.id)).then((response) => {
+    const category = asset.category || "references";
+    const label = `Edited asset — ${asset.label}`;
+    const prompt = String(f.values.prompt || "");
+    const build = await createAssetBuild(productionId, appId, category, label, prompt);
+    const blob = await fetch(assetUrl(productionId, asset.id)).then((response) => {
       if (!response.ok) throw new Error(`Asset media answered ${response.status}`);
       return response.blob();
     });
     const file = new File([blob], asset.label || `${asset.id}.png`, { type: blob.type || "image/png" });
     f.files[slot.id] = { file, url: URL.createObjectURL(file) };
-    toast(`Loaded ${asset.label} in ${slot.label || slot.id}. Review the existing project before generating.`);
+    attachBuild(f, productionId, build, category);
+    toast(`Loaded ${asset.label} in ${slot.label || slot.id}. Successful run will be indexed as a new ${category} asset; the source is unchanged.`);
     location.hash = `#/app/${encodeURIComponent(app.id)}`;
   } catch (error) { toast(error.message, { error: true }); }
 }
@@ -806,7 +861,7 @@ export function productionView(productionId) {
         el("div", { class: "row" },
           el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetFromHistory(productionId, snap, reload) }, icon("plus"), "Add from History"),
           el("button", { class: "btn small ghost", type: "button", onclick: () => openCharacterSheet(productionId, snap) }, icon("user"), "New character sheet"),
-          el("button", { class: "btn small lime", type: "button", onclick: () => { location.hash = "#/app/h3-image"; toast("Generate an image, then index its History output in Production assets."); } }, icon("spark"), "New H3 Image"))),
+          el("button", { class: "btn small lime", type: "button", onclick: () => openAssetBuilder(productionId) }, icon("spark"), "New asset"))),
       el("div", { class: "prod-assets-toolbar" }, el("label", { class: "search" }, icon("search"), search), filters, el("span", { class: "tag dark" }, `${all.length} assets`)),
       ...folders);
   }

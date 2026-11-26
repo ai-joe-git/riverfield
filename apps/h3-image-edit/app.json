@@ -528,6 +528,36 @@
           "field": "filename_prefix"
         }
       ]
+    },
+    {
+      "id": "production_id",
+      "type": "text",
+      "label": "Production Engine ID",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "derived": true,
+      "help": "Optional production association used by the Production Studio asset builder."
+    },
+    {
+      "id": "production_build_id",
+      "type": "text",
+      "label": "Production asset build ID",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "derived": true,
+      "help": "Optional idempotent asset-build id; a successful run is indexed automatically in the production assets."
+    },
+    {
+      "id": "production_asset_folder",
+      "type": "text",
+      "label": "Production asset folder",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "derived": true,
+      "help": "Folder used when the asset build succeeds."
     }
   ],
   "outputs": [

@@ -280,7 +280,8 @@ review and playback, a dedicated Assets tab organised into Characters / Location
 Drafts / References, Production Bible editing by proposal, canon event history, scene
 editing/deletion, and a scene handoff into existing Directors. A character-sheet tool opens the
 existing H3 Image app for text-to-sheet and the existing p-H3 image edit app for head, bust or
-full-body references. Production media is constrained to explicit allowed roots with symlink
+full-body references. Its explicit asset build is automatically indexed in the chosen production
+folder when the image run succeeds. Production media is constrained to explicit allowed roots with symlink
 and hash checks.
 Opening a production never starts inference. The human approval CLI remains the only canonical gate.
 

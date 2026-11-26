@@ -49,7 +49,7 @@ import {askTool} from "./production.ts";
 import {inputErrorBody} from "./input-error.ts";
 import {defaultDirectorForm} from "./director-form.ts";
 import {directorDurations,planDirectorSegments,directorPromptMode} from "./h3-plan.ts";
-import { ProductionStore, ProductionError, type CreateEpisodeInput, type CreateSceneInput, type CreateSeasonInput, type IndexAssetInput, type ProposeCanonInput, type RegisterCandidateInput, type RegisterObservationInput } from "./production-store.ts";
+import { ProductionStore, ProductionError, type CreateAssetBuildInput, type CreateEpisodeInput, type CreateSceneInput, type CreateSeasonInput, type IndexAssetInput, type ProposeCanonInput, type RegisterCandidateInput, type RegisterObservationInput } from "./production-store.ts";
 import { buildProductionContext } from "./production-context.ts";
 import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
 import type { Actor } from "./production-types.ts";
@@ -466,6 +466,38 @@ function startPromptJob(app: App, rawValues: Record<string, unknown>, index: num
   return job;
 }
 
+/** Index the outputs of a successful Production asset build. No canonical state changes. */
+async function completeProductionBuild(entry: import("./history.ts").Entry) {
+  const productionId = String(entry.values.production_id ?? "").trim();
+  const buildId = String(entry.values.production_build_id ?? "").trim();
+  if (!productionId || !buildId) return;
+  try {
+    const snapshot = productions.snapshot(productionId);
+    const build = snapshot.assetBuilds?.[buildId];
+    if (!build || build.status !== "pending") return;
+    const assetIds: string[] = [];
+    for (const [index, output] of entry.outputs.entries()) {
+      if (!["image", "video", "audio"].includes(output.type)) continue;
+      const path = history.file(entry.id, output.file, entry.owner);
+      if (!path) continue;
+      const assetId = `build-${buildId}-${index + 1}`;
+      try {
+        productions.indexAsset(productionId, {
+          id: assetId, kind: output.type as "image" | "video" | "audio",
+          label: `${build.label}${entry.outputs.length > 1 ? ` — ${output.name}` : ""}`,
+          sourceRunId: entry.id, path, category: build.category, tags: [build.app],
+        }, { kind: "system", id: "asset-build" }, `asset:build:index:${buildId}:${index + 1}`);
+        assetIds.push(assetId);
+      } catch (error) {
+        console.error(`[asset-build] ${buildId} output ${output.file}: ${(error as Error).message}`);
+      }
+    }
+    productions.completeAssetBuild(productionId, buildId, entry.id, assetIds, { kind: "system", id: "asset-build" });
+  } catch (error) {
+    console.error(`[asset-build] ${buildId}: ${(error as Error).message}`);
+  }
+}
+
 /** Submit in the background; the entry tells the UI how it goes. */
 function startRun(app: App, values: Values, preset?: string, requestKey?: string, owner?: string, meta?: {render?:Record<string,unknown>;lineage?:Record<string,unknown>}) {
   if(requestKey){const old=history.findRequest(requestKey, owner);if(old){if(old.app!==app.id)throw new InputError("Idempotency key belongs to another app");return history.view(old);}}
@@ -489,6 +521,7 @@ function startRun(app: App, values: Values, preset?: string, requestKey?: string
         contact();
         await following;
         const done=history.get(entry.id);
+        if(done?.status==="succeeded") await completeProductionBuild(done);
         if(done?.status==="failed")throw new Error(done.error?.message||"Workflow failed");
       },controller.signal,position=>history.setQueue(entry.id,position));
     } catch (e) {
@@ -636,6 +669,7 @@ const server = createServer(async (req, res) => {
         if (id && req.method === "PATCH" && sub === "scenes" && arg) return send(res, 200, productions.updateScene(id, arg, await jsonBody() as { title?: string; summary?: string; characterIds?: string[]; locationIds?: string[]; number?: number }, actor));
         if (id && req.method === "DELETE" && sub === "scenes" && arg) return send(res, 200, productions.removeScene(id, arg, actor));
         if (id && req.method === "POST" && sub === "observations") return send(res, 201, productions.recordObservation(id, await jsonBody() as RegisterObservationInput, actor));
+        if (id && req.method === "POST" && sub === "asset-builds") return send(res, 201, productions.createAssetBuild(id, await jsonBody() as CreateAssetBuildInput, actor));
         if (id && req.method === "POST" && sub === "assets") {
           const body = await jsonBody();
           let input = body as unknown as IndexAssetInput;

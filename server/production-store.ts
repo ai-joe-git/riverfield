@@ -11,7 +11,7 @@ import {
   type Actor, type ApprovalCheck, type Asset, type BibleFact, type Candidate, type CanonProposal,
   type FactChange, type HumanApproval, type Observation, type ProductionEvent, type ProductionEventType,
   type ProductionMeta, type ProductionSnapshot, type ProductionSummary, type Scene, type SceneDecision,
-  type SceneRenderBinding, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance,
+  type SceneRenderBinding, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
 } from "./production-types.ts";
 
 export class ProductionError extends Error {
@@ -61,6 +61,13 @@ export type RegisterObservationInput = {
   text: string;
   evidence?: Observation["evidence"];
 };
+export type CreateAssetBuildInput = {
+  id?: string;
+  app: string;
+  category?: string;
+  label: string;
+  prompt: string;
+};
 export type IndexAssetInput = {
   id?: string;
   kind: Asset["kind"];
@@ -109,6 +116,7 @@ function emptySnapshot(production: ProductionMeta, at = nowIso()): ProductionSna
     bible: emptyBible(),
     proposals: {},
     assets: {},
+    assetBuilds: {},
     revision: 0,
     lastEventSeq: 0,
     lastEventHash: null,
@@ -348,6 +356,16 @@ export class ProductionStore {
         }
         case "asset.removed": {
           delete snap.assets[String(event.payload.assetId)];
+          break;
+        }
+        case "asset.build.created": {
+          const build = event.payload.build as AssetBuild;
+          snap.assetBuilds[build.id] = build;
+          break;
+        }
+        case "asset.build.completed": {
+          const build = event.payload.build as AssetBuild;
+          if (snap.assetBuilds[build.id]) snap.assetBuilds[build.id] = { ...snap.assetBuilds[build.id], ...build };
           break;
         }
         case "canon.proposed": {
@@ -640,6 +658,27 @@ export class ProductionStore {
       throw new ProductionError("SCENE_HAS_PROPOSALS", "Resolve pending proposals before deleting this scene");
     }
     return this.append(productionId, "scene.removed", { sceneId }, actor, commandKey ?? `scene:remove:${sceneId}`);
+  }
+
+  createAssetBuild(productionId: string, input: CreateAssetBuildInput, actor: Actor, commandKey?: string): { build: AssetBuild; snapshot: ProductionSnapshot } {
+    const snap = this.snapshot(productionId);
+    const id = input.id ?? randomUUID();
+    assertId(id, "asset build id");
+    const build: AssetBuild = {
+      id, productionId, app: String(input.app), category: String(input.category ?? "references").trim() || "references",
+      label: String(input.label ?? "Asset build").trim() || "Asset build", prompt: String(input.prompt ?? "").trim(),
+      status: "pending", assetIds: [], createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
+    };
+    const snapshot = this.append(productionId, "asset.build.created", { build }, actor, commandKey ?? `asset:build:${id}`);
+    return { build, snapshot };
+  }
+
+  completeAssetBuild(productionId: string, buildId: string, runId: string, assetIds: string[], actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    const current = snap.assetBuilds[buildId];
+    if (!current) throw new ProductionError("UNKNOWN_ASSET_BUILD", `Unknown asset build ${buildId}`);
+    const build: AssetBuild = { ...current, status: "completed", runId, assetIds: unique(assetIds) };
+    return this.append(productionId, "asset.build.completed", { build }, actor, commandKey ?? `asset:build:complete:${buildId}`);
   }
 
   updateAsset(productionId: string, assetId: string, input: { label?: string; tags?: string[]; category?: string }, actor: Actor, commandKey?: string): ProductionSnapshot {

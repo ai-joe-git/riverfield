@@ -238,6 +238,20 @@ export type Asset = {
   createdBy: string;
 };
 
+export type AssetBuild = {
+  id: string;
+  productionId: string;
+  app: string;
+  category: string;
+  label: string;
+  prompt: string;
+  status: "pending" | "completed" | "failed";
+  runId?: string;
+  assetIds: string[];
+  createdAt: string;
+  createdBy: string;
+};
+
 export type ProductionSnapshot = {
   schemaVersion: typeof PRODUCTION_SCHEMA_VERSION;
   production: ProductionMeta;
@@ -251,6 +265,7 @@ export type ProductionSnapshot = {
   bible: Record<MemoryCategory, BibleFact[]>;
   proposals: Record<string, CanonProposal>;
   assets: Record<string, Asset>;
+  assetBuilds: Record<string, AssetBuild>;
   /** Increments only for human-approved canonical mutations and rollbacks. */
   revision: number;
   lastEventSeq: number;
@@ -270,6 +285,8 @@ export type ProductionEventType =
   | "asset.indexed"
   | "asset.updated"
   | "asset.removed"
+  | "asset.build.created"
+  | "asset.build.completed"
   | "canon.proposed"
   | "canon.approved"
   | "canon.rolled_back";

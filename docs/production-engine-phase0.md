@@ -411,3 +411,17 @@ The tool does not launch inference itself. A generated sheet is indexed later th
 The production media roots default to `out/media`, `out/history` and `out/productions`; extra
 explicit roots can be supplied with `RIVERFIELD_PRODUCTION_MEDIA_ROOTS` (comma-separated absolute
 paths). Every path is still canonicalised, symlink-checked and extension-checked.
+
+## Asset build → automatic indexing
+
+The asset builder no longer just opens an app and leaves a loose History output:
+
+1. it creates an explicit production `AssetBuild` (`pending`);
+2. it opens H3 Image or p-H3 Image Edit with the build id and target folder in hidden fields;
+3. on a successful run, the server derives the output files from History and indexes them
+   automatically as production assets in the chosen folder;
+4. the `AssetBuild` is marked completed with the created asset ids.
+
+Asset ids are deterministic per build and output, so a recovered/retried completion cannot duplicate
+assets. The source file is not moved, copied or rewritten, and no canonical revision changes.
+Opening the builder or the image app still launches no inference.

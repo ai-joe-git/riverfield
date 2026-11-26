@@ -60,6 +60,12 @@ test("candidate and asset registration never trust unsafe paths or hashes", () =
     assert.equal(renamed.assets["asset"]?.category, "characters");
     const removed = store.removeAsset("p", "asset", actor);
     assert.equal(removed.assets["asset"], undefined);
+    const build = store.createAssetBuild("p", { app: "h3-image", category: "characters", label: "Sheet", prompt: "prompt" }, actor);
+    assert.equal(build.build.status, "pending");
+    const completed = store.completeAssetBuild("p", build.build.id, "run-x", ["asset-x"], actor);
+    assert.equal(completed.assetBuilds[build.build.id]?.status, "completed");
+    assert.deepEqual(completed.assetBuilds[build.build.id]?.assetIds, ["asset-x"]);
+    assert.equal(completed.revision, 0, "asset builds never change canonical revision");
   } finally {
     rmSync(out, { recursive: true, force: true }); rmSync(outside, { recursive: true, force: true });
   }
