@@ -250,6 +250,9 @@ export type ObservationDialogue = {
   utterances: ObservationUtterance[];
   limitations: string[];
   evidenceIds: string[];
+  /** Raw adapter outputs retained for the review evidence package. */
+  rawTranscript?: string;
+  rawSegments?: string;
 };
 
 export type ObservationFinding = {

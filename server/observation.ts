@@ -3,7 +3,7 @@
 // evidence-only inference through the shared queue, records an immutable observation report,
 // and proposes — never approves — canonical changes.
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import type { Inference } from "./inference-queue.ts";
 import type { Runner } from "./runner.ts";
@@ -56,6 +56,7 @@ export type ObservationJob = {
   observationId?: string;
   evidenceDir?: string;
   evidenceCacheKey?: string;
+  artifactDir?: string;
   options: ObservationOptions;
   stages: ObservationStage[];
   progress: { stage: ObservationStageName; percent: number };
@@ -115,6 +116,36 @@ function reportSummary(report: Omit<ObservationReport, "createdAt">): string {
   const visual = report.visual ? `${report.visual.characters.length} character observation(s)` : "visual stage incomplete";
   const speech = report.dialogue?.utterances.length ? `${report.dialogue.utterances.length} transcript segment(s)` : "ASR unavailable";
   return `Automated observation: ${report.shots.length} detected shot(s), ${report.evidence.length} evidence item(s); ${visual}; ${speech}.`;
+}
+
+function fileTail(file: string, max = 240_000): string {
+  try {
+    const text = readFileSync(file, "utf8");
+    return text.length > max ? text.slice(-max) : text;
+  } catch { return ""; }
+}
+
+function sampleMemory() {
+  let memAvailable: number | null = null, memTotal: number | null = null;
+  try {
+    const info = readFileSync("/proc/meminfo", "utf8");
+    memTotal = Number(/^MemTotal:\s+(\d+)/m.exec(info)?.[1] ?? 0) || null;
+    memAvailable = Number(/^MemAvailable:\s+(\d+)/m.exec(info)?.[1] ?? 0) || null;
+  } catch { /* non-Linux or restricted */ }
+  let gttUsed: number | null = null;
+  try {
+    const raw = readFileSync("/sys/class/drm/card1/device/mem_info_gtt_used", "utf8").trim();
+    gttUsed = Number(raw) || null;
+  } catch { /* no AMD sysfs */ }
+  const usage = process.memoryUsage();
+  return {
+    at: new Date().toISOString(),
+    memTotalMb: memTotal ? Math.round(memTotal / 1024) : null,
+    memAvailableMb: memAvailable ? Math.round(memAvailable / 1024) : null,
+    processRssMb: Math.round(usage.rss / 1024 / 1024),
+    processHeapUsedMb: Math.round(usage.heapUsed / 1024 / 1024),
+    gttUsedMb: gttUsed ? Math.round(gttUsed / 1024 / 1024) : null,
+  };
 }
 
 export class ObservationManager {
@@ -235,6 +266,14 @@ export class ObservationManager {
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
     bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController,
   ) {
+    let artifactDir: string | null = null;
+    let memoryTimer: NodeJS.Timeout | null = null;
+    const writeArtifact = (name: string, value: unknown, raw = false) => {
+      if (!artifactDir) return;
+      const target = join(artifactDir, name);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, raw && typeof value === "string" ? value : (typeof value === "string" ? value : JSON.stringify(value, null, 2)));
+    };
     try {
       job.status = "running"; job.startedAt = this.now().toISOString();
       this.stage(job, "resolve", "running");
@@ -248,6 +287,35 @@ export class ObservationManager {
       job.evidenceDir = bundle.dir;
       job.evidenceCacheKey = bundle.cacheKey;
       this.stage(job, "evidence", "succeeded");
+      artifactDir = join(this.outDir, "observations", "runs", job.id);
+      mkdirSync(artifactDir, { recursive: true });
+      job.artifactDir = artifactDir;
+      this.save(job);
+      const selectedFrames = bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id));
+      const coveredShots = new Set(selectedFrames.map((frame) => frame.shotId).filter(Boolean));
+      writeArtifact("configuration.json", {
+        jobId: job.id, productionId: job.productionId, sceneId: job.sceneId, candidateId: job.candidateId,
+        bindingIds: job.bindingIds, options: job.options, referenceAssetIds: job.options.referenceAssetIds,
+        createdAt: job.createdAt,
+      });
+      writeArtifact("evidence-manifest.json", bundle);
+      writeArtifact("visual-selection.json", {
+        visualFrames: selectedFrames.map((frame) => ({
+          id: frame.id, kind: frame.kind, file: frame.file, frame: frame.frame, timestampSeconds: frame.timestampSeconds,
+          shotId: frame.shotId, bindingId: frame.bindingId, hash: frame.hash,
+        })),
+        detectedShots: bundle.shots.map((shot) => ({ id: shot.id, startSeconds: shot.startSeconds, endSeconds: shot.endSeconds, detector: shot.detector })),
+        coveredShots: [...coveredShots], allShotsCovered: coveredShots.size === bundle.shots.length,
+        references: job.options.referenceAssetIds.map((id) => ({ id, label: snap.assets[id]?.label ?? null, path: snap.assets[id]?.path ?? null })),
+      });
+      if (job.options.visual && coveredShots.size !== bundle.shots.length) {
+        throw new ObservationError("OBSERVATION_VISUAL_COVERAGE", `The ${job.options.visualFrames} selected visual frames cover ${coveredShots.size}/${bundle.shots.length} detected shots; refusing to run without complete shot coverage`);
+      }
+      writeArtifact("backend-log-before.txt", fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log"), true);
+      const memoryFile = join(artifactDir, "memory.jsonl");
+      appendFileSync(memoryFile, `${JSON.stringify(sampleMemory())}\n`);
+      memoryTimer = setInterval(() => { try { appendFileSync(memoryFile, `${JSON.stringify(sampleMemory())}\n`); } catch { /* best effort */ } }, 2000);
+      memoryTimer.unref?.();
 
       let visual: VisualObserverResult | undefined;
       let dialogue: ObservationDialogue | undefined;
@@ -271,6 +339,16 @@ export class ObservationManager {
               frames: bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id)),
               referenceFiles, signal: controller.signal,
             });
+            writeArtifact("visual-system-prompt.txt", visual.systemPrompt ?? "", true);
+            writeArtifact("visual-input-prompt.txt", visual.inputPrompt ?? "", true);
+            writeArtifact("visual-images.json", {
+              limit: 9,
+              supplied: visual.images ?? [],
+              evidenceFrames: bundle.visualFrameIds,
+              references: job.options.referenceAssetIds,
+            });
+            writeArtifact("visual-raw.txt", visual.rawText, true);
+            writeArtifact("visual-parsed.json", visual.visual);
             this.stage(job, "visual", "succeeded");
           } catch (error) {
             const message = (error as Error).message;
@@ -294,6 +372,9 @@ export class ObservationManager {
               }));
             }
             dialogue = mergeDialogue(parts, bundle.audio.map((clip) => clip.id));
+            writeArtifact("asr-raw-transcript.txt", parts.map((part) => part.rawTranscript ?? part.text).join("\n\n"), true);
+            writeArtifact("asr-raw-segments.json", parts.map((part) => ({ part: part.rawSegments ?? null, text: part.text })));
+            writeArtifact("asr-parsed.json", dialogue);
             this.stage(job, "asr", "succeeded");
           } catch (error) {
             const message = (error as Error).message;
@@ -314,11 +395,15 @@ export class ObservationManager {
               canonicalOpening: context.text,
               observation: {
                 visual: visual?.visual, dialogue,
-                technical: bundle.technical, shots: bundle.shots, evidence: bundle.frames,
+                technical: bundle.technical, shots: bundle.shots, evidence: [...bundle.frames, ...bundle.audio],
               },
               coverage: `${bundle.frames.length} sampled frames across ${bundle.shots.length} detected shots; ${bundle.audio.length} scene audio range(s). Absence from a sample is not proof of absence.`,
               signal: controller.signal,
             });
+            writeArtifact("comparison-system-prompt.txt", comparison.systemPrompt ?? "", true);
+            writeArtifact("comparison-input-prompt.txt", comparison.inputPrompt ?? "", true);
+            writeArtifact("comparison-raw.txt", comparison.rawText, true);
+            writeArtifact("comparison-parsed.json", comparison.comparison);
             this.stage(job, "comparison", "succeeded");
           } catch (error) {
             const message = (error as Error).message;
@@ -371,6 +456,9 @@ export class ObservationManager {
       }, actor, `observation:analysis:${job.id}`);
       const observation = Object.values(created.observations).find((item) => item.report && item.report.reportVersion === revision && item.candidateId === candidate.id);
       job.observationId = observation?.id;
+      writeArtifact("structured-report.json", report);
+      writeArtifact("observation-record.json", observation ?? null);
+      writeArtifact("errors.json", { stageErrors, failure: report.failure ?? null });
       this.stage(job, "report", "succeeded");
       job.status = "succeeded"; job.finishedAt = this.now().toISOString();
       job.progress = { stage: "report", percent: 100 };
@@ -381,7 +469,28 @@ export class ObservationManager {
       job.error = controller.signal.aborted ? "Canceled by the user; extracted evidence is retained." : (error as Error).message;
       const running = job.stages.find((stage) => stage.status === "running")?.name ?? "report";
       this.stage(job, running, controller.signal.aborted ? "canceled" : "failed", job.error);
+      writeArtifact("errors.json", { error: job.error, stages: job.stages });
       this.save(job);
+    } finally {
+      if (memoryTimer) clearInterval(memoryTimer);
+      if (artifactDir) {
+        try {
+          appendFileSync(join(artifactDir, "memory.jsonl"), `${JSON.stringify(sampleMemory())}\n`);
+          writeArtifact("backend-log-after.txt", fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log"), true);
+          writeArtifact("job-final.json", job);
+          const started = job.startedAt ? Date.parse(job.startedAt) : null;
+          const finished = job.finishedAt ? Date.parse(job.finishedAt) : null;
+          writeArtifact("timings.json", {
+            createdAt: job.createdAt, startedAt: job.startedAt ?? null, finishedAt: job.finishedAt ?? null,
+            totalSeconds: started && finished ? Math.round((finished - started) / 100) / 10 : null,
+            stages: job.stages.map((stage) => ({
+              name: stage.name, status: stage.status, startedAt: stage.startedAt ?? null, finishedAt: stage.finishedAt ?? null,
+              seconds: stage.startedAt && stage.finishedAt ? Math.round((Date.parse(stage.finishedAt) - Date.parse(stage.startedAt)) / 100) / 10 : null,
+              error: stage.error ?? null,
+            })),
+          });
+        } catch { /* preserve the primary job even if a telemetry write fails */ }
+      }
     }
   }
 

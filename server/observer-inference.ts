@@ -23,12 +23,20 @@ export type VisualObserverResult = {
   promptVersion: string;
   configuration: Record<string, unknown>;
   rawText: string;
+  systemPrompt?: string;
+  inputPrompt?: string;
+  images?: {
+    order: number; id: string; label: string; kind: "evidence" | "reference";
+    file: string; hash?: string; timestampSeconds?: number; frame?: number; shotId?: string;
+  }[];
 };
 
 export type ComparisonResult = {
   comparison: ObservationComparison;
   rawText: string;
   promptVersion: string;
+  systemPrompt?: string;
+  inputPrompt?: string;
 };
 
 export interface VisualObserver {
@@ -120,9 +128,23 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       system_prompt: VISUAL_OBSERVER_SYSTEM_PROMPT,
       prompt,
     };
-    [...frames.map((frame) => ({ id: frame.id, file: frameFile(frame) })), ...references.map((reference) => ({ id: reference.label, file: reference.file }))]
-      .slice(0, 9)
-      .forEach((item, index) => { values[`frame${index + 1}`] = item.file; });
+    const visualImages = [
+      ...frames.map((frame) => ({
+        file: frameFile(frame),
+        meta: {
+          id: frame.id, label: frame.id, kind: "evidence" as const, file: frame.file,
+          ...(frame.hash ? { hash: frame.hash } : {}),
+          ...(frame.timestampSeconds !== undefined ? { timestampSeconds: frame.timestampSeconds } : {}),
+          ...(frame.frame !== undefined ? { frame: frame.frame } : {}),
+          ...(frame.shotId ? { shotId: frame.shotId } : {}),
+        },
+      })),
+      ...references.map((reference) => ({
+        file: reference.file,
+        meta: { id: reference.label, label: reference.label, kind: "reference" as const, file: reference.file.name },
+      })),
+    ].slice(0, 9);
+    visualImages.forEach((image, index) => { values[`frame${index + 1}`] = image.file; });
     const { outputs } = await this.runner.runTexts(this.app, values, input.signal);
     const rawText = outputs[0]?.text ?? "";
     const parsed = jsonObject(rawText);
@@ -179,7 +201,8 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     return {
       visual, model: this.model, version: this.version, promptVersion: this.promptVersion,
       configuration: { maxImages: 9, frames: frames.length, referenceFrames: references.length, temperature: 0.1, maxLength: 6144 },
-      rawText,
+      rawText, systemPrompt: VISUAL_OBSERVER_SYSTEM_PROMPT, inputPrompt: prompt,
+      images: visualImages.map((image, index) => ({ order: index + 1, ...image.meta })),
     };
   }
 
@@ -199,16 +222,26 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     const parsed = jsonObject(rawText);
     const allowed = new Set(input.observation.evidence.map((entry) => entry.id));
     const limitations = strings(parsed.limitations, 30);
-    const findings: ObservationFinding[] = (Array.isArray(parsed.findings) ? parsed.findings : []).map((finding: any, index: number) => ({
-      id: `finding-${String(index + 1).padStart(3, "0")}`,
-      category: ["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(String(finding?.category))
-        ? String(finding.category) as ObservationFinding["category"] : "coverage",
-      expected: String(finding?.expected ?? "").trim(),
-      observed: String(finding?.observed ?? "").trim(),
-      classification: asConfidence(finding?.classification, "not_observable"),
-      rationale: String(finding?.rationale ?? "").trim(),
-      evidenceIds: evidenceIds(finding?.evidence_ids, allowed, limitations),
-    })).filter((finding: ObservationFinding) => finding.expected || finding.observed);
+    const findings: ObservationFinding[] = (Array.isArray(parsed.findings) ? parsed.findings : []).map((finding: any, index: number) => {
+      const ids = evidenceIds(finding?.evidence_ids, allowed, limitations);
+      let classification = asConfidence(finding?.classification, "not_observable");
+      let rationale = String(finding?.rationale ?? "").trim();
+      if (!ids.length && (classification === "confirmed" || classification === "probable")) {
+        classification = "not_observable";
+        rationale = `${rationale}${rationale ? " " : ""}No supplied visual or audio evidence id supports this finding; it was downgraded during validation.`.trim();
+        limitations.push(`Comparison finding ${index + 1} had no valid evidence id and was downgraded from the model's stated classification.`);
+      }
+      return {
+        id: `finding-${String(index + 1).padStart(3, "0")}`,
+        category: ["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(String(finding?.category))
+          ? String(finding.category) as ObservationFinding["category"] : "coverage",
+        expected: String(finding?.expected ?? "").trim(),
+        observed: String(finding?.observed ?? "").trim(),
+        classification,
+        rationale,
+        evidenceIds: ids,
+      };
+    }).filter((finding: ObservationFinding) => finding.expected || finding.observed);
     const proposedChanges: FactChange[] = (Array.isArray(parsed.proposed_changes) ? parsed.proposed_changes : [])
       .map((change: any) => ({
         op: change?.op === "update" ? "update" as const : "add" as const,
@@ -226,6 +259,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
         comparedAt: new Date().toISOString(), comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
       },
       rawText, promptVersion: COMPARISON_PROMPT_VERSION,
+      systemPrompt: COMPARISON_SYSTEM_PROMPT, inputPrompt: prompt,
     };
   }
 }
@@ -274,6 +308,7 @@ export class WhisperTurboAsr implements AsrAdapter {
         "ASR text is never corrected against the screenplay and is not evidence of intended dialogue.",
       ],
       evidenceIds: [],
+      rawTranscript: transcript, rawSegments: segmentsRaw,
     };
   }
 }

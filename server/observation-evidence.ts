@@ -271,13 +271,23 @@ export function extractObservationEvidence(input: {
     }
   }
 
-  const visualFrameIds = [...frames]
-    .sort((a, b) => {
-      const priority: Record<string, number> = { opening_frame: 0, closing_frame: 1, shot_frame: 2, sample_frame: 3, reference_frame: 4, audio: 5 };
-      return (priority[a.kind] ?? 3) - (priority[b.kind] ?? 3) || (a.timestampSeconds ?? 0) - (b.timestampSeconds ?? 0);
-    })
-    .slice(0, config.visualFrames)
-    .map((frame) => frame.id);
+  // Coverage-aware selection: one representative per detected shot, then the opening of
+  // the first shot and the closing of the last shot, then additional evidence. With the
+  // benchmark's 7 visual slots and 5 shots this yields 5 shot frames + opening + closing.
+  const selectedVisual: ObservationEvidence[] = [];
+  const addVisual = (frame: ObservationEvidence | undefined) => {
+    if (!frame || selectedVisual.some((item) => item.id === frame.id) || selectedVisual.length >= config.visualFrames) return;
+    selectedVisual.push(frame);
+  };
+  const shotFrames = (shotId: string) => frames.filter((frame) => frame.shotId === shotId);
+  for (const shot of shots) {
+    const candidates = shotFrames(shot.id);
+    addVisual(candidates.find((frame) => frame.kind === "shot_frame") ?? candidates[0]);
+  }
+  addVisual(frames.find((frame) => frame.kind === "opening_frame"));
+  addVisual([...frames].reverse().find((frame) => frame.kind === "closing_frame"));
+  for (const frame of [...frames].sort((a, b) => (a.timestampSeconds ?? 0) - (b.timestampSeconds ?? 0))) addVisual(frame);
+  const visualFrameIds = selectedVisual.slice(0, config.visualFrames).map((frame) => frame.id);
 
   const technical: ObservationTechnical = {
     sourcePath: source, sourceHash, sourceVerified: !expectedHash || sourceHash === expectedHash,
