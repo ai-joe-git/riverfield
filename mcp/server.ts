@@ -159,7 +159,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("run_app", {
     title: "Run an app",
-    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses the app's production default (0.3 MP on the current H3 directors) and production_upscale x2 by default; omitting render_profile uses the manifest's declared starting profile (Production on the current H3 directors), or legacy settings for a manifest that declares none.",
+    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses the app's production default (0.3 MP on the current H3 directors) and production_upscale x2 by default; omitting render_profile uses the manifest's declared starting profile (Production on the current H3 directors), or legacy settings for a manifest that declares none. Directors also accept the hidden production_id and production_scene_id fields: when set, approved canonical Production Engine memory is injected into the prompt enhancer; when absent the existing Director context is used unchanged.",
     inputSchema: {
       app: z.string().describe("app id"),
       values: z.record(z.string(), z.any()).optional().describe("input values, by input id"),
@@ -178,6 +178,129 @@ export function build(base=BASE): McpServer {
       return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created,
         render: entry.render ?? null, lineage: entry.lineage ?? null });
     } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("list_productions", {
+    title: "List productions",
+    description: "List persistent Production Engine universes. Read-only; canonical approvals are not exposed through MCP.",
+    inputSchema: {},
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    try { return text(await call("/api/productions")); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("create_production", {
+    title: "Create a production",
+    description: "Create a draft production universe (series or film). This is organizational, not a canonical approval. Use create_season, create_episode and create_scene next.",
+    inputSchema: {
+      id: z.string().optional().describe("stable lowercase slug; derived from the title when omitted"),
+      title: z.string().min(1),
+      logline: z.string().optional(),
+    },
+  }, async (args) => {
+    try {
+      return text(await call("/api/productions", { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(args) }));
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_production", {
+    title: "Read a production",
+    description: "Read the production hierarchy, immutable candidates, scene-level decisions, proposals and canonical Bible projection.",
+    inputSchema: { productionId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("create_season", {
+    title: "Create a season",
+    description: "Create a season inside a production. No canonical content is approved.",
+    inputSchema: { productionId: z.string(), number: z.number().int().positive(), title: z.string().min(1), id: z.string().optional() },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/seasons`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("create_episode", {
+    title: "Create an episode",
+    description: "Create a draft episode inside a season. No canonical content is approved.",
+    inputSchema: { productionId: z.string(), seasonId: z.string(), number: z.number().int().positive(), title: z.string().min(1), status: z.enum(["draft", "active", "archived"]).optional(), id: z.string().optional() },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/episodes`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("create_scene", {
+    title: "Create a scene",
+    description: "Create a draft scene inside an episode. Candidates and decisions are separate.",
+    inputSchema: {
+      productionId: z.string(), episodeId: z.string(), number: z.number().int().positive(), title: z.string().min(1),
+      characterIds: z.array(z.string()).optional(), locationIds: z.array(z.string()).optional(), summary: z.string().optional(), id: z.string().optional(),
+    },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/scenes`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_scene_context", {
+    title: "Get canonical scene context",
+    description: "Return typed, bounded Identity/State/Episodic/Narrative memory and recent canonical scenes. This is independent of the chosen writer or video engine.",
+    inputSchema: {
+      productionId: z.string(), sceneId: z.string().optional(), characterIds: z.array(z.string()).optional(),
+      locationIds: z.array(z.string()).optional(), threadIds: z.array(z.string()).optional(),
+      recentScenes: z.number().int().min(0).max(20).optional(), maxChars: z.number().int().min(500).max(64000).optional(),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, ...query }) => {
+    try {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) if (value !== undefined) params.set(key, Array.isArray(value) ? value.join(",") : String(value));
+      return text(await call(`/api/productions/${encodeURIComponent(productionId)}/context?${params}`));
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("register_candidate", {
+    title: "Register an immutable candidate",
+    description: "Index a succeeded history run as an immutable render candidate. Outputs stay in history; nothing is copied. Bindings use final-output frame ranges and can cover several scenes. No scene obtains canonical status automatically.",
+    inputSchema: {
+      productionId: z.string(), runId: z.string().describe("succeeded history run id"),
+      label: z.string().optional(), prompt: z.string().optional(), id: z.string().optional(),
+      bindings: z.array(z.object({
+        sceneId: z.string(), segmentIndex: z.number().int().min(0),
+        timelineStartFrame: z.number().int().min(0), timelineEndFrame: z.number().int().min(1),
+        sourceStartFrame: z.number().int().min(0).optional(), sourceEndFrame: z.number().int().min(0).optional(),
+        fps: z.number().positive().optional(), outputHash: z.string().optional(), id: z.string().optional(),
+      })).min(1),
+    },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/candidates`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("record_scene_observation", {
+    title: "Record an observation",
+    description: "Record observed evidence or a human note against a scene/candidate. An observation is never canonical by itself; it can be referenced by a later proposal.",
+    inputSchema: {
+      productionId: z.string(), sceneId: z.string(), candidateId: z.string().optional(), runId: z.string().optional(),
+      text: z.string().min(1), evidence: z.array(z.object({ type: z.string(), path: z.string(), startFrame: z.number().int().optional(), endFrame: z.number().int().optional() })).optional(),
+      id: z.string().optional(),
+    },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/observations`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("propose_canonical_changes", {
+    title: "Propose canonical changes",
+    description: "Create a proposed scene decision and/or Identity/State/Episodic/Narrative facts. This is only a proposal: it cannot approve itself. A human must run the interactive approval CLI. Expected revision, exact candidate, scene and changes are fingerprinted.",
+    inputSchema: {
+      productionId: z.string(),
+      title: z.string().optional(), note: z.string().optional(), expectedRevision: z.number().int().min(0).optional(), id: z.string().optional(),
+      sceneDecision: z.object({ sceneId: z.string(), candidateId: z.string(), decision: z.enum(["canon", "alternate", "reject"]), bindingIds: z.array(z.string()).optional() }).optional(),
+      changes: z.array(z.object({
+        op: z.enum(["add", "update"]), category: z.enum(["identity", "state", "episodic", "narrative"]),
+        factId: z.string().optional(), text: z.string().min(1), subjectIds: z.array(z.string()).optional(),
+        tags: z.array(z.string()).optional(), data: z.any().optional(),
+        provenance: z.record(z.string(), z.any()).optional(),
+      })).optional(),
+    },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/proposals`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
   });
 
   server.registerTool("render_production", {

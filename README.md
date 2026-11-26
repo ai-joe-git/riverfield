@@ -247,6 +247,37 @@ the built-in agent is one more interface, never a gate.
 fallback or a stronger model. Visual continuity, voice identity and lip sync are not guaranteed by any tool.
 The agent has no unrestricted shell or filesystem: only the scoped MCP tools and media utilities above.
 
+## Production Engine (Phase 0)
+
+Riverfield now has a production-level source of truth above the Directors. A `Production`
+contains seasons, episodes, scenes, immutable render candidates and a canonical Bible with
+Identity, State, Episodic and Narrative memory. Candidates are linked to scenes through explicit
+final-output frame bindings; one candidate and one scene can participate in many-to-many bindings.
+A scene decision is never stored as a global candidate status.
+
+The event journal is append-only and hash-chained. Rollback appends a restoration event rather
+than deleting history, and the snapshot is a rebuildable projection. Agents can create and propose
+through the local API/MCP, but canonical decisions require the interactive approval CLI; there is
+no HTTP or MCP approval route.
+
+```sh
+npm run production -- list
+npm run production -- show <productionId>
+npm run production -- approve <productionId> <proposalId>
+npm run production -- rollback <productionId> <targetRevision>
+npm run production:import-suite404
+```
+
+SUITE 404 is the non-destructive golden fixture: existing history media, V6/V7 takes and Velvet
+Moon are indexed as candidates without moving or copying files. Imported scenes remain drafts and
+no canonical decision is inferred. The implementation is backend-first; the current Directors keep
+their UI, workflows and saved projects. When a Director receives the hidden `production_id` and
+`production_scene_id` values, approved canonical memory is injected into its prompt enhancer;
+otherwise the existing previous-scene context remains the fallback.
+
+Architecture, storage contracts, approval boundary, migration and remaining limitations:
+[`docs/production-engine-phase0.md`](docs/production-engine-phase0.md).
+
 ## Apps
 
 | App | Rebuilds | Model | On a 24 GB card | Status |

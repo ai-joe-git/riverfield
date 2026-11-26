@@ -167,6 +167,26 @@
       ]
     },
     {
+      "id": "production_id",
+      "type": "text",
+      "label": "Production Engine ID",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "help": "Optional Production Engine association. When set, canonical memory is injected into the prompt enhancer; otherwise the existing Director context is used.",
+      "derived": true
+    },
+    {
+      "id": "production_scene_id",
+      "type": "text",
+      "label": "Production scene ID",
+      "hidden": true,
+      "required": false,
+      "default": "",
+      "help": "Optional scene within production_id, used to select bounded canonical memory.",
+      "derived": true
+    },
+    {
       "id": "prompt_enhancer",
       "type": "toggle",
       "label": "Enhance prompt with Qwen3.8",

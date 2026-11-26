@@ -48,6 +48,9 @@ import {askTool} from "./production.ts";
 import {inputErrorBody} from "./input-error.ts";
 import {defaultDirectorForm} from "./director-form.ts";
 import {directorDurations,planDirectorSegments,directorPromptMode} from "./h3-plan.ts";
+import { ProductionStore, ProductionError, type CreateEpisodeInput, type CreateSceneInput, type CreateSeasonInput, type IndexAssetInput, type ProposeCanonInput, type RegisterCandidateInput, type RegisterObservationInput } from "./production-store.ts";
+import { buildProductionContext } from "./production-context.ts";
+import type { Actor } from "./production-types.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -98,6 +101,7 @@ const history = new History(join(outDir, "history"), {
 });
 const flags = new Flags(join(root, "lab", "flags.json"), apps);
 const directors = new DirectorStore(outDir, byId);
+const productions = new ProductionStore(outDir);
 const studioURL=`http://127.0.0.1:${process.env.PORT||3000}`;
 const mcpURL=process.env.RIVERFIELD_AGENT_MCP_URL||`${studioURL}/mcp`;
 const native=new NativeRuntime(join(outDir,"native-runtime"));
@@ -319,6 +323,16 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     const text = parts.join("\n\n");
     return text.length > MAX_CONTEXT_CHARS ? `${text.slice(0, MAX_CONTEXT_CHARS)}\n…` : text;
   };
+  let productionMemory = "";
+  const productionId = String(next.production_id ?? "").trim();
+  if (productionId) {
+    try {
+      const sceneId = String(next.production_scene_id ?? "").trim();
+      productionMemory = buildProductionContext(productions.snapshot(productionId), sceneId ? { sceneId } : {}).text;
+    } catch (error) {
+      throw new InputError(`Production memory: ${(error as Error).message}`);
+    }
+  }
   const model = String(next.enhancer_model || "qwen3.8_27b_w4a8.safetensors");
   const order = only === undefined ? target.prompts.map((_, i) => i) : [only];
   if (order.some((i) => !Number.isInteger(i) || i < 0 || i >= target.prompts.length)) {
@@ -348,6 +362,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     const prompt = [
       `You are writing segment ${i + 1} of ${target.prompts.length} for ${app.name}.`,
       timing,
+      productionMemory ? `Canonical production memory (approved facts; do not contradict them):\n${productionMemory}` : "",
       context,
       `Current draft for segment ${i + 1}:\n${draft}`,
       refsHint,
@@ -509,6 +524,70 @@ const server = createServer(async (req, res) => {
     }
     if (parts[0] === "api") {
       const [, area, id, sub, arg] = parts;
+      if (area === "productions") {
+        // Production Engine is a local, human-controlled boundary. No approval endpoint is
+        // exposed here: canonical decisions are made by the interactive production CLI.
+        localAccess(req);
+        const actor: Actor = { kind: "agent", id: String(req.headers["x-riverfield-actor"] || "api") };
+        const jsonBody = async (limit = 32): Promise<Record<string, unknown>> => {
+          const body = await (await toRequest(req, limit)).json().catch(() => null);
+          if (!body || typeof body !== "object" || Array.isArray(body)) throw new InputError("Expected a JSON object");
+          return body as Record<string, unknown>;
+        };
+        if (req.method === "GET" && !id) return send(res, 200, { productions: productions.list() });
+        if (req.method === "POST" && !id) {
+          const body = await jsonBody();
+          return send(res, 201, productions.createProduction({
+            ...(typeof body.id === "string" ? { id: body.id } : {}),
+            title: String(body.title ?? ""), logline: typeof body.logline === "string" ? body.logline : undefined,
+            status: body.status === "active" || body.status === "archived" || body.status === "draft" ? body.status : undefined,
+          }, actor, typeof body.commandKey === "string" ? body.commandKey : undefined));
+        }
+        if (id && req.method === "GET" && !sub) return send(res, 200, productions.snapshot(id));
+        if (id && req.method === "GET" && sub === "context") {
+          const numbers = (name: string) => (url.searchParams.get(name) ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+          const context = buildProductionContext(productions.snapshot(id), {
+            ...(url.searchParams.get("sceneId") ? { sceneId: url.searchParams.get("sceneId")! } : {}),
+            characterIds: numbers("characterIds"), locationIds: numbers("locationIds"), threadIds: numbers("threadIds"),
+            recentScenes: url.searchParams.get("recentScenes") ? Number(url.searchParams.get("recentScenes")) : undefined,
+            maxChars: url.searchParams.get("maxChars") ? Number(url.searchParams.get("maxChars")) : undefined,
+          });
+          return send(res, 200, context);
+        }
+        if (id && req.method === "POST" && sub === "seasons") return send(res, 201, productions.createSeason(id, await jsonBody() as CreateSeasonInput, actor));
+        if (id && req.method === "POST" && sub === "episodes") return send(res, 201, productions.createEpisode(id, await jsonBody() as CreateEpisodeInput, actor));
+        if (id && req.method === "POST" && sub === "scenes") return send(res, 201, productions.createScene(id, await jsonBody() as CreateSceneInput, actor));
+        if (id && req.method === "POST" && sub === "observations") return send(res, 201, productions.recordObservation(id, await jsonBody() as RegisterObservationInput, actor));
+        if (id && req.method === "POST" && sub === "assets") return send(res, 201, productions.indexAsset(id, await jsonBody() as IndexAssetInput, actor));
+        if (id && req.method === "POST" && sub === "proposals") return send(res, 201, productions.propose(id, await jsonBody() as ProposeCanonInput, actor));
+        if (id && req.method === "POST" && sub === "candidates") {
+          const body = await jsonBody();
+          let input = body as unknown as RegisterCandidateInput;
+          if (typeof body.runId === "string") {
+            const run = history.get(body.runId, me);
+            if (!run) throw new InputError(`Unknown history run ${body.runId}`);
+            if (run.status !== "succeeded") throw new InputError("Only a succeeded history run can become a candidate");
+            const outputs = run.outputs.map((output) => {
+              const path = history.file(run.id, output.file, me);
+              if (!path) throw new InputError(`History output ${output.file} is missing`);
+              return { type: output.type as "video" | "image" | "audio" | "text" | "file", file: output.file, name: output.name, path };
+            });
+            const firstPrompt = (() => {
+              const raw = run.values.segment_windows;
+              if (typeof raw !== "string") return String(run.values.global_prompt ?? "");
+              try { return String((JSON.parse(raw) as { windows?: { prompt?: string }[] }).windows?.[0]?.prompt ?? ""); } catch { return ""; }
+            })();
+            input = {
+              ...input,
+              label: String(input.label ?? run.values.filename_prefix ?? run.id),
+              source: "history", sourceRunId: run.id, app: run.app, prompt: input.prompt ?? firstPrompt,
+              outputs: input.outputs?.length ? input.outputs : outputs,
+            };
+          }
+          return send(res, 201, productions.registerCandidate(id, input, actor));
+        }
+        return send(res, 404, { error: "not found" });
+      }
       if (area === "directors") {
         // Local-only: Director projects contain private media, and hosted demos are per-visitor.
         if (guard.hosted) return send(res, 404, { error: "Director projects are local-only" });
@@ -824,6 +903,7 @@ const server = createServer(async (req, res) => {
     if (file.startsWith(webRoot) && existsSync(file) && statSync(file).isFile()) return sendFile(req, res, file);
     return send(res, 404, { error: "not found" });
   } catch (e) {
+    if (e instanceof ProductionError) return send(res, 400, { error: e.message, code: e.code });
     if(e instanceof InputError){const body=inputErrorBody(e);if(req.url?.startsWith("/api/agent")){body.error=agent.providers.redact(e);body.issues=body.issues.map(i=>({...i,message:agent.providers.redactText(i.message)}));}return send(res,400,body);}
     const status = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : e instanceof InputError || req.url?.startsWith("/api/agent") ? 400 : 500;
     if (status === 500) console.error(e);

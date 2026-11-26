@@ -25,6 +25,18 @@ Desktop). The app itself must be running: the MCP calls it.
 
 Outputs come back as absolute paths (`out/history/<id>/out-01.png`), so an agent can open them
 directly.
+### Production Engine
+
+The Production Engine tools are additive and local-only: `list_productions`, `create_production`,
+`get_production`, `create_season`, `create_episode`, `create_scene`, `get_scene_context`,
+`register_candidate`, `record_scene_observation` and `propose_canonical_changes`.
+
+Agents may create drafts, index immutable candidates, record observations and propose canonical
+changes. They cannot approve those changes. There is **no MCP approval or rollback tool**:
+canonical approval requires the interactive `npm run production -- approve ...` CLI. The
+`register_candidate` tool references a succeeded history run and explicit final-output frame
+bindings; it never copies the media. See [`../docs/production-engine-phase0.md`](../docs/production-engine-phase0.md).
+
 
 `get_app` marks each input: `file: true` means it takes an entry in `run_app.files` (absolute
 path), `panel: true` means the web UI drives it from a custom panel but the API accepts it like

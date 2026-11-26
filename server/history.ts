@@ -68,6 +68,8 @@ export type Entry = {
   render?: RenderMeta;
   /** preview/production relationship; both outputs stay in the history */
   lineage?: Lineage;
+  /** Optional Production Engine association; the canonical decision is never stored here. */
+  production?: { productionId: string; sceneId?: string };
   error: { message: string; class_type?: string | null; node?: string | null } | null;
   /** the visitor who started it, on a hosted demo; never sent to the browser */
   owner?: string;
@@ -289,11 +291,14 @@ export class History {
         shown[input.id] = v;
       }
     }
+    const productionId = typeof values.production_id === "string" ? values.production_id.trim() : "";
+    const productionSceneId = typeof values.production_scene_id === "string" ? values.production_scene_id.trim() : "";
     const entry: Entry = {
       id, app: app.id, requestKey, status: "starting", job: null, created: new Date().toISOString(), started: null, finished: null,
       seconds: null, total: null, values: shown, preset: preset ?? null, inputs, outputs: [], error: null,
       ...(meta?.render ? { render: meta.render } : {}),
       ...(meta?.lineage ? { lineage: meta.lineage } : {}),
+      ...(productionId ? { production: { productionId, ...(productionSceneId ? { sceneId: productionSceneId } : {}) } } : {}),
       ...(owner ? { owner } : {}),
     };
     this.save(entry);
