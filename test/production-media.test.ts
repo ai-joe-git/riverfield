@@ -54,9 +54,10 @@ test("candidate and asset registration never trust unsafe paths or hashes", () =
     assert.equal(candidate.candidates["c2"]?.outputs[0]?.hash, hashFile(safe));
     const asset = store.indexAsset("p", { id: "asset", kind: "image", label: "safe", path: safe, tags: ["character"] }, actor, "asset");
     assert.deepEqual(asset.assets["asset"]?.tags, ["character"]);
-    const renamed = store.updateAsset("p", "asset", { label: "Akari", tags: ["character", "lead"] }, actor);
+    const renamed = store.updateAsset("p", "asset", { label: "Akari", tags: ["character", "lead"], category: "characters" }, actor);
     assert.equal(renamed.assets["asset"]?.label, "Akari");
     assert.deepEqual(renamed.assets["asset"]?.tags, ["character", "lead"]);
+    assert.equal(renamed.assets["asset"]?.category, "characters");
     const removed = store.removeAsset("p", "asset", actor);
     assert.equal(removed.assets["asset"], undefined);
   } finally {

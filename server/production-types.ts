@@ -232,6 +232,7 @@ export type Asset = {
   sourceRunId?: string;
   path: string;
   hash?: string;
+  category: string;
   tags: string[];
   createdAt: string;
   createdBy: string;

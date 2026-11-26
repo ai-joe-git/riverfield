@@ -1144,3 +1144,7 @@ body.dir-dragging * { cursor: grabbing !important; }
 .prod-ref-choice input { accent-color: var(--accent); }
 .prod-ref-choice img { width: 42px; height: 30px; object-fit: cover; border-radius: 5px; }
 .prod-ref-choice span { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prod-asset-folder { display: grid; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line); }
+.prod-asset-folder:first-of-type { border-top: 0; }
+.prod-sheet-form { max-height: 66vh; overflow: auto; padding-right: 4px; }
+.prod-sheet-preview { max-width: 220px; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); }

@@ -68,6 +68,7 @@ export type IndexAssetInput = {
   sourceRunId?: string;
   path: string;
   hash?: string;
+  category?: string;
   tags?: string[];
 };
 export type ProposeCanonInput = {
@@ -337,7 +338,7 @@ export class ProductionStore {
         }
         case "asset.indexed": {
           const asset = event.payload.asset as Asset;
-          snap.assets[asset.id] = { ...asset, tags: Array.isArray(asset.tags) ? asset.tags : [] };
+          snap.assets[asset.id] = { ...asset, category: asset.category || "references", tags: Array.isArray(asset.tags) ? asset.tags : [] };
           break;
         }
         case "asset.updated": {
@@ -641,7 +642,7 @@ export class ProductionStore {
     return this.append(productionId, "scene.removed", { sceneId }, actor, commandKey ?? `scene:remove:${sceneId}`);
   }
 
-  updateAsset(productionId: string, assetId: string, input: { label?: string; tags?: string[] }, actor: Actor, commandKey?: string): ProductionSnapshot {
+  updateAsset(productionId: string, assetId: string, input: { label?: string; tags?: string[]; category?: string }, actor: Actor, commandKey?: string): ProductionSnapshot {
     const snap = this.snapshot(productionId);
     const current = snap.assets[assetId];
     if (!current) throw new ProductionError("UNKNOWN_ASSET", `Unknown asset ${assetId}`);
@@ -649,8 +650,9 @@ export class ProductionStore {
       ...current,
       ...(input.label !== undefined ? { label: String(input.label).trim() || current.label } : {}),
       ...(input.tags !== undefined ? { tags: unique(input.tags.map(String)) } : {}),
+      ...(input.category !== undefined ? { category: String(input.category).trim() || current.category } : {}),
     };
-    return this.append(productionId, "asset.updated", { asset }, actor, commandKey ?? `asset:update:${assetId}:${JSON.stringify(asset.tags)}:${asset.label}`);
+    return this.append(productionId, "asset.updated", { asset }, actor, commandKey ?? `asset:update:${assetId}:${asset.category}:${JSON.stringify(asset.tags)}:${asset.label}`);
   }
 
   removeAsset(productionId: string, assetId: string, actor: Actor, commandKey?: string): ProductionSnapshot {
@@ -744,7 +746,8 @@ export class ProductionStore {
     const asset: Asset = {
       id, productionId, kind: input.kind, label: String(input.label ?? id),
       ...(input.sourceRunId ? { sourceRunId: input.sourceRunId } : {}), path: canonical,
-      hash, tags: unique((input.tags ?? []).map(String)), createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
+      hash, category: String(input.category ?? "references").trim() || "references",
+      tags: unique((input.tags ?? []).map(String)), createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
     };
     return this.append(productionId, "asset.indexed", { asset }, actor, commandKey ?? `asset:index:${id}`);
   }

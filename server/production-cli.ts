@@ -3,11 +3,13 @@
 // There is deliberately no HTTP or MCP approval route. This command requires a real
 // interactive TTY and an exact challenge derived from the proposal fingerprint.
 import { userInfo } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { ProductionError, ProductionStore } from "./production-store.ts";
 import { importSuite404 } from "./suite404-import.ts";
+import { categoryForPrompt } from "./asset-category.ts";
 import { approvalChallenge, proposalFingerprint, rollbackFingerprint, type HumanApproval } from "./production-types.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -21,6 +23,7 @@ function usage(): never {
   npm run production -- approve <productionId> <proposalId>
   npm run production -- rollback <productionId> <targetRevision>
   npm run production -- import-suite404
+  npm run production -- classify-suite404
 
 Approval and rollback require an interactive terminal. Agents and MCP callers can create
 and propose changes, but cannot approve them.`);
@@ -128,6 +131,22 @@ async function main() {
   if (command === "import-suite404") {
     const report = importSuite404(OUT);
     console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+  if (command === "classify-suite404") {
+    const productionId = "suite-404";
+    const snapshot = store.snapshot(productionId);
+    const historyDir = join(OUT, "history");
+    const counts = new Map<string, number>();
+    for (const asset of Object.values(snapshot.assets)) {
+      if (!asset.sourceRunId || !asset.id.startsWith("suite404-asset-")) continue;
+      let prompt = "";
+      try { prompt = String((JSON.parse(readFileSync(join(historyDir, asset.sourceRunId, "meta.json"), "utf8")) as any).values?.prompt ?? ""); } catch { /* keep references */ }
+      const category = categoryForPrompt(prompt);
+      store.updateAsset(productionId, asset.id, { category }, { kind: "import", id: "suite404-classifier" }, `suite404:asset-category:${asset.id}:${category}`);
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+    console.log(JSON.stringify({ productionId, categories: Object.fromEntries(counts) }, null, 2));
     return;
   }
   usage();

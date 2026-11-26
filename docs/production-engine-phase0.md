@@ -380,3 +380,34 @@ No observation, approval or fact is invented; no media is moved, copied, regener
 - Legacy imported candidates are recovered from History; their old bindings are not re-probed
   retroactively.
 - Canonical approval remains a local interactive TTY operation.
+
+## Asset folders and character-sheet workflow
+
+Production assets are organised into explicit production folders rather than one mixed grid:
+
+- **Characters**
+- **Locations**
+- **Props**
+- **Drafts**
+- **References**
+
+The SUITE 404 imported library is classified from its existing source prompts:
+16 Locations, 13 Characters, 8 Props and 11 Drafts. The canonical revision remains 0. Folder
+metadata is editorial catalogue state, not canonical memory, and can be changed from the asset
+editor without touching the original file.
+
+**New character sheet** uses the existing image tools:
+
+- no source image → builds an adapted character model-sheet prompt and opens `h3-image` with its
+  existing Qwen3.8 prompt expander enabled;
+- a head, bust or full-body source image → opens `h3-image-edit` (p-H3 Image Edit), places the
+  source in Picture 1 and applies the adapted sheet prompt.
+
+The tool does not launch inference itself. A generated sheet is indexed later through
+**Add from History**; it is not silently added to the Bible or canon.
+
+## Additional media-root configuration
+
+The production media roots default to `out/media`, `out/history` and `out/productions`; extra
+explicit roots can be supplied with `RIVERFIELD_PRODUCTION_MEDIA_ROOTS` (comma-separated absolute
+paths). Every path is still canonicalised, symlink-checked and extension-checked.

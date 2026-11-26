@@ -276,10 +276,12 @@ their UI, workflows and saved projects. When a Director receives the hidden `pro
 otherwise the existing previous-scene context remains the fallback.
 
 The native **Productions** workspace adds the production library, episode scene list, candidate
-review and playback, a dedicated searchable Assets tab, Production Bible editing by proposal,
-canon event history, scene editing/deletion, and a scene handoff into existing Directors.
-Asset generation opens the existing H3 Image app; p-H3 Edit opens the existing p-H3 image edit
-app. Production media is constrained to explicit allowed roots with symlink and hash checks.
+review and playback, a dedicated Assets tab organised into Characters / Locations / Props /
+Drafts / References, Production Bible editing by proposal, canon event history, scene
+editing/deletion, and a scene handoff into existing Directors. A character-sheet tool opens the
+existing H3 Image app for text-to-sheet and the existing p-H3 image edit app for head, bust or
+full-body references. Production media is constrained to explicit allowed roots with symlink
+and hash checks.
 Opening a production never starts inference. The human approval CLI remains the only canonical gate.
 
 Architecture, storage contracts, context rules, approval boundary, migration and remaining

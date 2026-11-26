@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ProductionError, ProductionStore, type RegisterCandidateInput } from "./production-store.ts";
+import { categoryForPrompt } from "./asset-category.ts";
 import type { Actor, CandidateOutput, SceneRenderBinding } from "./production-types.ts";
 
 type HistoryMeta = {
@@ -191,6 +192,7 @@ export function importSuite404(outDir: string, options: { productionId?: string 
         store.indexAsset(productionId, {
           id: `suite404-asset-${meta.id}-${index + 1}`, kind: output.type as "image" | "video" | "audio",
           label: output.name || output.file, sourceRunId: meta.id, path, hash: hashFile(path),
+          category: categoryForPrompt(meta.values?.prompt ?? meta.values?.global_prompt ?? ""),
         }, actor, `suite404:asset:${meta.id}:${index + 1}`);
         assets += 1;
       }

@@ -6,6 +6,8 @@ import { modal } from "./agent-controls.js";
 import { apps, layoutOf } from "./catalog.js";
 
 const LAST = "production.last";
+const ASSET_FOLDERS = [["characters", "Characters"], ["locations", "Locations"], ["props", "Props"], ["drafts", "Drafts"], ["references", "References"]];
+const ASSET_FOLDER_LABEL = Object.fromEntries(ASSET_FOLDERS);
 const DIRECTOR_APPS = () => apps.filter((app) => layoutOf(app) === "director" && app.id !== "ltx-sequential-director");
 const statusLabel = (state) => state === "canon" ? "Canonical" : state === "alternate" ? "Alternate" : state === "rejected" ? "Rejected" : state === "proposed" ? "Proposed" : state === "observed" ? "Observed" : "Draft";
 const statusTag = (state) => el("span", { class: `tag ${state === "canon" ? "lime" : state === "rejected" ? "red" : state === "proposed" ? "violet" : "dark"}` }, statusLabel(state));
@@ -287,15 +289,16 @@ function deleteScene(productionId, snapshot, scene, onDone) {
 function openAssetEdit(productionId, asset, onDone) {
   const dialog = modal("Edit asset metadata", "The original media file is never rewritten. Only the Production Engine index is edited.");
   const label = field("Label", asset.label);
+  const category = el("select", { "aria-label": "Asset folder" }, ...ASSET_FOLDERS.map(([value, name]) => el("option", { value, selected: String(value) === String(asset.category || "references") }, name)));
   const tags = field("Tags (comma separated)", (asset.tags || []).join(", "));
   const save = el("button", { class: "btn lime", type: "button" }, icon("check"), "Save asset");
   save.onclick = async () => {
     try {
-      await api(`/api/productions/${encodeURIComponent(productionId)}/assets/${encodeURIComponent(asset.id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ label: label.input.value.trim(), tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
+      await api(`/api/productions/${encodeURIComponent(productionId)}/assets/${encodeURIComponent(asset.id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ label: label.input.value.trim(), category: category.value, tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
       dialog.close(); onDone?.();
     } catch (error) { toast(error.message, { error: true }); }
   };
-  dialog.append(el("div", { class: "ag-dialog-form" }, label.node, tags.node), el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), save));
+  dialog.append(el("div", { class: "ag-dialog-form" }, label.node, el("label", { class: "ag-field" }, el("span", {}, "Asset folder"), category), tags.node), el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), save));
   dialog.showModal();
 }
 
@@ -307,21 +310,92 @@ function deleteAsset(productionId, asset, onDone) {
   dialog.showModal();
 }
 
+function openCharacterSheet(productionId, snapshot) {
+  const dialog = modal("Create a character sheet", "The H3 Image prompt expander is used for text-to-sheet; p-H3 Image Edit transforms an uploaded head, bust or full-body reference.");
+  const name = field("Character name", "");
+  const role = field("Role and personality", "");
+  const age = field("Age / build", "");
+  const faceHair = field("Face, hair, eyes", "");
+  const wardrobe = field("Wardrobe", "");
+  const style = field("Art direction", "Premium original traditional 2D Japanese mature romantic comedy anime, hand-painted background, cel animation, warm burgundy / dusty rose / ivory / amber brass / deep violet, fine confident line work, restrained film grain. Original design, no existing franchise character.");
+  const views = field("Sheet views", "front, three-quarter, side and back full-body turnaround; four expression studies; one close-up bust; one wardrobe detail; neutral studio background", "textarea");
+  const notes = field("Additional constraints", "Consistent identity and outfit across every panel. No text, labels, logos, watermark, extra people, duplicate faces, cropped limbs or chibi. Tasteful, opaque clothing.", "textarea");
+  const file = el("input", { type: "file", accept: "image/*", "aria-label": "Optional head, bust or full-body reference" });
+  const preview = el("img", { class: "prod-sheet-preview", alt: "", hidden: true });
+  let image = null;
+  file.onchange = () => {
+    image = file.files?.[0] || null;
+    if (image) { preview.src = URL.createObjectURL(image); preview.hidden = false; }
+    else { preview.hidden = true; preview.removeAttribute("src"); }
+  };
+  const promptFor = () => {
+    const parts = [
+      "A professional character model sheet for one original character, designed as a production-ready reference.",
+      `Character: ${name.input.value.trim() || "unnamed character"}.`,
+      role.input.value.trim() ? `Role and personality: ${role.input.value.trim()}.` : "",
+      age.input.value.trim() ? `Age and build: ${age.input.value.trim()}.` : "",
+      faceHair.input.value.trim() ? `Face, hair and eyes: ${faceHair.input.value.trim()}.` : "",
+      wardrobe.input.value.trim() ? `Wardrobe: ${wardrobe.input.value.trim()}.` : "",
+      `Sheet views: ${views.input.value.trim() || "front, side, back turnaround and expression studies"}.`,
+      style.input.value.trim(),
+      notes.input.value.trim(),
+    ].filter(Boolean);
+    return parts.join(" ");
+  };
+  const textButton = el("button", { class: "btn lime", type: "button", disabled: true }, icon("spark"), "Open H3 Image");
+  const editButton = el("button", { class: "btn ghost", type: "button", disabled: true }, icon("wand"), "Open p-H3 Edit");
+  const refreshButtons = () => { textButton.disabled = Boolean(image); editButton.disabled = !image; };
+  file.addEventListener("change", refreshButtons);
+  const open = async (appId) => {
+    try {
+      const { formFor } = await import("./workspace.js");
+      const app = apps.find((item) => item.id === appId);
+      if (!app) throw new Error(`${appId} is not installed`);
+      const f = formFor(app);
+      f.values.prompt = promptFor();
+      f.values.expand = true;
+      if (app.inputs.some((input) => input.id === "aspect")) f.values.aspect = "16:9 (Widescreen)";
+      if (image) {
+        const input = app.inputs.find((item) => item.type === "image" && !f.files?.[item.id]);
+        if (!input) throw new Error(`No empty image slot in ${app.name}`);
+        f.files[input.id] = { file: image, url: URL.createObjectURL(image) };
+      }
+      dialog.close();
+      location.hash = `#/app/${encodeURIComponent(app.id)}`;
+      toast(image ? "Character reference loaded in p-H3 Image Edit. Review the existing form before generating." : "Character-sheet prompt ready in H3 Image. Review before generating.");
+    } catch (error) { toast(error.message, { error: true }); }
+  };
+  textButton.onclick = () => void open("h3-image");
+  editButton.onclick = () => void open("h3-image-edit");
+  dialog.append(el("div", { class: "ag-dialog-form prod-sheet-form" },
+    el("div", { class: "ag-form-row" }, name.node, role.node),
+    el("div", { class: "ag-form-row" }, age.node, faceHair.node),
+    wardrobe.node, style.node, views.node, notes.node,
+    el("label", { class: "ag-field" }, el("span", {}, "Optional head, bust or full-body image"), file),
+    preview,
+    el("p", { class: "help" }, "No image: opens H3 Image with the existing Qwen3.8 prompt expander. With an image: opens p-H3 Image Edit and preserves the uploaded reference as Picture 1. The generated sheet is not added to the production automatically; index its History output in Assets with folder Characters.")),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), textButton, editButton));
+  dialog.showModal();
+  refreshButtons();
+  name.input.focus();
+}
+
 function openAssetFromHistory(productionId, snapshot, onDone) {
   const dialog = modal("Add an asset from History", "A succeeded run output becomes an indexed production asset. The file stays in History.");
   const run = field("History run ID", "");
   const output = field("Output index", "0", "number");
   const label = field("Label", "");
+  const category = el("select", { "aria-label": "Asset folder" }, ...ASSET_FOLDERS.map(([value, name]) => el("option", { value, selected: String(value) === "references" }, name)));
   const tags = field("Tags", "");
   const add = el("button", { class: "btn lime", type: "button" }, icon("plus"), "Add asset");
   add.onclick = async () => {
     try {
       if (!run.input.value.trim()) throw new Error("Enter a succeeded run ID");
-      await api(`/api/productions/${encodeURIComponent(productionId)}/assets`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId: run.input.value.trim(), outputIndex: Number(output.input.value) || 0, label: label.input.value.trim(), tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
+      await api(`/api/productions/${encodeURIComponent(productionId)}/assets`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId: run.input.value.trim(), outputIndex: Number(output.input.value) || 0, label: label.input.value.trim(), category: category.value, tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
       dialog.close(); toast("Asset indexed from History."); onDone?.();
     } catch (error) { toast(error.message, { error: true }); }
   };
-  dialog.append(el("div", { class: "ag-dialog-form" }, run.node, output.node, label.node, tags.node),
+  dialog.append(el("div", { class: "ag-dialog-form" }, run.node, output.node, label.node, el("label", { class: "ag-field" }, el("span", {}, "Asset folder"), category), tags.node),
     el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), add));
   dialog.showModal();
 }
@@ -711,32 +785,44 @@ export function productionView(productionId) {
   }
 
   function assetsPanel(snap) {
-    const assets = Object.values(snap.assets)
-      .filter((asset) => (state.assetFilter === "all" || asset.kind === state.assetFilter) && (!state.assetQuery || `${asset.label} ${(asset.tags || []).join(" ")} ${asset.sourceRunId || ""}`.toLowerCase().includes(state.assetQuery.toLowerCase())))
-      .sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label));
-    const search = el("input", { class: "prod-search", type: "search", placeholder: "Search assets, tags or run IDs", value: state.assetQuery });
+    const all = Object.values(snap.assets)
+      .filter((asset) => !state.assetQuery || `${asset.label} ${(asset.tags || []).join(" ")} ${asset.sourceRunId || ""} ${asset.category || ""}`.toLowerCase().includes(state.assetQuery.toLowerCase()))
+      .sort((a, b) => (ASSET_FOLDER_LABEL[a.category || "references"] || a.category).localeCompare(ASSET_FOLDER_LABEL[b.category || "references"] || b.category) || a.label.localeCompare(b.label));
+    const search = el("input", { class: "prod-search", type: "search", placeholder: "Search assets, tags, folders or run IDs", value: state.assetQuery });
     search.oninput = () => { state.assetQuery = search.value; paint(); };
-    const filters = el("div", { class: "pills" }, ...[["all", "All"], ["image", "Images"], ["video", "Video"], ["audio", "Audio"]].map(([value, label]) =>
+    const filters = el("div", { class: "pills" }, ...[["all", "All"], ...ASSET_FOLDERS].map(([value, label]) =>
       el("button", { type: "button", "aria-pressed": String(state.assetFilter === value), onclick: () => { state.assetFilter = value; paint(); } }, label)));
-    const grid = el("div", { class: "prod-assets large" }, ...assets.map((asset) => el("article", { class: "prod-asset-card" },
+    const folders = (state.assetFilter === "all" ? ASSET_FOLDERS : ASSET_FOLDERS.filter(([id]) => id === state.assetFilter))
+      .map(([id, label]) => {
+        const list = all.filter((asset) => (asset.category || "references") === id);
+        if (!list.length) return null;
+        return el("section", { class: "prod-asset-folder" },
+          el("div", { class: "prod-section-head" }, el("h3", {}, label), el("span", { class: "tag dark" }, `${list.length}`)),
+          el("div", { class: "prod-assets large" }, ...list.map(assetCard)));
+      }).filter(Boolean);
+    if (!folders.length) folders.push(el("div", { class: "prod-empty" }, icon("image"), el("h3", {}, "No assets in this folder"), el("p", {}, "Add an existing History output, or generate a new image with MiniMax H3 Image.")));
+    return el("div", { class: "prod-assets-layout" },
+      el("div", { class: "prod-toolbar" }, el("div", {}, el("h2", {}, "Production assets"), el("p", {}, "Classified reference stills, plates, characters and generated media. Assets are indexed in place; removing one never deletes the original file.")),
+        el("div", { class: "row" },
+          el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetFromHistory(productionId, snap, reload) }, icon("plus"), "Add from History"),
+          el("button", { class: "btn small ghost", type: "button", onclick: () => openCharacterSheet(productionId, snap) }, icon("user"), "New character sheet"),
+          el("button", { class: "btn small lime", type: "button", onclick: () => { location.hash = "#/app/h3-image"; toast("Generate an image, then index its History output in Production assets."); } }, icon("spark"), "New H3 Image"))),
+      el("div", { class: "prod-assets-toolbar" }, el("label", { class: "search" }, icon("search"), search), filters, el("span", { class: "tag dark" }, `${all.length} assets`)),
+      ...folders);
+  }
+
+  function assetCard(asset) {
+    return el("article", { class: "prod-asset-card" },
       asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id), alt: asset.label, loading: "lazy" })
         : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id), muted: true, preload: "metadata" })
           : el("div", { class: "prod-asset-icon" }, icon("audio")),
       el("div", { class: "prod-asset-copy" }, el("b", {}, asset.label),
-        el("small", {}, `${asset.kind}${asset.sourceRunId ? ` · ${asset.sourceRunId}` : ""}`),
+        el("small", {}, `${ASSET_FOLDER_LABEL[asset.category || "references"] || asset.category}${asset.sourceRunId ? ` · ${asset.sourceRunId}` : ""}`),
         asset.tags?.length ? el("span", { class: "prod-asset-tags" }, ...asset.tags.map((tag) => el("span", { class: "tag dark" }, tag))) : null),
       el("div", { class: "prod-asset-actions" },
         el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetEdit(productionId, asset, reload) }, icon("sliders"), "Edit"),
         asset.kind === "image" ? el("button", { class: "btn small ghost", type: "button", onclick: () => void editAssetInApp("h3-image-edit", asset) }, icon("wand"), "p-H3 Edit") : null,
-        el("button", { class: "btn small ghost danger", type: "button", onclick: () => deleteAsset(productionId, asset, reload) }, icon("trash"), "Remove")))));
-    if (!assets.length) grid.append(el("div", { class: "prod-empty" }, icon("image"), el("h3", {}, "No assets in this filter"), el("p", {}, "Add an existing History output, or generate a new image with MiniMax H3 Image.")));
-    return el("div", { class: "prod-assets-layout" },
-      el("div", { class: "prod-toolbar" }, el("div", {}, el("h2", {}, "Production assets"), el("p", {}, "Reference stills, plates, characters and generated media for this production. Assets are indexed in place; removing one never deletes the original file.")),
-        el("div", { class: "row" },
-          el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetFromHistory(productionId, snap, reload) }, icon("plus"), "Add from History"),
-          el("button", { class: "btn small lime", type: "button", onclick: () => { location.hash = "#/app/h3-image"; toast("Generate an image, then index its History output in Production assets."); } }, icon("spark"), "New H3 Image"))),
-      el("div", { class: "prod-assets-toolbar" }, el("label", { class: "search" }, icon("search"), search), filters, el("span", { class: "tag dark" }, `${assets.length} assets`)),
-      grid);
+        el("button", { class: "btn small ghost danger", type: "button", onclick: () => deleteAsset(productionId, asset, reload) }, icon("trash"), "Remove")));
   }
 
   function historyPanel(snap) {

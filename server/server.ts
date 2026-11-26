@@ -653,12 +653,13 @@ const server = createServer(async (req, res) => {
               kind: output.type as "image" | "video" | "audio",
               label: typeof body.label === "string" ? body.label : output.name || output.file,
               sourceRunId: run.id, path,
+              ...(typeof body.category === "string" ? { category: body.category } : {}),
               ...(Array.isArray(body.tags) ? { tags: body.tags.map(String) } : {}),
             };
           }
           return send(res, 201, productions.indexAsset(id, input, actor));
         }
-        if (id && req.method === "PATCH" && sub === "assets" && arg) return send(res, 200, productions.updateAsset(id, arg, await jsonBody() as { label?: string; tags?: string[] }, actor));
+        if (id && req.method === "PATCH" && sub === "assets" && arg) return send(res, 200, productions.updateAsset(id, arg, await jsonBody() as { label?: string; tags?: string[]; category?: string }, actor));
         if (id && req.method === "DELETE" && sub === "assets" && arg) return send(res, 200, productions.removeAsset(id, arg, actor));
         if (id && req.method === "POST" && sub === "proposals") return send(res, 201, productions.propose(id, await jsonBody() as ProposeCanonInput, actor));
         if (id && req.method === "POST" && sub === "candidates") {
