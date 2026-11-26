@@ -25,6 +25,7 @@
 // refused (guard.ts foreign()). RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { loadRegistry, repoRoot, isFileInput, type App } from "./registry.ts";
@@ -72,6 +73,12 @@ let runner: Runner | null = null;
 const getRunner = () => (runner ??= new Runner());
 const inference = new InferenceQueue();
 const runControllers = new Map<string, AbortController>();
+type PromptJob = {
+  id: string; appId: string; status: "running" | "succeeded" | "failed";
+  values?: Values; error?: string; progress: { done: number; total: number };
+  startedAt: string; finishedAt?: string;
+};
+const promptJobs = new Map<string, PromptJob>();
 const draftsAllowed = process.env.RIVERFIELD_DRAFTS === "1";
 const outDir = process.env.RIVERFIELD_OUT || join(root, "out");
 const guard = Guard.fromEnv(join(outDir, "limits.json"));
@@ -260,7 +267,7 @@ async function jobView(id: string) {
  * call. The inline workflow enhancer is deliberately switched off afterwards so
  * the same prompt is not enhanced twice.
  */
-async function enhanceDirectorValues(app: App, values: Values, runner: Runner, enhancer: App, only?: number): Promise<Values> {
+async function enhanceDirectorValues(app: App, values: Values, runner: Runner, enhancer: App, only?: number, onProgress?: (done: number, total: number) => void): Promise<Values> {
   const next: Values = { ...values };
   type Target =
     | { kind: "windows"; spec: any; prompts: string[] }
@@ -377,6 +384,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     if (!text) throw new Error(`Prompt enhancer returned an empty segment ${i + 1}`);
     target.prompts[i] = text;
     done.push(text);
+    onProgress?.(done.length, order.length);
   }
 
   if (target.kind === "windows") {
@@ -408,6 +416,53 @@ function directorMediaValues(app: App, appId: string): Values {
     };
   }
   return out;
+}
+
+/**
+ * Start a prompt-only Qwen job without holding a browser request open for minutes.
+ * The browser polls prompt-jobs/:id; the job itself has no deadline. No video renderer
+ * is submitted. This is intentionally separate from the synchronous /prompts endpoint
+ * retained for compatibility with scripts.
+ */
+function startPromptJob(app: App, rawValues: Record<string, unknown>, index: number | undefined, all: boolean): PromptJob {
+  const id = randomUUID();
+  const job: PromptJob = { id, appId: app.id, status: "running", progress: { done: 0, total: all ? 1 : 1 }, startedAt: new Date().toISOString() };
+  promptJobs.set(id, job);
+  // Keep the in-memory job table bounded without ever touching generation work.
+  if (promptJobs.size > 64) {
+    for (const [key, old] of promptJobs) if (old.status !== "running") { promptJobs.delete(key); break; }
+  }
+  const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
+  const values: Values = { ...rawValues, ...directorMediaValues(app, app.id) };
+  void (async () => {
+    try {
+      if (!enhancer) throw new Error("Prompt enhancer app is not installed");
+      if (all) {
+        let total = 1;
+        if (typeof values.segment_windows === "string" && values.segment_windows.trim()) {
+          try {
+            const windows = (JSON.parse(values.segment_windows) as { windows?: unknown[] }).windows;
+            if (Array.isArray(windows) && windows.length) total = windows.length;
+          } catch { /* let the enhancer report the invalid timeline */ }
+        } else if (typeof values.segment_prompts === "string") {
+          total = Math.max(1, values.segment_prompts.split(/\r?\n/).filter((line) => line.trim()).length);
+        }
+        job.progress.total = total;
+      }
+      const enhanced = await enhanceDirectorValues(app, values, getRunner(), enhancer, index, (done, total) => {
+        job.progress = { done, total: Math.max(1, total) };
+      });
+      for (const input of app.inputs) if (isFileInput(input)) delete enhanced[input.id];
+      job.values = enhanced;
+      job.status = "succeeded";
+      job.finishedAt = new Date().toISOString();
+    } catch (error) {
+      job.status = "failed";
+      job.error = (error as Error).message || String(error);
+      job.finishedAt = new Date().toISOString();
+    }
+  })();
+  return job;
 }
 
 /** Submit in the background; the entry tells the UI how it goes. */
@@ -598,6 +653,19 @@ const server = createServer(async (req, res) => {
         const promptTool = Boolean(app?.inputs.some((i) => i.id === "prompt_enhancer"));
         if (!app || (!directorProject && !promptTool)) return send(res, 404, { error: "unknown Director app" });
         if (req.method === "GET" && !sub) return send(res, 200, directors.view(id!));
+        if (req.method === "POST" && sub === "prompts" && arg === "jobs") {
+          if (!app.inputs.some((input) => input.id === "prompt_enhancer")) throw new InputError("This Director has no prompt enhancer");
+          const raw = await (await toRequest(req, 24)).json() as { values?: unknown; index?: unknown; all?: unknown };
+          if (!raw || typeof raw.values !== "object" || raw.values === null || Array.isArray(raw.values)) throw new InputError("Expected values");
+          const index = Number.isInteger(raw.index) ? Number(raw.index) : undefined;
+          if (raw.all !== true && index === undefined) throw new InputError("Pass index for one segment or all:true for the whole timeline");
+          return send(res, 202, startPromptJob(app, raw.values as Record<string, unknown>, index, raw.all === true));
+        }
+        if (req.method === "GET" && sub === "prompt-jobs" && arg) {
+          const job = promptJobs.get(arg);
+          if (!job || job.appId !== app.id) return send(res, 404, { error: "unknown prompt job" });
+          return send(res, 200, job.status === "succeeded" ? { ...job, values: job.values } : job);
+        }
         if (req.method === "POST" && sub === "prompts") {
           const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
           if (!enhancer) throw new InputError("Prompt enhancer app is not installed");

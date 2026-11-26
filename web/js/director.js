@@ -226,19 +226,40 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   }
   const enhancerAvailable = app.inputs.some((input) => input.id === "prompt_enhancer");
   let promptBusy = false;
-  /** Rewrite one selected segment, or all segments in order. This only runs the Qwen writer,
-   * never the H3 video renderer; all:true is the "Generate all prompts" action. */
+  let promptProgress = null;
+  const promptSpinner = () => el("span", { class: "dir-spinner", "aria-hidden": "true" });
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  /** Rewrite one selected segment, or all segments in order. The HTTP start call is short;
+   * the writer job is polled so a long Qwen generation is never held open by the browser.
+   * No generation deadline is applied. This never starts the H3 renderer. */
   async function generatePrompts(index, all = false) {
     if (!enhancerAvailable || promptBusy) return;
     promptBusy = true;
+    promptProgress = { done: 0, total: 1 };
+    draw();
     try {
       const body = all ? { values: projectValues(), all: true } : { values: projectValues(), index };
-      const res = await fetch(`/api/directors/${app.id}/prompts`, {
+      const started = await fetch(`/api/directors/${app.id}/prompts/jobs`, {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `${res.status} ${res.statusText}`);
-      Object.assign(f.values, data.values || {});
+      const startData = await started.json().catch(() => ({}));
+      if (!started.ok) throw new Error(startData.error || `${started.status} ${started.statusText}`);
+      const jobId = startData.id;
+      if (!jobId) throw new Error("Prompt writer did not return a job id");
+      let data = null;
+      for (;;) {
+        await sleep(1200);
+        const res = await fetch(`/api/directors/${app.id}/prompt-jobs/${encodeURIComponent(jobId)}`, { cache: "no-store" });
+        const status = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(status.error || `${res.status} ${res.statusText}`);
+        if (status.progress) {
+          promptProgress = status.progress;
+          drawHead();
+        }
+        if (status.status === "succeeded") { data = status.values; break; }
+        if (status.status === "failed") throw new Error(status.error || "The prompt writer failed");
+      }
+      Object.assign(f.values, data || {});
       const parsed = parseState(f);
       st.windows = parsed.windows;
       st.videos = parsed.videos;
@@ -247,11 +268,18 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       stateCache.set(app.id, { raw: f.values.segment_windows, state: st });
       saveDirty();
       draw();
+      const field = segEl.querySelector(".dir-prompt");
+      if (field) { field.focus(); field.setSelectionRange(field.value.length, field.value.length); }
       toast(all ? "Prompts generated. Video not started." : `Prompt generated for segment ${selected + 1}. Video not started.`);
     } catch (err) {
-      toast(`Prompt generation failed: ${err.message}`, { error: true });
+      const message = err?.message === "Failed to fetch"
+        ? "Lost the connection to the prompt writer. The writer may still be running; retry when the studio is reachable."
+        : err.message;
+      toast(`Prompt generation failed: ${message}`, { error: true });
     } finally {
       promptBusy = false;
+      promptProgress = null;
+      draw();
     }
   }
   function adoptProfile(values) {
@@ -949,7 +977,12 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     prompt.addEventListener("input", () => { w.prompt = prompt.value; persistState(app, f, st); saveDirty(); drawTracks(); });
     const promptBox = el("div", { class: "dir-prompt-box" }, prompt,
       enhancerAvailable ? el("div", { class: "dir-prompt-tools" },
-        el("button", { type: "button", class: "btn small ghost dir-enhance", title: "Rewrite this segment prompt with Qwen3.8; this does not start the video renderer", onclick: () => void generatePrompts(selected, false) }, icon("spark"), "Generate prompt")) : null);
+        el("button", {
+          type: "button", class: `btn small ghost dir-enhance${promptBusy ? " busy" : ""}`, disabled: promptBusy,
+          title: promptBusy ? "Qwen is writing this prompt; the video renderer is not running" : "Rewrite this segment prompt with Qwen3.8; this does not start the video renderer",
+          "aria-busy": promptBusy ? "true" : undefined,
+          onclick: () => void generatePrompts(selected, false),
+        }, promptBusy ? promptSpinner() : icon("spark"), promptBusy ? (promptProgress && promptProgress.total > 1 ? `Writing ${promptProgress.done}/${promptProgress.total}…` : "Writing…") : "Generate prompt")) : null);
 
     const imgs = mediaOf(app, f, "image");
     const auds = mediaOf(app, f, "audio");
@@ -1279,7 +1312,12 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     headEl.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"), el("span", {}, app.panel_title || "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
       el("div", { class: "dir-head-right" }, ...[
-        enhancerAvailable ? el("button", { type: "button", class: "dir-toggle", title: "Generate prompts for every segment with Qwen3.8; this does not start the video renderer", onclick: () => void generatePrompts(undefined, true) }, icon("spark"), "Generate all prompts") : null,
+        enhancerAvailable ? el("button", {
+          type: "button", class: `dir-toggle${promptBusy ? " busy" : ""}`, disabled: promptBusy,
+          title: promptBusy ? "Qwen is writing the whole timeline; the video renderer is not running" : "Generate prompts for every segment with Qwen3.8; this does not start the video renderer",
+          "aria-busy": promptBusy ? "true" : undefined,
+          onclick: () => void generatePrompts(undefined, true),
+        }, promptBusy ? promptSpinner() : icon("spark"), promptBusy ? (promptProgress ? `Writing ${promptProgress.done}/${promptProgress.total}…` : "Writing prompts…") : "Generate all prompts") : null,
         el("button", { type: "button", class: "dir-toggle", onclick: () => openBatch() }, icon("code"), "Paste prompts"),
         settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn),
       ].filter(Boolean)));

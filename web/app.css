@@ -984,3 +984,8 @@ body.dir-dragging * { cursor: grabbing !important; }
 .dir-prompt-box { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
 .dir-prompt-tools { display: flex; align-items: flex-start; }
 .dir-enhance { white-space: nowrap; height: 30px; padding: 0 10px; font-size: 12px; }
+
+/* Prompt writer jobs: a visible long-running state, never a generation deadline */
+.dir-enhance.busy, .dir-toggle.busy { cursor: progress; color: var(--blue); border-color: rgba(141, 180, 255, .55); }
+.dir-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: dir-spin .75s linear infinite; flex: 0 0 auto; }
+@keyframes dir-spin { to { transform: rotate(360deg); } }
