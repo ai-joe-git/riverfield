@@ -54,9 +54,11 @@ import { buildProductionContext } from "./production-context.ts";
 import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
 import type { Actor } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
+import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
 import { OBSERVER_PROFILES } from "./observer-profiles.ts";
+import { P6_REFERENCE_WARNING, auditAssetCatalogue, buildAssetCorrectionBatch } from "./asset-audit.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -698,6 +700,48 @@ const server = createServer(async (req, res) => {
           }, actor);
           return send(res, 202, job);
         }
+        if (id && req.method === "GET" && sub === "continuity-reviews" && !arg) {
+          const snap = productions.snapshot(id);
+          return send(res, 200, { reviews: Object.values(snap.continuityReviews ?? {}).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) });
+        }
+        if (id && req.method === "GET" && sub === "continuity-reviews" && arg) {
+          const snap = productions.snapshot(id);
+          const review = snap.continuityReviews?.[arg];
+          return review ? send(res, 200, review) : send(res, 404, { error: "unknown continuity review" });
+        }
+        if (id && req.method === "POST" && sub === "continuity-reviews" && arg === "run-senior") {
+          const body = await jsonBody();
+          if (body.confirm !== true) throw new InputError("confirm:true is required for the single authorized senior inference pass");
+          if (typeof body.preparedReviewId !== "string") throw new InputError("preparedReviewId is required");
+          const result = await runSeniorContinuityReview({
+            store: productions, runner: getRunner(), outDir, productionId: id,
+            preparedReviewId: body.preparedReviewId, actor: { kind: "agent", id: "senior-continuity-review" },
+          });
+          return send(res, 201, result);
+        }
+        if (id && req.method === "POST" && sub === "continuity-reviews") {
+          const body = await jsonBody();
+          if (!Array.isArray(body.sceneIds) || !Array.isArray(body.observations) || !body.reviewer || typeof body.reviewer !== "object") {
+            throw new InputError("sceneIds, observations and reviewer are required");
+          }
+          return send(res, 201, productions.recordContinuityReview(id, {
+            ...(typeof body.id === "string" ? { id: body.id } : {}),
+            ...(typeof body.seasonId === "string" ? { seasonId: body.seasonId } : {}),
+            ...(typeof body.episodeId === "string" ? { episodeId: body.episodeId } : {}),
+            sceneIds: body.sceneIds.map(String),
+            ...(Array.isArray(body.bindingIds) ? { bindingIds: body.bindingIds.map(String) } : {}),
+            ...(Array.isArray(body.candidateIds) ? { candidateIds: body.candidateIds.map(String) } : {}),
+            observations: body.observations as never,
+            reviewer: body.reviewer as never,
+            ...(Array.isArray(body.evidenceReferences) ? { evidenceReferences: body.evidenceReferences.map(String) } : {}),
+            ...(typeof body.status === "string" ? { status: body.status as never } : {}),
+            ...(Array.isArray(body.findings) ? { findings: body.findings } : {}),
+            ...(Array.isArray(body.stateRecords) ? { stateRecords: body.stateRecords } : {}),
+            ...(Array.isArray(body.correctionPlans) ? { correctionPlans: body.correctionPlans } : {}),
+            ...(Array.isArray(body.limitations) ? { limitations: body.limitations.map(String) } : {}),
+            ...(body.execution && typeof body.execution === "object" ? { execution: body.execution as Record<string, unknown> } : {}),
+          }, actor, typeof body.commandKey === "string" ? body.commandKey : undefined));
+        }
         if (id && req.method === "POST" && sub === "binding-corrections") {
           const body = await jsonBody();
           if (typeof body.candidateId !== "string" || typeof body.originalBindingId !== "string" || typeof body.correctedSceneId !== "string" || typeof body.sourceHash !== "string") {
@@ -947,6 +991,12 @@ const server = createServer(async (req, res) => {
         return send(res,404,{error:"Unknown Agent route"});
       }
       if(req.method==="GET" && area==="inference")return send(res,200,inference.snapshot());
+      if(req.method==="GET" && area==="asset-audit" && parts.length===2){
+        const snap=productions.snapshot("suite-404");
+        const assets=auditAssetCatalogue(snap);
+        const correctionBatch=buildAssetCorrectionBatch(snap);
+        return send(res,200,{productionId:"suite-404",assets,correctionBatch,summary:{total:assets.length,trusted:assets.filter(a=>a.trusted).length,requiresReview:assets.filter(a=>!a.trusted).length,independentlyVerified:assets.filter(a=>a.semanticStatus==="visually-verified").length,notIndependentlyVerified:assets.filter(a=>a.semanticStatus==="not-independently-verified").length,correctionBatchEntries:correctionBatch.entries.length,ambiguous:correctionBatch.ambiguous.length},p6ReferenceWarning:P6_REFERENCE_WARNING,note:"Semantic audit; corrections are proposals, original media and historical reports are unchanged."});
+      }
       if(req.method==="GET" && area==="observer-profiles" && parts.length===2)return send(res,200,{ profiles: OBSERVER_PROFILES, defaultProfile: "custom", note: "Profiles only supply defaults; explicit options and custom model selection remain available. Senior Review reuses an existing observation." });
       if(req.method==="GET" && area==="observer-models" && parts.length===2)return send(res,200,{
         models: discoverObserverModels(), defaultModelId: DEFAULT_OBSERVER_MODEL_ID,

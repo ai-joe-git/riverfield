@@ -26,6 +26,7 @@ import {
 } from "./observer-inference.ts";
 import { createObserverApp } from "./observer-app.ts";
 import { ObserverProposalError, auditObservedProposals, buildProductionSubjects, normalizeObservedChange, validateObservedProposals } from "./observer-subjects.ts";
+import { assertTrustedReferences } from "./asset-audit.ts";
 import { analysisImageManifest, createAnalysisImages, type AnalysisImage } from "./evidence-images.ts";
 import { alignDialogue, dialogueAlignmentMarkdown, extractIntendedBrief, type DialogueAlignment, type IntendedBrief } from "./dialogue-alignment.ts";
 import { observerProfile, profileDefaults, isObserverProfileId, type ObserverProfileId } from "./observer-profiles.ts";
@@ -342,6 +343,8 @@ export class ObservationManager {
     }
     const referenceAssetIds = [...new Set([...(rawOptions.referenceAssetIds ?? []), ...(input.referenceAssetIds ?? [])])]
       .filter((id) => snap.assets[id]?.kind === "image");
+    try { assertTrustedReferences(snap, referenceAssetIds); }
+    catch (error) { throw new ObservationError("OBSERVER_REFERENCE_REVIEW_REQUIRED", (error as Error).message); }
     const options: ObservationOptions = { ...rawOptions, referenceAssetIds };
     const resolveSelected = (id: string): ObserverModel => {
       try { return observerModel(id || DEFAULT_OBSERVER_MODEL_ID); }

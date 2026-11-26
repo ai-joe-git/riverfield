@@ -165,6 +165,7 @@ export type FactRevision = {
 // Phase 1 — Audiovisual Observer contracts. These are evidence records, never canonical facts.
 export const OBSERVATION_SCHEMA_VERSION = 1 as const;
 export type ObservationConfidence = "confirmed" | "probable" | "uncertain" | "not_observable";
+export type ObservationStateValueSource = "visual" | "comparison" | "dialogue" | "review";
 export type ObservationStageName = "resolve" | "evidence" | "asr" | "alignment" | "visual" | "comparison" | "report";
 export type ObservationStageStatus = "pending" | "running" | "succeeded" | "failed" | "skipped" | "canceled";
 export type ObservationStage = {
@@ -529,6 +530,33 @@ export type AssetBuild = {
   createdBy: string;
 };
 
+export type ContinuityReviewStatus = "prepared" | "completed" | "superseded" | "rejected";
+
+export type ContinuityReview = {
+  id: string;
+  productionId: string;
+  seasonId?: string;
+  episodeId?: string;
+  sceneIds: string[];
+  bindingIds: string[];
+  candidateIds: string[];
+  observations: { observationId: string; sceneId: string; revision: number; sourceHash: string }[];
+  canonicalRevision: number;
+  reviewer: { model: string; kind: "qwen" | "deterministic" | "human"; configuration: Record<string, unknown> };
+  evidenceReferences: string[];
+  status: ContinuityReviewStatus;
+  findings: unknown[];
+  stateRecords: unknown[];
+  correctionPlans: unknown[];
+  limitations: string[];
+  /** Optional provenance for an executed reviewer; artifacts and raw output stay outside the immutable finding set. */
+  execution?: Record<string, unknown>;
+  revision: number;
+  previousReviewId?: string;
+  createdAt: string;
+  createdBy: string;
+};
+
 export type ProductionSnapshot = {
   schemaVersion: typeof PRODUCTION_SCHEMA_VERSION;
   production: ProductionMeta;
@@ -540,6 +568,7 @@ export type ProductionSnapshot = {
   /** Append-only non-canonical binding corrections; never rewrites the historical binding. */
   bindingCorrections: BindingCorrection[];
   observations: Record<string, Observation>;
+  continuityReviews: Record<string, ContinuityReview>;
   sceneDecisions: Record<string, SceneDecision>;
   bible: Record<MemoryCategory, BibleFact[]>;
   proposals: Record<string, CanonProposal>;
@@ -561,6 +590,7 @@ export type ProductionEventType =
   | "scene.removed"
   | "candidate.registered"
   | "binding.corrected"
+  | "continuity.reviewed"
   | "observation.recorded"
   | "asset.indexed"
   | "asset.updated"

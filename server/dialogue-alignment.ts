@@ -81,15 +81,28 @@ export type DialogueAlignment = {
 const HESITATION = /^(?:uh|um|er|erm|ah|hmm|mmm|mm|huh|eh)$/i;
 
 /** Normalize case and punctuation while retaining words and hesitations. */
+const NUMBER_WORDS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60,
+  seventy: 70, eighty: 80, ninety: 90, hundred: 100,
+};
+
+/** Normalize dialogue while preserving word order; numeric words and % are made comparable. */
 export function normalizeDialogue(text: string): string {
   return String(text ?? "")
     .normalize("NFKD")
     .replace(/[’‘]/g, "'")
     .replace(/<[^>]*>/g, " ")
+    .replace(/%/g, " percent ")
     .replace(/[^\p{L}\p{N}']+/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map((token) => token in NUMBER_WORDS ? String(NUMBER_WORDS[token]) : token)
+    .join(" ");
 }
 
 export function dialogueTokens(text: string): string[] {

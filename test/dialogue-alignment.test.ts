@@ -100,3 +100,16 @@ test("shot extraction ignores [Shot 1] in introductory prose and keeps soundscap
   assert.match(brief.soundscape ?? "", /soft jazz/);
   assert.match(brief.music ?? "", /slow piano/);
 });
+
+
+test("numeric equivalents such as twelve percent and 12% compare deterministically", () => {
+  assert.equal(normalizeDialogue("twelve percent"), "12 percent");
+  assert.equal(normalizeDialogue("12%"), "12 percent");
+  const alignment = alignDialogue([
+    { id: "i1", text: "The score is twelve percent", normalized: normalizeDialogue("The score is twelve percent"), source: "scene" },
+  ], {
+    ...dialogue,
+    utterances: [{ id: "u1", startSeconds: 0, endSeconds: 2, text: "the score is 12%", speaker: { label: "Unattributed speaker", attribution: "unknown" }, unclear: false, evidenceIds: ["audio-01"] }],
+  });
+  assert.equal(alignment.matches[0]?.textMatch, "exact");
+});

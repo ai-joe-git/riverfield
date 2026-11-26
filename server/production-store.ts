@@ -11,7 +11,7 @@ import {
   type Actor, type ApprovalCheck, type Asset, type BibleFact, type Candidate, type CanonProposal,
   type FactChange, type HumanApproval, type Observation, type ObservationReport, type ProductionEvent, type ProductionEventType,
   type ProductionMeta, type ProductionSnapshot, type ProductionSummary, type Scene, type SceneDecision,
-  type SceneRenderBinding, type BindingCorrection, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
+  type SceneRenderBinding, type BindingCorrection, type ContinuityReview, type ContinuityReviewStatus, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
 } from "./production-types.ts";
 
 export class ProductionError extends Error {
@@ -65,6 +65,24 @@ export type RegisterObservationInput = {
   previousRevisionId?: string;
   report?: ObservationReport;
 };
+export type RecordContinuityReviewInput = {
+  id?: string;
+  seasonId?: string;
+  episodeId?: string;
+  sceneIds: string[];
+  bindingIds?: string[];
+  candidateIds?: string[];
+  observations: { observationId: string; sceneId: string; revision: number; sourceHash: string }[];
+  reviewer: { model: string; kind: "qwen" | "deterministic" | "human"; configuration?: Record<string, unknown> };
+  evidenceReferences?: string[];
+  status?: ContinuityReviewStatus;
+  findings?: unknown[];
+  stateRecords?: unknown[];
+  correctionPlans?: unknown[];
+  limitations?: string[];
+  execution?: Record<string, unknown>;
+};
+
 export type CreateAssetBuildInput = {
   id?: string;
   app: string;
@@ -117,6 +135,7 @@ function emptySnapshot(production: ProductionMeta, at = nowIso()): ProductionSna
     bindings: {},
     bindingCorrections: [],
     observations: {},
+    continuityReviews: {},
     sceneDecisions: {},
     bible: emptyBible(),
     proposals: {},
@@ -347,6 +366,11 @@ export class ProductionStore {
         case "binding.corrected": {
           const correction = event.payload.correction as BindingCorrection;
           snap.bindingCorrections.push(correction);
+          break;
+        }
+        case "continuity.reviewed": {
+          const review = event.payload.review as ContinuityReview;
+          snap.continuityReviews[review.id] = review;
           break;
         }
         case "observation.recorded": {
@@ -821,6 +845,37 @@ export class ProductionStore {
       });
     }
     return active.sort((a, b) => a.timelineStartFrame - b.timelineStartFrame || a.id.localeCompare(b.id));
+  }
+
+  /** Immutable, append-only continuity review. It never changes canonical memory. */
+  recordContinuityReview(productionId: string, input: RecordContinuityReviewInput, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    if (!input.sceneIds?.length) throw new ProductionError("INVALID_CONTINUITY_REVIEW", "A continuity review needs at least one scene");
+    for (const sceneId of input.sceneIds) if (!snap.scenes.some((scene) => scene.id === sceneId)) throw new ProductionError("UNKNOWN_SCENE", `Unknown scene ${sceneId}`);
+    const observations = input.observations.map((item) => {
+      const observation = snap.observations[item.observationId];
+      if (!observation?.report) throw new ProductionError("UNKNOWN_OBSERVATION", `Unknown or unstructured observation ${item.observationId}`);
+      if (observation.report.reportVersion !== item.revision || observation.sceneId !== item.sceneId) {
+        throw new ProductionError("OBSERVATION_REVISION_MISMATCH", `Observation ${item.observationId} revision/scene does not match the review reference`);
+      }
+      return { ...item, sourceHash: observation.report.sourceOutputHash };
+    });
+    const prior = Object.values(snap.continuityReviews ?? {})
+      .filter((review) => review.sceneIds.join("|") === input.sceneIds.join("|") && review.status !== "superseded")
+      .sort((a, b) => a.revision - b.revision).at(-1);
+    const id = input.id ?? `continuity-${randomUUID()}`;
+    if (snap.continuityReviews?.[id]) throw new ProductionError("CONTINUITY_REVIEW_EXISTS", `Continuity review ${id} already exists and is immutable`);
+    const review: ContinuityReview = {
+      id, productionId, ...(input.seasonId ? { seasonId: input.seasonId } : {}), ...(input.episodeId ? { episodeId: input.episodeId } : {}),
+      sceneIds: [...input.sceneIds], bindingIds: [...(input.bindingIds ?? [])], candidateIds: [...(input.candidateIds ?? [])],
+      observations, canonicalRevision: snap.revision,
+      reviewer: { model: input.reviewer.model, kind: input.reviewer.kind, configuration: input.reviewer.configuration ?? {} },
+      evidenceReferences: [...new Set(input.evidenceReferences ?? [])], status: input.status ?? "completed",
+      findings: input.findings ?? [], stateRecords: input.stateRecords ?? [], correctionPlans: input.correctionPlans ?? [], limitations: input.limitations ?? [],
+      ...(input.execution ? { execution: input.execution } : {}),
+      revision: (prior?.revision ?? 0) + 1, ...(prior ? { previousReviewId: prior.id } : {}), createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
+    };
+    return this.append(productionId, "continuity.reviewed", { review }, actor, commandKey ?? `continuity:review:${id}`);
   }
 
   recordObservation(productionId: string, input: RegisterObservationInput, actor: Actor, commandKey?: string): ProductionSnapshot {

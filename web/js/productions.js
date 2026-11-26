@@ -786,6 +786,13 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const characterAssets = Object.values(snapshot.assets).filter((asset) => asset.kind === "image" && asset.category === "characters");
   const referenceSelect = el("select", { multiple: true, size: "4", "aria-label": "Identity reference assets" },
     ...characterAssets.map((asset) => el("option", { value: asset.id }, asset.label)));
+  void api("/api/asset-audit").then((result) => {
+    const audit = new Map((result.assets || []).map((item) => [item.assetId, item]));
+    for (const option of referenceSelect.options) {
+      const item = audit.get(option.value);
+      if (item && !item.trusted) { option.disabled = true; option.textContent = `${option.textContent} · requires catalogue review`; }
+    }
+  }).catch(() => {});
   const referenceField = characterAssets.length
     ? el("label", { class: "ag-field" }, el("span", {}, "Identity references (optional; limited by the nine-image capacity)"), referenceSelect,
       el("small", { class: "help" }, "Evidence frames and references share nine workflow slots; over-budget requests fail instead of dropping an image."))
@@ -976,7 +983,7 @@ export function productionView(productionId) {
     const cover = coverFor(snap);
     const progress = snap.scenes.length ? Math.round((Object.values(snap.sceneDecisions).filter((decision) => decision.status === "canon").length / snap.scenes.length) * 100) : 0;
     const tabs = el("div", { class: "prod-tabs", role: "tablist" },
-      ...[["episodes", "Episodes"], ["bible", "Production Bible"], ["assets", "Assets"], ["history", "Canon history"]].map(([id, label]) =>
+      ...[["episodes", "Episodes"], ["bible", "Production Bible"], ["assets", "Assets"], ["continuity", "Continuity"], ["history", "Canon history"]].map(([id, label]) =>
         el("button", { type: "button", role: "tab", "aria-selected": String(state.tab === id), onclick: () => { state.tab = id; if (id === "history") void loadHistory(); paint(); } }, label)));
     const head = el("div", { class: "prod-hero" },
       coverNode(cover, snap.production.title),
@@ -993,7 +1000,7 @@ export function productionView(productionId) {
         el("div", { class: "prod-progress wide" }, el("i", { style: { width: `${progress}%` } }), el("span", {}, `${progress}% canonical`))));
     body.replaceChildren(head, el("div", { class: "prod-studio-bar" }, tabs,
       el("div", { class: "row" }, el("button", { class: "btn small ghost", type: "button", onclick: reload }, icon("redo"), "Refresh"))),
-      state.tab === "episodes" ? episodesPanel(snap) : state.tab === "bible" ? biblePanel(snap) : state.tab === "assets" ? assetsPanel(snap) : historyPanel(snap));
+      state.tab === "episodes" ? episodesPanel(snap) : state.tab === "bible" ? biblePanel(snap) : state.tab === "assets" ? assetsPanel(snap) : state.tab === "continuity" ? continuityPanel(snap) : historyPanel(snap));
   };
   const loadHistory = async () => {
     try {
@@ -1055,6 +1062,62 @@ export function productionView(productionId) {
         el("div", { class: "prod-scene-head" }, el("span", {}, `${scenes.length} scenes`), scene ? el("span", { class: "tag dark" }, episode?.title || "") : null),
         sceneList),
       detail);
+  }
+
+  function continuityPanel(snap) {
+    const root = el("section", { class: "prod-section prod-continuity" }, el("h2", {}, "Continuity"), el("p", { class: "help" }, "Immutable non-canonical reviews of existing observations. Opening this panel starts no inference."));
+    const reviews = el("div", { class: "prod-analysis-list" }, el("p", { class: "help" }, "Loading continuity reviews…"));
+    const assets = el("div", { class: "prod-analysis-list" }, el("p", { class: "help" }, "Loading asset audit…"));
+    root.append(el("div", { class: "prod-toolbar" }, el("div", {}, el("h3", {}, "Review history"), el("p", {}, "Prepared or completed reviews linked to exact observation revisions.")),
+      el("button", { class: "btn small ghost", type: "button", onclick: () => prepareContinuity(snap, reload) }, icon("plus"), "Prepare senior review")), reviews, el("h3", {}, "Asset catalogue warnings"), assets);
+    void api(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews`).then((data) => {
+      const list = data.reviews || [];
+      reviews.replaceChildren(...(list.length ? list.map((review) => el("details", { class: "prod-details" },
+        el("summary", {}, `v${review.revision} · ${review.status} · ${review.sceneIds.length} scene(s) · ${dateLabel(review.createdAt)}`),
+        el("p", { class: "help" }, `Reviewer: ${review.reviewer?.model || "?"} (${review.reviewer?.kind || "?"}) · canonical revision ${review.canonicalRevision}`),
+        el("p", { class: "help" }, `Observations: ${review.observations.map((o) => `${o.observationId}@r${o.revision}`).join(", ")}`),
+        el("p", { class: "help" }, `Evidence references: ${review.evidenceReferences?.length || 0}`),
+        review.limitations?.length ? el("p", { class: "help" }, review.limitations.join(" ")) : null,
+        el("details", { class: "prod-details" }, el("summary", {}, "Adjacent opening / closing states"),
+          el("pre", { class: "prod-prompt" }, JSON.stringify(review.stateRecords || [], null, 2))),
+        el("details", { class: "prod-details" }, el("summary", {}, "Findings, uncertainties and correction plans"),
+          el("pre", { class: "prod-prompt" }, JSON.stringify({ findings: review.findings, correctionPlans: review.correctionPlans, uncertainties: (review.stateRecords || []).flatMap((state) => state.unknown || []) }, null, 2))))) : [el("p", { class: "help" }, "No continuity reviews recorded yet.")]));
+    }).catch((error) => reviews.replaceChildren(el("p", { class: "help" }, error.message)));
+    void api("/api/asset-audit").then((data) => {
+      const bad = (data.assets || []).filter((a) => !a.trusted);
+      assets.replaceChildren(el("p", { class: "help" }, data.p6ReferenceWarning?.warning || ""), ...bad.map((a) => el("div", { class: "prod-analysis-finding" }, el("b", {}, `${a.currentLabel} → ${a.proposedLabel}`), el("p", {}, a.reason), el("small", { class: "dim" }, `${a.assetId} · ${a.status}`))));
+    }).catch((error) => assets.replaceChildren(el("p", { class: "help" }, error.message)));
+    return root;
+  }
+
+  function prepareContinuity(snap, reload) {
+    const observations = Object.values(snap.observations).filter((o) => o.report);
+    const dialog = modal("Prepare senior continuity review", "Creates a prepared, immutable review request from existing observations. No model inference starts.");
+    const selected = new Set();
+    const rows = observations.map((o) => {
+      const checkbox = el("input", { type: "checkbox", value: o.id }); checkbox.onchange = () => checkbox.checked ? selected.add(o) : selected.delete(o);
+      return el("label", { class: "prod-ref-choice" }, checkbox, el("span", {}, `${o.sceneId} · revision ${o.revision || "?"} · ${o.id}`));
+    });
+    const submit = el("button", { class: "btn lime", type: "button" }, icon("check"), "Prepare review");
+    submit.onclick = async () => {
+      const chosen = [...selected];
+      if (!chosen.length) return toast("Select at least one existing observation.", { error: true });
+      const sceneIds = [...new Set(chosen.map((o) => o.sceneId))];
+      try {
+        await api(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          seasonId: snap.episodes.find((e) => e.id === chosen[0].report?.episodeId)?.seasonId,
+          episodeId: chosen[0].report?.episodeId, sceneIds,
+          bindingIds: chosen.flatMap((o) => o.report?.bindingIds || []), candidateIds: chosen.map((o) => o.candidateId),
+          observations: chosen.map((o) => ({ observationId: o.id, sceneId: o.sceneId, revision: o.report.reportVersion, sourceHash: o.report.sourceOutputHash })),
+          reviewer: { model: "qwen3.8_27b_w4a8.safetensors", kind: "qwen", configuration: { profile: "senior" } },
+          status: "prepared", findings: [], correctionPlans: [], limitations: ["Prepared from existing observations; no supervisor inference launched."],
+        }) });
+        dialog.close(); toast("Continuity review prepared."); reload?.();
+      } catch (error) { toast(error.message, { error: true }); }
+    };
+    dialog.append(el("div", { class: "ag-dialog-form" }, el("p", { class: "help" }, "Select existing observation revisions. No new observation or inference is created."), ...rows),
+      el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), submit));
+    dialog.showModal();
   }
 
   function sceneDuration(bindings) {

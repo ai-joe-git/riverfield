@@ -452,6 +452,57 @@ export function build(base=BASE): McpServer {
     try { return text(await call("/api/observer-profiles")); } catch (e) { return fail(e); }
   });
 
+  server.registerTool("list_continuity_reviews", {
+    title: "List continuity reviews",
+    description: "Immutable, non-canonical continuity reviews for a production, linked to exact observations, scene bindings and candidates. Read-only.",
+    inputSchema: { productionId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_continuity_review", {
+    title: "Read a continuity review",
+    description: "One immutable continuity review with reviewer configuration, evidence references, states, findings and limitations. Read-only.",
+    inputSchema: { productionId: z.string(), reviewId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, reviewId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews/${encodeURIComponent(reviewId)}`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("prepare_continuity_review", {
+    title: "Prepare a continuity review",
+    description: "Record an immutable prepared (or completed) continuity review from existing observations. This never launches inference, changes candidates, canonizes, or regenerates media. Pass the exact observation revision and source hash; sceneIds and observations are required.",
+    inputSchema: {
+      productionId: z.string(),
+      id: z.string().optional(),
+      seasonId: z.string().optional(),
+      episodeId: z.string().optional(),
+      sceneIds: z.array(z.string()).min(1),
+      bindingIds: z.array(z.string()).optional(),
+      candidateIds: z.array(z.string()).optional(),
+      observations: z.array(z.object({ observationId: z.string(), sceneId: z.string(), revision: z.number().int().positive(), sourceHash: z.string() })).min(1),
+      reviewer: z.object({ model: z.string(), kind: z.enum(["qwen", "deterministic", "human"]), configuration: z.record(z.string(), z.any()).optional() }),
+      evidenceReferences: z.array(z.string()).optional(),
+      status: z.enum(["prepared", "completed", "superseded", "rejected"]).optional(),
+      findings: z.array(z.any()).optional(),
+      stateRecords: z.array(z.any()).optional(),
+      correctionPlans: z.array(z.any()).optional(),
+      limitations: z.array(z.string()).optional(),
+    },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_asset_audit", {
+    title: "Read asset catalogue audit",
+    description: "Semantic asset catalogue audit: trusted assets, proposed corrections, review-required assets and the historical P6 reference warning. Proposals do not alter original media or reports. Read-only.",
+    inputSchema: { productionId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId }) => {
+    try { return text(await call(`/api/asset-audit`)); } catch (e) { return fail(e); }
+  });
+
   server.registerTool("analyze_scene", {
     title: "Analyze a scene candidate",
     description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. It extracts cached FFmpeg evidence, runs the selected installed multimodal observer and the Whisper Turbo ASR adapter through the shared queue, then records a structured observation report. It does not approve or canonize anything.",
