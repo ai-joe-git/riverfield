@@ -444,6 +444,14 @@ export function build(base=BASE): McpServer {
     try { return text(await call("/api/observer-models")); } catch (e) { return fail(e); }
   });
 
+  server.registerTool("list_observer_profiles", {
+    title: "List observer profiles",
+    description: "List the Fast, Detailed, Senior and Experimental Audiovisual observer profiles. Profiles supply defaults; custom model selection and inference controls remain available. This tool is read-only.",
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    try { return text(await call("/api/observer-profiles")); } catch (e) { return fail(e); }
+  });
+
   server.registerTool("analyze_scene", {
     title: "Analyze a scene candidate",
     description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. It extracts cached FFmpeg evidence, runs the selected installed multimodal observer and the Whisper Turbo ASR adapter through the shared queue, then records a structured observation report. It does not approve or canonize anything.",
@@ -455,6 +463,8 @@ export function build(base=BASE): McpServer {
       sampleIntervalSeconds: z.number().min(0.25).max(30).optional(),
       sceneThreshold: z.number().gt(0).lt(1).optional(),
       includeAudio: z.boolean().optional(), visual: z.boolean().optional(), asr: z.boolean().optional(), comparison: z.boolean().optional(),
+      profile: z.enum(["custom", "fast", "detailed", "senior", "experimental-av"]).optional().describe("observer profile; Senior Review reuses an existing observation and evidence"),
+      sourceObservationId: z.string().optional().describe("existing observation to review in Senior Review; defaults to the latest structured observation for the scene/candidate"),
       visualModel: z.string().optional().describe("installed observer model id for the independent visual pass; list_observer_models returns ids"),
       comparisonModel: z.string().optional().describe("independent installed observer model id for the comparison pass"),
       nativeVideo: z.boolean().optional().describe("supply an actual scene video through TextGenerateV2 videos; rejected if the visual model lacks video support"),
@@ -475,6 +485,10 @@ export function build(base=BASE): McpServer {
         for (const key of optionKeys) delete payload[key];
       }
       if (request_id) payload.requestKey = request_id;
+      // profile/sourceObservationId are job-level fields, not inference options.
+      delete payload.profile; delete payload.sourceObservationId;
+      if (body.profile) payload.profile = body.profile;
+      if (body.sourceObservationId) payload.sourceObservationId = body.sourceObservationId;
       return text(await call(`/api/productions/${encodeURIComponent(productionId)}/observation-jobs`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(payload) }));
     } catch (e) { return fail(e); }
   });

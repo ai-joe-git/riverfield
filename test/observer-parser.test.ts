@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { QwenVisualObserver } from "../server/observer-inference.ts";
 import type { App } from "../server/registry.ts";
 import type { Runner } from "../server/runner.ts";
@@ -74,4 +77,24 @@ test("comparison parser rejects an unsupported proposed fact", async () => {
   });
   assert.equal(result.comparison.proposedChanges.length, 1);
   assert.equal(result.comparison.proposedChanges[0]?.category, "state");
+});
+
+test("strict comparison validation fails on an unsupported category instead of repairing it", async () => {
+  const observer = observerFor({ findings: [{ category: "expression", expected: "a", observed: "b", classification: "confirmed", rationale: "", evidence_ids: ["frame-0001"] }], proposed_changes: [], limitations: [] });
+  await assert.rejects(() => observer.compare({ intended: "One scene", canonicalOpening: "", observation: baseReport, coverage: "one frame" }), /unsupported category/);
+});
+
+test("invalid model JSON retains its raw text for the failed stage", async () => {
+  const runner = {
+    runTexts: async () => ({ outputs: [{ nodeId: "save", name: "observer.txt", text: "{ not valid json" }] }),
+  } as unknown as Runner;
+  const observer = new QwenVisualObserver(runner, {} as App);
+  const dir = mkdtempSync(join(tmpdir(), "riverfield-raw-"));
+  const image = join(dir, "frame.jpg"); writeFileSync(image, "image");
+  try {
+    await assert.rejects(() => observer.observe({
+      technical: baseReport.technical, shots: baseReport.shots,
+      frames: [{ id: "frame-0001", kind: "opening_frame", file: "frame.jpg", path: image, timestampSeconds: 0, frame: 0 }],
+    }), (error: any) => error.rawText === "{ not valid json");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

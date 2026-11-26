@@ -56,6 +56,7 @@ import type { Actor } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
+import { OBSERVER_PROFILES } from "./observer-profiles.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -690,6 +691,8 @@ const server = createServer(async (req, res) => {
             sceneId: body.sceneId, candidateId: body.candidateId,
             ...(Array.isArray(body.bindingIds) ? { bindingIds: body.bindingIds.map(String) } : {}),
             ...(body.options && typeof body.options === "object" && !Array.isArray(body.options) ? { options: body.options as Record<string, never> } : {}),
+            ...(typeof body.profile === "string" ? { profile: body.profile as StartObservationInput["profile"] } : {}),
+            ...(typeof body.sourceObservationId === "string" ? { sourceObservationId: body.sourceObservationId } : {}),
             ...(Array.isArray(body.referenceAssetIds) ? { referenceAssetIds: body.referenceAssetIds.map(String) } : {}),
             ...(typeof body.requestKey === "string" ? { requestKey: body.requestKey } : {}),
           }, actor);
@@ -932,6 +935,7 @@ const server = createServer(async (req, res) => {
         return send(res,404,{error:"Unknown Agent route"});
       }
       if(req.method==="GET" && area==="inference")return send(res,200,inference.snapshot());
+      if(req.method==="GET" && area==="observer-profiles" && parts.length===2)return send(res,200,{ profiles: OBSERVER_PROFILES, defaultProfile: "custom", note: "Profiles only supply defaults; explicit options and custom model selection remain available. Senior Review reuses an existing observation." });
       if(req.method==="GET" && area==="observer-models" && parts.length===2)return send(res,200,{
         models: discoverObserverModels(), defaultModelId: DEFAULT_OBSERVER_MODEL_ID,
         source: "local ComfyUI text_encoders safetensors headers; no weights downloaded",

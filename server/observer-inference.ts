@@ -16,6 +16,7 @@ import {
   VISUAL_OBSERVER_SYSTEM_PROMPT, audiovisualObserverPrompt, comparisonPrompt, visualObserverPrompt,
 } from "./observer-prompts.ts";
 import { ObservationError } from "./observation-evidence.ts";
+import type { DialogueAlignment, IntendedBrief } from "./dialogue-alignment.ts";
 
 export type VisualObserverResult = {
   visual: ObservationVisual;
@@ -68,6 +69,9 @@ export interface SceneComparator {
     canonicalOpening: string;
     observation: Pick<ObservationReport, "visual" | "audiovisual" | "nativeEvidence" | "dialogue" | "technical" | "shots" | "evidence">;
     coverage: string;
+    dialogueAlignment?: DialogueAlignment;
+    intendedBrief?: IntendedBrief;
+    continuityConstraints?: string;
     signal?: AbortSignal;
   }): Promise<ComparisonResult>;
 }
@@ -80,8 +84,14 @@ export interface AudioUnderstandingAdapter {
   analyse(input: { audio: string; transcript: ObservationDialogue; signal?: AbortSignal }): Promise<Record<string, unknown>>;
 }
 
-const asConfidence = (value: unknown, fallback: ObservationConfidence = "uncertain"): ObservationConfidence =>
-  ["confirmed", "probable", "uncertain", "not_observable"].includes(String(value)) ? String(value) as ObservationConfidence : fallback;
+const asConfidence = (value: unknown, fallback: ObservationConfidence = "uncertain", field = "confidence"): ObservationConfidence => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const normalized = String(value);
+  if (!["confirmed", "probable", "uncertain", "not_observable"].includes(normalized)) {
+    throw new ObservationError("OBSERVER_SCHEMA_INVALID", `${field} has unsupported value ${normalized}`);
+  }
+  return normalized as ObservationConfidence;
+};
 
 const norm = (value: unknown) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const soundPattern = /\b(sound effect|pin drop|pop|clink|audio|music|soundtrack|sting|whoosh|rustle|footstep|scream|laugh track)\b/i;
@@ -376,9 +386,16 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     canonicalOpening: string;
     observation: Pick<ObservationReport, "visual" | "audiovisual" | "nativeEvidence" | "dialogue" | "technical" | "shots" | "evidence">;
     coverage: string;
+    dialogueAlignment?: DialogueAlignment;
+    intendedBrief?: IntendedBrief;
+    continuityConstraints?: string;
     signal?: AbortSignal;
   }): Promise<ComparisonResult> {
-    const prompt = comparisonPrompt({ ...input, observationJson: input.observation });
+    const prompt = comparisonPrompt({
+      ...input, observationJson: input.observation,
+      dialogueAlignment: input.dialogueAlignment, intendedBrief: input.intendedBrief,
+      continuityConstraints: input.continuityConstraints,
+    });
     const { outputs } = await this.runner.runTexts(this.app, {
       ...this.graphValues(),
       system_prompt: COMPARISON_SYSTEM_PROMPT, prompt,
@@ -394,8 +411,11 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     const rawFindings = Array.isArray(parsed.findings) ? parsed.findings : [];
     const seenFindings = new Set<string>();
     for (const [index, finding] of rawFindings.entries()) {
-      const category = ["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(String(finding?.category))
-        ? String(finding.category) as ObservationFinding["category"] : "coverage";
+      const categoryValue = String(finding?.category ?? "");
+      if (!["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(categoryValue)) {
+        throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Comparison finding ${index + 1} has unsupported category ${categoryValue || "(missing)"}`);
+      }
+      const category = categoryValue as ObservationFinding["category"];
       const expected = String(finding?.expected ?? "").trim();
       const observed = String(finding?.observed ?? "").trim();
       if (!expected && !observed) continue;
@@ -403,7 +423,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       if (seenFindings.has(key)) { limitations.push(`Comparison finding ${index + 1} was a duplicate and was removed.`); continue; }
       seenFindings.add(key);
       const ids = evidenceIds(finding?.evidence_ids, allowed, limitations);
-      let classification = asConfidence(finding?.classification, "not_observable");
+      let classification = asConfidence(finding?.classification, "not_observable", `comparison finding ${index + 1} classification`);
       let rationale = String(finding?.rationale ?? "").trim();
       const match = category === "dialogue" ? dialogueMatch(expected, observed, finding?.dialogue_match) : undefined;
       const audioIds = ids.filter((id) => id.startsWith("audio-"));
@@ -454,15 +474,20 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     const dedupedFindings = dedupeBy(findings, (finding) => `${finding.category}|${norm(finding.expected)}|${norm(finding.observed)}`);
     const numberedFindings = dedupedFindings.map((finding, index) => ({ ...finding, id: `finding-${String(index + 1).padStart(3, "0")}` }));
     const proposedChanges: FactChange[] = (Array.isArray(parsed.proposed_changes) ? parsed.proposed_changes : [])
-      .map((change: any) => ({
-        op: change?.op === "update" ? "update" as const : "add" as const,
-        category: ["identity", "state", "episodic", "narrative"].includes(String(change?.category)) ? String(change.category) as FactChange["category"] : "state" as const,
-        text: String(change?.text ?? "").trim(),
-        subjectIds: strings(change?.subject_ids).length ? strings(change.subject_ids) : undefined,
-        tags: strings(change?.tags).length ? strings(change.tags) : ["observed-proposal"],
-        phase: ["opening", "closing", "global"].includes(String(change?.phase)) ? String(change.phase) as FactChange["phase"] : "opening" as const,
-        evidenceIds: evidenceIds(change?.evidence_ids, allowed, limitations),
-      }))
+      .map((change: any, index: number) => {
+        if (change?.op !== "add" && change?.op !== "update") throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Proposed change ${index + 1} has unsupported op ${String(change?.op)}`);
+        if (!["identity", "state", "episodic", "narrative"].includes(String(change?.category))) throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Proposed change ${index + 1} has unsupported category ${String(change?.category)}`);
+        if (!["opening", "closing", "global"].includes(String(change?.phase))) throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Proposed change ${index + 1} has unsupported phase ${String(change?.phase)}`);
+        return {
+          op: change.op as "add" | "update",
+          category: String(change.category) as FactChange["category"],
+          text: String(change?.text ?? "").trim(),
+          subjectIds: strings(change?.subject_ids).length ? strings(change.subject_ids) : undefined,
+          tags: strings(change?.tags).length ? strings(change.tags) : ["observed-proposal"],
+          phase: String(change.phase) as FactChange["phase"],
+          evidenceIds: evidenceIds(change?.evidence_ids, allowed, limitations),
+        };
+      })
       .filter((change: FactChange) => {
         if (!change.text) return false;
         if (!change.evidenceIds?.length) { limitations.push("A proposed canonical change without a valid evidence id was dropped."); return false; }

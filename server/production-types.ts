@@ -1,6 +1,7 @@
 // Riverfield Production Engine — Phase 0 data contracts.
 // These types are engine-independent: H3, Pika, pi-H3 and LTX are execution clients.
 import { createHash } from "node:crypto";
+import type { DialogueAlignment } from "./dialogue-alignment.ts";
 
 export const PRODUCTION_SCHEMA_VERSION = 1 as const;
 export const MEMORY_CATEGORIES = ["identity", "state", "episodic", "narrative"] as const;
@@ -144,7 +145,7 @@ export type FactRevision = {
 // Phase 1 — Audiovisual Observer contracts. These are evidence records, never canonical facts.
 export const OBSERVATION_SCHEMA_VERSION = 1 as const;
 export type ObservationConfidence = "confirmed" | "probable" | "uncertain" | "not_observable";
-export type ObservationStageName = "resolve" | "evidence" | "visual" | "asr" | "comparison" | "report";
+export type ObservationStageName = "resolve" | "evidence" | "asr" | "alignment" | "visual" | "comparison" | "report";
 export type ObservationStageStatus = "pending" | "running" | "succeeded" | "failed" | "skipped" | "canceled";
 export type ObservationStage = {
   name: ObservationStageName;
@@ -252,10 +253,13 @@ export type ObservationAudiovisualClaim = {
   description: string;
   evidenceIds: string[];
   confidence: ObservationConfidence;
+  /** Native-media claims are model observations until independently reviewed. */
+  verification?: "unverified" | "independently_supported";
 };
 
 export type ObservationAudiovisual = {
   mode: "audiovisual";
+  audioVerified?: boolean;
   supplied: { videoId?: string; audioId?: string };
   temporalActions: ObservationAudiovisualClaim[];
   dialogueAndReactions: ObservationAudiovisualClaim[];
@@ -327,6 +331,14 @@ export type ObservationReport = {
   sourceOutputHash: string;
   bindingIds: string[];
   timebase: "final-output";
+  seniorReview?: {
+    sourceObservationId: string;
+    sourceRevision: number;
+    reviewedAt: string;
+    reusedEvidence: true;
+    reusedVisual: boolean;
+    reusedDialogue: boolean;
+  };
   observer: {
     model: string;
     provider: "qwen-comfyui" | "comfyui" | "mock";
@@ -342,6 +354,9 @@ export type ObservationReport = {
     };
     inputModalities?: { text: true; image: boolean; video: boolean; audio: boolean };
     observationMode?: "visual" | "audiovisual";
+    profile?: "custom" | "fast" | "detailed" | "senior" | "experimental-av";
+    experimental?: boolean;
+    audioClaimsUnverified?: boolean;
     effectiveConfiguration?: Record<string, unknown>;
     nativeInputs?: {
       video?: { file: string; hash: string; startSeconds: number; endSeconds: number; sourceHash: string };
@@ -360,6 +375,8 @@ export type ObservationReport = {
   nativeBoundaries: { bindingId: string; segmentIndex: number; startFrame: number; endFrame: number; startSeconds: number; endSeconds: number }[];
   shots: ObservationShot[];
   visual?: ObservationVisual;
+  intendedBrief?: import("./dialogue-alignment.ts").IntendedBrief;
+  dialogueAlignment?: DialogueAlignment;
   audiovisual?: ObservationAudiovisual;
   nativeEvidence?: ObservationNativeEvidence[];
   dialogue?: ObservationDialogue;

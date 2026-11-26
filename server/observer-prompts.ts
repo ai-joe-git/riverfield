@@ -1,6 +1,7 @@
 // Phase 1 observer prompts. These are deliberately separate from the Director's
 // cinematic prompt-writer prompts: the first visual pass never receives the intent.
 import type { ObservationEvidence, ObservationNativeEvidence, ObservationShot, ObservationTechnical } from "./production-types.ts";
+import type { DialogueAlignment, IntendedBrief } from "./dialogue-alignment.ts";
 
 export const OBSERVER_VERSION = "phase1-observer";
 export const OBSERVER_PROMPT_VERSION = "visual-independent-v2";
@@ -148,6 +149,9 @@ export function comparisonPrompt(input: {
   canonicalOpening: string;
   observationJson: unknown;
   coverage: string;
+  dialogueAlignment?: DialogueAlignment;
+  intendedBrief?: IntendedBrief;
+  continuityConstraints?: string;
 }): string {
   const compact = (value: any) => ({
     technical: value?.technical ? {
@@ -162,23 +166,47 @@ export function comparisonPrompt(input: {
       ...(item.frame !== undefined ? { frame: item.frame } : {}),
       ...(item.shotId ? { shotId: item.shotId } : {}),
     })),
+    nativeEvidence: (value?.nativeEvidence ?? []).map((item: any) => ({
+      id: item.id, kind: item.kind, startSeconds: item.startSeconds, endSeconds: item.endSeconds,
+      durationSeconds: item.durationSeconds,
+      ...(item.fps !== undefined ? { fps: item.fps } : {}),
+      ...(item.frameCount !== undefined ? { frameCount: item.frameCount } : {}),
+      ...(item.sampleRate !== undefined ? { sampleRate: item.sampleRate } : {}),
+    })),
     visual: value?.visual ?? null,
     audiovisual: value?.audiovisual ?? null,
-    nativeEvidence: value?.nativeEvidence ?? null,
-    dialogue: value?.dialogue ?? null,
   });
+  const actionLines = (input.intendedBrief?.shots ?? []).map((shot) => `- Shot ${shot.index}: ${shot.text}`);
+  const intendedById = new Map((input.dialogueAlignment?.intended ?? []).map((item) => [item.id, item]));
+  const alignment = input.dialogueAlignment ? {
+    matches: input.dialogueAlignment.matches.map((match) => ({
+      intendedId: match.intendedId, intendedText: intendedById.get(match.intendedId)?.text,
+      utteranceIds: match.utteranceIds, textMatch: match.textMatch,
+      missingWords: match.missingWords, extraWords: match.extraWords, repeatedWords: match.repeatedWords,
+      speaker: match.speaker, timing: match.timing, audioDelivery: match.audioDelivery, evidenceIds: match.evidenceIds,
+    })),
+    unmatchedIntended: input.dialogueAlignment.unmatchedIntended,
+    unmatchedTranscript: input.dialogueAlignment.unmatchedTranscript,
+    limitations: input.dialogueAlignment.limitations,
+  } : null;
   return [
     "A. INTENDED SCENE (the Director's intent; not evidence):",
-    input.intended || "(no scene brief was recorded)",
+    input.intended || input.intendedBrief?.sceneBrief || "(no scene brief was recorded)",
     "",
-    "C. CANONICAL OPENING CONTEXT (approved memory only; may legitimately be empty):",
-    input.canonicalOpening || "(no approved opening facts)",
+    "INTENDED ACTIONS (deterministically extracted from the submitted prompt):",
+    ...(actionLines.length ? actionLines : ["- none extracted"]),
     "",
-    "B. INDEPENDENT OBSERVATION (actual rendered evidence; do not alter it):",
+    "DETERMINISTIC DIALOGUE ALIGNMENT (computed by code; inspect text, speaker, timing and audio delivery separately):",
+    alignment ? JSON.stringify(alignment, null, 2) : "(not available)",
+    "",
+    "C. CANONICAL CONTINUITY CONSTRAINTS (approved memory; may legitimately be empty):",
+    input.continuityConstraints || input.canonicalOpening || "(no approved continuity constraints)",
+    "",
+    "B. RELEVANT STRUCTURED OBSERVATION (actual rendered evidence; do not alter it):",
     JSON.stringify(compact(input.observationJson), null, 2),
     "",
     `COVERAGE LIMITATIONS: ${input.coverage}`,
     "",
-    "Compare A, B and C. Report evidence-backed discrepancies and beneficial deviations. Use not_observable when the sampled frames cannot decide. Propose memory changes only as proposals.",
+    "Compare the compact structured observation against intended actions and the deterministic dialogue alignment. Do not perform your own word-level calculations. Use not_observable when the supplied evidence cannot decide. Propose memory changes only as proposals; unknown subjects, unsupported facts and invalid evidence must be rejected by the calling code.",
   ].join("\n");
 }

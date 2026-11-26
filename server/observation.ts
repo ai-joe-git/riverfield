@@ -10,7 +10,7 @@ import type { Inference } from "./inference-queue.ts";
 import type { FileValue, Runner } from "./runner.ts";
 import type { App } from "./registry.ts";
 import { ProductionStore } from "./production-store.ts";
-import { buildProductionContext } from "./production-context.ts";
+import { buildContinuityConstraints } from "./production-context.ts";
 import { hashFile, probeMedia, resolveMediaPath } from "./production-media.ts";
 import type {
   Actor, Candidate, FactChange, Observation, ObservationDialogue, ObservationEvidence, ObservationFinding,
@@ -25,6 +25,9 @@ import {
   type AsrAdapter, type ComparisonResult, type SceneComparator, type VisualObserver, type VisualObserverResult,
 } from "./observer-inference.ts";
 import { createObserverApp } from "./observer-app.ts";
+import { ObserverProposalError, buildProductionSubjects, validateObservedProposals } from "./observer-subjects.ts";
+import { alignDialogue, dialogueAlignmentMarkdown, extractIntendedBrief, type DialogueAlignment, type IntendedBrief } from "./dialogue-alignment.ts";
+import { observerProfile, profileDefaults, isObserverProfileId, type ObserverProfileId } from "./observer-profiles.ts";
 import {
   DEFAULT_OBSERVER_MODEL, DEFAULT_OBSERVER_MODEL_ID, ObserverModelError,
   assertObserverModalities, observerModel, type ObserverModel,
@@ -53,12 +56,13 @@ export type ObservationOptions = {
   topP: number;
   seed: number;
   thinking: boolean;
+  profile: ObserverProfileId;
 };
 export const DEFAULT_OBSERVATION_OPTIONS: ObservationOptions = {
   ...DEFAULT_OBSERVATION_EVIDENCE_CONFIG, visual: true, asr: true, comparison: true, referenceAssetIds: [],
   visualModel: DEFAULT_OBSERVER_MODEL_ID, comparisonModel: DEFAULT_OBSERVER_MODEL_ID,
   nativeVideo: false, nativeAudio: false, temperature: 0.1, maxOutputTokens: 4096,
-  topK: 64, topP: 0.9, seed: 0, thinking: false,
+  topK: 64, topP: 0.9, seed: 0, thinking: false, profile: "custom",
 };
 
 export type ObservationJob = {
@@ -78,6 +82,7 @@ export type ObservationJob = {
   artifactDir?: string;
   options: ObservationOptions;
   modelBindings?: { visual: ObserverModel; comparison: ObserverModel };
+  sourceObservationId?: string;
   stages: ObservationStage[];
   progress: { stage: ObservationStageName; percent: number };
   owner?: string;
@@ -91,6 +96,8 @@ export type StartObservationInput = {
   options?: Partial<ObservationOptions>;
   referenceAssetIds?: string[];
   requestKey?: string;
+  profile?: ObserverProfileId;
+  sourceObservationId?: string;
 };
 
 export type ObservationDeps = {
@@ -110,7 +117,7 @@ export type ObservationDeps = {
 
 const nowIso = () => new Date().toISOString();
 const done = (status: ObservationJobStatus) => ["succeeded", "failed", "canceled", "lost"].includes(status);
-const stageNames: ObservationStageName[] = ["resolve", "evidence", "asr", "visual", "comparison", "report"];
+const stageNames: ObservationStageName[] = ["resolve", "evidence", "asr", "alignment", "visual", "comparison", "report"];
 
 function stageList(): ObservationStage[] {
   return stageNames.map((name) => ({ name, status: "pending" as const }));
@@ -132,6 +139,19 @@ function observedEvents(visual: ObservationVisual | undefined, dialogue: Observa
     events.push({ text: `Dialogue: ${utterance.text}`, evidenceIds: utterance.evidenceIds, confidence: "uncertain" });
   }
   return events;
+}
+
+function markExperimentalAudioUnverified(visual: VisualObserverResult): void {
+  const av = visual.audiovisual;
+  if (!av) return;
+  av.audioVerified = false;
+  for (const field of ["temporalActions", "dialogueAndReactions", "music", "environmentalSound", "soundEffects", "synchronization", "voiceDelivery", "audioArtifacts", "visualArtifacts"] as const) {
+    av[field] = av[field].map((claim) => ({
+      ...claim,
+      verification: "unverified" as const,
+      confidence: claim.confidence === "confirmed" ? "probable" as const : claim.confidence,
+    }));
+  }
 }
 
 function reportSummary(report: Omit<ObservationReport, "createdAt">): string {
@@ -294,7 +314,31 @@ export class ObservationManager {
     }
     const output = candidate.outputs.find((item) => item.type === "video") ?? candidate.outputs[0];
     if (!output || output.type !== "video") throw new ObservationError("OBSERVATION_NO_VIDEO", "Audiovisual observation needs a video candidate output");
-    const rawOptions = { ...DEFAULT_OBSERVATION_OPTIONS, ...(input.options ?? {}) };
+    const requestedProfile = input.profile ?? input.options?.profile;
+    if (requestedProfile && !isObserverProfileId(requestedProfile)) throw new ObservationError("OBSERVER_PROFILE_UNKNOWN", `Unknown observer profile ${requestedProfile}`);
+    const profile = observerProfile(requestedProfile);
+    const explicitOptions = input.options ?? {};
+    const rawOptions = {
+      ...DEFAULT_OBSERVATION_OPTIONS,
+      ...explicitOptions,
+      ...(profile.id === "custom" ? {} : profileDefaults(profile)),
+      profile: profile.id,
+    };
+    let sourceObservationId = input.sourceObservationId;
+    if (profile.id === "senior") {
+      const candidates = Object.values(snap.observations)
+        .filter((item) => item.sceneId === scene.id && item.candidateId === candidate.id && item.report)
+        .sort((a, b) => (a.revision ?? 0) - (b.revision ?? 0));
+      const source = sourceObservationId ? snap.observations[sourceObservationId] : candidates.at(-1);
+      if (!source?.report) throw new ObservationError("OBSERVATION_SENIOR_SOURCE", "Senior Review needs an existing structured observation for this scene and candidate");
+      if (source.sceneId !== scene.id || source.candidateId !== candidate.id) throw new ObservationError("OBSERVATION_SENIOR_SOURCE", "The source observation must belong to this scene and candidate");
+      sourceObservationId = source.id;
+      rawOptions.visual = false;
+      rawOptions.asr = false;
+      rawOptions.comparison = true;
+      rawOptions.nativeVideo = false;
+      rawOptions.nativeAudio = false;
+    }
     const referenceAssetIds = [...new Set([...(rawOptions.referenceAssetIds ?? []), ...(input.referenceAssetIds ?? [])])]
       .filter((id) => snap.assets[id]?.kind === "image");
     const options: ObservationOptions = { ...rawOptions, referenceAssetIds };
@@ -323,6 +367,7 @@ export class ObservationManager {
     const job: ObservationJob = {
       id, productionId, sceneId: scene.id, candidateId: candidate.id, bindingIds: bindings.map((binding) => binding.id),
       status: "queued", createdAt: this.now().toISOString(), options, modelBindings, stages: stageList(),
+      ...(sourceObservationId ? { sourceObservationId } : {}),
       progress: { stage: "resolve", percent: 0 }, ...(actor.id ? { owner: actor.id } : {}),
       ...(input.requestKey ? { requestKey: input.requestKey } : {}),
     };
@@ -337,6 +382,7 @@ export class ObservationManager {
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
     bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController,
   ) {
+    if (job.options.profile === "senior") return this.runSenior(job, snap, scene, candidate, bindings, actor, controller);
     let artifactDir: string | null = null;
     let memoryTimer: NodeJS.Timeout | null = null;
     const writeArtifact = (name: string, value: unknown, raw = false) => {
@@ -366,13 +412,16 @@ export class ObservationManager {
       mkdirSync(artifactDir, { recursive: true });
       job.artifactDir = artifactDir;
       this.save(job);
-      const selectedFrames = bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id));
+      const selectedFrames = bundle.visualFrameIds
+        .map((id) => bundle.frames.find((frame) => frame.id === id))
+        .filter((frame): frame is ObservationEvidence => Boolean(frame));
       const coveredShots = new Set(selectedFrames.map((frame) => frame.shotId).filter(Boolean));
       writeArtifact("configuration.json", {
         jobId: job.id, productionId: job.productionId, sceneId: job.sceneId, candidateId: job.candidateId,
         bindingIds: job.bindingIds, options: job.options, referenceAssetIds: job.options.referenceAssetIds,
         createdAt: job.createdAt,
       });
+      writeArtifact("production-subjects.json", buildProductionSubjects(snap, scene.id));
       writeArtifact("evidence-manifest.json", bundle);
       writeArtifact("visual-selection.json", {
         visualFrames: selectedFrames.map((frame) => ({
@@ -394,7 +443,9 @@ export class ObservationManager {
 
       let visual: VisualObserverResult | undefined;
       let dialogue: ObservationDialogue | undefined;
+      let dialogueAlignment: DialogueAlignment | undefined;
       let comparison: ComparisonResult | undefined;
+      const intendedBrief: IntendedBrief = extractIntendedBrief(candidate.prompt || scene.summary, candidate.prompt ? "candidate-prompt" : "scene");
       const stageErrors: string[] = [];
       const referenceFiles = job.options.referenceAssetIds
         .map((assetId) => snap.assets[assetId])
@@ -499,16 +550,32 @@ export class ObservationManager {
           this.stage(job, "asr", "skipped");
         }
 
+        this.stage(job, "alignment", "running");
+        try {
+          dialogueAlignment = alignDialogue(intendedBrief.utterances, dialogue);
+          writeArtifact("intended-brief.json", intendedBrief);
+          writeArtifact("dialogue-alignment.json", dialogueAlignment);
+          writeArtifact("dialogue-alignment.md", dialogueAlignmentMarkdown(dialogueAlignment), true);
+          this.stage(job, "alignment", "succeeded");
+        } catch (error) {
+          const message = (error as Error).message;
+          stageErrors.push(`alignment: ${message}`);
+          this.stage(job, "alignment", controller.signal.aborted ? "canceled" : "failed", message);
+        }
+
         if (job.options.visual) {
           this.stage(job, "visual", "running");
           try {
             visual = await visualBackend.observe({
               technical: bundle.technical, shots: bundle.shots,
-              frames: bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id)),
+              frames: bundle.visualFrameIds
+                .map((id) => bundle.frames.find((frame) => frame.id === id))
+                .filter((frame): frame is ObservationEvidence => Boolean(frame)),
               referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
               nativeEvidence,
               signal: controller.signal,
             });
+            if (job.options.profile === "experimental-av") markExperimentalAudioUnverified(visual);
             writeArtifact("visual-system-prompt.txt", visual.systemPrompt ?? "", true);
             writeArtifact("visual-input-prompt.txt", visual.inputPrompt ?? "", true);
             writeArtifact("visual-images.json", {
@@ -534,10 +601,11 @@ export class ObservationManager {
         if (job.options.comparison) {
           this.stage(job, "comparison", "running");
           try {
-            const context = buildProductionContext(snap, { sceneId: scene.id, maxChars: 8000 });
             comparison = await comparisonBackend.compare({
-              intended: [scene.summary, candidate.prompt].filter(Boolean).join("\n\n"),
-              canonicalOpening: context.text,
+              intended: scene.summary,
+              canonicalOpening: buildContinuityConstraints(snap, scene.id),
+              continuityConstraints: buildContinuityConstraints(snap, scene.id),
+              intendedBrief, dialogueAlignment,
               observation: {
                 visual: visual?.visual, audiovisual: visual?.audiovisual, nativeEvidence, dialogue,
                 technical: bundle.technical, shots: bundle.shots, evidence: [...bundle.frames, ...bundle.audio],
@@ -586,6 +654,9 @@ export class ObservationManager {
           visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel),
           inputModalities: visual?.inputModalities ?? { text: true, image: job.options.visual, video: Boolean(nativeVideo), audio: Boolean(nativeAudio) },
           observationMode: visual?.observationMode ?? (nativeVideo || nativeAudio ? "audiovisual" : "visual"),
+          profile: job.options.profile,
+          experimental: job.options.profile === "experimental-av",
+          audioClaimsUnverified: job.options.profile === "experimental-av",
           effectiveConfiguration: {
             visual: { ...(visual?.configuration ?? {}), checkpoint: modelCheckpoint(visualModel) },
             comparison: { ...(comparison?.configuration ?? {}), checkpoint: modelCheckpoint(comparisonModel) },
@@ -600,7 +671,8 @@ export class ObservationManager {
           semantics: "hard-cap-with-mandatory-shot-coverage",
         },
         nativeBoundaries: bundle.nativeBoundaries,
-        shots: bundle.shots, ...(visual ? { visual: visual.visual } : {}),
+        shots: bundle.shots, intendedBrief, ...(dialogueAlignment ? { dialogueAlignment } : {}),
+        ...(visual ? { visual: visual.visual } : {}),
         ...(visual?.audiovisual ? { audiovisual: visual.audiovisual } : {}),
         ...(nativeEvidence.length ? { nativeEvidence } : {}),
         ...(dialogue ? { dialogue } : {}),
@@ -612,6 +684,7 @@ export class ObservationManager {
           "Observation is based on sampled frames, not every frame.",
           "ASR is not corrected against the screenplay and cannot verify speaker identity, voice identity, acting quality, mixing or lip sync.",
           ...nativeLimitations,
+          ...(job.options.profile === "experimental-av" ? ["Experimental audiovisual observations are unverified model claims; music, sound effects, synchronization and voice quality are not confirmed evidence."] : []),
           ...(stageErrors.length ? [`Some stages failed: ${stageErrors.join(" | ")}`] : []),
         ],
         stages: job.stages, ...(stageErrors.length ? { failure: { stage: (job.stages.find((stage) => stage.status === "failed")?.name ?? "report") as ObservationStageName, message: stageErrors.join(" | ") } } : {}),
@@ -679,36 +752,187 @@ export class ObservationManager {
     }
   }
 
+  /** Qwen3.8 reviews an existing observation without repeating extraction, ASR or visual inference. */
+  private async runSenior(
+    job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
+    bindings: SceneRenderBinding[], actor: Actor, controller: AbortController,
+  ) {
+    const source = job.sourceObservationId ? snap.observations[job.sourceObservationId] : undefined;
+    const sourceReport = source?.report;
+    if (!source || !sourceReport) throw new ObservationError("OBSERVATION_SENIOR_SOURCE", "No structured source observation is available for Senior Review");
+    const artifactDir = join(this.outDir, "observations", "runs", job.id);
+    mkdirSync(artifactDir, { recursive: true });
+    job.artifactDir = artifactDir;
+    const firstEvidence = sourceReport.evidence.find((item) => item.path);
+    if (firstEvidence?.path) job.evidenceDir = dirname(dirname(firstEvidence.path));
+    job.status = "running"; job.startedAt = this.now().toISOString();
+    this.save(job);
+    const writeArtifact = (name: string, value: unknown, raw = false) => {
+      const target = join(artifactDir, name); mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, raw && typeof value === "string" ? value : (typeof value === "string" ? value : JSON.stringify(value, null, 2)));
+    };
+    try {
+      this.stage(job, "resolve", "running"); this.stage(job, "resolve", "succeeded");
+      this.stage(job, "evidence", "skipped"); this.stage(job, "asr", "skipped"); this.stage(job, "visual", "skipped");
+      const comparisonModel = job.modelBindings?.comparison ?? observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID);
+      const comparisonBackend: SceneComparator = this.comparator ??
+        (this.observer?.compare ? this.observer as SceneComparator : undefined) ??
+        new QwenVisualObserver(this.runner, createObserverApp(comparisonModel), {
+          model: comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
+          maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
+          topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
+          checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family },
+        });
+      const intendedBrief = extractIntendedBrief(candidate.prompt || scene.summary, candidate.prompt ? "candidate-prompt" : "scene");
+      const dialogueAlignment = alignDialogue(intendedBrief.utterances, sourceReport.dialogue);
+      const continuity = buildContinuityConstraints(snap, scene.id);
+      writeArtifact("configuration.json", {
+        jobId: job.id, profile: job.options.profile, sourceObservationId: source.id, sourceRevision: source.revision,
+        productionId: job.productionId, sceneId: scene.id, candidateId: candidate.id, options: job.options, createdAt: job.createdAt,
+      });
+      writeArtifact("source-observation.json", source);
+      writeArtifact("production-subjects.json", buildProductionSubjects(snap, scene.id));
+      writeArtifact("intended-brief.json", intendedBrief);
+      writeArtifact("dialogue-alignment.json", dialogueAlignment);
+      writeArtifact("dialogue-alignment.md", dialogueAlignmentMarkdown(dialogueAlignment), true);
+      this.stage(job, "alignment", "running"); this.stage(job, "alignment", "succeeded");
+      let comparison: ComparisonResult | undefined;
+      const stageErrors: string[] = [];
+      this.stage(job, "comparison", "running");
+      try {
+        comparison = await comparisonBackend.compare({
+          intended: scene.summary, canonicalOpening: continuity, continuityConstraints: continuity,
+          intendedBrief, dialogueAlignment,
+          observation: {
+            visual: sourceReport.visual, audiovisual: sourceReport.audiovisual, nativeEvidence: sourceReport.nativeEvidence,
+            dialogue: sourceReport.dialogue, technical: sourceReport.technical, shots: sourceReport.shots, evidence: sourceReport.evidence,
+          },
+          coverage: `Senior review reuses existing observation ${source.id} (revision ${source.revision}); no new media evidence was extracted.`,
+          signal: controller.signal,
+        });
+        writeArtifact("comparison-system-prompt.txt", comparison.systemPrompt ?? "", true);
+        writeArtifact("comparison-input-prompt.txt", comparison.inputPrompt ?? "", true);
+        writeArtifact("comparison-raw.txt", comparison.rawText, true);
+        writeArtifact("comparison-parsed.json", comparison.comparison);
+        this.stage(job, "comparison", "succeeded");
+      } catch (error) {
+        const message = (error as Error).message;
+        const raw = (error as Error & { rawText?: string }).rawText;
+        if (raw) writeArtifact("comparison-raw.txt", raw, true);
+        stageErrors.push(`comparison: ${message}`);
+        this.stage(job, "comparison", controller.signal.aborted ? "canceled" : "failed", message);
+      }
+      controller.signal.throwIfAborted();
+      this.stage(job, "report", "running");
+      const revision = Math.max(0, ...Object.values(snap.observations)
+        .filter((item) => item.sceneId === scene.id && item.candidateId === candidate.id)
+        .map((item) => item.revision ?? 0)) + 1;
+      const report: ObservationReport = {
+        schemaVersion: 1, reportVersion: revision,
+        productionId: job.productionId, episodeId: scene.episodeId, sceneId: scene.id, candidateId: candidate.id,
+        ...(candidate.sourceRunId ? { sourceRunId: candidate.sourceRunId } : {}),
+        sourceOutputHash: sourceReport.sourceOutputHash, bindingIds: bindings.map((binding) => binding.id), timebase: "final-output",
+        intendedBrief, dialogueAlignment,
+        seniorReview: {
+          sourceObservationId: source.id, sourceRevision: source.revision ?? 1,
+          reviewedAt: this.now().toISOString(), reusedEvidence: true,
+          reusedVisual: Boolean(sourceReport.visual), reusedDialogue: Boolean(sourceReport.dialogue),
+        },
+        observer: {
+          model: comparisonModel.file, provider: "comfyui", version: OBSERVER_VERSION, promptVersion: COMPARISON_PROMPT_VERSION,
+          configuration: {
+            profile: "senior", sourceObservationId: source.id, sourceRevision: source.revision,
+            temperature: job.options.temperature, maxOutputTokens: job.options.maxOutputTokens,
+            topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
+            ...(typeof sourceReport.observer.configuration.evidenceCacheKey === "string" ? { evidenceCacheKey: sourceReport.observer.configuration.evidenceCacheKey } : {}),
+          },
+          ...(sourceReport.observer.visualCheckpoint ? { visualCheckpoint: sourceReport.observer.visualCheckpoint } : {}),
+          comparisonCheckpoint: modelCheckpoint(comparisonModel),
+          ...(sourceReport.observer.inputModalities ? { inputModalities: sourceReport.observer.inputModalities } : {}),
+          observationMode: sourceReport.observer.observationMode ?? "visual",
+          profile: "senior", experimental: false,
+          effectiveConfiguration: {
+            comparison: { ...(comparison?.configuration ?? {}), checkpoint: modelCheckpoint(comparisonModel) },
+            reusedEvidence: true, reusedVisual: Boolean(sourceReport.visual), reusedDialogue: Boolean(sourceReport.dialogue),
+          },
+        },
+        createdAt: this.now().toISOString(), technical: sourceReport.technical,
+        nativeBoundaries: sourceReport.nativeBoundaries, shots: sourceReport.shots,
+        ...(sourceReport.visual ? { visual: sourceReport.visual } : {}),
+        ...(sourceReport.audiovisual ? { audiovisual: sourceReport.audiovisual } : {}),
+        ...(sourceReport.nativeEvidence?.length ? { nativeEvidence: sourceReport.nativeEvidence } : {}),
+        ...(sourceReport.dialogue ? { dialogue: sourceReport.dialogue } : {}),
+        ...(comparison ? { comparison: comparison.comparison } : {}),
+        observedEvents: sourceReport.observedEvents, evidence: sourceReport.evidence,
+        confidence: sourceReport.confidence, uncertainties: sourceReport.uncertainties,
+        limitations: [...sourceReport.limitations, "Senior Review reused the source observation and evidence; it did not rerun extraction, ASR or visual inference.", ...(stageErrors.length ? [`Senior comparison failed: ${stageErrors.join(" | ")}`] : [])],
+        stages: job.stages,
+        ...(stageErrors.length ? { failure: { stage: "comparison" as ObservationStageName, message: stageErrors.join(" | ") } } : {}),
+      };
+      const created = this.productions.recordObservation(job.productionId, {
+        sceneId: scene.id, candidateId: candidate.id, ...(candidate.sourceRunId ? { runId: candidate.sourceRunId } : {}),
+        text: `Senior review of observation ${source.id}: ${reportSummary(report)}`, evidence: sourceReport.evidence.map((item) => ({
+          type: item.kind, path: item.path ?? item.file, startFrame: item.frame, endFrame: item.frame,
+        })), kind: "analysis", revision, report,
+      }, actor, `observation:senior:${job.id}:${source.id}`);
+      const observation = Object.values(created.observations).find((item) => item.report?.reportVersion === revision && item.candidateId === candidate.id);
+      job.observationId = observation?.id;
+      writeArtifact("structured-report.json", report);
+      writeArtifact("observation-record.json", observation ?? null);
+      writeArtifact("errors.json", { stageErrors, failure: report.failure ?? null });
+      this.stage(job, "report", "succeeded");
+      job.status = "succeeded"; job.finishedAt = this.now().toISOString(); job.progress = { stage: "report", percent: 100 };
+      this.save(job);
+      const started = Date.parse(job.startedAt), finished = Date.parse(job.finishedAt);
+      writeArtifact("timings.json", {
+        createdAt: job.createdAt, startedAt: job.startedAt, finishedAt: job.finishedAt,
+        totalSeconds: Math.round((finished - started) / 100) / 10,
+        stages: job.stages.map((stage) => ({ name: stage.name, status: stage.status, startedAt: stage.startedAt ?? null, finishedAt: stage.finishedAt ?? null,
+          seconds: stage.startedAt && stage.finishedAt ? Math.round((Date.parse(stage.finishedAt) - Date.parse(stage.startedAt)) / 100) / 10 : null, error: stage.error ?? null })),
+        reused: { sourceObservationId: source.id, evidence: true, visual: Boolean(sourceReport.visual), dialogue: Boolean(sourceReport.dialogue) },
+      });
+    } catch (error) {
+      job.status = controller.signal.aborted ? "canceled" : "failed";
+      job.finishedAt = this.now().toISOString(); job.error = (error as Error).message;
+      const running = job.stages.find((stage) => stage.status === "running")?.name ?? "report";
+      this.stage(job, running, controller.signal.aborted ? "canceled" : "failed", job.error);
+      writeArtifact("errors.json", { error: job.error, stages: job.stages });
+      this.save(job);
+    }
+  }
+
   /** Create a proposal from a recorded comparison. The human approval boundary is untouched. */
   proposeChanges(productionId: string, observationId: string, actor: Actor, note = "Proposed from an evidence-backed observation"): { proposal: unknown; snapshot: ReturnType<ProductionStore["snapshot"]> } {
     const snap = this.productions.snapshot(productionId);
     const observation = snap.observations[observationId];
     if (!observation?.report) throw new ObservationError("UNKNOWN_OBSERVATION", "No structured observation with this id");
-    const allowedEvidence = new Set(observation.report.evidence.map((item) => item.id));
-    const changes: FactChange[] = [];
-    for (const raw of observation.report.comparison?.proposedChanges ?? []) {
-      const evidenceIds = (raw.evidenceIds ?? []).filter((id) => allowedEvidence.has(id));
-      if (!evidenceIds.length) continue;
+    const allowedEvidence = new Set([
+      ...observation.report.evidence.map((item) => item.id),
+      ...(observation.report.nativeEvidence ?? []).map((item) => item.id),
+    ]);
+    const rawChanges = observation.report.comparison?.proposedChanges ?? [];
+    const normalized: FactChange[] = [];
+    for (const raw of rawChanges) {
       const text = String(raw.text ?? "").trim();
       if (!text) continue;
-      const subjectIds = [...new Set((raw.subjectIds ?? []).map((id) => String(id).trim()).filter(Boolean))];
-      if (raw.category === "identity" && !subjectIds.length) continue;
       // Clothing, hair styling and props visible in one scene are current state, not
       // permanent identity. Keep a genuinely stable identity fact only when it has
       // no wardrobe/scene-state wording; otherwise propose a scene-scoped State fact.
       const clothingOrState = /\b(wears?|wearing|dress|shirt|trousers?|robe|suit|coat|jacket|outfit|wardrobe|gown|skirt|hat|shoes?|clothing|holding|holds?)\b/i.test(text);
       const category = raw.category === "identity" && clothingOrState ? "state" : raw.category;
-      const phase = raw.phase ?? (category === "episodic" ? "closing" : "opening");
-      changes.push({
-        op: raw.op ?? "add",
-        category,
-        text,
-        subjectIds,
+      normalized.push({
+        ...raw, text, category,
         tags: [...new Set([...(raw.tags ?? []), ...(category !== raw.category ? ["scene-state", "wardrobe-not-identity"] : [])])],
-        evidenceIds,
-        sceneId: observation.sceneId,
-        phase,
       });
+    }
+    let changes: FactChange[];
+    try {
+      changes = validateObservedProposals({
+        changes: normalized, snapshot: snap, sceneId: observation.sceneId, allowedEvidence,
+      }).changes;
+    } catch (error) {
+      if (error instanceof ObserverProposalError) throw new ObservationError(error.code, error.message);
+      throw error;
     }
     if (!changes.length) throw new ObservationError("NO_PROPOSED_CHANGES", "This observation has no evidence-backed proposed canonical changes");
     return this.productions.propose(productionId, {

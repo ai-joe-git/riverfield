@@ -24,7 +24,7 @@ function fixture() {
   store.createProduction({ id: "suite-404", title: "SUITE 404" }, actor, "prod");
   store.createSeason("suite-404", { id: "suite-404-s01", number: 1, title: "Season 01" }, actor, "season");
   store.createEpisode("suite-404", { id: "suite-404-s01e02", seasonId: "suite-404-s01", number: 2, title: "Velvet Moon" }, actor, "episode");
-  store.createScene("suite-404", { id: "scene-a", episodeId: "suite-404-s01e02", number: 1, title: "Velvet Moon", summary: "Akari and Daichi meet in the bar." }, actor, "scene-a");
+  store.createScene("suite-404", { id: "scene-a", episodeId: "suite-404-s01e02", number: 1, title: "Velvet Moon", summary: "Akari and Daichi meet in the bar.", characterIds: ["akari", "daichi"] }, actor, "scene-a");
   store.createScene("suite-404", { id: "scene-b", episodeId: "suite-404-s01e02", number: 2, title: "Other scene" }, actor, "scene-b");
   const candidate = store.registerCandidate("suite-404", {
     id: "candidate-a", label: "Velvet Moon candidate", source: "import", sourceRunId: "run-a", prompt: "intended scene",
@@ -241,5 +241,55 @@ test("an unsupported native modality is rejected instead of silently dropped", (
     assert.throws(() => observations.start("suite-404", {
       sceneId: "scene-a", candidateId: "candidate-a", options: { nativeAudio: true },
     }, actor), /does not expose native audio/);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test("Senior Review reuses an existing observation and skips extraction, ASR and visual inference", async () => {
+  const { out, store } = fixture();
+  try {
+    let evidenceCalls = 0;
+    let asrCalls = 0;
+    const observations = new ObservationManager({
+      outDir: out, productions: store, runner: {} as Runner, inference: async (_label, work) => work(),
+      evidence: (input) => { evidenceCalls += 1; return fakeEvidence(input); },
+      observer: {
+        observe: async () => ({ visual: fakeVisual, model: "mock", version: "test", promptVersion: "test", configuration: {}, rawText: "{}" }),
+        compare: async () => ({ comparison: fakeComparison, rawText: "{}", promptVersion: "test" }),
+      },
+      asr: { transcribe: async () => { asrCalls += 1; return fakeDialogue; } },
+      mediaRoots: [join(out, "media")], now: () => new Date(now),
+    });
+    const first = await finished(observations, observations.start("suite-404", { sceneId: "scene-a", candidateId: "candidate-a" }, actor).id);
+    const evidenceAfterFirst = evidenceCalls, asrAfterFirst = asrCalls;
+    assert.equal(evidenceAfterFirst, 1);
+    assert.equal(asrAfterFirst, 1);
+    const senior = await finished(observations, observations.start("suite-404", {
+      sceneId: "scene-a", candidateId: "candidate-a", profile: "senior", sourceObservationId: first.observationId!,
+    }, actor).id);
+    assert.equal(senior.status, "succeeded");
+    assert.equal(evidenceCalls, evidenceAfterFirst, "Senior Review must not re-extract evidence");
+    assert.equal(asrCalls, asrAfterFirst, "Senior Review must not re-run ASR");
+    const report = store.snapshot("suite-404").observations[senior.observationId!]!.report!;
+    assert.equal(report.seniorReview?.sourceObservationId, first.observationId);
+    assert.equal(report.seniorReview?.reusedEvidence, true);
+    assert.ok(report.comparison);
+    assert.ok(report.stages.some((stage) => stage.name === "evidence" && stage.status === "skipped"));
+    assert.ok(report.stages.some((stage) => stage.name === "asr" && stage.status === "skipped"));
+    assert.ok(report.stages.some((stage) => stage.name === "visual" && stage.status === "skipped"));
+    assert.equal(store.snapshot("suite-404").revision, 0);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test("Fast Review profile binds the Gemma visual and comparison model", async () => {
+  const { out, store } = fixture();
+  try {
+    const observations = manager(store, out, { bindings: [] });
+    const job = observations.start("suite-404", { sceneId: "scene-a", candidateId: "candidate-a", profile: "fast" }, actor);
+    assert.equal(job.options.profile, "fast");
+    assert.equal(job.options.visualModel, "gemma4-12b-heretic-w4a8");
+    assert.equal(job.options.comparisonModel, "gemma4-12b-heretic-w4a8");
+    assert.equal(job.options.nativeVideo, false);
+    assert.equal(job.options.nativeAudio, false);
+    await finished(observations, job.id);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });

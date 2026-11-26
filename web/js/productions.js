@@ -682,6 +682,16 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const dialog = modal(`Analyze ${scene.title}`, "Runs an explicit evidence-only observation on this immutable candidate. No candidate, scene or canonical fact is changed.");
   const status = el("div", { class: "prod-analysis-status" }, "Not started. The independent visual pass receives no intended prompt.");
   const progress = el("div", { class: "prod-progress wide" }, el("i", { style: { width: "0%" } }));
+  const profileSelect = el("select", { "aria-label": "Observer profile" }, el("option", { value: "custom" }, "Custom"));
+  const profileNote = el("p", { class: "help" }, "Profiles supply defaults; changing a model switches to Custom.");
+  const previousForSenior = Object.values(snapshot.observations || {})
+    .filter((observation) => observation.sceneId === scene.id && observation.candidateId === candidate.id && observation.report)
+    .sort((a, b) => (a.revision || 0) - (b.revision || 0));
+  const sourceObservationSelect = el("select", { "aria-label": "Senior Review source observation", disabled: !previousForSenior.length },
+    ...(previousForSenior.length ? previousForSenior.map((observation) => el("option", { value: observation.id }, `Revision ${observation.revision || "?"} · ${dateLabel(observation.createdAt)}`)) : [el("option", { value: "" }, "No structured observation available")]));
+  if (previousForSenior.length) sourceObservationSelect.value = previousForSenior.at(-1).id;
+  const sourceField = el("label", { class: "ag-field", hidden: true }, el("span", {}, "Senior Review source observation"), sourceObservationSelect,
+    el("small", { class: "help" }, "Senior Review reuses this observation and its evidence; it does not rerun extraction, ASR or the visual pass."));
   const visualModelSelect = el("select", { "aria-label": "Visual observer checkpoint" }, el("option", { value: "" }, "Discovering installed observer checkpoints…"));
   const comparisonModelSelect = el("select", { "aria-label": "Comparison observer checkpoint" }, el("option", { value: "" }, "Discovering installed observer checkpoints…"));
   const nativeVideo = el("input", { type: "checkbox", disabled: true, "aria-label": "Native scene video input" });
@@ -692,7 +702,29 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
   const topP = el("input", { type: "number", value: "0.9", min: "0", max: "1", step: "0.01", "aria-label": "Observer top-p" });
   const capabilityNote = el("p", { class: "help" }, "Loading the installed checkpoint list…");
   const modelById = new Map();
+  const profileById = new Map();
   let modelsLoaded = false;
+  const markCustom = () => {
+    if (profileSelect.value !== "custom") profileSelect.value = "custom";
+    sourceField.hidden = true;
+    profileNote.textContent = "Custom model selection and inference controls are active.";
+  };
+  const applyProfile = () => {
+    const profile = profileById.get(profileSelect.value);
+    sourceField.hidden = profileSelect.value !== "senior";
+    if (!profile) return;
+    if (profile.id === "custom") {
+      profileNote.textContent = profile.description || "Custom model selection and inference controls are active.";
+      return;
+    }
+    visualModelSelect.value = profile.visualModel;
+    comparisonModelSelect.value = profile.comparisonModel;
+    nativeVideo.checked = Boolean(profile.nativeVideo);
+    nativeAudio.checked = Boolean(profile.nativeAudio);
+    profileNote.textContent = profile.description || "Profiles supply defaults; changing a model switches to Custom.";
+    updateCapabilities();
+  };
+  profileSelect.onchange = applyProfile;
   const updateCapabilities = () => {
     const selected = modelById.get(visualModelSelect.value);
     const video = Boolean(selected?.modalities?.video);
@@ -706,6 +738,13 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
       : "No installed compatible checkpoint was discovered.";
   };
   const modelOptions = (models) => models.map((model) => el("option", { value: model.id }, `${model.label}${model.compatible ? "" : " · unavailable"}`));
+  void api("/api/observer-profiles").then((result) => {
+    const profiles = result.profiles || [];
+    for (const profile of profiles) profileById.set(profile.id, profile);
+    profileSelect.replaceChildren(...profiles.map((profile) => el("option", { value: profile.id }, profile.label)));
+    profileSelect.value = result.defaultProfile || "custom";
+    applyProfile();
+  }).catch((error) => { profileNote.textContent = `Could not load observer profiles: ${error.message}`; });
   void api("/api/observer-models").then((result) => {
     const installed = (result.models || []).filter((model) => model.installed && model.compatible);
     for (const model of installed) modelById.set(model.id, model);
@@ -719,12 +758,18 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
     comparisonModelSelect.disabled = !modelsLoaded;
     if (!modelsLoaded) capabilityNote.textContent = "No installed compatible observer checkpoint was discovered in ComfyUI text_encoders.";
     updateCapabilities();
+    if (profileSelect.value !== "custom") applyProfile();
     if (startButton) startButton.disabled = !modelsLoaded;
   }).catch((error) => {
     capabilityNote.textContent = `Could not discover observer checkpoints: ${error.message}`;
   });
-  visualModelSelect.onchange = updateCapabilities;
+  visualModelSelect.onchange = () => { markCustom(); updateCapabilities(); };
+  comparisonModelSelect.onchange = markCustom;
+  nativeVideo.onchange = markCustom;
+  nativeAudio.onchange = markCustom;
   const modelField = el("div", { class: "prod-observer-models" },
+    el("label", { class: "ag-field" }, el("span", {}, "Observer profile"), profileSelect),
+    profileNote, sourceField,
     el("label", { class: "ag-field" }, el("span", {}, "Visual observation model"), visualModelSelect),
     el("label", { class: "ag-field" }, el("span", {}, "Comparison model (independent)"), comparisonModelSelect),
     el("div", { class: "prod-observer-modalities" },
@@ -793,7 +838,10 @@ function openAnalyzeScene(productionId, snapshot, scene, candidate, bindings, on
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
           sceneId: scene.id, candidateId: candidate.id, bindingIds: bindings.map((binding) => binding.id),
           referenceAssetIds: [...referenceSelect.selectedOptions].map((option) => option.value),
+          profile: profileSelect.value,
+          ...(profileSelect.value === "senior" && sourceObservationSelect.value ? { sourceObservationId: sourceObservationSelect.value } : {}),
           options: {
+            profile: profileSelect.value,
             maxFrames: 12, visualFrames: Math.max(1, 9 - [...referenceSelect.selectedOptions].length),
             sampleIntervalSeconds: 2, sceneThreshold: 0.3, includeAudio: true, visual: true, asr: true, comparison: true,
             visualModel: visualModelSelect.value, comparisonModel: comparisonModelSelect.value,

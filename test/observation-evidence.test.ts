@@ -22,8 +22,10 @@ test("Velvet Moon evidence extraction is capped at maxFrames and still covers ev
   assert.equal(bundle.frames.length, 12, "maxFrames is a hard total cap");
   assert.equal(bundle.shots.length, 5);
   assert.equal(new Set(bundle.shots.map((shot) => shot.id)).size, 5);
-  const visual = bundle.frames.filter((frame) => bundle.visualFrameIds.includes(frame.id));
+  const visual = bundle.visualFrameIds.map((id) => bundle.frames.find((frame) => frame.id === id)!).filter(Boolean);
   assert.equal(visual.length, 7);
+  const times = visual.map((frame) => frame.timestampSeconds ?? 0);
+  assert.deepEqual(times, [...times].sort((a, b) => a - b), "visual frames are supplied chronologically");
   assert.deepEqual([...new Set(visual.map((frame) => frame.shotId))].sort(), bundle.shots.map((shot) => shot.id).sort());
   assert.ok(visual.some((frame) => frame.kind === "opening_frame"), "first shot opening is supplied");
   assert.ok(visual.some((frame) => frame.kind === "closing_frame" && frame.shotId === bundle.shots.at(-1)?.id), "last shot closing is supplied");

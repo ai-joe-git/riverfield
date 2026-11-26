@@ -198,3 +198,12 @@ Summary:
 
 No model was automatically retried. Canonical revision remains 0, no proposal was
 created, no candidate was approved and no Bible change was applied.
+
+## Phase 1.2
+
+Deterministic dialogue alignment, stable production subjects, chronological image
+ordering, compact comparison context, strict proposal validation and the Fast/Detailed/
+Senior/Experimental Audiovisual profile architecture are documented in
+[`phase1.2-deterministic-observer.md`](phase1.2-deterministic-observer.md). The prepared
+Fast Review request is at `out/observations/phase1.2-fast-review-request.json` and awaits
+explicit approval; it was not launched.

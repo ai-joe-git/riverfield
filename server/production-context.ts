@@ -242,3 +242,21 @@ export function buildProductionContext(snapshot: ProductionSnapshot, query: Prod
     },
   };
 }
+
+/**
+ * Compact canonical continuity constraints for a comparison prompt. This is a bounded
+ * subset of approved facts: continuity-tagged facts, current State facts and the latest
+ * approved scene outcomes. It never includes the current scene's own closing outcome.
+ */
+export function buildContinuityConstraints(snapshot: ProductionSnapshot, sceneId?: string, maxChars = 1600): string {
+  const context = buildProductionContext(snapshot, { ...(sceneId ? { sceneId } : {}), maxChars: 6000, recentScenes: 2 });
+  const tags = new Set(["continuity", "constraint", "must", "critical", "essential"]);
+  const facts = Object.values(context.sections)
+    .flatMap((section) => section.category === "state" || section.category === "episodic" ? section.facts : section.facts.filter((fact) => fact.tags.some((tag) => tags.has(tag.toLowerCase()))))
+    .slice(0, 18);
+  const lines = facts.map((fact) => `- [${fact.id}] ${fact.text.slice(0, 360)}${fact.text.length > 360 ? "…" : ""}${fact.sceneId ? ` (${fact.sceneId}/${fact.phase})` : ""}`);
+  if (!lines.length) return "(no approved continuity constraints)";
+  let text = lines.join("\n");
+  if (text.length > maxChars) text = `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+  return text;
+}
