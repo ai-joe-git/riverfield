@@ -370,6 +370,23 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       } catch { /* keep the local copy when the server copy is unreadable */ }
     }
   }
+  /** One-shot handoff from Production Studio. It associates the existing Director project
+   * with a production scene; it never clears the timeline or starts a render. */
+  function applyProductionHandoff() {
+    const handoff = store.get("production.handoff");
+    if (!handoff || handoff.app !== app.id || !handoff.productionId || !handoff.sceneId) return;
+    store.set("production.handoff", null);
+    f.values.production_id = handoff.productionId;
+    f.values.production_scene_id = handoff.sceneId;
+    if (handoff.brief && !String(f.values.global_prompt || "").trim()) f.values.global_prompt = handoff.brief;
+    persistState(app, f, st);
+    localSavedAt = Date.now();
+    store.set(`dir.saved.${app.id}`, localSavedAt);
+    saveDirty();
+    draw();
+    toast(`Associated with ${handoff.productionId} · ${handoff.sceneTitle || handoff.sceneId}. Canonical memory will be used by the prompt enhancer.`);
+  }
+
   async function restoreProject() {
     await restoreMediaFiles();
     const remote = await loadServerState();
@@ -405,6 +422,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     if (push) await pushServerState();
     draw();
     if (useServer && root.isConnected) onRestored?.();
+    applyProductionHandoff();
   }
   async function restoreMediaFiles() {
     try {
@@ -1312,6 +1330,10 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     headEl.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"), el("span", {}, app.panel_title || "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
       el("div", { class: "dir-head-right" }, ...[
+        String(f.values.production_id || "").trim() ? el("a", {
+          class: "dir-toggle", href: `#/productions/${encodeURIComponent(String(f.values.production_id))}`,
+          title: "Open this scene in Production Studio",
+        }, icon("film"), "Production") : null,
         enhancerAvailable ? el("button", {
           type: "button", class: `dir-toggle${promptBusy ? " busy" : ""}`, disabled: promptBusy,
           title: promptBusy ? "Qwen is writing the whole timeline; the video renderer is not running" : "Generate prompts for every segment with Qwen3.8; this does not start the video renderer",

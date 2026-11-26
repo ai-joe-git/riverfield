@@ -209,3 +209,75 @@ There is deliberately no MCP approval or rollback tool.
   a future migration/maintenance workflow.
 - The Bible has no rich relational editor yet; facts are proposed through the API/MCP and approved
   through the CLI.
+
+---
+
+# Phase 0.1 — Riverfield Production Studio
+
+Phase 0.1 adds the native interface and corrects context retrieval before exposing the studio.
+
+## ProductionContext corrections
+
+- `maxChars` is enforced against the **complete rendered text**, including headings,
+  category labels, separators and recent-scene summaries.
+- Scene chronology uses explicit season number, episode number and scene number (with
+  creation time as a stable tie-breaker), never lexicographical IDs.
+- Facts carry an optional `sceneId` scope. A historical scene query only receives facts at or
+  before that scene in season/episode/scene order.
+- Budgets are weighted across Identity (20%), State (30%), Episodic (30%) and Narrative (20%),
+  with unused space redistributed to continuity. Identity cannot consume the whole budget.
+- Recent scene summaries are derived only from approved canonical Episodic facts. Draft
+  `Scene.summary` text is never treated as memory.
+- Facts tagged `continuity`, `constraint`, `must`, `critical` or `essential` are selected before
+  ordinary facts and survive final trimming whenever possible.
+- The final renderer removes lower-priority facts until the complete text fits the budget.
+
+The regression suite covers full-budget enforcement, non-lexicographical chronology, future
+scene exclusion, scene-scoped historical state, identity budget pressure, approved-only recent
+summaries, and continuity retention.
+
+## Production Studio
+
+A top-level **Productions** entry opens the native studio, built from the existing Riverfield
+page, tab, panel, button and media components.
+
+- Production library with cover artwork, progress, seasons/episodes/scenes and resume-last.
+- Episode workspace with ordered scene thumbnails, status, candidate counts, expandable details.
+- Candidate review with final-output binding ranges, native playback, prompts, rendering
+  parameters, observations, alternate/rejected retention and side-by-side comparison.
+- Candidate registration from an existing History run; the candidate is immutable and never
+  automatically canonical.
+- Production Bible with Identity, State, Episodic and Narrative, subject filtering, reference
+  asset browsing, provenance, revisions, approval metadata and evidence links. Editing a fact
+  creates a proposal.
+- Canon history from the append-only event journal, pending proposals, exact CLI approval
+  commands and rollback commands.
+- Opening a scene in a Director stores a one-shot handoff: production ID, scene ID and scene
+  brief. The Director keeps its existing UI, project, profiles and workflow; it never starts a
+  render when opened.
+- Manual registration of a succeeded run uses explicit final-output frame bindings and a stable
+  candidate ID, so repeating the same registration cannot silently duplicate it.
+
+## Approval remains human-only
+
+There is still no HTTP or MCP approval route. The interface prepares proposals and displays:
+
+```sh
+npm run production -- approve <productionId> <proposalId>
+```
+
+The human runs it in a real TTY, reviews the exact candidate, scene, changes and expected
+canonical revision, and types the fingerprint challenge. Refresh the studio afterward.
+
+## SUITE 404
+
+The imported fixture is displayed from real local data: Season 01, E01 Passion Max with fifteen
+scenes, the experimental Velvet Moon draft, all existing candidates and their bindings, and
+the indexed reference assets. No approval is inferred and no media is moved, copied or rewritten.
+
+## Remaining limitations
+
+Automatic video observation, ASR, embeddings, vector databases and multi-agent orchestration are
+still out of scope. Reference assets are browsable in the Production Bible; automatic transfer
+of reference files into a Director bin is intentionally not performed because it would duplicate
+existing media. The approval boundary remains local-TTY based rather than device-attested.

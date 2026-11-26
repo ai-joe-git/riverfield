@@ -275,8 +275,13 @@ their UI, workflows and saved projects. When a Director receives the hidden `pro
 `production_scene_id` values, approved canonical memory is injected into its prompt enhancer;
 otherwise the existing previous-scene context remains the fallback.
 
-Architecture, storage contracts, approval boundary, migration and remaining limitations:
-[`docs/production-engine-phase0.md`](docs/production-engine-phase0.md).
+The native **Productions** workspace adds the production library, episode scene list, candidate
+review and playback, Production Bible editing by proposal, canon event history, and a scene
+handoff into existing Directors. Opening a production never starts inference. The human
+approval CLI remains the only canonical gate.
+
+Architecture, storage contracts, context rules, approval boundary, migration and remaining
+limitations: [`docs/production-engine-phase0.md`](docs/production-engine-phase0.md).
 
 ## Apps
 

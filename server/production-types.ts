@@ -21,6 +21,8 @@ export type ProductionMeta = {
   id: string;
   title: string;
   logline: string;
+  description?: string;
+  style?: string;
   status: "draft" | "active" | "archived";
   createdAt: string;
   createdBy: string;
@@ -76,6 +78,7 @@ export type Candidate = {
   prompt?: string;
   outputs: CandidateOutput[];
   bindings: SceneRenderBinding[];
+  render?: Record<string, unknown>;
   createdAt: string;
   createdBy: string;
   /** Immutable content hash; a different candidate can never reuse it silently. */
@@ -119,6 +122,8 @@ export type BibleFact = {
   subjectIds: string[];
   tags: string[];
   data?: unknown;
+  /** Scene at which this fact becomes applicable; omitted means production-global. */
+  sceneId?: string;
   provenance: Provenance;
   revision: number;
   approvedAt: string;
@@ -134,6 +139,7 @@ export type FactChange = {
   subjectIds?: string[];
   tags?: string[];
   data?: unknown;
+  sceneId?: string;
   provenance?: Partial<Provenance>;
 };
 
@@ -235,7 +241,10 @@ export type ProductionSummary = {
   id: string;
   title: string;
   logline: string;
+  description?: string;
+  style?: string;
   status: ProductionMeta["status"];
+  cover?: { kind: "asset" | "candidate"; id: string; outputIndex?: number; type?: "image" | "video" };
   seasons: number;
   episodes: number;
   scenes: number;

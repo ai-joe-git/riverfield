@@ -25,6 +25,8 @@ export type CreateProductionInput = {
   id?: string;
   title: string;
   logline?: string;
+  description?: string;
+  style?: string;
   status?: ProductionMeta["status"];
 };
 export type CreateSeasonInput = { id?: string; number: number; title: string };
@@ -47,6 +49,7 @@ export type RegisterCandidateInput = {
   prompt?: string;
   outputs?: Candidate["outputs"];
   bindings?: (Omit<SceneRenderBinding, "candidateId" | "timebase"> & { timebase?: SceneRenderBinding["timebase"] })[];
+  render?: Record<string, unknown>;
 };
 export type RegisterObservationInput = {
   id?: string;
@@ -410,6 +413,7 @@ export class ProductionStore {
     if (!MEMORY_CATEGORIES.includes(change.category)) throw new ProductionError("INVALID_FACT", "Unknown memory category");
     if (!change.text?.trim()) throw new ProductionError("INVALID_FACT", "A canonical fact needs text");
     const list = snap.bible[change.category];
+    const sceneId = change.sceneId ?? proposal.sceneDecision?.sceneId;
     const provenance = normaliseProvenance(change.provenance, proposal, event);
     if (change.op === "update") {
       const hit = change.factId ? list.find((fact) => fact.id === change.factId) : undefined;
@@ -418,6 +422,7 @@ export class ProductionStore {
       hit.subjectIds = unique(change.subjectIds ?? hit.subjectIds);
       hit.tags = unique(change.tags ?? hit.tags);
       if (change.data !== undefined) hit.data = change.data;
+      if (sceneId) hit.sceneId = sceneId;
       hit.provenance = { ...hit.provenance, ...provenance };
       hit.revision = revision;
       hit.approvedAt = approval.approvedAt;
@@ -435,6 +440,7 @@ export class ProductionStore {
       subjectIds: unique(change.subjectIds ?? []),
       tags: unique(change.tags ?? []),
       ...(change.data !== undefined ? { data: change.data } : {}),
+      ...(sceneId ? { sceneId } : {}),
       provenance,
       revision,
       approvedAt: approval.approvedAt,
@@ -460,19 +466,31 @@ export class ProductionStore {
     if (!existsSync(this.root)) return [];
     return readdirSync(this.root, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => {
+      .map((entry): ProductionSummary | null => {
         try {
           const snap = this.withLock(entry.name, () => this.loadFreshSnapshot(entry.name));
           return {
             id: snap.production.id, title: snap.production.title, logline: snap.production.logline,
-            status: snap.production.status, seasons: snap.seasons.length, episodes: snap.episodes.length,
+            ...(snap.production.description ? { description: snap.production.description } : {}),
+            ...(snap.production.style ? { style: snap.production.style } : {}),
+            status: snap.production.status,
+            ...(() => {
+              const asset = Object.values(snap.assets).find((item) => ["image", "video"].includes(item.kind));
+              if (asset) return { cover: { kind: "asset" as const, id: asset.id, type: asset.kind === "video" ? "video" as const : "image" as const } };
+              for (const candidate of Object.values(snap.candidates)) {
+                const index = candidate.outputs.findIndex((output) => output.type === "image" || output.type === "video");
+                if (index >= 0) return { cover: { kind: "candidate" as const, id: candidate.id, outputIndex: index, type: candidate.outputs[index].type === "video" ? "video" as const : "image" as const } };
+              }
+              return {};
+            })(),
+            seasons: snap.seasons.length, episodes: snap.episodes.length,
             scenes: snap.scenes.length, candidates: Object.keys(snap.candidates).length,
             canonicalScenes: Object.values(snap.sceneDecisions).filter((decision) => decision.status === "canon").length,
             revision: snap.revision, updatedAt: snap.updatedAt,
           } satisfies ProductionSummary;
         } catch { return null; }
       })
-      .filter((item): item is ProductionSummary => Boolean(item))
+      .filter((item): item is ProductionSummary => item !== null)
       .sort((a, b) => a.title.localeCompare(b.title));
   }
 
@@ -588,6 +606,7 @@ export class ProductionStore {
       id, productionId, label: String(input.label ?? id).trim(), source: input.source ?? "manual",
       ...(input.sourceRunId ? { sourceRunId: input.sourceRunId } : {}), ...(input.app ? { app: input.app } : {}),
       ...(input.prompt ? { prompt: input.prompt } : {}), outputs: input.outputs ?? [], bindings,
+      ...(input.render ? { render: input.render } : {}),
       createdAt: nowIso(), createdBy: actor.id ?? actor.kind,
     } satisfies Omit<Candidate, "contentHash">;
     const candidate: Candidate = { ...withoutHash, contentHash: candidateHash(withoutHash) };
@@ -632,6 +651,7 @@ export class ProductionStore {
     for (const [index, change] of proposal.changes.entries()) {
       if (!MEMORY_CATEGORIES.includes(change.category)) throw new ProductionError("INVALID_FACT", "Unknown memory category");
       if (!change.text?.trim()) throw new ProductionError("INVALID_FACT", "Every proposed fact needs text");
+      if (change.sceneId && !snap.scenes.some((scene) => scene.id === change.sceneId)) throw new ProductionError("UNKNOWN_SCENE", `Unknown fact scene ${change.sceneId}`);
       const id = change.factId ?? factId(proposal.id, index);
       if (seen.has(id)) throw new ProductionError("INVALID_FACT", `Duplicate fact id ${id}`);
       seen.add(id);

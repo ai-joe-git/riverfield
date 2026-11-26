@@ -126,15 +126,70 @@ test("ProductionContext is typed, bounded and canonical-only", () => {
       ],
     }, actor, "facts").proposal;
     store.approveProposal("suite-404", proposal.id, human(proposal.fingerprint, 0), "facts-approved");
-    const context = buildProductionContext(store.snapshot("suite-404"), { sceneId: "suite-404-s01e01-sc01", maxChars: 500 });
+    const context = buildProductionContext(store.snapshot("suite-404"), { sceneId: "suite-404-s01e01-sc01", maxChars: 1200 });
     assert.equal(context.revision, 1);
     assert.equal(context.sections.identity.facts.length, 1);
     assert.equal(context.sections.narrative.facts.length, 1);
     assert.match(context.text, /Canonical|PRODUCTION BIBLE/);
-    assert.ok(context.text.length <= 500 + 200, "headers can exceed the fact budget but the fact selection is bounded");
+    assert.ok(context.text.length <= 1200, "the complete final context stays within its budget");
     assert.equal(context.sections.identity.facts[0]?.approvedBy, "test-human");
-    const narrow = buildProductionContext(store.snapshot("suite-404"), { maxChars: 500, characterIds: ["daichi"] });
+    const narrow = buildProductionContext(store.snapshot("suite-404"), { maxChars: 1200, characterIds: ["daichi"] });
     assert.ok(narrow.sections.state.facts.length <= 1);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test("ProductionContext enforces chronology, scene state and the complete text budget", () => {
+  const { out, store } = fixture();
+  try {
+    // Deliberately lexicographically inverted episode IDs: episode 1 is z, episode 2 is a.
+    store.createEpisode("suite-404", { id: "zzz-episode-one", seasonId: "suite-404-s01", number: 1, title: "Early" }, actor, "episode-z");
+    store.createEpisode("suite-404", { id: "aaa-episode-two", seasonId: "suite-404-s01", number: 2, title: "Late" }, actor, "episode-a");
+    store.createScene("suite-404", { id: "zzz-early-scene", episodeId: "zzz-episode-one", number: 1, title: "Early scene", summary: "Draft intention that must not become memory." }, actor, "scene-early");
+    store.createScene("suite-404", { id: "aaa-late-scene", episodeId: "aaa-episode-two", number: 1, title: "Late scene" }, actor, "scene-late");
+    const candidate = store.registerCandidate("suite-404", {
+      id: "chronology-candidate", label: "chronology", bindings: [
+        { id: "chronology-b1", sceneId: "zzz-early-scene", segmentIndex: 0, timelineStartFrame: 0, timelineEndFrame: 100 },
+        { id: "chronology-b2", sceneId: "aaa-late-scene", segmentIndex: 1, timelineStartFrame: 100, timelineEndFrame: 200 },
+      ],
+    }, actor, "candidate-chronology");
+    const early = store.propose("suite-404", {
+      sceneDecision: { sceneId: "zzz-early-scene", candidateId: "chronology-candidate", decision: "canon" },
+      changes: [
+        { op: "add", category: "state", factId: "early-state", sceneId: "zzz-early-scene", text: "Akari is in the early room." },
+        { op: "add", category: "episodic", factId: "early-summary", sceneId: "zzz-early-scene", text: "Approved early scene summary." },
+        { op: "add", category: "identity", factId: "identity-heavy", text: "Identity ".repeat(200) },
+      ],
+    }, actor, "early-proposal").proposal;
+    store.approveProposal("suite-404", early.id, human(early.fingerprint, 0), "early-approved");
+    const late = store.propose("suite-404", {
+      sceneDecision: { sceneId: "aaa-late-scene", candidateId: "chronology-candidate", decision: "canon" },
+      changes: [
+        { op: "add", category: "state", factId: "late-state", sceneId: "aaa-late-scene", text: "This future state must not leak." },
+        { op: "add", category: "episodic", factId: "late-summary", sceneId: "aaa-late-scene", text: "This future summary must not leak." },
+        { op: "add", category: "narrative", factId: "continuity-rule", tags: ["continuity"], text: "Keep the same hotel corridor geography." },
+      ],
+    }, actor, "late-proposal").proposal;
+    store.approveProposal("suite-404", late.id, human(late.fingerprint, 1), "late-approved");
+
+    const historical = buildProductionContext(store.snapshot("suite-404"), { sceneId: "zzz-early-scene", maxChars: 700, recentScenes: 5 });
+    assert.ok(historical.text.length <= 700, `full context budget exceeded: ${historical.text.length}`);
+    assert.match(historical.text, /Akari is in the early room/);
+    assert.doesNotMatch(historical.text, /This future state must not leak/);
+    assert.doesNotMatch(historical.text, /This future summary must not leak/);
+    assert.doesNotMatch(historical.text, /Draft intention/);
+    assert.match(historical.text, /Approved early scene summary/);
+    assert.equal(historical.recentScenes.length, 1);
+    assert.equal(historical.recentScenes[0]?.id, "zzz-early-scene");
+
+    const latest = buildProductionContext(store.snapshot("suite-404"), { sceneId: "aaa-late-scene", maxChars: 700, recentScenes: 5 });
+    assert.match(latest.text, /This future state must not leak/);
+    assert.match(latest.text, /Keep the same hotel corridor geography/);
+    assert.ok(latest.text.length <= 700);
+    // Identity was huge; it must not consume the whole budget before State/Narrative.
+    assert.ok(latest.sections.state.facts.length + latest.sections.narrative.facts.length > 0);
+    assert.ok(latest.sections.identity.facts.length < 200, "identity is bounded by its category budget");
   } finally {
     rmSync(out, { recursive: true, force: true });
   }

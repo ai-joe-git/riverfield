@@ -595,10 +595,26 @@ const server = createServer(async (req, res) => {
           return send(res, 201, productions.createProduction({
             ...(typeof body.id === "string" ? { id: body.id } : {}),
             title: String(body.title ?? ""), logline: typeof body.logline === "string" ? body.logline : undefined,
+            ...(typeof body.description === "string" ? { description: body.description } : {}),
+            ...(typeof body.style === "string" ? { style: body.style } : {}),
             status: body.status === "active" || body.status === "archived" || body.status === "draft" ? body.status : undefined,
           }, actor, typeof body.commandKey === "string" ? body.commandKey : undefined));
         }
         if (id && req.method === "GET" && !sub) return send(res, 200, productions.snapshot(id));
+        if (id && req.method === "GET" && sub === "events") return send(res, 200, { events: productions.events(id) });
+        if (id && req.method === "GET" && sub === "media") {
+          const candidateId = url.searchParams.get("candidateId");
+          const assetId = url.searchParams.get("assetId");
+          const snap = productions.snapshot(id);
+          let path: string | undefined;
+          if (candidateId) {
+            const candidate = snap.candidates[candidateId];
+            const index = Number(url.searchParams.get("index") || 0);
+            path = candidate?.outputs[index]?.path;
+          } else if (assetId) path = snap.assets[assetId]?.path;
+          if (!path) return send(res, 404, { error: "not found" });
+          return sendFile(req, res, path, "private, max-age=31536000, immutable");
+        }
         if (id && req.method === "GET" && sub === "context") {
           const numbers = (name: string) => (url.searchParams.get(name) ?? "").split(",").map((x) => x.trim()).filter(Boolean);
           const context = buildProductionContext(productions.snapshot(id), {
@@ -637,6 +653,7 @@ const server = createServer(async (req, res) => {
               label: String(input.label ?? run.values.filename_prefix ?? run.id),
               source: "history", sourceRunId: run.id, app: run.app, prompt: input.prompt ?? firstPrompt,
               outputs: input.outputs?.length ? input.outputs : outputs,
+              render: input.render ?? run.render,
             };
           }
           return send(res, 201, productions.registerCandidate(id, input, actor));

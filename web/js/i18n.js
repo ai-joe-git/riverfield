@@ -4,7 +4,7 @@
 import { store } from "./util.js";
 
 const en = {
-  "nav.agent": "Agent", "nav.explore": "Explore", "nav.image": "Image", "nav.video": "Video", "nav.audio": "Audio", "nav.3d": "3D", "nav.apps": "Apps", "nav.library": "Library",
+  "nav.agent": "Agent", "nav.explore": "Explore", "nav.image": "Image", "nav.video": "Video", "nav.audio": "Audio", "nav.3d": "3D", "nav.productions": "Productions", "nav.apps": "Apps", "nav.library": "Library",
   "nav.vram": "VRAM map", "nav.create": "Create", "nav.lang": "Language",
   "menu.features": "Features", "menu.categories": "Categories", "menu.models": "Models", "menu.used": "{n} apps", "menu.used1": "1 app",
   "tag.featured": "Featured", "tag.new": "New", "tag.draft": "Draft", "tag.top": "Top",
@@ -101,7 +101,7 @@ const en = {
 };
 
 const es = {
-  "nav.agent": "Agente", "nav.explore": "Explorar", "nav.image": "Imagen", "nav.video": "Video", "nav.audio": "Audio", "nav.3d": "3D", "nav.apps": "Apps", "nav.library": "Biblioteca",
+  "nav.agent": "Agente", "nav.explore": "Explorar", "nav.image": "Imagen", "nav.video": "Video", "nav.audio": "Audio", "nav.3d": "3D", "nav.productions": "Producciones", "nav.apps": "Apps", "nav.library": "Biblioteca",
   "nav.vram": "Mapa de VRAM", "nav.create": "Crear", "nav.lang": "Idioma",
   "menu.features": "Funciones", "menu.categories": "Categorías", "menu.models": "Modelos", "menu.used": "{n} apps", "menu.used1": "1 app",
   "tag.featured": "Destacado", "tag.new": "Nuevo", "tag.draft": "Borrador", "tag.top": "Top",

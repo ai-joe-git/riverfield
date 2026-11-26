@@ -196,6 +196,8 @@ export function build(base=BASE): McpServer {
       id: z.string().optional().describe("stable lowercase slug; derived from the title when omitted"),
       title: z.string().min(1),
       logline: z.string().optional(),
+      description: z.string().optional(),
+      style: z.string().optional(),
     },
   }, async (args) => {
     try {
@@ -295,7 +297,7 @@ export function build(base=BASE): McpServer {
       changes: z.array(z.object({
         op: z.enum(["add", "update"]), category: z.enum(["identity", "state", "episodic", "narrative"]),
         factId: z.string().optional(), text: z.string().min(1), subjectIds: z.array(z.string()).optional(),
-        tags: z.array(z.string()).optional(), data: z.any().optional(),
+        tags: z.array(z.string()).optional(), data: z.any().optional(), sceneId: z.string().optional(),
         provenance: z.record(z.string(), z.any()).optional(),
       })).optional(),
     },

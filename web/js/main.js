@@ -8,6 +8,7 @@ import { t } from "./i18n.js";
 import { loadCatalog, byId, lastAppFor, studioOf, FEATURED, hosted } from "./catalog.js";
 import { topbar, gpuState, pollGpu } from "./nav.js";
 import { exploreView, appsView, libraryView, vramView } from "./views.js";
+import { productionsView, productionView } from "./productions.js";
 import { workspaceView, recreate, useIn, setTab } from "./workspace.js";
 import { hooks, feed } from "./feed.js";
 import { openViewer } from "./viewer.js";
@@ -38,6 +39,10 @@ function route() {
     return null;
   }
   if (hash.startsWith("#/apps")) return appsView();
+  if (hash.startsWith("#/productions")) {
+    const production = /^#\/productions(?:\/([\w-]+))?/.exec(hash);
+    return production?.[1] ? productionView(production[1]) : productionsView();
+  }
   if (hash.startsWith("#/library")) return libraryView();
   if (hash.startsWith("#/vram")) return vramView(gpuState.data?.device ? gpuState.data : null);
   return exploreView();
@@ -53,7 +58,7 @@ function render({ keepScroll = false } = {}) {
   bar?.update(view.active);
   if (!keepScroll) window.scrollTo(0, 0);
   const app = view.app;
-  document.title = app ? `${app.name} · RiverField` : "RiverField";
+  document.title = view.title || (app ? `${app.name} · RiverField` : "RiverField");
 }
 
 function buildBar() {
