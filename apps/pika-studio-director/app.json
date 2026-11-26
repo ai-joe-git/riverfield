@@ -411,7 +411,7 @@
       "type": "toggle",
       "label": "Enhance prompt with Qwen3.8",
       "default": true,
-      "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order with the matching Pika writer guide (Ref2VA or FL2VA), feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
+      "help": "On by default. Qwen3.8 rewrites the global prompt and every Material Planner segment in order with the matching Pika writer guide (Ref2VA or FL2VA), feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
       "bind": [
         {
           "node": "enh_on",
@@ -658,7 +658,7 @@
           "label": "Production — 0.3 MP, RelayVSR x2 by default"
         }
       ],
-      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
+      "help": "Explicit Build & Test or Production request. Omitting it uses the manifest's declared starting profile, or the historical legacy settings when the app declares none. Production uses 0.3 MP and RelayVSR x2 by default.",
       "hidden": true,
       "derived": true,
       "default": "production"

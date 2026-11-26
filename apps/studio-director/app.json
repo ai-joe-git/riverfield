@@ -663,7 +663,7 @@
           "label": "Production — 0.3 MP, RelayVSR x2 by default"
         }
       ],
-      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
+      "help": "Explicit Build & Test or Production request. Omitting it uses the manifest's declared starting profile, or the historical legacy settings when the app declares none. Production uses 0.3 MP and RelayVSR x2 by default.",
       "hidden": true,
       "derived": true,
       "default": "production"

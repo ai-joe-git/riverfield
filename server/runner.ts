@@ -145,7 +145,7 @@ export function resolveValues(app: App, values: Values): Values {
   }
   // Pika's auto adapter follows the material bin after the optional file slots are resolved.
   // The UI can keep its empty default and still pick the correct FL2VA/Ref2VA checkpoint pair.
-  if(app.id==="pika-studio-director"&&out.flex_mode==="auto"){
+  if((app.id==="pika-studio-director"||app.id==="h3-studio-director-flash")&&out.flex_mode==="auto"){
     const visual=["image1","image2","image3","image4","image5","image6","image7","image8","image9","video1","video2","video3"].some((id)=>out[id]!==undefined);
     out.flex_mode=visual?"ref2va":"fl2va";
   }

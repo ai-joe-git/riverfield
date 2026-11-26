@@ -145,6 +145,35 @@ test("Production resolution is adjustable and X2/X4 use the right linear and are
   assert.throws(() => resolveValues(flash, creative({ render_profile: "production", production_megapixels: 4.0 })), /between 0.1 and 3/);
 });
 
+test("FL2VA director mode keeps the same Production recipe and auto-selects for an empty bin", () => {
+  const empty = resolveValues(flash, {
+    render_profile: "production",
+    flex_mode: "auto",
+    global_prompt: "A quiet room with no references.",
+  }) as Record<string, any>;
+  assert.equal(empty.flex_mode, "fl2va", "empty bin -> FL2VA");
+  assert.equal(empty.steps, 8);
+  assert.equal(empty.detail, 0.8);
+  assert.equal(empty.clip_name, "p-h3-image_text_encoder_int8_convrot.safetensors");
+  assert.equal(empty.megapixels, 0.3);
+  assert.equal(empty.upscale, "x2");
+  assert.equal(empty.prompt_enhancer, true);
+  assert.equal(empty.enhancer_model, "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors");
+  const referenced = resolveValues(flash, { render_profile: "production", flex_mode: "auto", image1: IMAGE, global_prompt: "A referenced room." }) as Record<string, any>;
+  assert.equal(referenced.flex_mode, "ref2va", "a picture keeps the reference mode");
+
+  const pika = byId("pika-studio-director");
+  const pikaText = "integrated_multimodal_description:\n[Shot 1] An empty studio.\noverall_soundscape:\nRoom tone.\nnon_diegetic_music:\nN/A";
+  const pikaEmpty = resolveValues(pika, { render_profile: "production", flex_mode: "auto", global_prompt: pikaText }) as Record<string, any>;
+  assert.equal(pikaEmpty.flex_mode, "fl2va", "Pika empty bin -> FL2VA");
+  assert.equal(pikaEmpty.detail, 0.8);
+  assert.equal(pikaEmpty.clip_name, "p-h3-image_text_encoder_int8_convrot.safetensors");
+  assert.equal(pikaEmpty.production_megapixels, 0.3);
+  assert.equal(pikaEmpty.upscale, "x2");
+  assert.equal(pikaEmpty.prompt_enhancer, true);
+  assert.equal(pikaEmpty.enhancer_model, "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors");
+});
+
 test("a Production request cannot force RelayVSR onto an app that has no upscale input", () => {
   const studio = byId("studio-director");
   const noUpscale = { ...studio, inputs: studio.inputs.filter((i) => !["upscale", "upscale_detail", "production_upscale", "production_upscale_detail"].includes(i.id)) };

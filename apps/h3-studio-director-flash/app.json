@@ -531,8 +531,12 @@
       "id": "flex_mode",
       "type": "select",
       "label": "H3 Flash model",
-      "default": "ref2va",
+      "default": "auto",
       "options": [
+        {
+          "value": "auto",
+          "label": "auto — references if present, text-only otherwise"
+        },
         {
           "value": "ref2va",
           "label": "ref2va — references → video (needs a picture or a clip)",
@@ -556,7 +560,7 @@
           ]
         }
       ],
-      "help": "The Flash H3 model moves with the mode: ref2va for reference material, fl2va for plain text-to-video (empty bin). Both use the same HyperFlow sigmas (4/6/8 steps), euler and SLA 0.80."
+      "help": "The Flash H3 model moves with the mode: auto picks ref2va when the bin has a picture or clip and fl2va for an empty text-only bin. Explicit ref2va/fl2va remain available; both use the same 4/6/8-step sigmas, euler, p-H3 encoder, SLA 0.80 and Production recipe."
     },
     {
       "id": "aspect",
