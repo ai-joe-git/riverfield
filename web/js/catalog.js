@@ -88,9 +88,22 @@ export function modelOf(app) {
 export function menuGroups(studio) {
   const inMenu = (a) => studio === "image" ? a.section === "image" && studioOf(a) !== "video" : studioOf(a) === studio;
   const pick = (ids) => ids.map((id) => byId.get(id)).filter((a) => a && inMenu(a));
-  const groups = studio === "video" ? VIDEO_TABS.map((g) => ({ key: `vtab.${g.id}`, apps: pick(g.apps) }))
-    : studio === "image" ? CATEGORIES.map((g) => ({ key: `cat.${g.id}.t`, apps: pick(g.apps) }))
-    : [{ key: null, apps: apps.filter(inMenu) }];
+  let groups;
+  if (studio === "video") {
+    // Prompt tools come first, then all Directors together; the other video tabs never duplicate them.
+    const promptApps = pick(["prompt-enhancer"]);
+    const directors = apps.filter((a) => inMenu(a) && layoutOf(a) === "director");
+    const directorIds = new Set(directors.map((a) => a.id));
+    groups = [
+      { key: "cat.prompt.t", apps: promptApps },
+      { key: "cat.director.t", apps: directors },
+      ...VIDEO_TABS.map((g) => ({ key: `vtab.${g.id}`, apps: pick(g.apps.filter((id) => !directorIds.has(id) && id !== "prompt-enhancer")) })),
+    ];
+  } else if (studio === "image") {
+    groups = CATEGORIES.map((g) => ({ key: `cat.${g.id}.t`, apps: pick(g.apps) }));
+  } else {
+    groups = [{ key: null, apps: apps.filter(inMenu) }];
+  }
   const listed = new Set(groups.flatMap((g) => g.apps));
   const rest = apps.filter((a) => inMenu(a) && !listed.has(a));
   if (rest.length) groups.push({ key: "cat.more.t", apps: rest });

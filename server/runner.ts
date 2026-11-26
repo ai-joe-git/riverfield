@@ -139,6 +139,12 @@ export function resolveValues(app: App, values: Values): Values {
       if (values[id] === undefined) out[id] = v;
     }
   }
+  // Pika's auto adapter follows the material bin after the optional file slots are resolved.
+  // The UI can keep its empty default and still pick the correct FL2VA/Ref2VA checkpoint pair.
+  if(app.id==="pika-studio-director"&&out.flex_mode==="auto"){
+    const visual=["image1","image2","image3","image4","image5","image6","image7","image8","image9","video1","video2","video3"].some((id)=>out[id]!==undefined);
+    out.flex_mode=visual?"ref2va":"fl2va";
+  }
   if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
   if(app.id==="pika-studio-director"&&!out.advanced_timeline_json)validatePikaValues(out);
   if(app.id==="relayvsr-upscale"){
@@ -382,15 +388,38 @@ export class Runner {
         if (cls && !missing.has(cls) && !(await this.hasClass(cls))) missing.add(cls);
       }
     }
+    // A file input can feed more than one node (for example a director reference
+    // plus its optional prompt enhancer). Reuse one lazy asset handle so the same
+    // bytes are not uploaded once per binding.
+    const assets = new Map<FileValue, ReturnType<typeof this.comfy.assets.fromBytes>>();
     applyInputs(
       app,
       values,
       wf,
-      (f) => this.comfy.assets.fromBytes(f.bytes, { filename: f.name, contentType: f.type || undefined }),
+      (f) => {
+        let asset = assets.get(f);
+        if (!asset) {
+          asset = this.comfy.assets.fromBytes(f.bytes, { filename: f.name, contentType: f.type || undefined });
+          assets.set(f, asset);
+        }
+        return asset;
+      },
       presetId,
       missing,
     );
     return this.comfy.submit(wf);
+  }
+
+  /**
+   * Submit a text-writing app and return its generated text. Used by the
+   * Director prompt preflight; the caller owns the GPU queue and cancellation.
+   */
+  async generateText(app: App, rawValues: Values): Promise<string> {
+    const job = await this.submit(app, rawValues);
+    await job.wait(10 * 60 * 1000);
+    const output = job.outputs.find((o) => o.type === "text" || /\.txt$/i.test(o.name));
+    if (!output) throw new Error(`${app.id} returned no text output`);
+    return new TextDecoder().decode(await output.toBytes()).trim();
   }
 
   jobs() {

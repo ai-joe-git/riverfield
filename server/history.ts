@@ -18,7 +18,7 @@ import type { FileValue, Frame, Values } from "./runner.ts";
 
 export type Status = "starting" | "queued" | "running" | "succeeded" | "failed" | "canceled" | "expired" | "lost";
 const TERMINAL = new Set<Status>(["succeeded", "failed", "canceled", "expired", "lost"]);
-const MEDIA = new Set(["image", "video", "audio", "file"]);   // file: 3D models (.glb) from Save3DAdvanced
+const MEDIA = new Set(["image", "video", "audio", "file", "text"]);   // file: 3D models (.glb) from Save3DAdvanced
 const execFileAsync = promisify(execFile);
 
 /** Rendering facts recorded with a run: what was resolved, not what a form claimed. */
@@ -155,6 +155,7 @@ const EXT: Record<string, string> = {
   "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif",
   "video/mp4": ".mp4", "video/webm": ".webm", "video/quicktime": ".mov",
   "audio/mpeg": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav", "audio/flac": ".flac", "audio/ogg": ".ogg", "audio/mp4": ".m4a",
+  "text/plain": ".txt",
 };
 
 function newId(now = new Date()): string {
@@ -178,7 +179,8 @@ const MODEL_EXT = new Set([".glb", ".gltf", ".obj", ".fbx", ".stl", ".ply", ".us
 /** What the file is, by its extension first: core SaveVideo and CreateVideo report their mp4 under
  * `images` (with `animated: true`), so the SDK calls it an image and the web would draw it in an <img>.
  * (First web run of morph, 23 oct: a blank card for a good video.) */
-function mediaKind(ext: string, sdkType: string): "image" | "video" | "audio" | "model" {
+function mediaKind(ext: string, sdkType: string): "image" | "video" | "audio" | "model" | "text" {
+  if (ext === ".txt" || sdkType === "text") return "text";
   if (MODEL_EXT.has(ext)) return "model";
   if (VIDEO_EXT.has(ext)) return "video";
   if (AUDIO_EXT.has(ext)) return "audio";
@@ -297,6 +299,17 @@ export class History {
     this.save(entry);
     this.live.set(id, { progress: null, queue: null, preview: null });
     return entry;
+  }
+
+  /** Replace the recorded non-file values after a prompt preflight enhances a director timeline. */
+  updateValues(entry: Entry, values: Values): void {
+    const shown: Record<string, unknown> = { ...entry.values };
+    for (const [key, value] of Object.entries(values)) {
+      if (value && typeof value === "object" && (value as FileValue).bytes instanceof Uint8Array) continue;
+      shown[key] = value;
+    }
+    entry.values = shown;
+    this.save(entry);
   }
 
   /** Position in RiverField's admission queue, before the backend receives a prompt. */
@@ -464,7 +477,7 @@ export class History {
             }
           }
         }
-        if (!entry.outputs.length && !entry.error) entry.error = { message: "the job finished without an image, video, audio or 3D output" };
+        if (!entry.outputs.length && !entry.error) entry.error = { message: "the job finished without a text, image, video, audio or 3D output" };
       } else {
         const err = job.error;
         entry.error = {

@@ -477,7 +477,8 @@
             "image",
             "video",
             "audio",
-            "model"
+            "model",
+            "text"
           ]
         },
         "label": {

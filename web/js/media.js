@@ -103,6 +103,9 @@ export function thumb(item, { play = "visible", useFull = false, cls = "" } = {}
     if (item.poster || item.card) box.append(el("img", { src: item.poster || item.card, alt: "", loading: "lazy" }));
     else box.append(el("span", { class: "typeicon" }, icon("box")));
     box.append(el("span", { class: "typeicon badge" }, icon("box")));
+  } else if (item.type === "text") {
+    box.classList.add("text");
+    box.append(el("span", { class: "typeicon" }, icon("code")));
   } else if (item.type === "audio") {
     box.classList.add("audio", "wave");
     if (item.card && extOf(item.card) === "png") box.append(el("img", { src: item.card, alt: "", loading: "lazy" }));
@@ -134,6 +137,13 @@ export function optionTile(opt, shot, { selected = false, play = "hover", onPick
 /** A playable, full-size element for the viewer and the library. */
 export function fullMedia(type, src, { poster, autoplay = true } = {}) {
   if (!src) return el("div", { class: "empty" }, "—");
+  if (type === "text") {
+    const pre = el("pre", { class: "text-output" }, "Loading…");
+    fetch(src).then((r) => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.text(); })
+      .then((text) => { pre.textContent = text; })
+      .catch((err) => { pre.textContent = `Could not read this text: ${err.message}`; });
+    return el("div", { class: "text-stage" }, pre);
+  }
   if (type === "video") {
     const v = el("video", { src, poster: poster || null, controls: true, loop: true, playsinline: true, preload: "auto", autoplay: autoplay || null });
     return v;

@@ -41,9 +41,19 @@
         {
           "node": "rfplan",
           "field": "image1"
+        },
+        {
+          "node": "enh_img1",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image1"
+        }
+      ]
     },
     {
       "id": "image2",
@@ -58,9 +68,19 @@
         {
           "node": "rfplan",
           "field": "image2"
+        },
+        {
+          "node": "enh_img2",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image2"
+        }
+      ]
     },
     {
       "id": "image3",
@@ -75,9 +95,19 @@
         {
           "node": "rfplan",
           "field": "image3"
+        },
+        {
+          "node": "enh_img3",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image3"
+        }
+      ]
     },
     {
       "id": "image4",
@@ -92,9 +122,19 @@
         {
           "node": "rfplan",
           "field": "image4"
+        },
+        {
+          "node": "enh_img4",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image4"
+        }
+      ]
     },
     {
       "id": "image5",
@@ -194,9 +234,19 @@
         {
           "node": "rfplan",
           "field": "video1"
+        },
+        {
+          "node": "enh_vid1",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video1"
+        }
+      ]
     },
     {
       "id": "video2",
@@ -211,9 +261,19 @@
         {
           "node": "rfplan",
           "field": "video2"
+        },
+        {
+          "node": "enh_vid2",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video2"
+        }
+      ]
     },
     {
       "id": "video3",
@@ -228,9 +288,19 @@
         {
           "node": "rfplan",
           "field": "video3"
+        },
+        {
+          "node": "enh_vid3",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video3"
+        }
+      ]
     },
     {
       "id": "audio1",
@@ -330,11 +400,47 @@
       "help": "Used for the current generation window and reused by every segment whose own prompt is empty.",
       "bind": [
         {
-          "node": "rfplan",
-          "field": "global_prompt"
+          "node": "prompt_source",
+          "field": "value"
         }
       ],
       "hidden": true
+    },
+    {
+      "id": "prompt_enhancer",
+      "type": "toggle",
+      "label": "Enhance prompt with Qwen3.8",
+      "default": false,
+      "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order, feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
+      "bind": [
+        {
+          "node": "enh_on",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "enhancer_model",
+      "type": "select",
+      "label": "Prompt enhancer model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8 27B W4A8 — balanced"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8 27B Heretic W4A8 — uncensored"
+        }
+      ],
+      "help": "Local text model used only when the prompt enhancer is on.",
+      "bind": [
+        {
+          "node": "enh_clip",
+          "field": "clip_name"
+        }
+      ]
     },
     {
       "id": "duration",
@@ -1671,10 +1777,29 @@
       "phase": "decode",
       "license": "Apache-2.0",
       "optional": true
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "local/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+      "dir": "text_encoders",
+      "gb": 18.0,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "local": true,
+      "optional": true
     }
   ],
   "higgsfield_feature": "AI Director",
-  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you. The 4-step adapter also drives 6-step sampling; RelayVSR x2/x4 can be selected in the Production profile and is applied to the final clip.",
+  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you. The 4-step adapter also drives 6-step sampling; RelayVSR x2/x4 can be selected in the Production profile and is applied to the final clip. Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites every Material Planner segment in order, feeding previous scenes as context and using supplied pictures/clips.",
   "layout": "director",
   "custom_nodes": [
     {

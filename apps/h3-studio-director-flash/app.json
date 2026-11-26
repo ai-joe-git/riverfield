@@ -41,9 +41,19 @@
         {
           "node": "rfplan",
           "field": "image1"
+        },
+        {
+          "node": "enh_img1",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image1"
+        }
+      ]
     },
     {
       "id": "image2",
@@ -58,9 +68,19 @@
         {
           "node": "rfplan",
           "field": "image2"
+        },
+        {
+          "node": "enh_img2",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image2"
+        }
+      ]
     },
     {
       "id": "image3",
@@ -75,9 +95,19 @@
         {
           "node": "rfplan",
           "field": "image3"
+        },
+        {
+          "node": "enh_img3",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image3"
+        }
+      ]
     },
     {
       "id": "image4",
@@ -92,9 +122,19 @@
         {
           "node": "rfplan",
           "field": "image4"
+        },
+        {
+          "node": "enh_img4",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image4"
+        }
+      ]
     },
     {
       "id": "image5",
@@ -194,9 +234,19 @@
         {
           "node": "rfplan",
           "field": "video1"
+        },
+        {
+          "node": "enh_vid1",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video1"
+        }
+      ]
     },
     {
       "id": "video2",
@@ -211,9 +261,19 @@
         {
           "node": "rfplan",
           "field": "video2"
+        },
+        {
+          "node": "enh_vid2",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video2"
+        }
+      ]
     },
     {
       "id": "video3",
@@ -228,9 +288,19 @@
         {
           "node": "rfplan",
           "field": "video3"
+        },
+        {
+          "node": "enh_vid3",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video3"
+        }
+      ]
     },
     {
       "id": "audio1",
@@ -330,11 +400,47 @@
       "help": "Used by every segment when ALL segment prompts are empty. Finite sampling requires a local prompt for every segment once any local prompt is supplied.",
       "bind": [
         {
-          "node": "rfplan",
-          "field": "global_prompt"
+          "node": "prompt_source",
+          "field": "value"
         }
       ],
       "hidden": true
+    },
+    {
+      "id": "prompt_enhancer",
+      "type": "toggle",
+      "label": "Enhance prompt with Qwen3.8",
+      "default": false,
+      "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order, feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
+      "bind": [
+        {
+          "node": "enh_on",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "enhancer_model",
+      "type": "select",
+      "label": "Prompt enhancer model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8 27B W4A8 — balanced"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8 27B Heretic W4A8 — uncensored"
+        }
+      ],
+      "help": "Local text model used only when the prompt enhancer is on.",
+      "bind": [
+        {
+          "node": "enh_clip",
+          "field": "clip_name"
+        }
+      ]
     },
     {
       "id": "duration",
@@ -1013,12 +1119,31 @@
       "phase": "decode",
       "license": "Apache-2.0",
       "optional": true
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "local/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+      "dir": "text_encoders",
+      "gb": 18.0,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "local": true,
+      "optional": true
     }
   ],
   "workflow": "workflow.api.json",
   "layout": "director",
   "panel_title": "Flash H3 Director",
-  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave the bin empty for plain text-to-video). The first/last-frame endpoint inputs are not exposed here; use h3-flf2v-flash for endpoint conditioning. 6 steps, euler, SLA 0.85 and multiple 32 are studio-managed. The first render is untested; start with one 7.3 s segment. Build & Test runs at 0.1 MP with RelayVSR off; Production defaults to 0.4 MP with its own remembered resolution and optional RelayVSR x2/x4. Switching profiles never changes the timeline, prompts, references or seed, and never starts a render. A succeeded preview can be promoted to Production from the history; the production request keeps the preview's exact creative payload, and both jobs stay linked in the history. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render.",
+  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave the bin empty for plain text-to-video). The first/last-frame endpoint inputs are not exposed here; use h3-flf2v-flash for endpoint conditioning. 6 steps, euler, SLA 0.85 and multiple 32 are studio-managed. The first render is untested; start with one 7.3 s segment. Build & Test runs at 0.1 MP with RelayVSR off; Production defaults to 0.4 MP with its own remembered resolution and optional RelayVSR x2/x4. Switching profiles never changes the timeline, prompts, references or seed, and never starts a render. A succeeded preview can be promoted to Production from the history; the production request keeps the preview's exact creative payload, and both jobs stay linked in the history. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render. Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites every Material Planner segment in order, feeding previous scenes as context and using supplied pictures/clips.",
   "custom_nodes": [
     {
       "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",

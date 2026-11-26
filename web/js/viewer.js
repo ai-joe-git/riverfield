@@ -47,7 +47,7 @@ export function openViewer(items, startKey) {
       items.length > 1 ? el("button", { class: "round navb next", type: "button", "aria-label": t("act.next"), onclick: () => go(1) }, icon("chevR")) : null,
       item.outputs.length > 1 ? el("div", { class: "tabs", style: { position: "absolute", bottom: "14px", left: "50%", transform: "translateX(-50%)" } },
         ...item.outputs.map((o, k) => el("button", { type: "button", "aria-selected": String(k === out), onclick: () => { out = k; draw(); } },
-          o.type === "video" ? t("view.video") : /last/i.test(o.name || "") ? t("view.lastframe") : `${k + 1}`))) : null].filter(Boolean));
+          o.type === "video" ? t("view.video") : o.type === "text" ? t("view.text") : /last/i.test(o.name || "") ? t("view.lastframe") : `${k + 1}`))) : null].filter(Boolean));
 
     const pi = app ? promptInput(app) : null;
     const prompt = pi ? String(item.values?.[pi.id] ?? "") : "";

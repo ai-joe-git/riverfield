@@ -51,10 +51,10 @@ export const validatePikaPrompt=(prompt:string,ctx:Context)=>pikaPromptIssues(pr
 
 export function validatePikaValues(values:Record<string,unknown>){
  const reject=(code:string,field:string,message:string):never=>{throw new InputError(message,[{code,field,message}]);};
- const mode=values.flex_mode;
- if(mode!=="ref2va"&&mode!=="fl2va")return reject("PIKA_MODE","flex_mode","Pika requires flex_mode ref2va or fl2va");
  const count=(kind:string,max:number)=>Array.from({length:max},(_,i)=>values[`${kind}${i+1}`]).filter(Boolean).length;
  const pictures=count("image",9),videos=count("video",3),audios=count("audio",3);
+ const mode=values.flex_mode==="auto"?(pictures+videos?"ref2va":"fl2va"):values.flex_mode;
+ if(mode!=="ref2va"&&mode!=="fl2va")return reject("PIKA_MODE","flex_mode","Pika requires flex_mode auto, ref2va or fl2va");
  if(mode==="fl2va"&&pictures+videos+audios)reject("PIKA_MATERIALS","files","FL2VA in Pika Director requires an empty material bin; use Ref2VA for references");
  if(mode==="ref2va"&&!pictures&&!videos)reject("PIKA_MATERIALS","files","Ref2VA requires a supplied picture or video; use FL2VA for text-only generation");
  if(!values.segment_windows&&String(values.segment_prompts||"").trim())reject("PIKA_PROMPT_INPUT","segment_prompts","Pika multi-line prompts must use global_prompt or segment_windows, not the line-split segment_prompts field");

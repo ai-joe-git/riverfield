@@ -38,3 +38,12 @@ test("both actual app modes accept native segments; Ref2VA also binds optional s
 test("omitted mode follows the actual material files without overriding an explicit choice",()=>{
  assert.equal(directorValues({},{}).flex_mode,"fl2va");assert.equal(directorValues({},{image1:"known.png"}).flex_mode,"ref2va");assert.equal(directorValues({},{video1:"known.mp4"}).flex_mode,"ref2va");assert.equal(directorValues({flex_mode:"fl2va"},{image1:"known.png"}).flex_mode,"fl2va","explicit incompatible choices are validated, not silently changed");
 });
+
+test("Pika auto mode follows the material bin instead of rejecting an empty text-only run",()=>{
+ const app=loadRegistry(process.cwd()).apps.find(a=>a.id==="pika-studio-director")!,file={bytes:new Uint8Array([1]),name:"ref.png"};
+ const textOnly="integrated_multimodal_description:\n[Shot 1] A quiet room at night.\noverall_soundscape:\nSoft room tone.\nnon_diegetic_music:\nN/A";
+ const empty=resolveValues(app,{global_prompt:textOnly,duration:5});assert.equal(empty.flex_mode,"fl2va");
+ const example=JSON.parse(readFileSync("apps/pika-studio-director/request-example.json","utf8"));
+ const withRefs=resolveValues(app,{...example.values,flex_mode:"auto",image1:file,image2:file});assert.equal(withRefs.flex_mode,"ref2va");
+ assert.throws(()=>resolveValues(app,{global_prompt:textOnly,flex_mode:"ref2va"}),/Ref2VA requires a supplied picture or video/);
+});

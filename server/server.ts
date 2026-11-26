@@ -250,6 +250,81 @@ async function jobView(id: string) {
   };
 }
 
+/**
+ * Optional, context-aware Director preflight. It rewrites each Material Planner
+ * segment in order, feeding the previous enhanced scenes into the next writer
+ * call. The inline workflow enhancer is deliberately switched off afterwards so
+ * the same prompt is not enhanced twice.
+ */
+async function enhanceDirectorValues(app: App, values: Values, runner: Runner, enhancer: App): Promise<Values> {
+  const next: Values = { ...values };
+  type Target =
+    | { kind: "windows"; spec: any; prompts: string[] }
+    | { kind: "lines"; lines: string[]; prompts: string[] }
+    | { kind: "global"; prompts: string[] };
+  let target: Target | null = null;
+  let starts: number[] = [];
+  if (typeof next.segment_windows === "string" && next.segment_windows.trim()) {
+    try {
+      const spec = JSON.parse(next.segment_windows);
+      if (Array.isArray(spec?.windows) && spec.windows.length) {
+        target = { kind: "windows", spec, prompts: spec.windows.map((w: any) => String(w.prompt ?? "")) };
+        starts = spec.windows.map((w: any) => Number(w.start) / 24);
+      }
+    } catch { /* let the normal validator explain bad JSON */ }
+  }
+  if (!target && typeof next.segment_prompts === "string" && next.segment_prompts.trim()) {
+    const lines = next.segment_prompts.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length) target = { kind: "lines", lines, prompts: lines };
+  }
+  if (!target) target = { kind: "global", prompts: [String(next.global_prompt ?? "")] };
+  if (!target.prompts.some((p) => p.trim())) return next;
+
+  const mode = app.id === "pika-studio-director" && next.flex_mode === "ref2va" ? "ref2va" : "t2va";
+  const media: Record<string, unknown> = {};
+  for (const id of ["image1", "image2", "image3", "image4", "video1", "video2", "video3"]) {
+    if (next[id] !== undefined) media[id] = next[id];
+  }
+  const model = String(next.enhancer_model || "qwen3.8_27b_w4a8.safetensors");
+  const previous: string[] = [];
+  for (let i = 0; i < target.prompts.length; i++) {
+    const draft = target.prompts[i].trim() || String(next.global_prompt ?? "").trim();
+    if (!draft) continue;
+    const start = starts[i] ?? 0;
+    const end = target.kind === "windows" ? Number(target.spec.windows[i].end) / 24 : null;
+    const timing = end !== null ? `Starts at ${start.toFixed(2)} s and lasts ${(end - start).toFixed(2)} s.` : "";
+    const context = previous.length
+      ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${previous.map((p, n) => `[Segment ${n + 1}] ${p}`).join("\n\n")}`
+      : "This is the first scene in the timeline; there is no previous scene.";
+    const prompt = [
+      `You are writing segment ${i + 1} of ${target.prompts.length} for ${app.name}.`,
+      timing,
+      context,
+      `Current draft for segment ${i + 1}:\n${draft}`,
+      `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready H3 prompt for this segment. Do not add a segment heading or commentary.`,
+    ].filter(Boolean).join("\n\n");
+    const text = await runner.generateText(enhancer, {
+      ...media,
+      prompt_mode: mode,
+      model,
+      prompt,
+    });
+    if (!text) throw new Error(`Prompt enhancer returned an empty segment ${i + 1}`);
+    target.prompts[i] = text;
+    previous.push(text);
+  }
+
+  if (target.kind === "windows") {
+    target.prompts.forEach((prompt, i) => { target!.spec.windows[i].prompt = prompt; });
+    next.segment_windows = JSON.stringify(target.spec);
+  } else if (target.kind === "lines") {
+    next.segment_prompts = target.prompts.join("\n");
+  } else {
+    next.global_prompt = target.prompts[0];
+  }
+  return next;
+}
+
 /** Submit in the background; the entry tells the UI how it goes. */
 function startRun(app: App, values: Values, preset?: string, requestKey?: string, owner?: string, meta?: {render?:Record<string,unknown>;lineage?:Record<string,unknown>}) {
   if(requestKey){const old=history.findRequest(requestKey, owner);if(old){if(old.app!==app.id)throw new InputError("Idempotency key belongs to another app");return history.view(old);}}
@@ -260,7 +335,14 @@ function startRun(app: App, values: Values, preset?: string, requestKey?: string
     try {
       await inference.run(app.name, async () => {
         await native.unload();
-        const job = await getRunner().submit(app, values, preset);
+        let runValues = values;
+        const enhancer = byId.get("prompt-enhancer");
+        if (enhancer && app.inputs.some((input) => input.id === "prompt_enhancer") && values.prompt_enhancer === true) {
+          runValues = await enhanceDirectorValues(app, values, getRunner(), enhancer);
+          history.updateValues(entry, runValues);
+        }
+        // The preflight already rewrote the prompts; keep the inline branch off.
+        const job = await getRunner().submit(app, { ...runValues, prompt_enhancer: false }, preset);
         const following = history.follow(entry, job);
         if(controller.signal.aborted) await history.cancel(entry.id);
         contact();

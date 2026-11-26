@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-h3",
   "status": "ready",
-  "summary": "Pika Flex locked: lcm + 6-step sigmas, Material Planner segments, ordered refs, sound. ref2va or fl2va adapter (plain text2v). Text encoder selectable.",
+  "summary": "Pika Flex locked: lcm + 6-step sigmas, Material Planner segments, auto/ref2va/fl2va adapter, Production profiles and optional RelayVSR.",
   "higgsfield_feature": "AI Director",
   "source": {
     "template": "RiverField_Director_studio.json (Pika-locked variant)",
@@ -41,9 +41,19 @@
         {
           "node": "rfplan",
           "field": "image1"
+        },
+        {
+          "node": "enh_img1",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image1"
+        }
+      ]
     },
     {
       "id": "image2",
@@ -58,9 +68,19 @@
         {
           "node": "rfplan",
           "field": "image2"
+        },
+        {
+          "node": "enh_img2",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image2"
+        }
+      ]
     },
     {
       "id": "image3",
@@ -75,9 +95,19 @@
         {
           "node": "rfplan",
           "field": "image3"
+        },
+        {
+          "node": "enh_img3",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image3"
+        }
+      ]
     },
     {
       "id": "image4",
@@ -92,9 +122,19 @@
         {
           "node": "rfplan",
           "field": "image4"
+        },
+        {
+          "node": "enh_img4",
+          "field": "image"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image4"
+        }
+      ]
     },
     {
       "id": "image5",
@@ -194,9 +234,19 @@
         {
           "node": "rfplan",
           "field": "video1"
+        },
+        {
+          "node": "enh_vid1",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video1"
+        }
+      ]
     },
     {
       "id": "video2",
@@ -211,9 +261,19 @@
         {
           "node": "rfplan",
           "field": "video2"
+        },
+        {
+          "node": "enh_vid2",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video2"
+        }
+      ]
     },
     {
       "id": "video3",
@@ -228,9 +288,19 @@
         {
           "node": "rfplan",
           "field": "video3"
+        },
+        {
+          "node": "enh_vid3",
+          "field": "file"
         }
       ],
-      "hidden": true
+      "hidden": true,
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video3"
+        }
+      ]
     },
     {
       "id": "audio1",
@@ -330,11 +400,47 @@
       "help": "Used by every segment when ALL segment prompts are empty. Finite sampling requires a local prompt for every segment once any local prompt is supplied.",
       "bind": [
         {
-          "node": "rfplan",
-          "field": "global_prompt"
+          "node": "prompt_source",
+          "field": "value"
         }
       ],
       "hidden": true
+    },
+    {
+      "id": "prompt_enhancer",
+      "type": "toggle",
+      "label": "Enhance prompt with Qwen3.8",
+      "default": false,
+      "help": "Off by default. When on, Qwen3.8 rewrites the global prompt and every Material Planner segment in order with the matching Pika writer guide (Ref2VA or FL2VA), feeding the previous scenes as context and telling the writer which segment it is enhancing. Segment timing and reference assignments are preserved.",
+      "bind": [
+        {
+          "node": "enh_on",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "enhancer_model",
+      "type": "select",
+      "label": "Prompt enhancer model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8 27B W4A8 — balanced"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8 27B Heretic W4A8 — uncensored"
+        }
+      ],
+      "help": "Local text model used only when the prompt enhancer is on.",
+      "bind": [
+        {
+          "node": "enh_clip",
+          "field": "clip_name"
+        }
+      ]
     },
     {
       "id": "duration",
@@ -425,8 +531,12 @@
       "id": "flex_mode",
       "type": "select",
       "label": "Pika Flex adapter",
-      "default": "ref2va",
+      "default": "auto",
       "options": [
+        {
+          "value": "auto",
+          "label": "auto — references if present, text-only otherwise"
+        },
         {
           "value": "ref2va",
           "label": "ref2va — references → video (needs a picture or a clip)",
@@ -440,6 +550,11 @@
               "node": "40",
               "field": "lora_name",
               "value": "pika_h3_flex_ref2va_v1_bf16.safetensors"
+            },
+            {
+              "node": "enh_ref",
+              "field": "value",
+              "value": true
             }
           ]
         },
@@ -456,11 +571,16 @@
               "node": "40",
               "field": "lora_name",
               "value": "pika_h3_flex_fl2va_v1_bf16.safetensors"
+            },
+            {
+              "node": "enh_ref",
+              "field": "value",
+              "value": false
             }
           ]
         }
       ],
-      "help": "The Pika Flex LoRA and the H3 model it was distilled for always move together. ref2va is the omni-reference model: it wants at least one picture or clip in the bin. fl2va is the text / first-last model: with an empty bin the planner encodes the run as pure text-to-video. The lcm sampler and the 6-step sigma ladder are the same for both."
+      "help": "auto follows the material bin: references use ref2va, an empty bin uses fl2va. Explicit ref2va still requires a picture or clip; explicit fl2va still requires an empty bin. The Pika Flex LoRA and H3 model move together; lcm and the 6-step sigma ladder stay locked."
     },
     {
       "id": "aspect",
@@ -521,6 +641,157 @@
         {
           "node": "41",
           "field": "megapixels"
+        }
+      ]
+    },
+    {
+      "id": "render_profile",
+      "type": "select",
+      "label": "Render profile",
+      "options": [
+        {
+          "value": "build",
+          "label": "Build & Test — 0.1 MP, no upscale"
+        },
+        {
+          "value": "production",
+          "label": "Production — 0.4 MP default, optional RelayVSR"
+        }
+      ],
+      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_megapixels",
+      "type": "slider",
+      "label": "Production resolution (MP)",
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.4,
+      "help": "Remembered Production generation resolution. Build & Test never reads it and never changes it.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_upscale",
+      "type": "select",
+      "label": "Production upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "Off — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "X2 — 2× linear, 4× pixel area"
+        },
+        {
+          "value": "x4",
+          "label": "X4 — 4× linear, 16× pixel area"
+        }
+      ],
+      "help": "Remembered Production RelayVSR choice. Build & Test always disables upscaling without changing this preference.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_upscale_detail",
+      "type": "slider",
+      "label": "Production upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "Remembered RelayVSR decoder detail for Production.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "upscale",
+      "type": "select",
+      "label": "Upscale",
+      "default": "",
+      "hidden": true,
+      "options": [
+        {
+          "value": "",
+          "label": "None — native model resolution",
+          "sets": [
+            {
+              "node": "vsr_switch",
+              "field": "switch",
+              "value": false
+            }
+          ]
+        },
+        {
+          "value": "x2",
+          "label": "2× — RelayVSR x2 (lightx2v DIT + Flash VAE)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x2_lightx2v_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x2_fp32.safetensors"
+            },
+            {
+              "node": "vsr_switch",
+              "field": "switch",
+              "value": true
+            }
+          ]
+        },
+        {
+          "value": "x4",
+          "label": "4× — RelayVSR x4 (the paper's 4× model)",
+          "sets": [
+            {
+              "node": "vsr_unet",
+              "field": "unet_name",
+              "value": "relayvsr_x4_int8_convrot.safetensors"
+            },
+            {
+              "node": "vsr_vae",
+              "field": "vae_name",
+              "value": "relayvsr_flash_vae_x4_fp32.safetensors"
+            },
+            {
+              "node": "vsr_switch",
+              "field": "switch",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "help": "Optional RelayVSR pass on the director's final clip: the video is decoded, upscaled and re-encoded. None keeps the native result; x4 multiplies pixels by 16 and is slow.",
+      "bypass": [
+        {
+          "node": "vsr_switch",
+          "field": "on_false"
+        }
+      ]
+    },
+    {
+      "id": "upscale_detail",
+      "type": "slider",
+      "label": "Upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "hidden": true,
+      "help": "RelayVSR: how much of what the Flash decoder adds on top of a plain bicubic upscale is kept. 1 is the full model output, lower is calmer and closer to the source.",
+      "bind": [
+        {
+          "node": "vsr_decode",
+          "field": "detail"
         }
       ]
     },
@@ -615,6 +886,203 @@
         {
           "node": "42",
           "field": "sparsity_ratio"
+        }
+      ]
+    },
+    {
+      "id": "ref_image_size",
+      "type": "select",
+      "label": "Reference image size",
+      "default": "match",
+      "options": [
+        {
+          "value": "match",
+          "label": "Match the output"
+        },
+        {
+          "value": "max",
+          "label": "Native maximum"
+        }
+      ],
+      "bind": [
+        {
+          "node": "30",
+          "field": "ref_image_size"
+        }
+      ]
+    },
+    {
+      "id": "block_size",
+      "type": "select",
+      "label": "Sparse block size",
+      "default": "64",
+      "options": [
+        {
+          "value": "32",
+          "label": "32"
+        },
+        {
+          "value": "64",
+          "label": "64"
+        },
+        {
+          "value": "128",
+          "label": "128"
+        }
+      ],
+      "bind": [
+        {
+          "node": "42",
+          "field": "block_size"
+        }
+      ]
+    },
+    {
+      "id": "min_seq_len",
+      "type": "slider",
+      "label": "Sparse from (tokens)",
+      "min": 0,
+      "max": 65536,
+      "step": 1024,
+      "default": 8192,
+      "bind": [
+        {
+          "node": "42",
+          "field": "min_seq_len"
+        }
+      ]
+    },
+    {
+      "id": "dense_last_steps",
+      "type": "slider",
+      "label": "Dense last steps",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "default": 0,
+      "bind": [
+        {
+          "node": "42",
+          "field": "dense_last_steps"
+        }
+      ]
+    },
+    {
+      "id": "dense_steps",
+      "type": "text",
+      "label": "Extra dense step indices",
+      "default": "",
+      "help": "Comma-separated step numbers that must run dense, e.g. 0,3.",
+      "bind": [
+        {
+          "node": "42",
+          "field": "dense_steps"
+        }
+      ]
+    },
+    {
+      "id": "protect_audio",
+      "type": "toggle",
+      "label": "Protect audio and text prefix",
+      "default": true,
+      "bind": [
+        {
+          "node": "42",
+          "field": "protect_audio"
+        }
+      ]
+    },
+    {
+      "id": "dense_backend",
+      "type": "select",
+      "label": "Dense fallback backend",
+      "default": "comfy_kitchen",
+      "options": [
+        {
+          "value": "pytorch",
+          "label": "pytorch"
+        },
+        {
+          "value": "comfy_kitchen",
+          "label": "comfy_kitchen"
+        },
+        {
+          "value": "sage:auto",
+          "label": "sage:auto"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_cuda",
+          "label": "sage:qk_int8_pv_fp16_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp16_triton",
+          "label": "sage:qk_int8_pv_fp16_triton"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda",
+          "label": "sage:qk_int8_pv_fp8_cuda"
+        },
+        {
+          "value": "sage:qk_int8_pv_fp8_cuda++",
+          "label": "sage:qk_int8_pv_fp8_cuda++"
+        },
+        {
+          "value": "auto",
+          "label": "auto"
+        }
+      ],
+      "bind": [
+        {
+          "node": "42",
+          "field": "dense_backend"
+        }
+      ]
+    },
+    {
+      "id": "disable_fp16_accum",
+      "type": "toggle",
+      "label": "Disable fp16 accumulation",
+      "default": true,
+      "bind": [
+        {
+          "node": "42",
+          "field": "disable_fp16_accum"
+        }
+      ]
+    },
+    {
+      "id": "stabilize_motion",
+      "type": "toggle",
+      "label": "Stabilize motion across steps",
+      "default": false,
+      "bind": [
+        {
+          "node": "42",
+          "field": "stabilize_motion"
+        }
+      ]
+    },
+    {
+      "id": "h3_cache",
+      "type": "toggle",
+      "label": "H3 residual cache",
+      "default": false,
+      "bind": [
+        {
+          "node": "42",
+          "field": "h3_cache"
+        }
+      ]
+    },
+    {
+      "id": "reference_protection",
+      "type": "toggle",
+      "label": "Reference protection",
+      "default": false,
+      "bind": [
+        {
+          "node": "42",
+          "field": "reference_protection"
         }
       ]
     },
@@ -769,8 +1237,64 @@
       "gb": 0.64,
       "phase": "aux",
       "license": "MiniMax H3 Community License"
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x2_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 5.16,
+      "phase": "denoise",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/RelayVSR",
+      "file": "vae/relayvsr_flash_vae_x4_fp32.safetensors",
+      "dir": "vae",
+      "gb": 0.13,
+      "phase": "decode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "local/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+      "dir": "text_encoders",
+      "gb": 18.0,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "local": true,
+      "optional": true
     }
   ],
   "workflow": "workflow.api.json",
-  "layout": "director"
+  "layout": "director",
+  "notes": " The Pika Director now follows the latest Director shell: Build & Test / Production profiles, optional RelayVSR x2/x4 on the final clip, auto adapter selection for an empty bin, and the shared advanced H3 attention/cache controls. The lcm sampler and six-step sigma ladder remain locked. Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites every Material Planner segment in order with the matching Pika Ref2VA/FL2VA writer guide, feeding previous scenes as context and using supplied pictures/clips."
 }

@@ -6,8 +6,8 @@ import { t, lang } from "./i18n.js";
 import { apps, byId, FEATURED, MODELS, menuGroups, modelOf, usesModel, tagline } from "./catalog.js";
 
 const canHover = window.matchMedia?.("(hover: hover) and (pointer: fine)");
-const OPEN_MS = 90, CLOSE_MS = 180;
-const AIM_MS = 450;   // how long the pointer may rest on its way from a studio link to the open panel
+const OPEN_MS = 90, CLOSE_MS = 700;
+const AIM_MS = 1000;   // how long the pointer may rest on its way from a studio link to the open panel
 
 /** Whether (px, py) is inside the triangle a-b-c (either winding). */
 export function inTriangle(px, py, ax, ay, bx, by, cx, cy) {
@@ -64,16 +64,51 @@ function modelItem(m, menuApps, studio) {
       el("small", {}, m.note[lang === "es" ? 1 : 0])));
 }
 
+function countLabel(n) {
+  return t(n === 1 ? "menu.used1" : "menu.used", { n });
+}
+
+function categoryButton(label, count, list) {
+  const button = el("button", { class: "mm-cat", type: "button", "aria-expanded": "false" },
+    el("span", { class: "mm-cat-name" }, label), el("span", { class: "n" }, count), icon("chevR"));
+  button.addEventListener("click", () => {
+    const open = button.getAttribute("aria-expanded") === "true";
+    if (!open) {
+      // one open section at a time keeps the panel readable and stops it from growing into a second app wall
+      for (const other of (button.closest(".mm")?.querySelectorAll('.mm-cat[aria-expanded="true"]') ?? [])) {
+        if (other === button) continue;
+        other.setAttribute("aria-expanded", "false");
+        const otherList = other.nextElementSibling;
+        if (otherList) otherList.hidden = true;
+      }
+    }
+    button.setAttribute("aria-expanded", String(!open));
+    list.hidden = open;
+  });
+  return button;
+}
+
+function categoryBlock(g) {
+  const list = el("div", { class: "mm-cat-list", hidden: true }, ...g.apps.map(appItem));
+  return el("div", { class: "mm-cat-block" },
+    categoryButton(g.key ? t(g.key) : t("menu.categories"), countLabel(g.apps.length), list), list);
+}
+
 function panelFor(studio) {
   const groups = menuGroups(studio);
   const menuApps = groups.flatMap((g) => g.apps);
   const models = MODELS.map((m, i) => ({ m, i, n: menuApps.filter((a) => usesModel(a, m)).length }))
     .filter((x) => x.n).sort((a, b) => b.n - a.n || a.i - b.i);
   const feats = el("section", { class: "mm-feats" },
-    el("h4", {}, t("menu.features"), el("span", { class: "n" }, t("explore.apps", { n: menuApps.length }))),
-    el("div", { class: `mm-cols${groups.length === 1 ? " one" : ""}` }, ...groups.map((g) => el("div", { class: "mm-group", role: "group", "aria-label": g.key ? t(g.key) : null },
-      g.key ? el("h5", {}, t(g.key)) : null, ...g.apps.map(appItem)))));
-  const mods = models.length ? el("section", { class: "mm-models" }, el("h4", {}, t("menu.models")), ...models.map(({ m }) => modelItem(m, menuApps, studio))) : null;
+    el("h4", {}, t("menu.categories"), el("span", { class: "n" }, t("explore.apps", { n: menuApps.length }))),
+    groups.length > 1
+      ? el("div", { class: "mm-cats" }, ...groups.map(categoryBlock))
+      : el("div", { class: "mm-cols one" }, ...groups[0].apps.map(appItem)));
+  let mods = null;
+  if (models.length) {
+    const modelList = el("div", { class: "mm-model-list", hidden: true }, ...models.map(({ m }) => modelItem(m, menuApps, studio)));
+    mods = el("section", { class: "mm-models" }, categoryButton(t("menu.models"), countLabel(models.length), modelList), modelList);
+  }
   return el("div", { class: `mm-inner mm-${studio}${models.length ? "" : " no-models"}` }, feats, mods);
 }
 
@@ -148,7 +183,7 @@ export function attachMenus(bar, links) {
     a.addEventListener("pointerleave", (e) => { aim = openKey ? { x: e.clientX, y: e.clientY } : null; later(); });
     a.addEventListener("click", close);
     a.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown") { e.preventDefault(); open(key); panel.querySelector(".mm-item")?.focus(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); open(key); panel.querySelector(".mm-item, .mm-cat")?.focus(); }
     });
   }
   panel.addEventListener("pointerenter", () => { clearTimeout(closeTimer); clearTimeout(openTimer); aim = null; });

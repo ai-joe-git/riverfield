@@ -314,5 +314,12 @@
     ],
     "download_gb": 13.16,
     "needs_hf_token": false
+  },
+  "prompt-h3": {
+    "apps": [
+      "prompt-enhancer"
+    ],
+    "download_gb": 17.29,
+    "needs_hf_token": false
   }
 }

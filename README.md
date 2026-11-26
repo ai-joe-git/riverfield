@@ -32,8 +32,9 @@ RiverField adds these apps on top of upstream Freefield. Every app is a folder i
 | `ltx-sequential-director` | **Sequential Director**: separate LTX 2.5 I2V / first-and-last-frame runs chained by each segment's extracted last frame, optional final keyframes, hard cuts with a new start image, approve and regenerate per segment, bounded concat | LTX 2.5 22B distilled int8 | — |
 | `h3-r2v` | The complete H3 reference pipeline: 9 pictures, 3 clips with their sound, 3 audios, all optional, plus optional **RelayVSR x2/x4** | MiniMax H3 | 264 s for 2 s, 4 steps |
 | `h3-r2v-flex` | The official Pika H3 Flex template: reference image(s) to video, **lcm + its 6-step sigma ladder**, 9 pictures / 3 clips / 3 audios | MiniMax H3 int8 | 22 min for a 7.29 s segment at 0.7 MP |
+| `prompt-enhancer` | Standalone **H3 Prompt Generator**: pick T2VA / I2VA / FL2VA / L2VA / Ref2VA first, choose Qwen3.8-27B W4A8 or the uncensored Heretic writer, then add optional pictures and clips. The result is a text file you can copy into any H3 director | Qwen3.8-27B | — |
 | `studio-director` | Free-form H3 director: **Material Planner** timeline (media bin, GEN windows, per-segment prompts and ordered references), Build & Test (0.1 MP) / Production (0.4 MP default) profiles, two-stage sampling, and any model, LoRA, sampler, scheduler or step count. Leave the bin empty for **pure text-to-video** (FL2VA DiT + Pika Flex FL2VA LoRA) | MiniMax H3 int8 | 24.29 s (4 segments) at 0.7 MP in 89 min |
-| `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `ref2va` for references, `fl2va` for plain text-to-video | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
+| `pika-studio-director` | The same panel with the **Pika recipe locked** (lcm + sigmas, imposed models): a wrong preset cannot degrade it. The one model choice is the **Pika Flex adapter**: `auto` follows the bin, `ref2va` uses references and `fl2va` is plain text-to-video; Build & Test / Production profiles and optional **RelayVSR x2/x4** are available, while sampling stays locked | MiniMax H3 int8 | same graph, one 7.29 s segment in 22 min at 0.7 MP |
 | `pika-video` | ComfyUI's **Pika H3 Flex fl2va** template, flattened: one or two optional keyframes (first/last), a prompt and its own sound; **SLA 0.85** (bypassable), default **0.98 MP**, sampling preset (Pika's 6-step ladder or a custom `BasicScheduler`), LoRA/DiT/VAE pickers, optional **RelayVSR 2×/4×** pass on the decoded frames | MiniMax H3 int8 | 1272 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; sitcom example with first frame |
 | `pika-text-to-video` | The same Pika recipe with the keyframe slots empty: **text to video with sound**, SLA 0.85, 0.98 MP, the same sampling/LoRA/DiT/VAE controls and optional **RelayVSR 2×/4×** pass | MiniMax H3 int8 | 1083 s end-to-end for 5.17 s, 0.98 MP + RelayVSR x2 → 2688×1536; animated cook example |
 | `h3-long-shot` | One picture and one prompt into a **single unbroken H3 take** with voice and sound, up to 40 s; no cuts, so the whole clip is one segment; optional **RelayVSR x2/x4**, the full H3 LoRA list, and sampling that follows the LoRA (Pika keeps its 6-step ladder, turbo/distilled LoRAs use their trained steps) | MiniMax H3 int8 | — |
@@ -486,8 +487,9 @@ same workflows as on Modal.
 `npm run serve` opens a studio laid out like the one it rebuilds:
 
 - **Explore**: featured apps as video cards, the studios, and one lab example per app.
-- Pointing at **Image**, **Video** or **Audio** in the top bar opens a menu with every app of that studio, grouped as
-  in the studio, and a column with the open models behind them and how many apps use each.
+- Pointing at **Image**, **Video** or **Audio** in the top bar opens a category menu; **Prompt** and **Directors**
+  are grouped first in Video. Categories expand inside the menu, one at a time, so the panel opens compact; models
+  are a separate collapsible section.
 - **Image** and **Audio**: prompt-first apps. Results fill the page and a floating bar holds the prompt, reference
   images (click **+**, drop or paste them), one chip per setting, the number of generations and **Generate**, which shows
   how long the lab example took on the GPU.
@@ -499,6 +501,9 @@ same workflows as on Modal.
   ordered `<Picture N>` / `<Audio N>` references, a global prompt and the Generate button. With no media in the bin the
   timeline runs **pure text-to-video**; references to a picture or audio whose file is gone are dropped automatically.
   The technical column on the left keeps the model/sampler controls, or only the safe ones in the locked Pika app.
+  H3 directors also expose an **Enhance prompt with Qwen3.8** toggle, off by default; it rewrites the global prompt and
+  every Material Planner segment in order, feeds the previous scenes as context, tells the writer which segment it is
+  enhancing, and can use the supplied pictures and clips. Segment timing and reference assignments are preserved.
   `layout: "director"` in `app.json` is what selects this layout; the panel is `web/js/director.js`.
 - Every app has **History** (what you generated with it), **Library** (the lab example, *Load this example*) and
   **How it works** (models and licenses, VRAM by phase, the download and terminal commands, and *Download the

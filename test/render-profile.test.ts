@@ -65,7 +65,7 @@ function withoutRendering(values: Record<string, unknown>) {
   return copy;
 }
 
-test("the Flash and pi-H3 directors advertise the profile contract; other H3 engines do not inherit it", () => {
+test("the Flash, pi-H3 and Pika directors advertise the profile contract; other H3 engines do not inherit it", () => {
   const capability = renderProfileCapability(flash)!;
   assert.equal(capability.build_megapixels, 0.1);
   assert.equal(capability.production_default_megapixels, 0.4);
@@ -73,9 +73,9 @@ test("the Flash and pi-H3 directors advertise the profile contract; other H3 eng
   assert.equal(capability.generation.max, 3.0);
   assert.deepEqual(capability.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"]);
   assert.deepEqual(renderProfileCapability(piflow)?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "pi-H3 Director exposes RelayVSR");
+  assert.deepEqual(renderProfileCapability(byId("pika-studio-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "Pika Director exposes RelayVSR");
   assert.equal(renderProfileCapability(byId("studio-director"))?.upscale, null, "the generic studio director has no RelayVSR input");
   assert.equal(renderProfileCapability(byId("studio-director"))?.production_default_megapixels, 0.4);
-  assert.equal(renderProfileCapability(byId("pika-studio-director")), null, "the locked Pika flow keeps its own contract");
   assert.equal(renderProfileCapability(byId("ltx-director")), null);
 });
 
