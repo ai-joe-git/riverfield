@@ -1192,3 +1192,26 @@ body.dir-dragging * { cursor: grabbing !important; }
 .prod-analysis-states > div { padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: #090e15; }
 .prod-analysis-states p { margin: 3px 0; line-height: 1.4; }
 @media (max-width: 700px) { .prod-analysis-states { grid-template-columns: 1fr; } }
+/* Asset cards: long official paths and tags must never bleed into a neighbouring card. */
+.prod-asset-card { overflow: hidden; }
+.prod-asset-open { display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; cursor: zoom-in; color: inherit; font: inherit; }
+.prod-asset-open > img, .prod-asset-open > video, .prod-asset-open > .prod-asset-icon { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 8px; background: #05080d; display: block; }
+.prod-asset-open > .prod-asset-icon { display: grid; place-items: center; color: var(--faint); }
+.prod-asset-copy { min-width: 0; overflow: hidden; }
+.prod-asset-copy b, .prod-asset-copy small { display: block; max-width: 100%; }
+.prod-asset-tags { display: flex; gap: 3px; flex-wrap: wrap; min-width: 0; max-width: 100%; overflow: hidden; }
+.prod-asset-tags .tag { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.prod-asset-viewer { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(220px, .8fr); gap: 16px; align-items: start; max-height: 68vh; overflow: auto; }
+.prod-asset-viewer-media { min-width: 0; border-radius: 12px; overflow: hidden; background: #05080d; }
+.prod-asset-viewer-media img, .prod-asset-viewer-media video { width: 100%; max-height: 58vh; object-fit: contain; display: block; background: #05080d; }
+.prod-asset-viewer-media audio { width: 100%; }
+.prod-asset-viewer-icon { min-height: 260px; display: grid; place-items: center; color: var(--faint); }
+.prod-asset-viewer-meta { display: grid; gap: 10px; min-width: 0; }
+.prod-asset-viewer-meta h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.prod-asset-viewer-meta .prod-asset-tags { max-height: 160px; overflow: auto; }
+.prod-asset-viewer-meta .prod-asset-tags .tag { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.prod-asset-viewer-meta dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 10px; margin: 0; font-size: 11px; }
+.prod-asset-viewer-meta dt { color: var(--faint); }
+.prod-asset-viewer-meta dd { margin: 0; color: var(--dim); overflow-wrap: anywhere; }
+.prod-asset-viewer-actions { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px; }
+@media (max-width: 720px) { .prod-asset-viewer { grid-template-columns: 1fr; } }

@@ -324,6 +324,38 @@ function deleteAsset(productionId, asset, onDone) {
   dialog.showModal();
 }
 
+function openAssetViewer(productionId, asset, onDone) {
+  const dialog = modal(asset.label, `${ASSET_FOLDER_LABEL[asset.category || "references"] || asset.category || "References"} · asset viewer`);
+  dialog.classList.add("prod-asset-viewer-dialog");
+  const url = assetUrl(productionId, asset.id);
+  const visual = asset.kind === "image"
+    ? el("img", { src: url, alt: asset.label })
+    : asset.kind === "video"
+      ? el("video", { src: url, controls: true, playsinline: true, preload: "metadata" })
+      : asset.kind === "audio"
+        ? el("audio", { src: url, controls: true, preload: "metadata" })
+        : el("div", { class: "prod-asset-viewer-icon" }, icon("file"));
+  const visibleTags = (asset.tags || []);
+  const meta = el("div", { class: "prod-asset-viewer-meta" },
+    el("h3", {}, asset.label),
+    el("div", { class: "prod-asset-tags" }, ...visibleTags.map((tag) => el("span", { class: "tag dark", title: tag }, tag))),
+    el("dl", {},
+      el("dt", {}, "Folder"), el("dd", {}, ASSET_FOLDER_LABEL[asset.category || "references"] || asset.category || "References"),
+      el("dt", {}, "Kind"), el("dd", {}, asset.kind),
+      asset.sourceRunId ? el("dt", {}, "History run") : null, asset.sourceRunId ? el("dd", {}, asset.sourceRunId) : null,
+      asset.hash ? el("dt", {}, "SHA-256") : null, asset.hash ? el("dd", {}, asset.hash.slice(0, 24) + (asset.hash.length > 24 ? "…" : "")) : null,
+      el("dt", {}, "Indexed"), el("dd", {}, dateLabel(asset.createdAt) || "—")),
+    el("p", { class: "help" }, "The original media file is read in place. Editing metadata, removing this index entry or reusing the image never rewrites or deletes the source."),
+    el("div", { class: "prod-asset-viewer-actions" },
+      el("a", { class: "btn small lime", href: url, download: asset.label || asset.id, target: "_blank", rel: "noopener" }, icon("download"), "Download"),
+      el("button", { class: "btn small ghost", type: "button", onclick: () => { dialog.close(); openAssetEdit(productionId, asset, onDone); } }, icon("sliders"), "Edit"),
+      asset.kind === "image" ? el("button", { class: "btn small ghost", type: "button", onclick: () => { dialog.close(); void editAssetInApp("h3-image-edit", asset); } }, icon("wand"), "p-H3 Edit") : null,
+      el("button", { class: "btn small ghost danger", type: "button", onclick: () => { dialog.close(); deleteAsset(productionId, asset, onDone); } }, icon("trash"), "Remove")));
+  dialog.append(el("div", { class: "prod-asset-viewer" }, el("div", { class: "prod-asset-viewer-media" }, visual), meta),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Close")));
+  dialog.showModal();
+}
+
 function openAssetBuilder(productionId) {
   const dialog = modal("Build a production asset", "Generate an image with H3 Image. A successful run is indexed automatically in the selected production folder.");
   const label = field("Asset label", "");
@@ -1068,17 +1100,23 @@ export function productionView(productionId) {
   }
 
   function assetCard(asset) {
-    return el("article", { class: "prod-asset-card" },
-      asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id), alt: asset.label, loading: "lazy" })
-        : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id), muted: true, preload: "metadata" })
-          : el("div", { class: "prod-asset-icon" }, icon("audio")),
-      el("div", { class: "prod-asset-copy" }, el("b", {}, asset.label),
-        el("small", {}, `${ASSET_FOLDER_LABEL[asset.category || "references"] || asset.category}${asset.sourceRunId ? ` · ${asset.sourceRunId}` : ""}`),
-        asset.tags?.length ? el("span", { class: "prod-asset-tags" }, ...asset.tags.map((tag) => el("span", { class: "tag dark" }, tag))) : null),
+    const media = asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id), alt: asset.label, loading: "lazy" })
+      : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id), muted: true, preload: "metadata" })
+        : el("div", { class: "prod-asset-icon" }, icon(asset.kind === "audio" ? "audio" : "file"));
+    const visibleTags = (asset.tags || []).filter((tag) => !tag.startsWith("Assets/") && !tag.startsWith("official-category:"));
+    const card = el("article", { class: "prod-asset-card" },
+      el("button", { class: "prod-asset-open", type: "button", title: `Open ${asset.label}`, "aria-label": `Open ${asset.label}` }, media),
+      el("div", { class: "prod-asset-copy" }, el("b", { title: asset.label }, asset.label),
+        el("small", { title: asset.sourceRunId || "" }, `${ASSET_FOLDER_LABEL[asset.category || "references"] || asset.category}${asset.sourceRunId ? ` · ${asset.sourceRunId}` : ""}`),
+        visibleTags.length ? el("span", { class: "prod-asset-tags" }, ...visibleTags.slice(0, 5).map((tag) => el("span", { class: "tag dark", title: tag }, tag)),
+          visibleTags.length > 5 ? el("span", { class: "tag dark", title: visibleTags.slice(5).join(", ") }, `+${visibleTags.length - 5}`) : null) : null),
       el("div", { class: "prod-asset-actions" },
+        el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetViewer(productionId, asset, reload) }, icon("eye"), "View"),
         el("button", { class: "btn small ghost", type: "button", onclick: () => openAssetEdit(productionId, asset, reload) }, icon("sliders"), "Edit"),
         asset.kind === "image" ? el("button", { class: "btn small ghost", type: "button", onclick: () => void editAssetInApp("h3-image-edit", asset) }, icon("wand"), "p-H3 Edit") : null,
         el("button", { class: "btn small ghost danger", type: "button", onclick: () => deleteAsset(productionId, asset, reload) }, icon("trash"), "Remove")));
+    card.addEventListener("click", (event) => { if (event.target.closest?.(".prod-asset-actions")) return; openAssetViewer(productionId, asset, reload); });
+    return card;
   }
 
   function historyPanel(snap) {
