@@ -327,6 +327,16 @@ export class Runner {
     this.comfy = new Comfy({ apiKey: this.token, clientInfo: "riverfield", fetch: opts.fetch });
   }
 
+  /** Lightweight reachability check before creating a history entry. */
+  async ping(): Promise<void> {
+    try {
+      await this.doFetch(this.baseUrl, { signal: AbortSignal.timeout(5000) });
+    } catch (error) {
+      const code = typeof (error as { cause?: { code?: string } })?.cause?.code === "string" ? ` (${(error as { cause: { code: string } }).cause.code})` : "";
+      throw new Error(`The media backend at ${new URL(this.baseUrl).origin} is not reachable${code}. Start the local ComfyUI/gateway backend and retry. No run was created.`);
+    }
+  }
+
   /**
    * Ask the gateway to make room for this app. It compares the model set with the one
    * loaded last and unloads everything from VRAM when they differ. A backend without the

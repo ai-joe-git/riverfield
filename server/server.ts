@@ -762,6 +762,11 @@ const server = createServer(async (req, res) => {
           if (!raw || typeof raw.values !== "object" || raw.values === null || Array.isArray(raw.values)) throw new InputError("Expected values");
           const index = Number.isInteger(raw.index) ? Number(raw.index) : undefined;
           if (raw.all !== true && index === undefined) throw new InputError("Pass index for one segment or all:true for the whole timeline");
+          try {
+            await getRunner().ping();
+          } catch (error) {
+            return send(res, 503, { error: (error as Error).message, code: "BACKEND_UNAVAILABLE" });
+          }
           return send(res, 202, startPromptJob(app, raw.values as Record<string, unknown>, index, raw.all === true));
         }
         if (req.method === "GET" && sub === "prompt-jobs" && arg) {
@@ -928,6 +933,11 @@ const server = createServer(async (req, res) => {
         try {
           const { values, preset, requestKey } = await readValues(app, await toRequest(req));
           const resolved = resolveValues(app, values);
+          try {
+            await getRunner().ping();
+          } catch (error) {
+            return send(res, 503, { error: (error as Error).message, code: "BACKEND_UNAVAILABLE" });
+          }
           view = startRun(app, resolved, preset, requestKey, me, { render: renderMetadataFor(app, resolved) ?? undefined });
         } finally {
           admitting--;

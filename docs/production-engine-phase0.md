@@ -432,3 +432,12 @@ Opening the builder or the image app still launches no inference.
 run-ID form. It shows image, video and audio outputs with their app and timestamp, supports
 search, and adds the clicked output directly to the currently selected production folder.
 Repeated clicks are idempotent and the original History file is never copied or modified.
+
+## Backend availability preflight
+
+The app run route now performs a short reachability check against `COMFY_BASE_URL` before creating
+a History entry. If ComfyUI/gateway is down, the API returns `503 BACKEND_UNAVAILABLE` with the
+exact origin and no history record is created. This prevents a missing local backend from leaving
+misleading failed run cards. The prompt-writer job route uses the same preflight.
+
+This does not wake or start the backend automatically, and it does not launch inference.
