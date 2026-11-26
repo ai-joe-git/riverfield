@@ -124,7 +124,7 @@
         "sys",
         0
       ],
-      "max_length": 6144,
+      "max_length": 4096,
       "sampling_mode": "on",
       "sampling_mode.temperature": 0.1,
       "sampling_mode.top_k": 64,
