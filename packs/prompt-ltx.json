@@ -1,0 +1,23 @@
+{
+  "pack": "prompt-ltx",
+  "apps": [
+    "ltx-prompt-generator"
+  ],
+  "download_gb": 17.29,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": [
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "name": "qwen3.8_27b_w4a8.safetensors",
+      "gated": false,
+      "license": "Apache-2.0",
+      "used_by": [
+        "ltx-prompt-generator"
+      ]
+    }
+  ]
+}

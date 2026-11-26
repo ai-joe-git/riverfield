@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-ltx",
   "status": "ready",
-  "summary": "LTX 2.5 director: shots with their own prompts, native audio, keyframes, motion guides and custom audio, optional reference sheet, 8-step or 3-step draft.",
+  "summary": "LTX 2.5 director: per-shot prompts, native audio, keyframes, motion guides, reference sheet, RelayVSR and Qwen3.8 prompt writing.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "LTX_2_5_Director_CS.json (CGlide/LTX-2.5-Director) + LTX_Director_2_Workflow_Distilled.json (WhatDreamsCost)",
@@ -104,6 +104,25 @@
       "phase": "aux",
       "license": "Apache-2.0",
       "optional": true
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "local/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+      "dir": "text_encoders",
+      "gb": 18.0,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "local": true,
+      "optional": true
     }
   ],
   "higgsfield_feature": "AI Director",
@@ -113,7 +132,7 @@
       "commit": "17aa8bc3e6dcebb8ebcd7265a04f3750c12ee1d7"
     }
   ],
-  "notes": "Two installs are required on top of this repo: the timeline pack custom_nodes/LTX-2.5-Director (CGlide, the 2.5 build of WhatDreamsCost's LTX Director, nodes LTXDirectorCS25 / LTXDirectorGuideCS25) patched with local/patch-ltx-director-iclora.py, and custom_nodes/riverfield-ltx-planner (copied from local/custom_nodes/). The patch adds an optional STRING socket (ic_lora_override) that wins over the ic_lora_name combo: ComfyUI refuses to link a STRING into a combo, so without it a reference mode needs a second app. The planner wires 'None' or the chosen reference LoRA there. A reference sheet is turned into a still clip held on every frame (the motion track only reads video files) and put on the motion track; the guide node applies the LoRA itself. Empty per-shot prompts fall back to the global prompt inside the Director. Audio is generated in the same pass as the video (LTXVConcatAVLatent).",
+  "notes": "Two installs are required on top of this repo: the timeline pack custom_nodes/LTX-2.5-Director (CGlide, the 2.5 build of WhatDreamsCost's LTX Director, nodes LTXDirectorCS25 / LTXDirectorGuideCS25) patched with local/patch-ltx-director-iclora.py, and custom_nodes/riverfield-ltx-planner (copied from local/custom_nodes/). The patch adds an optional STRING socket (ic_lora_override) that wins over the ic_lora_name combo: ComfyUI refuses to link a STRING into a combo, so without it a reference mode needs a second app. The planner wires 'None' or the chosen reference LoRA there. A reference sheet is turned into a still clip held on every frame (the motion track only reads video files) and put on the motion track; the guide node applies the LoRA itself. Empty per-shot prompts fall back to the global prompt inside the Director. Audio is generated in the same pass as the video (LTXVConcatAVLatent). Optional Qwen3.8 prompt enhancement is disabled by default; when enabled it rewrites the global LTX prompt and every Material Planner segment with the official LTX 2.5 prompting-guide structure (flowing cinematic paragraphs, explicit prose cuts, quoted dialogue). Segment timing and reference assignments stay unchanged. Build & Test / Production profiles and production RelayVSR preferences are available alongside the Qwen3.8 LTX prompt writer.",
   "layout": "director",
   "panel_title": "LTX Director",
   "inputs": [
@@ -142,8 +161,44 @@
       "help": "Scene, characters, style. Anchors every shot and is reused by shots whose own prompt is empty.",
       "bind": [
         {
-          "node": "rfplan",
-          "field": "global_prompt"
+          "node": "prompt_source",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "prompt_enhancer",
+      "type": "toggle",
+      "label": "Enhance prompt with Qwen3.8",
+      "default": false,
+      "help": "Off by default. When on, Qwen3.8 rewrites the global LTX prompt and every Material Planner segment in order, feeding previous scenes as context. It follows the LTX 2.5 prompting guide: flowing cinematic paragraphs, explicit prose cuts, no shot lists. Segment timing and references are preserved.",
+      "bind": [
+        {
+          "node": "enh_on",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "enhancer_model",
+      "type": "select",
+      "label": "Prompt enhancer model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8 27B W4A8 — balanced"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8 27B Heretic W4A8 — uncensored"
+        }
+      ],
+      "help": "Local text model used only when the prompt enhancer is on.",
+      "bind": [
+        {
+          "node": "enh_clip",
+          "field": "clip_name"
         }
       ]
     },
@@ -216,6 +271,16 @@
         {
           "node": "rfplan",
           "field": "image1"
+        },
+        {
+          "node": "enh_img1",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image1"
         }
       ]
     },
@@ -233,6 +298,16 @@
         {
           "node": "rfplan",
           "field": "image2"
+        },
+        {
+          "node": "enh_img2",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image2"
         }
       ]
     },
@@ -250,6 +325,16 @@
         {
           "node": "rfplan",
           "field": "image3"
+        },
+        {
+          "node": "enh_img3",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image3"
         }
       ]
     },
@@ -267,6 +352,16 @@
         {
           "node": "rfplan",
           "field": "image4"
+        },
+        {
+          "node": "enh_img4",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "images.image4"
         }
       ]
     },
@@ -284,6 +379,16 @@
         {
           "node": "rfplan",
           "field": "video1"
+        },
+        {
+          "node": "enh_vid1",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video1"
         }
       ]
     },
@@ -301,6 +406,16 @@
         {
           "node": "rfplan",
           "field": "video2"
+        },
+        {
+          "node": "enh_vid2",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video2"
         }
       ]
     },
@@ -318,6 +433,16 @@
         {
           "node": "rfplan",
           "field": "video3"
+        },
+        {
+          "node": "enh_vid3",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "enh_gen",
+          "field": "videos.video3"
         }
       ]
     },
@@ -466,6 +591,71 @@
           "field": "megapixels"
         }
       ]
+    },
+    {
+      "id": "render_profile",
+      "type": "select",
+      "label": "Render profile",
+      "options": [
+        {
+          "value": "build",
+          "label": "Build & Test — low-MP preview, no upscale"
+        },
+        {
+          "value": "production",
+          "label": "Production — 0.4 MP default, optional RelayVSR"
+        }
+      ],
+      "help": "Explicit Build & Test or Production request. Omitting it keeps the app's legacy manifest settings. Production can optionally use RelayVSR x2/x4.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_megapixels",
+      "type": "slider",
+      "label": "Production resolution (MP)",
+      "min": 0.2,
+      "max": 2.0,
+      "step": 0.1,
+      "default": 0.4,
+      "help": "Remembered Production generation resolution. Build & Test never reads it and never changes it.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_upscale",
+      "type": "select",
+      "label": "Production upscale",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "Off — native model resolution"
+        },
+        {
+          "value": "x2",
+          "label": "X2 — 2× linear, 4× pixel area"
+        },
+        {
+          "value": "x4",
+          "label": "X4 — 4× linear, 16× pixel area"
+        }
+      ],
+      "help": "Remembered Production RelayVSR choice. Build & Test always disables upscaling without changing this preference.",
+      "hidden": true,
+      "derived": true
+    },
+    {
+      "id": "production_upscale_detail",
+      "type": "slider",
+      "label": "Production upscale detail",
+      "min": 0,
+      "max": 1,
+      "step": 0.05,
+      "default": 1,
+      "help": "Remembered RelayVSR decoder detail for Production.",
+      "hidden": true,
+      "derived": true
     },
     {
       "id": "upscale",

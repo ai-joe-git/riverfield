@@ -5,7 +5,7 @@
   "pack": "video-ltx25",
   "status": "ready",
   "higgsfield_feature": "AI Director",
-  "summary": "Segment-by-segment LTX 2.5 director: last frame feeds the next run, optional final keyframes and hard cuts, approve before assembly.",
+  "summary": "LTX 2.5 sequential director: chained segments, last-frame handoff, hard cuts, native audio, RelayVSR, and the Qwen3.8 LTX prompt writer.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "LTX 2.5 video (I2V / first-and-last frame)",
@@ -67,15 +67,6 @@
       "license": "LTX-2.x Community License"
     },
     {
-      "repo": "Comfy-Org/gemma-4",
-      "file": "text_encoders/gemma4_e2b_it_int8_convrot.safetensors",
-      "dir": "text_encoders",
-      "gb": 5.2,
-      "phase": "encode",
-      "license": "Apache-2.0",
-      "optional": true
-    },
-    {
       "repo": "Lightricks/LTX-2.5",
       "file": "vae/ltx-2.5-video-vae-conv-bf16.safetensors",
       "dir": "vae",
@@ -119,6 +110,25 @@
       "phase": "aux",
       "license": "Apache-2.0",
       "optional": true
+    },
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "optional": true
+    },
+    {
+      "repo": "local/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+      "dir": "text_encoders",
+      "gb": 18.0,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "local": true,
+      "optional": true
     }
   ],
   "credits": [
@@ -132,7 +142,7 @@
   },
   "layout": "director",
   "panel_title": "LTX Sequential Director",
-  "notes": "A custom director panel (web/js/sequential.js) drives the chain. Approve each segment before the next dependent segment; a hard cut with a new start image intentionally breaks the handoff. No IC-LoRA is required. Up to 512 segments; assembly is a fast stream-copy concat, so the old 8-input/120-second CPU-editor limit does not apply. The panel project state (prompts, durations, cuts, approvals, history URLs and small start/keyframe images) is kept in browser storage and reconnects to History after a reload. One last-frame image is carried between runs; video/audio context continuation is a later feature. Batch paste accepts one prompt per line with an optional trailing ,N duration suffix (for example ,13 for 13 seconds); blank lines are ignored. Generate all resumes at the first missing or stale segment, keeps finished segments, can stop after the current inference without cancelling it, and reloads History live as each segment lands.",
+  "notes": "A custom director panel (web/js/sequential.js) drives the chain. Approve each segment before the next dependent segment; a hard cut with a new start image intentionally breaks the handoff. No IC-LoRA is required. Up to 512 segments; assembly is a fast stream-copy concat, so the old 8-input/120-second CPU-editor limit does not apply. The panel project state (prompts, durations, cuts, approvals, history URLs and small start/keyframe images) is kept in browser storage and reconnects to History after a reload. One last-frame image is carried between runs; video/audio context continuation is a later feature. Batch paste accepts one prompt per line with an optional trailing ,N duration suffix (for example ,13 for 13 seconds); blank lines are ignored. Generate all resumes at the first missing or stale segment, keeps finished segments, can stop after the current inference without cancelling it, and reloads History live as each segment lands. The native Gemma prompt enhancer was removed. The Qwen3.8 LTX prompt writer is optional; it runs before each segment render with the previous segment prompts as context, or via the Generate prompt / Generate all prompts buttons without starting a video render.",
   "inputs": [
     {
       "id": "image",
@@ -210,38 +220,57 @@
       "allow_empty": true
     },
     {
-      "id": "enhance",
+      "id": "prompt_enhancer",
       "type": "toggle",
-      "label": "Enhance prompt",
-      "default": true,
-      "help": "Rewrite the prompt with the prompt-enhancer model before sampling.",
+      "label": "Enhance prompt with Qwen3.8",
+      "default": false,
+      "help": "Off by default. When on, each segment run first uses the LTX 2.5 Qwen3.8 writer, with the earlier segment prompts supplied as continuity context. It does not add a second video render.",
+      "hidden": false,
       "bind": [
         {
-          "node": "398:383",
+          "node": "seq_enh_on",
           "field": "value"
         }
-      ],
-      "hidden": false
+      ]
     },
     {
-      "id": "enhancer_clip_name",
+      "id": "enhancer_model",
       "type": "select",
       "label": "Prompt enhancer model",
-      "default": "gemma4_e2b_it_int8_convrot.safetensors",
+      "default": "qwen3.8_27b_w4a8.safetensors",
       "options": [
         {
-          "value": "gemma4_e2b_it_int8_convrot.safetensors",
-          "label": "Gemma 4 E2B IT INT8 (4.9 GB)"
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8 27B W4A8 — balanced"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8 27B Heretic W4A8 — uncensored"
         }
       ],
-      "help": "The small Gemma model used by Enhance prompt.",
+      "help": "Local text model used only when the prompt enhancer is on.",
+      "hidden": false,
       "bind": [
         {
-          "node": "398:393",
+          "node": "seq_enh_clip",
           "field": "clip_name"
         }
-      ],
-      "hidden": false
+      ]
+    },
+    {
+      "id": "prompt_context",
+      "type": "text",
+      "label": "Previous scene context",
+      "default": "",
+      "hidden": true,
+      "required": false,
+      "help": "Written by the sequential panel: earlier segment prompts used by the Qwen writer for continuity.",
+      "bind": [
+        {
+          "node": "seq_enh_context",
+          "field": "value"
+        }
+      ]
     },
     {
       "id": "duration",

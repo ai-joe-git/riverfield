@@ -224,6 +224,36 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     for (const [key, value] of Object.entries(f.values)) if (valueInputs.has(key)) values[key] = value;
     return values;
   }
+  const enhancerAvailable = app.inputs.some((input) => input.id === "prompt_enhancer");
+  let promptBusy = false;
+  /** Rewrite one selected segment, or all segments in order. This only runs the Qwen writer,
+   * never the H3 video renderer; all:true is the "Generate all prompts" action. */
+  async function generatePrompts(index, all = false) {
+    if (!enhancerAvailable || promptBusy) return;
+    promptBusy = true;
+    try {
+      const body = all ? { values: projectValues(), all: true } : { values: projectValues(), index };
+      const res = await fetch(`/api/directors/${app.id}/prompts`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `${res.status} ${res.statusText}`);
+      Object.assign(f.values, data.values || {});
+      const parsed = parseState(f);
+      st.windows = parsed.windows;
+      st.videos = parsed.videos;
+      st.audios = parsed.audios;
+      persistState(app, f, st);
+      stateCache.set(app.id, { raw: f.values.segment_windows, state: st });
+      saveDirty();
+      draw();
+      toast(all ? "Prompts generated. Video not started." : `Prompt generated for segment ${selected + 1}. Video not started.`);
+    } catch (err) {
+      toast(`Prompt generation failed: ${err.message}`, { error: true });
+    } finally {
+      promptBusy = false;
+    }
+  }
   function adoptProfile(values) {
     let changed = false;
     for (const [key, value] of Object.entries(values || {})) {
@@ -917,6 +947,9 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
 
     const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "Prompt for this segment (empty: the global prompt is used)", value: w.prompt || "" });
     prompt.addEventListener("input", () => { w.prompt = prompt.value; persistState(app, f, st); saveDirty(); drawTracks(); });
+    const promptBox = el("div", { class: "dir-prompt-box" }, prompt,
+      enhancerAvailable ? el("div", { class: "dir-prompt-tools" },
+        el("button", { type: "button", class: "btn small ghost dir-enhance", title: "Rewrite this segment prompt with Qwen3.8; this does not start the video renderer", onclick: () => void generatePrompts(selected, false) }, icon("spark"), "Generate prompt")) : null);
 
     const imgs = mediaOf(app, f, "image");
     const auds = mediaOf(app, f, "audio");
@@ -1026,7 +1059,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
             if (st.windows[0]) st.windows[0].start = 0;
             changed();
           } }, "Remove"))),
-      prompt,
+      promptBox,
       el("div", { class: "dir-assign" },
         el("span", { class: "dir-assign-lbl" }, "In this segment"),
         el("div", { class: "dir-chips" },
@@ -1246,6 +1279,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     headEl.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"), el("span", {}, app.panel_title || "Material Planner"), el("small", {}, `${st.windows.length} segment${st.windows.length > 1 ? "s" : ""} · ${fmt(totalSeconds())}s · ${totalFrames()} frames`)),
       el("div", { class: "dir-head-right" }, ...[
+        enhancerAvailable ? el("button", { type: "button", class: "dir-toggle", title: "Generate prompts for every segment with Qwen3.8; this does not start the video renderer", onclick: () => void generatePrompts(undefined, true) }, icon("spark"), "Generate all prompts") : null,
         el("button", { type: "button", class: "dir-toggle", onclick: () => openBatch() }, icon("code"), "Paste prompts"),
         settings, two, upscaler, el("div", { class: "dir-zoombox" }, zoomOut, el("span", {}, `${Math.round(zoom)} px/s`), zoomIn),
       ].filter(Boolean)));

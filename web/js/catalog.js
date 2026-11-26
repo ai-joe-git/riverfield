@@ -91,7 +91,7 @@ export function menuGroups(studio) {
   let groups;
   if (studio === "video") {
     // Prompt tools come first, then all Directors together; the other video tabs never duplicate them.
-    const promptApps = pick(["prompt-enhancer"]);
+    const promptApps = pick(["prompt-enhancer", "ltx-prompt-generator"]);
     const directors = apps.filter((a) => inMenu(a) && layoutOf(a) === "director");
     const directorIds = new Set(directors.map((a) => a.id));
     groups = [

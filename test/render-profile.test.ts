@@ -65,7 +65,7 @@ function withoutRendering(values: Record<string, unknown>) {
   return copy;
 }
 
-test("the Flash, pi-H3 and Pika directors advertise the profile contract; other H3 engines do not inherit it", () => {
+test("the H3 directors advertise the profile contract; other H3 engines do not inherit it", () => {
   const capability = renderProfileCapability(flash)!;
   assert.equal(capability.build_megapixels, 0.1);
   assert.equal(capability.production_default_megapixels, 0.4);
@@ -74,9 +74,9 @@ test("the Flash, pi-H3 and Pika directors advertise the profile contract; other 
   assert.deepEqual(capability.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"]);
   assert.deepEqual(renderProfileCapability(piflow)?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "pi-H3 Director exposes RelayVSR");
   assert.deepEqual(renderProfileCapability(byId("pika-studio-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "Pika Director exposes RelayVSR");
-  assert.equal(renderProfileCapability(byId("studio-director"))?.upscale, null, "the generic studio director has no RelayVSR input");
+  assert.deepEqual(renderProfileCapability(byId("studio-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "Studio Director exposes RelayVSR");
   assert.equal(renderProfileCapability(byId("studio-director"))?.production_default_megapixels, 0.4);
-  assert.equal(renderProfileCapability(byId("ltx-director")), null);
+  assert.deepEqual(renderProfileCapability(byId("ltx-director"))?.upscale?.options.map((o: any) => o.value), ["", "x2", "x4"], "LTX Director exposes RelayVSR");
 });
 
 test("Build & Test forces 0.1 MP and disables upscale, without forgetting Production preferences", () => {
@@ -146,7 +146,8 @@ test("Production resolution is adjustable and X2/X4 use the right linear and are
 });
 
 test("a Production request cannot force RelayVSR onto an app that has no upscale input", () => {
-  const noUpscale = byId("studio-director");
+  const studio = byId("studio-director");
+  const noUpscale = { ...studio, inputs: studio.inputs.filter((i) => !["upscale", "upscale_detail", "production_upscale", "production_upscale_detail"].includes(i.id)) };
   assert.throws(
     () => resolveValues(noUpscale, { render_profile: "production", production_megapixels: 0.4, production_upscale: "x2", global_prompt: "x", image1: IMAGE, segment_windows: TIMELINE }),
     /no RelayVSR upscale option/,

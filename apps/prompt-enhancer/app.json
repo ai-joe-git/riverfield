@@ -75,7 +75,7 @@
           ]
         }
       ],
-      "help": "Pick the MiniMax H3 prompt format. Ref2VA uses the full-reference grammar; the other modes use the T2VA/I2VA/FL2VA/L2VA writer. The mode is a format hint: images and videos are passed to the model when supplied."
+      "help": "Pick the MiniMax H3 prompt format. Ref2VA uses the full-reference grammar; T2VA, I2VA, FL2VA and L2VA use the official shared H3 writer. The mode is a format hint: images and videos are passed to the model when supplied."
     },
     {
       "id": "model",
@@ -271,7 +271,7 @@
   ],
   "outputs": [
     {
-      "node": "preview",
+      "node": "save",
       "type": "text",
       "label": "Generated prompt"
     }

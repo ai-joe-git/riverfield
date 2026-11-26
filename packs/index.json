@@ -321,5 +321,12 @@
     ],
     "download_gb": 17.29,
     "needs_hf_token": false
+  },
+  "prompt-ltx": {
+    "apps": [
+      "ltx-prompt-generator"
+    ],
+    "download_gb": 17.29,
+    "needs_hf_token": false
   }
 }

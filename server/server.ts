@@ -256,11 +256,12 @@ async function jobView(id: string) {
  * call. The inline workflow enhancer is deliberately switched off afterwards so
  * the same prompt is not enhanced twice.
  */
-async function enhanceDirectorValues(app: App, values: Values, runner: Runner, enhancer: App): Promise<Values> {
+async function enhanceDirectorValues(app: App, values: Values, runner: Runner, enhancer: App, only?: number): Promise<Values> {
   const next: Values = { ...values };
   type Target =
     | { kind: "windows"; spec: any; prompts: string[] }
     | { kind: "lines"; lines: string[]; prompts: string[] }
+    | { kind: "prompt"; prompts: string[] }
     | { kind: "global"; prompts: string[] };
   let target: Target | null = null;
   let starts: number[] = [];
@@ -277,25 +278,38 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     const lines = next.segment_prompts.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     if (lines.length) target = { kind: "lines", lines, prompts: lines };
   }
+  if (!target && typeof next.prompt === "string" && next.prompt.trim()) {
+    target = { kind: "prompt", prompts: [next.prompt] };
+  }
   if (!target) target = { kind: "global", prompts: [String(next.global_prompt ?? "")] };
   if (!target.prompts.some((p) => p.trim())) return next;
 
-  const mode = app.id === "pika-studio-director" && next.flex_mode === "ref2va" ? "ref2va" : "t2va";
+  const mode = app.id.startsWith("ltx-") ? "t2v" : app.id === "pika-studio-director" && next.flex_mode === "ref2va" ? "ref2va" : "t2va";
   const media: Record<string, unknown> = {};
   for (const id of ["image1", "image2", "image3", "image4", "video1", "video2", "video3"]) {
     if (next[id] !== undefined) media[id] = next[id];
   }
   const model = String(next.enhancer_model || "qwen3.8_27b_w4a8.safetensors");
-  const previous: string[] = [];
-  for (let i = 0; i < target.prompts.length; i++) {
+  const order = only === undefined ? target.prompts.map((_, i) => i) : [only];
+  if (order.some((i) => !Number.isInteger(i) || i < 0 || i >= target.prompts.length)) {
+    throw new InputError(`Prompt enhancer segment must be between 0 and ${target.prompts.length - 1}`);
+  }
+  const done: string[] = [];
+  for (const i of order) {
     const draft = target.prompts[i].trim() || String(next.global_prompt ?? "").trim();
     if (!draft) continue;
     const start = starts[i] ?? 0;
     const end = target.kind === "windows" ? Number(target.spec.windows[i].end) / 24 : null;
     const timing = end !== null ? `Starts at ${start.toFixed(2)} s and lasts ${(end - start).toFixed(2)} s.` : "";
+    // For Generate all, each new scene sees the scenes already rewritten in this run.
+    // For one segment, it sees the earlier prompts already in the timeline.
+    const previous = only === undefined ? done : target.prompts.slice(0, i).filter(Boolean);
+    const suppliedContext = target.kind === "prompt" ? String(next.prompt_context ?? "").trim() : "";
     const context = previous.length
       ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${previous.map((p, n) => `[Segment ${n + 1}] ${p}`).join("\n\n")}`
-      : "This is the first scene in the timeline; there is no previous scene.";
+      : suppliedContext
+        ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${suppliedContext}`
+        : "This is the first scene in the timeline; there is no previous scene.";
     const prompt = [
       `You are writing segment ${i + 1} of ${target.prompts.length} for ${app.name}.`,
       timing,
@@ -311,7 +325,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     });
     if (!text) throw new Error(`Prompt enhancer returned an empty segment ${i + 1}`);
     target.prompts[i] = text;
-    previous.push(text);
+    done.push(text);
   }
 
   if (target.kind === "windows") {
@@ -319,10 +333,30 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
     next.segment_windows = JSON.stringify(target.spec);
   } else if (target.kind === "lines") {
     next.segment_prompts = target.prompts.join("\n");
+  } else if (target.kind === "prompt") {
+    next.prompt = target.prompts[0];
   } else {
     next.global_prompt = target.prompts[0];
   }
   return next;
+}
+
+/** Load the durable Director media into FileValues for a prompt-only enhancement request. */
+function directorMediaValues(app: App, appId: string): Values {
+  const out: Values = {};
+  // Sequential Director keeps its media in browser-local state and has no DirectorStore slots.
+  if (!app.inputs.some((input) => input.id === "segment_windows")) return out;
+  for (const input of app.inputs) {
+    if (!isFileInput(input)) continue;
+    const file = directors.mediaPath(appId, input.id);
+    if (!file) continue;
+    out[input.id] = {
+      bytes: new Uint8Array(readFileSync(file)),
+      name: file.split("/").pop() || input.id,
+      type: input.type === "image" ? "image/png" : input.type === "video" ? "video/mp4" : "audio/wav",
+    };
+  }
+  return out;
 }
 
 /** Submit in the background; the entry tells the UI how it goes. */
@@ -336,7 +370,7 @@ function startRun(app: App, values: Values, preset?: string, requestKey?: string
       await inference.run(app.name, async () => {
         await native.unload();
         let runValues = values;
-        const enhancer = byId.get("prompt-enhancer");
+        const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
         if (enhancer && app.inputs.some((input) => input.id === "prompt_enhancer") && values.prompt_enhancer === true) {
           runValues = await enhanceDirectorValues(app, values, getRunner(), enhancer);
           history.updateValues(entry, runValues);
@@ -443,8 +477,26 @@ const server = createServer(async (req, res) => {
         // Local-only: Director projects contain private media, and hosted demos are per-visitor.
         if (guard.hosted) return send(res, 404, { error: "Director projects are local-only" });
         const app = id ? byId.get(id) : undefined;
-        if (!app || !app.inputs.some((i) => i.id === "segment_windows")) return send(res, 404, { error: "unknown Director app" });
+        // Sequential Director projects are browser-local; the prompt-only endpoint still
+        // accepts them when they expose the Qwen enhancer, without requiring segment_windows.
+        const directorProject = Boolean(app?.inputs.some((i) => i.id === "segment_windows"));
+        const promptTool = Boolean(app?.inputs.some((i) => i.id === "prompt_enhancer"));
+        if (!app || (!directorProject && !promptTool)) return send(res, 404, { error: "unknown Director app" });
         if (req.method === "GET" && !sub) return send(res, 200, directors.view(id!));
+        if (req.method === "POST" && sub === "prompts") {
+          const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
+          if (!enhancer) throw new InputError("Prompt enhancer app is not installed");
+          if (!app.inputs.some((input) => input.id === "prompt_enhancer")) throw new InputError("This Director has no prompt enhancer");
+          const raw = await (await toRequest(req, 24)).json() as { values?: unknown; index?: unknown; all?: unknown };
+          if (!raw || typeof raw.values !== "object" || raw.values === null || Array.isArray(raw.values)) throw new InputError("Expected values");
+          const values: Values = { ...(raw.values as Record<string, unknown>), ...directorMediaValues(app, id!) };
+          const index = Number.isInteger(raw.index) ? Number(raw.index) : undefined;
+          if (raw.all !== true && index === undefined) throw new InputError("Pass index for one segment or all:true for the whole timeline");
+          const enhanced = await enhanceDirectorValues(app, values, getRunner(), enhancer, index);
+          // Never send FileValues back to the browser.
+          for (const input of app.inputs) if (isFileInput(input)) delete enhanced[input.id];
+          return send(res, 200, { values: enhanced });
+        }
         if (req.method === "PUT" && !sub) {
           const raw = await (await toRequest(req, 24)).json() as { values?: unknown; savedAt?: unknown };
           return send(res, 200, directors.saveValues(id!, raw?.values, raw?.savedAt));

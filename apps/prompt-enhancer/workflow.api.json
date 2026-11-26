@@ -187,16 +187,18 @@
       "title": "Video frames 3"
     }
   },
-  "preview": {
-    "class_type": "PreviewAny",
+  "save": {
+    "class_type": "SaveText",
     "inputs": {
-      "source": [
+      "text": [
         "gen",
         0
-      ]
+      ],
+      "filename_prefix": "riverfield/prompt-enhancer",
+      "format": "txt"
     },
     "_meta": {
-      "title": "Prompt"
+      "title": "Save generated prompt"
     }
   }
 }

@@ -92,7 +92,10 @@ function invalidationFrom(st, index) {
 
 function settingsKey(app, f) {
   const values = {};
-  for (const inp of app.inputs) if (!PER_SEGMENT.has(inp.id)) values[inp.id] = f.values[inp.id];
+  for (const inp of app.inputs) {
+    if (PER_SEGMENT.has(inp.id) || ["prompt_enhancer", "enhancer_model", "prompt_context"].includes(inp.id)) continue;
+    values[inp.id] = f.values[inp.id];
+  }
   return JSON.stringify(values);
 }
 
@@ -289,6 +292,47 @@ export function sequentialDirectorView(app, f) {
     refresh();
   }
 
+  const enhancerAvailable = app.inputs.some((input) => input.id === "prompt_enhancer");
+  let promptBusy = false;
+  function promptContextAt(index) {
+    return st.segments.slice(0, index).map((seg, i) => seg.prompt.trim() ? `[Segment ${i + 1}] ${seg.prompt.trim()}` : "").filter(Boolean).join("\n\n");
+  }
+  async function generatePrompt(index, all = false) {
+    if (!enhancerAvailable || promptBusy || st.busyAll) return;
+    promptBusy = true;
+    try {
+      const first = all ? 0 : index;
+      const last = all ? st.segments.length - 1 : index;
+      for (let i = first; i <= last; i += 1) {
+        const seg = st.segments[i];
+        if (!seg.prompt.trim()) continue;
+        const result = await api(`/api/directors/${app.id}/prompts`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ values: {
+            prompt: seg.prompt,
+            prompt_context: promptContextAt(i),
+            enhancer_model: f.values.enhancer_model || defaultOf(app, "enhancer_model", "qwen3.8_27b_w4a8.safetensors"),
+          }, index: 0 }),
+        });
+        if (result?.values?.prompt) {
+          seg.prompt = result.values.prompt;
+          invalidationFrom(st, i);
+        }
+        st.selected = i;
+        persist(st, app);
+        draw();
+      }
+      toast(all ? "LTX prompts generated. No video render was started." : `LTX prompt generated for segment ${index + 1}. No video render was started.`);
+    } catch (e) {
+      toast(`Prompt generation failed: ${e.message}`, { error: true });
+    } finally {
+      promptBusy = false;
+      persist(st, app);
+      draw();
+    }
+  }
+
   function runStopButton() {
     if (st.busyAll) {
       return el("button", {
@@ -308,6 +352,15 @@ export function sequentialDirectorView(app, f) {
         el("span", {}, app.panel_title || "LTX Sequential Director"),
         el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}${st.busyAll ? ` · generating ${st.selected + 1}/${st.segments.length}` : ""}`)),
       el("div", { class: "dir-head-right" },
+        enhancerAvailable ? el("button", { type: "button", class: `dir-toggle${f.values.prompt_enhancer ? " on" : ""}`, title: "Use the Qwen3.8 LTX writer before each segment render", disabled: promptBusy, onclick: () => { f.values.prompt_enhancer = !f.values.prompt_enhancer; persist(st, app); draw(); } }, icon("spark"), "Qwen enhancer") : null,
+        enhancerAvailable ? (() => {
+          const options = app.inputs.find((input) => input.id === "enhancer_model")?.options || [];
+          const sel = el("select", { class: "dir-mini", title: "Prompt enhancer model", disabled: promptBusy }, ...options.map((o) => el("option", { value: o.value }, o.label || o.value)));
+          sel.value = f.values.enhancer_model || defaultOf(app, "enhancer_model", "qwen3.8_27b_w4a8.safetensors");
+          sel.onchange = () => { f.values.enhancer_model = sel.value; persist(st, app); };
+          return sel;
+        })() : null,
+        enhancerAvailable ? el("button", { type: "button", class: "dir-toggle", title: "Generate every segment prompt only; no video render", disabled: promptBusy || st.busyAll, onclick: () => void generatePrompt(0, true) }, icon("spark"), "Generate all prompts") : null,
         el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => openBatch() }, icon("code"), "Paste prompts"),
         runStopButton(),
         el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => {
@@ -443,6 +496,9 @@ export function sequentialDirectorView(app, f) {
     const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "What happens in this segment?", disabled: st.busyAll });
     prompt.value = seg.prompt;
     prompt.addEventListener("input", () => { seg.prompt = prompt.value; invalidationFrom(st, i); persist(st, app); });
+    const promptBox = el("div", { class: "dir-prompt-box" }, prompt,
+      enhancerAvailable ? el("div", { class: "dir-prompt-tools" },
+        el("button", { type: "button", class: "btn small ghost dir-enhance", title: "Rewrite this segment with Qwen3.8; no video render", disabled: st.busyAll || promptBusy, onclick: () => void generatePrompt(i, false) }, icon("spark"), "Generate prompt")) : null);
 
     const firstChip = i === 0
       ? mediaChip(st.start ? "Start image" : "Choose start image", st.startUrl, {
@@ -496,7 +552,7 @@ export function sequentialDirectorView(app, f) {
         el("span", { class: "dir-seg-time" }, `${fmt(startAt)}s → ${fmt(endAt)}s`),
         el("div", { class: "dir-seg-actions" },
           el("span", { class: "tag dark" }, status), generate, approve, remove)),
-      prompt,
+      promptBox,
       el("div", { class: "dir-assign" },
         el("span", { class: "dir-assign-lbl" }, "First frame"), el("div", { class: "dir-chips" }, firstChip),
         el("span", { class: "dir-assign-lbl" }, "Final keyframe"), el("div", { class: "dir-chips" }, keyframe),
@@ -584,6 +640,8 @@ export function sequentialDirectorView(app, f) {
       fd.append("prompt", seg.prompt.trim() || "Continue the shot.");
       fd.append("duration", String(seg.duration));
       fd.append("last_frame_export", "true");
+      const previousPrompts = promptContextAt(i);
+      if (previousPrompts) fd.append("prompt_context", previousPrompts);
       for (const inp of app.inputs) {
         if (PER_SEGMENT.has(inp.id)) continue;
         const v = f.values[inp.id];

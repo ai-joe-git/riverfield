@@ -979,3 +979,8 @@ body.dir-dragging * { cursor: grabbing !important; }
 .text-output { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; color: #dce7f5; }
 .media.text { display: grid; place-items: center; min-height: 150px; background: linear-gradient(145deg, #101a28, #0b0f16); }
 .media.text .typeicon { position: static; width: 34px; height: 34px; color: var(--blue); background: transparent; }
+
+/* Director prompt generation: Qwen rewrites this segment without starting the video renderer */
+.dir-prompt-box { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.dir-prompt-tools { display: flex; align-items: flex-start; }
+.dir-enhance { white-space: nowrap; height: 30px; padding: 0 10px; font-size: 12px; }

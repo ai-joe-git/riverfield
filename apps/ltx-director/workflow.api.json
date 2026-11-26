@@ -616,7 +616,10 @@
     "class_type": "RiverFieldLTXPlanner",
     "inputs": {
       "segment_windows": "",
-      "global_prompt": "",
+      "global_prompt": [
+        "enh_switch",
+        0
+      ],
       "duration": 5.0,
       "fps": 25.0,
       "reference_sheet": "",
@@ -770,6 +773,223 @@
     },
     "_meta": {
       "title": "RelayVSR decode"
+    }
+  },
+  "prompt_source": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": ""
+    },
+    "_meta": {
+      "title": "LTX global prompt source"
+    }
+  },
+  "enh_on": {
+    "class_type": "PrimitiveBoolean",
+    "inputs": {
+      "value": false
+    },
+    "_meta": {
+      "title": "LTX prompt enhancer on/off"
+    }
+  },
+  "enh_clip": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3.8_27b_w4a8.safetensors",
+      "type": "stable_diffusion",
+      "device": "default"
+    },
+    "_meta": {
+      "title": "Qwen3.8 LTX prompt model"
+    }
+  },
+  "enh_sys": {
+    "class_type": "PrimitiveStringMultiline",
+    "inputs": {
+      "value": "You are the prompt writer for LTX-2.5 video generation. Rewrite the user's text into a production-ready LTX prompt.\n\nWrite one flowing present-tense paragraph, normally 4-8 descriptive sentences for a single shot. Establish the shot scale and composition, the lighting and one coherent light logic, surfaces and atmosphere, and the character(s), then describe the action moment to moment with physical cues rather than abstract mood labels. Specify camera movement relative to the subject and describe ambient sound, music and speech; keep spoken dialogue in quotation marks and preserve its language, names and exact wording. For multiple shots, write one chronological paragraph, name each cut or transition in prose, re-establish the new framing and subjects after every cut, and state audio continuity. Do not use shot lists, numbered beats, screenplay sluglines or timestamp tags. Keep the scene focused and physically plausible; keep on-screen text short and prominent. Return only the final LTX prompt, without analysis, headings, Markdown or commentary."
+    },
+    "_meta": {
+      "title": "LTX prompting guide"
+    }
+  },
+  "enh_gen": {
+    "class_type": "TextGenerateV2",
+    "inputs": {
+      "clip": [
+        "enh_clip",
+        0
+      ],
+      "prompt": [
+        "prompt_source",
+        0
+      ],
+      "system_prompt": [
+        "enh_sys",
+        0
+      ],
+      "max_length": 4096,
+      "sampling_mode": "on",
+      "sampling_mode.temperature": 0.7,
+      "sampling_mode.top_k": 64,
+      "sampling_mode.top_p": 0.95,
+      "sampling_mode.min_p": 0.05,
+      "sampling_mode.repetition_penalty": 1.05,
+      "sampling_mode.presence_penalty": 0,
+      "sampling_mode.seed": 0,
+      "thinking": false,
+      "use_default_template": true,
+      "mtp": "auto",
+      "images.image1": [
+        "enh_img1",
+        0
+      ],
+      "images.image2": [
+        "enh_img2",
+        0
+      ],
+      "images.image3": [
+        "enh_img3",
+        0
+      ],
+      "images.image4": [
+        "enh_img4",
+        0
+      ],
+      "videos.video1": [
+        "enh_vid1c",
+        0
+      ],
+      "videos.video2": [
+        "enh_vid2c",
+        0
+      ],
+      "videos.video3": [
+        "enh_vid3c",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Qwen3.8 LTX prompt writer"
+    }
+  },
+  "enh_switch": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "prompt_source",
+        0
+      ],
+      "on_true": [
+        "enh_gen",
+        0
+      ],
+      "switch": [
+        "enh_on",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "Use enhanced or original LTX prompt"
+    }
+  },
+  "enh_img1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "LTX prompt reference picture 1"
+    }
+  },
+  "enh_img2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "LTX prompt reference picture 2"
+    }
+  },
+  "enh_img3": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "LTX prompt reference picture 3"
+    }
+  },
+  "enh_img4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference.png"
+    },
+    "_meta": {
+      "title": "LTX prompt reference picture 4"
+    }
+  },
+  "enh_vid1": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "reference.mp4"
+    },
+    "_meta": {
+      "title": "LTX prompt reference video 1"
+    }
+  },
+  "enh_vid1c": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "enh_vid1",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX prompt video frames 1"
+    }
+  },
+  "enh_vid2": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "reference.mp4"
+    },
+    "_meta": {
+      "title": "LTX prompt reference video 2"
+    }
+  },
+  "enh_vid2c": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "enh_vid2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX prompt video frames 2"
+    }
+  },
+  "enh_vid3": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "reference.mp4"
+    },
+    "_meta": {
+      "title": "LTX prompt reference video 3"
+    }
+  },
+  "enh_vid3c": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "enh_vid3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "LTX prompt video frames 3"
     }
   }
 }

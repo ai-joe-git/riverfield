@@ -416,8 +416,11 @@ export class Runner {
    */
   async generateText(app: App, rawValues: Values): Promise<string> {
     const job = await this.submit(app, rawValues);
-    await job.wait(10 * 60 * 1000);
-    const output = job.outputs.find((o) => o.type === "text" || /\.txt$/i.test(o.name));
+    // No deadline: the user explicitly wants the writer to finish even when a
+    // full timeline takes longer than ten minutes.
+    await job.wait();
+    if (job.status !== "succeeded") throw new Error(`${app.id} ended ${job.status}`);
+    const output = job.outputs.find((o) => o.type === "text" || /\.txt$/i.test(o.name)) ?? job.outputs[0];
     if (!output) throw new Error(`${app.id} returned no text output`);
     return new TextDecoder().decode(await output.toBytes()).trim();
   }

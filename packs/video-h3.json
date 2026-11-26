@@ -97,7 +97,8 @@
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video",
-        "pika-studio-director"
+        "pika-studio-director",
+        "studio-director"
       ]
     },
     {
@@ -118,7 +119,8 @@
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video",
-        "pika-studio-director"
+        "pika-studio-director",
+        "studio-director"
       ]
     },
     {
@@ -361,7 +363,8 @@
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video",
-        "pika-studio-director"
+        "pika-studio-director",
+        "studio-director"
       ]
     },
     {
@@ -382,7 +385,8 @@
         "h3-video-turbo",
         "pika-text-to-video",
         "pika-video",
-        "pika-studio-director"
+        "pika-studio-director",
+        "studio-director"
       ]
     }
   ]

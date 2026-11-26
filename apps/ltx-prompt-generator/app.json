@@ -1,0 +1,300 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "ltx-prompt-generator",
+  "name": "LTX 2.5 Prompt Generator",
+  "section": "video",
+  "pack": "prompt-ltx",
+  "status": "ready",
+  "summary": "A standalone Qwen3.8 prompt writer for LTX 2.5: T2V, I2V, first-frame, last-frame and first/last anchors, with optional image and clip guidance.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "Minimax h3 prompt Generator.json (LTX adaptation)",
+    "comfyui": "0.46.0",
+    "notes": "Clone of the standalone H3 prompt writer, with the LTX 2.5 prompting guide as its system prompt. TextGenerateV2 receives text, optional images and optional video frames; SaveText stores the generated prompt. Modes follow the official LTX prompting guide: flowing cinematic paragraphs, explicit prose cuts for multi-shot scenes, quoted dialogue, no shot lists or screenplay sluglines."
+  },
+  "inputs": [
+    {
+      "id": "prompt_mode",
+      "type": "select",
+      "label": "LTX prompt mode",
+      "default": "t2v",
+      "options": [
+        {
+          "value": "t2v",
+          "label": "T2V — text to video",
+          "sets": [
+            {
+              "node": "sys",
+              "field": "value",
+              "value": "You are the prompt writer for LTX-2.5 video generation. Rewrite the user's text into a production-ready LTX prompt.\n\nWrite one flowing present-tense paragraph, normally 4-8 descriptive sentences for a single shot. Establish the shot scale and composition, the lighting and one coherent light logic, surfaces and atmosphere, and the character(s), then describe the action moment to moment with physical cues rather than abstract mood labels. Specify camera movement relative to the subject and describe ambient sound, music and speech; keep spoken dialogue in quotation marks and preserve its language, names and exact wording. For multiple shots, write one chronological paragraph, name each cut or transition in prose, re-establish the new framing and subjects after every cut, and state audio continuity. Do not use shot lists, numbered beats, screenplay sluglines or timestamp tags. Keep the scene focused and physically plausible; keep on-screen text short and prominent. Return only the final LTX prompt, without analysis, headings, Markdown or commentary.\n\nThis request is LTX 2.5 text-to-video: construct the complete shot from text. No image is required; keep the visual continuity and audio described in the prompt."
+            }
+          ]
+        },
+        {
+          "value": "i2v",
+          "label": "I2V — image to video (first frame)",
+          "sets": [
+            {
+              "node": "sys",
+              "field": "value",
+              "value": "You are the prompt writer for LTX-2.5 video generation. Rewrite the user's text into a production-ready LTX prompt.\n\nWrite one flowing present-tense paragraph, normally 4-8 descriptive sentences for a single shot. Establish the shot scale and composition, the lighting and one coherent light logic, surfaces and atmosphere, and the character(s), then describe the action moment to moment with physical cues rather than abstract mood labels. Specify camera movement relative to the subject and describe ambient sound, music and speech; keep spoken dialogue in quotation marks and preserve its language, names and exact wording. For multiple shots, write one chronological paragraph, name each cut or transition in prose, re-establish the new framing and subjects after every cut, and state audio continuity. Do not use shot lists, numbered beats, screenplay sluglines or timestamp tags. Keep the scene focused and physically plausible; keep on-screen text short and prominent. Return only the final LTX prompt, without analysis, headings, Markdown or commentary.\n\nThis request is LTX 2.5 image-to-video: Picture 1 is the opening frame at 0.00 seconds. Begin from its composition, subject, lighting and style, then develop a continuous, physically plausible action forward. Preserve identity, clothing, layout and light unless the user explicitly changes them."
+            }
+          ]
+        },
+        {
+          "value": "first_frame",
+          "label": "First frame anchor",
+          "sets": [
+            {
+              "node": "sys",
+              "field": "value",
+              "value": "You are the prompt writer for LTX-2.5 video generation. Rewrite the user's text into a production-ready LTX prompt.\n\nWrite one flowing present-tense paragraph, normally 4-8 descriptive sentences for a single shot. Establish the shot scale and composition, the lighting and one coherent light logic, surfaces and atmosphere, and the character(s), then describe the action moment to moment with physical cues rather than abstract mood labels. Specify camera movement relative to the subject and describe ambient sound, music and speech; keep spoken dialogue in quotation marks and preserve its language, names and exact wording. For multiple shots, write one chronological paragraph, name each cut or transition in prose, re-establish the new framing and subjects after every cut, and state audio continuity. Do not use shot lists, numbered beats, screenplay sluglines or timestamp tags. Keep the scene focused and physically plausible; keep on-screen text short and prominent. Return only the final LTX prompt, without analysis, headings, Markdown or commentary.\n\nThis request uses an LTX 2.5 first-frame anchor: Picture 1 is the opening frame. Start from exactly what is visible in it and develop the shot forward without cutting away from the opening frame unless the user asks for a cut."
+            }
+          ]
+        },
+        {
+          "value": "last_frame",
+          "label": "Last frame anchor",
+          "sets": [
+            {
+              "node": "sys",
+              "field": "value",
+              "value": "You are the prompt writer for LTX-2.5 video generation. Rewrite the user's text into a production-ready LTX prompt.\n\nWrite one flowing present-tense paragraph, normally 4-8 descriptive sentences for a single shot. Establish the shot scale and composition, the lighting and one coherent light logic, surfaces and atmosphere, and the character(s), then describe the action moment to moment with physical cues rather than abstract mood labels. Specify camera movement relative to the subject and describe ambient sound, music and speech; keep spoken dialogue in quotation marks and preserve its language, names and exact wording. For multiple shots, write one chronological paragraph, name each cut or transition in prose, re-establish the new framing and subjects after every cut, and state audio continuity. Do not use shot lists, numbered beats, screenplay sluglines or timestamp tags. Keep the scene focused and physically plausible; keep on-screen text short and prominent. Return only the final LTX prompt, without analysis, headings, Markdown or commentary.\n\nThis request uses an LTX 2.5 last-frame anchor: Picture 1 is the final frame, not necessarily the first. Infer a plausible earlier state and write the continuous action that converges into the final frame at the requested duration."
+            }
+          ]
+        },
+        {
+          "value": "first_last",
+          "label": "First + last frame anchors",
+          "sets": [
+            {
+              "node": "sys",
+              "field": "value",
+              "value": "You are the prompt writer for LTX-2.5 video generation. Rewrite the user's text into a production-ready LTX prompt.\n\nWrite one flowing present-tense paragraph, normally 4-8 descriptive sentences for a single shot. Establish the shot scale and composition, the lighting and one coherent light logic, surfaces and atmosphere, and the character(s), then describe the action moment to moment with physical cues rather than abstract mood labels. Specify camera movement relative to the subject and describe ambient sound, music and speech; keep spoken dialogue in quotation marks and preserve its language, names and exact wording. For multiple shots, write one chronological paragraph, name each cut or transition in prose, re-establish the new framing and subjects after every cut, and state audio continuity. Do not use shot lists, numbered beats, screenplay sluglines or timestamp tags. Keep the scene focused and physically plausible; keep on-screen text short and prominent. Return only the final LTX prompt, without analysis, headings, Markdown or commentary.\n\nThis request uses LTX 2.5 first-and-last-frame anchors: Picture 1 opens the shot and Picture 2 closes it. Write the continuous path between them, including the camera, action, lighting and audio transitions needed to land exactly on the last frame."
+            }
+          ]
+        }
+      ],
+      "help": "Pick the LTX 2.5 conditioning mode first. T2V is text-only; I2V/first-frame use Picture 1 as the opening frame; last-frame infers the lead-in; first+last uses Picture 1 and Picture 2 as anchors. Images and clips are optional; the writer receives them when supplied."
+    },
+    {
+      "id": "model",
+      "type": "select",
+      "label": "Prompt model",
+      "default": "qwen3.8_27b_w4a8.safetensors",
+      "options": [
+        {
+          "value": "qwen3.8_27b_w4a8.safetensors",
+          "label": "Qwen3.8 27B W4A8 — balanced"
+        },
+        {
+          "value": "qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+          "label": "Qwen3.8 27B Heretic W4A8 — uncensored"
+        }
+      ],
+      "help": "Local Qwen3.8 writer. Both accept images and video frames.",
+      "bind": [
+        {
+          "node": "clip",
+          "field": "clip_name"
+        }
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "default": "",
+      "help": "Write the scene, rough idea or correction brief. The LTX writer turns it into a flowing cinematic prompt; images and clips are optional but help preserve subject, layout and motion.",
+      "bind": [
+        {
+          "node": "prompt_source",
+          "field": "value"
+        }
+      ]
+    },
+    {
+      "id": "image1",
+      "type": "image",
+      "label": "Picture 1",
+      "required": false,
+      "help": "Optional LTX image reference. Picture 1/2 can anchor the first/last frame in those modes.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img1",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image1"
+        }
+      ]
+    },
+    {
+      "id": "image2",
+      "type": "image",
+      "label": "Picture 2",
+      "required": false,
+      "help": "Optional LTX image reference. Picture 1/2 can anchor the first/last frame in those modes.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img2",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image2"
+        }
+      ]
+    },
+    {
+      "id": "image3",
+      "type": "image",
+      "label": "Picture 3",
+      "required": false,
+      "help": "Optional LTX image reference. Picture 1/2 can anchor the first/last frame in those modes.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img3",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image3"
+        }
+      ]
+    },
+    {
+      "id": "image4",
+      "type": "image",
+      "label": "Picture 4",
+      "required": false,
+      "help": "Optional LTX image reference. Picture 1/2 can anchor the first/last frame in those modes.",
+      "limits": {
+        "max_mb": 30
+      },
+      "bind": [
+        {
+          "node": "img4",
+          "field": "image"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "images.image4"
+        }
+      ]
+    },
+    {
+      "id": "video1",
+      "type": "video",
+      "label": "Video 1",
+      "required": false,
+      "help": "Optional motion or reference clip; its frames are passed to the LTX writer.",
+      "limits": {
+        "max_mb": 512
+      },
+      "bind": [
+        {
+          "node": "vid1",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "videos.video1"
+        }
+      ]
+    },
+    {
+      "id": "video2",
+      "type": "video",
+      "label": "Video 2",
+      "required": false,
+      "help": "Optional motion or reference clip; its frames are passed to the LTX writer.",
+      "limits": {
+        "max_mb": 512
+      },
+      "bind": [
+        {
+          "node": "vid2",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "videos.video2"
+        }
+      ]
+    },
+    {
+      "id": "video3",
+      "type": "video",
+      "label": "Video 3",
+      "required": false,
+      "help": "Optional motion or reference clip; its frames are passed to the LTX writer.",
+      "limits": {
+        "max_mb": 512
+      },
+      "bind": [
+        {
+          "node": "vid3",
+          "field": "file"
+        }
+      ],
+      "unlink": [
+        {
+          "node": "gen",
+          "field": "videos.video3"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "save",
+      "type": "text",
+      "label": "Generated LTX prompt"
+    }
+  ],
+  "models": [
+    {
+      "repo": "Comfy-Org/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_w4a8.safetensors",
+      "dir": "text_encoders",
+      "gb": 17.29,
+      "phase": "encode",
+      "license": "Apache-2.0"
+    },
+    {
+      "repo": "local/Qwen3.8-27B",
+      "file": "text_encoders/qwen3.8_27b_uncensored_heretic_w4a8_convrot_v2.safetensors",
+      "dir": "text_encoders",
+      "gb": 18.0,
+      "phase": "encode",
+      "license": "Apache-2.0",
+      "local": true,
+      "optional": true
+    }
+  ],
+  "notes": "LTX 2.5 prompt generator. Pick the mode first, then the Qwen3.8 writer, then the scene. Images and clips feed the writer when supplied. The result is a text file, ready to copy into an LTX director. This app is separate from the MiniMax H3 prompt generator because LTX and H3 use different prompt grammars."
+}
