@@ -127,6 +127,25 @@ export type SceneRenderBinding = {
   fps?: number;
 };
 
+export type BindingCorrection = {
+  id: string;
+  candidateId: string;
+  originalBindingId: string;
+  originalSceneId: string;
+  correctedBindingId: string;
+  correctedSceneId: string;
+  timelineStartFrame: number;
+  timelineEndFrame: number;
+  sourceHash: string;
+  candidateContentHash: string;
+  sourceRunId?: string;
+  reason: string;
+  sources: string[];
+  createdAt: string;
+  createdBy: string;
+  supersedesOriginal: true;
+};
+
 export type FactPhase = "opening" | "closing" | "global";
 
 export type FactRevision = {
@@ -518,6 +537,8 @@ export type ProductionSnapshot = {
   scenes: Scene[];
   candidates: Record<string, Candidate>;
   bindings: Record<string, SceneRenderBinding[]>;
+  /** Append-only non-canonical binding corrections; never rewrites the historical binding. */
+  bindingCorrections: BindingCorrection[];
   observations: Record<string, Observation>;
   sceneDecisions: Record<string, SceneDecision>;
   bible: Record<MemoryCategory, BibleFact[]>;
@@ -539,6 +560,7 @@ export type ProductionEventType =
   | "scene.updated"
   | "scene.removed"
   | "candidate.registered"
+  | "binding.corrected"
   | "observation.recorded"
   | "asset.indexed"
   | "asset.updated"

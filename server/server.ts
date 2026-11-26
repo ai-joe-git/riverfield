@@ -698,6 +698,18 @@ const server = createServer(async (req, res) => {
           }, actor);
           return send(res, 202, job);
         }
+        if (id && req.method === "POST" && sub === "binding-corrections") {
+          const body = await jsonBody();
+          if (typeof body.candidateId !== "string" || typeof body.originalBindingId !== "string" || typeof body.correctedSceneId !== "string" || typeof body.sourceHash !== "string") {
+            throw new InputError("candidateId, originalBindingId, correctedSceneId and sourceHash are required");
+          }
+          return send(res, 201, productions.correctBinding(id, {
+            candidateId: body.candidateId, originalBindingId: body.originalBindingId,
+            correctedSceneId: body.correctedSceneId, sourceHash: body.sourceHash,
+            reason: String(body.reason ?? "Human-authorized narrative binding correction"),
+            ...(Array.isArray(body.sources) ? { sources: body.sources.map(String) } : {}),
+          }, { kind: "human", id: String(req.headers["x-riverfield-actor"] || "phase1.3-authorized") }, "binding:correct:" + body.candidateId + ":" + body.originalBindingId));
+        }
         if (id && req.method === "GET" && sub === "observation-jobs") {
           localAccess(req);
           return send(res, 200, { jobs: observations().list(id, url.searchParams.get("sceneId") || undefined) });

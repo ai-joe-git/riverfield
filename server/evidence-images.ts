@@ -63,13 +63,14 @@ export function createAnalysisImages(input: {
   for (const frame of input.frames) {
     index += 1;
     const alias = `image-${String(index).padStart(2, "0")}`;
-    const derivativePath = join(input.outputDir, `${alias}-${frame.id}.jpg`);
+    const originalHash = frame.hash ?? hashFile(frame.path!);
+    const derivativePath = join(input.outputDir, `${alias}-${frame.id}-${originalHash.slice(0, 10)}.jpg`);
     const timestamp = frame.timestampSeconds !== undefined ? `${frame.timestampSeconds.toFixed(3)}s` : "?s";
     const label = `${alias} | ${frame.id} | ${timestamp} | frame ${frame.frame ?? "?"}${frame.shotId ? ` | ${frame.shotId}` : ""}`;
     render(frame.path!, derivativePath, label);
     out.push({
       alias, kind: "evidence", evidenceId: frame.id, label,
-      originalPath: frame.path!, originalHash: frame.hash ?? hashFile(frame.path!),
+      originalPath: frame.path!, originalHash,
       derivativePath, derivativeHash: hashFile(derivativePath),
       ...(frame.timestampSeconds !== undefined ? { timestampSeconds: frame.timestampSeconds } : {}),
       ...(frame.frame !== undefined ? { frame: frame.frame } : {}),
@@ -79,12 +80,13 @@ export function createAnalysisImages(input: {
   for (const reference of input.references) {
     index += 1;
     const alias = `image-${String(index).padStart(2, "0")}`;
-    const derivativePath = join(input.outputDir, `${alias}-ref.jpg`);
+    const originalHash = reference.hash ?? hashFile(reference.path);
+    const derivativePath = join(input.outputDir, `${alias}-ref-${originalHash.slice(0, 10)}.jpg`);
     const label = `${alias} | ${reference.label} | reference`;
     render(reference.path, derivativePath, label);
     out.push({
       alias, kind: "reference", evidenceId: reference.id, label,
-      originalPath: reference.path, originalHash: reference.hash ?? hashFile(reference.path),
+      originalPath: reference.path, originalHash,
       derivativePath, derivativeHash: hashFile(derivativePath),
     });
   }

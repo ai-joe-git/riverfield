@@ -11,7 +11,7 @@ import {
   type Actor, type ApprovalCheck, type Asset, type BibleFact, type Candidate, type CanonProposal,
   type FactChange, type HumanApproval, type Observation, type ObservationReport, type ProductionEvent, type ProductionEventType,
   type ProductionMeta, type ProductionSnapshot, type ProductionSummary, type Scene, type SceneDecision,
-  type SceneRenderBinding, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
+  type SceneRenderBinding, type BindingCorrection, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
 } from "./production-types.ts";
 
 export class ProductionError extends Error {
@@ -115,6 +115,7 @@ function emptySnapshot(production: ProductionMeta, at = nowIso()): ProductionSna
     scenes: [],
     candidates: {},
     bindings: {},
+    bindingCorrections: [],
     observations: {},
     sceneDecisions: {},
     bible: emptyBible(),
@@ -341,6 +342,11 @@ export class ProductionStore {
           const candidate = event.payload.candidate as Candidate;
           snap.candidates[candidate.id] = candidate;
           snap.bindings[candidate.id] = candidate.bindings;
+          break;
+        }
+        case "binding.corrected": {
+          const correction = event.payload.correction as BindingCorrection;
+          snap.bindingCorrections.push(correction);
           break;
         }
         case "observation.recorded": {
@@ -754,6 +760,67 @@ export class ProductionStore {
     } satisfies Omit<Candidate, "contentHash">;
     const candidate: Candidate = { ...withoutHash, contentHash: candidateHash(withoutHash) };
     return this.append(productionId, "candidate.registered", { candidate }, actor, commandKey ?? `candidate:register:${id}`);
+  }
+
+  /**
+   * Append a non-canonical binding correction. The historical binding and candidate
+   * are never mutated; activeBindings() hides the superseded association from narrative
+   * continuity retrieval and exposes the corrected virtual binding instead.
+   */
+  correctBinding(productionId: string, input: {
+    candidateId: string;
+    originalBindingId: string;
+    correctedSceneId: string;
+    sourceHash: string;
+    reason: string;
+    sources?: string[];
+  }, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    const candidate = snap.candidates[input.candidateId];
+    if (!candidate) throw new ProductionError("UNKNOWN_CANDIDATE", `Unknown candidate ${input.candidateId}`);
+    const original = (snap.bindings[candidate.id] ?? []).find((binding) => binding.id === input.originalBindingId);
+    if (!original) throw new ProductionError("UNKNOWN_BINDING", `Unknown original binding ${input.originalBindingId}`);
+    if (!snap.scenes.some((scene) => scene.id === input.correctedSceneId)) throw new ProductionError("UNKNOWN_SCENE", `Unknown corrected scene ${input.correctedSceneId}`);
+    if (input.correctedSceneId === original.sceneId) throw new ProductionError("BINDING_UNCHANGED", "Corrected scene must differ from the original binding scene");
+    const output = candidate.outputs.find((item) => item.type === "video") ?? candidate.outputs[0];
+    if (!output?.path || !output.hash) throw new ProductionError("CANDIDATE_SOURCE_MISSING", "Candidate has no verifiable source media");
+    const actualHash = hashFile(output.path);
+    if (actualHash !== output.hash) throw new ProductionError("SOURCE_HASH_MISMATCH", "Candidate source media no longer matches its recorded hash");
+    if (input.sourceHash !== output.hash) throw new ProductionError("SOURCE_HASH_MISMATCH", "Correction source hash does not match the candidate source media");
+    const active = (snap.bindingCorrections ?? []).find((correction) => correction.candidateId === candidate.id && correction.originalBindingId === original.id);
+    if (active) throw new ProductionError("BINDING_ALREADY_CORRECTED", `Binding ${original.id} already has an active correction`);
+    const correction: BindingCorrection = {
+      id: `${original.id}-correction-${String((snap.bindingCorrections?.length ?? 0) + 1).padStart(3, "0")}`,
+      candidateId: candidate.id, originalBindingId: original.id, originalSceneId: original.sceneId,
+      correctedBindingId: `${original.id}-sc-corrected-${String((snap.bindingCorrections?.length ?? 0) + 1).padStart(3, "0")}`,
+      correctedSceneId: input.correctedSceneId,
+      timelineStartFrame: original.timelineStartFrame, timelineEndFrame: original.timelineEndFrame,
+      sourceHash: output.hash, candidateContentHash: candidate.contentHash,
+      ...(candidate.sourceRunId ? { sourceRunId: candidate.sourceRunId } : {}),
+      reason: String(input.reason ?? "").trim() || "Human-authorized narrative binding correction",
+      sources: [...new Set((input.sources ?? []).map(String).filter(Boolean))],
+      createdAt: nowIso(), createdBy: actor.id ?? actor.kind, supersedesOriginal: true,
+    };
+    return this.append(productionId, "binding.corrected", { correction }, actor, commandKey ?? `binding:correct:${correction.id}`);
+  }
+
+  /** Original bindings minus active corrections, plus corrected virtual bindings. */
+  activeBindings(productionId: string, candidateId: string): SceneRenderBinding[] {
+    const snap = this.snapshot(productionId);
+    const originals = snap.bindings[candidateId] ?? [];
+    const corrections = (snap.bindingCorrections ?? []).filter((correction) => correction.candidateId === candidateId);
+    const superseded = new Set(corrections.map((correction) => correction.originalBindingId));
+    const active = originals.filter((binding) => !superseded.has(binding.id));
+    for (const correction of corrections) {
+      const original = originals.find((binding) => binding.id === correction.originalBindingId);
+      if (!original) continue;
+      active.push({
+        ...original, id: correction.correctedBindingId, sceneId: correction.correctedSceneId,
+        timelineStartFrame: correction.timelineStartFrame, timelineEndFrame: correction.timelineEndFrame,
+        outputHash: correction.sourceHash,
+      });
+    }
+    return active.sort((a, b) => a.timelineStartFrame - b.timelineStartFrame || a.id.localeCompare(b.id));
   }
 
   recordObservation(productionId: string, input: RegisterObservationInput, actor: Actor, commandKey?: string): ProductionSnapshot {

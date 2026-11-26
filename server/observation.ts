@@ -307,7 +307,7 @@ export class ObservationManager {
     if (!scene) throw new ObservationError("UNKNOWN_SCENE", `Unknown scene ${input.sceneId}`);
     const candidate = snap.candidates[input.candidateId];
     if (!candidate) throw new ObservationError("UNKNOWN_CANDIDATE", `Unknown candidate ${input.candidateId}`);
-    const all = (snap.bindings[candidate.id] ?? []).filter((binding) => binding.sceneId === scene.id);
+    const all = this.productions.activeBindings(productionId, candidate.id).filter((binding) => binding.sceneId === scene.id);
     const bindings = input.bindingIds?.length ? all.filter((binding) => input.bindingIds!.includes(binding.id)) : all;
     if (!bindings.length) throw new ObservationError("OBSERVATION_NO_BINDING", "This candidate has no binding for the selected scene");
     if (input.bindingIds?.length && bindings.length !== input.bindingIds.length) {

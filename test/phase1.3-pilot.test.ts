@@ -8,7 +8,7 @@ test("Passion Max continuity pilot configurations preserve exact verified candid
   const verification = JSON.parse(readFileSync(`${root}/candidate-verification.json`, "utf8"));
   const config = JSON.parse(readFileSync(`${root}/pilot-configurations.json`, "utf8"));
   assert.equal(verification.pilotId, "passion-max-continuity-20261126");
-  assert.equal(verification.status, "prepared-needs-human-mapping-approval");
+  assert.equal(verification.status, "completed-noncanonical");
   const p4 = verification.verified.find((scene: any) => scene.role === "P4");
   const p5 = verification.verified.find((scene: any) => scene.role === "P5");
   const p6 = verification.verified.find((scene: any) => scene.role === "P6");
@@ -22,9 +22,9 @@ test("Passion Max continuity pilot configurations preserve exact verified candid
   assert.equal(p6.candidateId, "suite404-20261125-165620497-5c63");
   assert.equal(p6.boundEngineSceneId, "suite-404-s01e01-sc06");
   assert.equal(p6.sourceSha256, "8ad129e48c4f76f46491aceaeebda310151e42e53311927eb03dd5f84ad7f813");
-  assert.equal(config.status, "prepared-not-launched");
+  assert.equal(config.status, "completed-authorized");
   assert.equal(config.humanApprovalRequired, true);
-  assert.equal(config.scenes.find((scene: any) => scene.role === "P4").status, "blocked-needs-human-mapping-approval");
+  assert.equal(config.scenes.find((scene: any) => scene.role === "P4").status, "completed");
   assert.equal(config.scenes.find((scene: any) => scene.role === "P5").referenceAssetIds.length, 3);
   assert.equal(config.scenes.find((scene: any) => scene.role === "P6").referenceAssetIds.length, 3);
   assert.equal(existsSync(`${root}/CONTINUITY_REVIEW_PLAN.md`), true);
