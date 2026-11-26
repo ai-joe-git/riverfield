@@ -159,7 +159,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("run_app", {
     title: "Run an app",
-    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses 0.4 MP by default (or production_megapixels within the app range) and production_upscale off/x2/x4. Omitting render_profile preserves the app's legacy manifest defaults.",
+    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses the app's production default (0.3 MP on the current H3 directors) and production_upscale x2 by default; omitting render_profile uses the manifest's declared starting profile (Production on the current H3 directors), or legacy settings for a manifest that declares none.",
     inputSchema: {
       app: z.string().describe("app id"),
       values: z.record(z.string(), z.any()).optional().describe("input values, by input id"),
@@ -171,7 +171,6 @@ export function build(base=BASE): McpServer {
     try {
       const canonical=await manifest(app,base);
       if(canonical.id==="pika-studio-director"&&values?.advanced_timeline_json)throw new InputError("Automated Pika uses native Director segments; raw advanced_timeline_json is reserved for manual editing");
-      if((values?.render_profile===undefined||values?.render_profile==="")&&(values?.production_megapixels!==undefined||values?.production_upscale!==undefined||values?.production_upscale_detail!==undefined))throw new InputError("Set render_profile to 'production' before choosing production_megapixels/upscale; a legacy request keeps its manifest defaults");
       const normalized=normalizeRunInputs(canonical as any,values??{},files??{});
       const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values, normalized.files, preset,base);
       if(request_id)fd.append("request_id",request_id);
@@ -183,7 +182,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("render_production", {
     title: "Render Production from a preview",
-    description: "Promote a succeeded H3 Director Build & Test preview to a new Production generation. The preview's exact creative payload (timeline, prompts, references, seed, checkpoint, sampler, steps, aspect) is preserved; only rendering parameters change (default 0.4 MP, optional RelayVSR x2/x4). Both outputs stay in history and are linked. This is a new generation, NOT a pixel-identical reconstruction of the preview.",
+    description: "Promote a succeeded H3 Director Build & Test preview to a new Production generation. The preview's exact creative payload (timeline, prompts, references, seed, checkpoint, sampler, steps, aspect) is preserved; only rendering parameters change (default 0.3 MP and RelayVSR x2, with off/x4 optional). Both outputs stay in history and are linked. This is a new generation, NOT a pixel-identical reconstruction of the preview.",
     inputSchema: {
       id: z.string().describe("history entry id of the succeeded preview"),
       production_megapixels: z.number().min(0.1).max(16).optional().describe("generation resolution in MP; defaults to the Director's saved production preference or 0.4"),

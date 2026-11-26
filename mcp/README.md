@@ -14,7 +14,7 @@ Desktop). The app itself must be running: the MCP calls it.
 |---|---|
 | `list_apps` | every app with section, status and pack (`section: audio`, `3d`, … to filter) |
 | `get_app` | one manifest: inputs with `type`, `default`, `options`, `file` (path input) and `panel` (driven by a custom UI, still settable here), presets, outputs, models, notes, example |
-| `run_app` | start a run: `values` by input id (numbers, strings, booleans, arrays, **JSON strings**), `files` by absolute path for `image`/`video`/`audio` inputs, optional `preset` → returns the history id. H3 Directors accept `render_profile: "build"` (0.1 MP, no upscale) or `"production"` (0.4 MP default, `production_megapixels`, `production_upscale: "off"/"x2"/"x4"`) |
+| `run_app` | start a run: `values` by input id (numbers, strings, booleans, arrays, **JSON strings**), `files` by absolute path for `image`/`video`/`audio` inputs, optional `preset` → returns the history id. H3 Directors accept `render_profile: "build"` (0.1 MP, no upscale) or `"production"` (0.3 MP and RelayVSR x2 by default, `production_megapixels`, `production_upscale: "off"/"x2"/"x4"`); the current manifests start in Production, while a manifest with no declared profile stays legacy |
 | `render_production` | promote a succeeded H3 Director preview to a new Production generation; its exact creative payload is preserved and only rendering parameters change |
 | `job` | one run: status, progress, queue position, outputs so far (absolute paths), resolved render metadata and lineage |
 | `wait_job` | poll until it finishes (10 min by default) and return the output files |
