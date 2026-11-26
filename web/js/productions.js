@@ -429,23 +429,59 @@ function openCharacterSheet(productionId, snapshot) {
 }
 
 function openAssetFromHistory(productionId, snapshot, onDone) {
-  const dialog = modal("Add an asset from History", "A succeeded run output becomes an indexed production asset. The file stays in History.");
-  const run = field("History run ID", "");
-  const output = field("Output index", "0", "number");
-  const label = field("Label", "");
+  const dialog = modal("Add from History", "Browse your generated library. Click an image, clip or sound to index it in the selected production folder. The original file stays in History.");
   const category = el("select", { "aria-label": "Asset folder" }, ...ASSET_FOLDERS.map(([value, name]) => el("option", { value, selected: String(value) === "references" }, name)));
-  const tags = field("Tags", "");
-  const add = el("button", { class: "btn lime", type: "button" }, icon("plus"), "Add asset");
-  add.onclick = async () => {
-    try {
-      if (!run.input.value.trim()) throw new Error("Enter a succeeded run ID");
-      await api(`/api/productions/${encodeURIComponent(productionId)}/assets`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId: run.input.value.trim(), outputIndex: Number(output.input.value) || 0, label: label.input.value.trim(), category: category.value, tags: tags.input.value.split(",").map((x) => x.trim()).filter(Boolean) }) });
-      dialog.close(); toast("Asset indexed from History."); onDone?.();
-    } catch (error) { toast(error.message, { error: true }); }
+  const search = el("input", { class: "prod-search", type: "search", placeholder: "Search app, run ID or file" });
+  const library = el("div", { class: "prod-history-picker" });
+  const status = el("span", { class: "tag dark" }, "Loading History…");
+  let entries = [];
+  let query = "";
+  const draw = () => {
+    const q = query.trim().toLowerCase();
+    let shown = 0;
+    library.replaceChildren();
+    for (const entry of entries) {
+      for (const [index, output] of (entry.outputs || []).entries()) {
+        if (!["image", "video", "audio"].includes(output.type)) continue;
+        if (q && !`${entry.app} ${entry.id} ${output.name} ${output.file}`.toLowerCase().includes(q)) continue;
+        shown += 1;
+        const card = el("button", { class: "prod-history-card", type: "button", title: `Add ${output.name}` },
+          output.type === "image" ? el("img", { src: output.url, alt: "", loading: "lazy" })
+            : output.type === "video" ? el("video", { src: output.url, muted: true, preload: "metadata" })
+              : el("span", { class: "prod-history-audio" }, icon("audio")),
+          el("span", { class: "prod-history-label" }, el("b", {}, output.name || output.file), el("small", {}, `${entry.app} · ${dateLabel(entry.created)}`)),
+          el("span", { class: "prod-history-add" }, icon("plus"), "Add"));
+        card.onclick = async () => {
+          if (card.classList.contains("added")) return;
+          card.classList.add("adding");
+          try {
+            await api(`/api/productions/${encodeURIComponent(productionId)}/assets`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ runId: entry.id, outputIndex: index, category: category.value }) });
+            card.classList.remove("adding"); card.classList.add("added");
+            status.textContent = `Added ${output.name}`;
+            toast(`Added ${output.name} to ${category.value}.`);
+            onDone?.();
+          } catch (error) {
+            card.classList.remove("adding"); toast(error.message, { error: true });
+          }
+        };
+        library.append(card);
+        if (shown >= 180) break;
+      }
+      if (shown >= 180) break;
+    }
+    if (!shown) library.append(el("div", { class: "prod-empty" }, icon("film"), el("h3", {}, "No generated media in this search"), el("p", {}, "Try another app, filename or run ID.")));
+    status.textContent = `${shown} media result${shown === 1 ? "" : "s"}`;
   };
-  dialog.append(el("div", { class: "ag-dialog-form" }, run.node, output.node, label.node, el("label", { class: "ag-field" }, el("span", {}, "Asset folder"), category), tags.node),
-    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), add));
+  search.oninput = () => { query = search.value; draw(); };
+  dialog.append(el("div", { class: "prod-history-toolbar" }, el("label", { class: "search" }, icon("search"), search), el("label", { class: "ag-field" }, el("span", {}, "Add to folder"), category), status),
+    library,
+    el("p", { class: "help" }, "Only succeeded runs are shown. Clicking adds a production index entry; the History file is never copied or modified."),
+    el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Close")));
   dialog.showModal();
+  void api("/api/history").then((data) => {
+    entries = (data.entries || []).filter((entry) => entry.status === "succeeded" && (entry.outputs || []).some((output) => ["image", "video", "audio"].includes(output.type)));
+    draw();
+  }).catch((error) => { library.replaceChildren(el("div", { class: "prod-empty" }, `Could not load History: ${error.message}`)); });
 }
 
 async function editAssetInApp(appId, asset) {

@@ -1148,3 +1148,20 @@ body.dir-dragging * { cursor: grabbing !important; }
 .prod-asset-folder:first-of-type { border-top: 0; }
 .prod-sheet-form { max-height: 66vh; overflow: auto; padding-right: 4px; }
 .prod-sheet-preview { max-width: 220px; max-height: 160px; object-fit: contain; border-radius: 10px; border: 1px solid var(--line); }
+.prod-history-toolbar { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.prod-history-toolbar .search { flex: 1 1 300px; }
+.prod-history-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; max-height: 52vh; overflow: auto; padding: 4px 2px; }
+.prod-history-card { position: relative; display: grid; gap: 5px; min-width: 0; padding: 5px; border-radius: 10px; border: 1px solid var(--line); background: #090e15; color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.prod-history-card:hover { border-color: var(--accent); }
+.prod-history-card > img, .prod-history-card > video { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 7px; background: #05080d; }
+.prod-history-audio { width: 100%; aspect-ratio: 16/10; display: grid; place-items: center; border-radius: 7px; background: #05080d; color: var(--faint); }
+.prod-history-label { display: grid; gap: 1px; min-width: 0; }
+.prod-history-label b { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prod-history-label small { color: var(--faint); font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prod-history-add { position: absolute; right: 8px; bottom: 38px; display: inline-flex; align-items: center; gap: 3px; padding: 4px 7px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 700; opacity: 0; transition: opacity .15s; }
+.prod-history-card:hover .prod-history-add { opacity: 1; }
+.prod-history-card.adding, .prod-history-card.added { opacity: .55; border-color: var(--ok); }
+.prod-history-card.added .prod-history-add { opacity: 1; background: var(--ok); }
+.prod-history-card.added .prod-history-add::before { content: "✓"; }
+.prod-history-card.added .prod-history-add { font-size: 0; }
+.prod-history-card.added .prod-history-add::before { font-size: 12px; }

@@ -425,3 +425,10 @@ The asset builder no longer just opens an app and leaves a loose History output:
 Asset ids are deterministic per build and output, so a recovered/retried completion cannot duplicate
 assets. The source file is not moved, copied or rewritten, and no canonical revision changes.
 Opening the builder or the image app still launches no inference.
+
+## Add from History picker
+
+**Add from History** is now a visual, scrollable picker over succeeded History runs rather than a
+run-ID form. It shows image, video and audio outputs with their app and timestamp, supports
+search, and adds the clicked output directly to the currently selected production folder.
+Repeated clicks are idempotent and the original History file is never copied or modified.

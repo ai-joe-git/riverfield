@@ -691,7 +691,7 @@ const server = createServer(async (req, res) => {
               ...(Array.isArray(body.tags) ? { tags: body.tags.map(String) } : {}),
             };
           }
-          return send(res, 201, productions.indexAsset(id, input, actor));
+          return send(res, 201, productions.indexAsset(id, input, actor, typeof body.runId === "string" ? `asset:history:${body.runId}:${Number.isInteger(body.outputIndex) ? body.outputIndex : 0}` : undefined));
         }
         if (id && req.method === "PATCH" && sub === "assets" && arg) return send(res, 200, productions.updateAsset(id, arg, await jsonBody() as { label?: string; tags?: string[]; category?: string }, actor));
         if (id && req.method === "DELETE" && sub === "assets" && arg) return send(res, 200, productions.removeAsset(id, arg, actor));
