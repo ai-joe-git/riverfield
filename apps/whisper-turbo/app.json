@@ -1,0 +1,162 @@
+{
+  "$schema": "../../schema/app.schema.json",
+  "id": "whisper-turbo",
+  "name": "Whisper Turbo",
+  "section": "audio",
+  "pack": "whisper",
+  "status": "ready",
+  "higgsfield_feature": "Audio",
+  "summary": "Transcribe or translate audio with Whisper Large V3 Turbo on the GPU, with timestamped JSON segments.",
+  "workflow": "workflow.api.json",
+  "source": {
+    "template": "whisper turbo.json",
+    "comfyui": "0.46.0",
+    "notes": "Converted from the local UI workflow. LoadAudio feeds WhisperLargeV3RepackTranscribeAudio, then two SaveText nodes keep the transcript and the timestamped segments JSON. The local node uses the Transformers/PyTorch Whisper path on ROCm instead of CTranslate2, so automatic device selection stays on the GPU."
+  },
+  "inputs": [
+    {
+      "id": "audio",
+      "type": "audio",
+      "label": "Audio",
+      "required": true,
+      "help": "Audio or video file to transcribe. Upload it or record it with the microphone.",
+      "limits": {
+        "max_mb": 300
+      },
+      "bind": [
+        {
+          "node": "2",
+          "field": "audio"
+        }
+      ]
+    },
+    {
+      "id": "model",
+      "type": "select",
+      "label": "Whisper model",
+      "default": "large-v3-turbo",
+      "options": [
+        {
+          "value": "large-v3-turbo",
+          "label": "Large V3 Turbo — fast, recommended"
+        },
+        {
+          "value": "large-v3",
+          "label": "Large V3 — slower, 3 GB model"
+        }
+      ],
+      "help": "Turbo is already downloaded and runs on the GPU. Large V3 is more accurate but downloads its Transformers weights on first use.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "model_name"
+        }
+      ]
+    },
+    {
+      "id": "device",
+      "type": "select",
+      "label": "Device",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto — GPU"
+        },
+        {
+          "value": "cuda",
+          "label": "CUDA / ROCm GPU"
+        }
+      ],
+      "help": "Both options use the GPU. There is intentionally no CPU option in this app.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "device"
+        }
+      ]
+    },
+    {
+      "id": "task",
+      "type": "select",
+      "label": "Task",
+      "default": "transcribe",
+      "options": [
+        {
+          "value": "transcribe",
+          "label": "Transcribe — keep the language"
+        },
+        {
+          "value": "translate",
+          "label": "Translate to English"
+        }
+      ],
+      "bind": [
+        {
+          "node": "4",
+          "field": "task"
+        }
+      ]
+    },
+    {
+      "id": "language",
+      "type": "text",
+      "label": "Language",
+      "default": "",
+      "help": "Optional ISO code such as fr, en or ja. Leave empty for automatic detection.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "language"
+        }
+      ]
+    },
+    {
+      "id": "beam_size",
+      "type": "slider",
+      "label": "Beam size",
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "default": 5,
+      "help": "Higher values search more decoding paths. Five is the workflow default.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "beam_size"
+        }
+      ]
+    },
+    {
+      "id": "word_timestamps",
+      "type": "toggle",
+      "label": "Word timestamps",
+      "default": false,
+      "help": "On: timestamp every word in segments_json. Off: timestamp sentence-level segments.",
+      "bind": [
+        {
+          "node": "4",
+          "field": "word_timestamps"
+        }
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "node": "save_transcript",
+      "type": "text",
+      "label": "Transcript"
+    },
+    {
+      "node": "save_segments",
+      "type": "text",
+      "label": "Segments JSON"
+    }
+  ],
+  "models": [],
+  "credits": [
+    "OpenAI Whisper large-v3-turbo (MIT)",
+    "ComfyUI-WhisperLargeV3-Repack by endman100 (MIT)"
+  ],
+  "notes": "The first run downloads the Hugging Face Whisper weights into the ComfyUI Hugging Face cache. The local node is patched to use Transformers/PyTorch on the AMD GPU; CTranslate2/faster-whisper on ROCm is not used for automatic or CUDA device selection. The transcript and segments are saved as .txt outputs in History."
+}

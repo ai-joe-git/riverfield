@@ -328,5 +328,12 @@
     ],
     "download_gb": 17.29,
     "needs_hf_token": false
+  },
+  "whisper": {
+    "apps": [
+      "whisper-turbo"
+    ],
+    "download_gb": 0,
+    "needs_hf_token": false
   }
 }

@@ -1,0 +1,61 @@
+{
+  "2": {
+    "class_type": "LoadAudio",
+    "inputs": {
+      "audio": "input.wav"
+    },
+    "_meta": {
+      "title": "Audio to transcribe"
+    }
+  },
+  "4": {
+    "class_type": "WhisperLargeV3RepackTranscribeAudio",
+    "inputs": {
+      "audio": [
+        "2",
+        0
+      ],
+      "model_name": "large-v3-turbo",
+      "device": "auto",
+      "compute_type": "auto",
+      "language": "",
+      "task": "transcribe",
+      "beam_size": 5,
+      "vad_filter": true,
+      "word_timestamps": false,
+      "initial_prompt": "",
+      "temperature": 0.0
+    },
+    "_meta": {
+      "title": "Whisper GPU transcription"
+    }
+  },
+  "save_transcript": {
+    "class_type": "SaveText",
+    "inputs": {
+      "text": [
+        "4",
+        0
+      ],
+      "filename_prefix": "riverfield/whisper-turbo",
+      "format": "txt"
+    },
+    "_meta": {
+      "title": "Save transcript"
+    }
+  },
+  "save_segments": {
+    "class_type": "SaveText",
+    "inputs": {
+      "text": [
+        "4",
+        3
+      ],
+      "filename_prefix": "riverfield/whisper-turbo-segments",
+      "format": "txt"
+    },
+    "_meta": {
+      "title": "Save timestamped segments as JSON"
+    }
+  }
+}

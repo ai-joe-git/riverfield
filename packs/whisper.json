@@ -1,0 +1,10 @@
+{
+  "pack": "whisper",
+  "apps": [
+    "whisper-turbo"
+  ],
+  "download_gb": 0,
+  "needs_hf_token": false,
+  "custom_nodes": [],
+  "models": []
+}
