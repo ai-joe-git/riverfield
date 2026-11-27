@@ -158,15 +158,19 @@ web/js/productions.js            Production Run workspace
 mcp/server.ts                    project-scoped run tools
 ```
 
-The first SUITE 404 pilot is prepared but not launched:
+The first SUITE 404 pilot's first scene was executed in Phase 3.1 and stopped at human
+review; the second scene remains unlaunched:
 
 ```text
 run: phase3-suite404-pilot-001
 plan: out/observations/phase3-pilot/pilot-plan.json
 run:  out/observations/phase3-pilot/production-run.json
 doc:  docs/phase3-first-suite404-pilot.md
+live: docs/phase3.1-live-first-scene.md
 ```
 
-The engine is tested with mocked adapters and existing observations. Live rendering,
-observation and review adapters remain an explicit service-layer integration step; no
-adapter is invoked by opening Production Studio or by planning a run.
+The engine is tested with mocked adapters and existing observations. Live rendering and
+Fast-observation adapters are now implemented through the existing Riverfield HTTP
+services, Runner, History, candidate registration and ObservationManager. Senior Review
+remains fail-closed and is not enabled for this pilot. No adapter is invoked by opening
+Production Studio or by planning a run.

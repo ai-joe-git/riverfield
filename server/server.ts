@@ -56,6 +56,7 @@ import type { Actor, ProductionSnapshot } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
 import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
 import { ProductionRunEngine } from "./production-run.ts";
+import { LiveProductionRunAdapters } from "./production-run-live.ts";
 import { planProductionRun } from "./production-run-plan.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
@@ -120,6 +121,8 @@ const directors = new DirectorStore(outDir, byId);
 const productions = new ProductionStore(outDir, { mediaRoots: productionMediaRoots(outDir) });
 let observationManager: ObservationManager | null = null;
 const snapshotAsset = (snap: ProductionSnapshot, assetId: string) => snap.assets[assetId];
+let productionRunEngine: ProductionRunEngine | null = null;
+const productionRuns = () => productionRunEngine ??= new ProductionRunEngine(productions, new LiveProductionRunAdapters({ baseUrl: studioURL }));
 const observations = () => observationManager ??= new ObservationManager({
   outDir, productions, inference: inference.run, runner: getRunner(),
   mediaRoots: productionMediaRoots(outDir), whisperApp: byId.get("whisper-turbo"),
@@ -751,7 +754,7 @@ const server = createServer(async (req, res) => {
           const snap = productions.snapshot(id);
           const runId = arg;
           const action = parts[5];
-          const engine = new ProductionRunEngine(productions);
+          const engine = productionRuns();
           const body = await jsonBody();
           if (!snap.productionRuns?.[runId]) throw new InputError("unknown production run");
           if (action === "start") return send(res, 202, await engine.start(id, runId));

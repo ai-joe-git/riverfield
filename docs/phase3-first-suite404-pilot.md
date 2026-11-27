@@ -1,7 +1,8 @@
 # Phase 3 — First SUITE 404 Production Pilot (prepared, not launched)
 
-Status: **prepared, awaiting explicit human authorization**. No render, observation,
-comparison, senior review or canonical change has been launched.
+Status: **first scene executed in Phase 3.1; stopped at human review**. See
+`docs/phase3.1-live-first-scene.md` for the actual result. The second scene remains
+unlaunched, and no canonical change has occurred.
 
 ## Run
 
@@ -121,4 +122,5 @@ The run must remain `prepared` until the user explicitly authorizes:
 phase3-suite404-pilot-001
 ```
 
-No standalone model benchmark is authorized or prepared.
+No standalone model benchmark is authorized or prepared. The first-scene execution record
+is in `docs/phase3.1-live-first-scene.md`.

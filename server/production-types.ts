@@ -592,11 +592,14 @@ export type ProductionRunScene = {
   profile: ProductionRunProfile;
   referenceAssetIds: string[];
   renderConfig: Record<string, unknown>;
+  /** Exact run-scoped context supplied to the Director enhancer for this scene. */
+  renderContext?: Record<string, unknown>;
   reuseCandidateId?: string;
   candidateId?: string;
   observationIds: string[];
   continuityReviewIds: string[];
   status: "planned" | "rendering" | "candidate_registered" | "observed" | "validated" | "awaiting_human" | "approved" | "rejected" | "stale" | "skipped";
+  validation?: { ok: boolean; errors: string[]; at: string };
   jobIds: string[];
   attempts: number;
   errors: string[];
@@ -604,7 +607,14 @@ export type ProductionRunScene = {
 export type ProductionRunProvisionalFact = {
   id: string;
   sceneId: string;
+  /** Observed summary only; intended events live in scenePlan.intendedEvents. */
   text: string;
+  intent: string[];
+  openingState: Record<string, unknown[]>;
+  closingState: Record<string, unknown[]>;
+  observedEvents: string[];
+  dialogueAlignment: string[];
+  uncertainties: string[];
   sourceObservationId: string;
   evidenceReferences: string[];
   revision: number;

@@ -1297,7 +1297,8 @@ export function productionView(productionId) {
     };
     const decide = (decision) => {
       if (!current) return null;
-      const button = el("button", { class: `btn small ${decision === "approved" ? "lime" : "ghost"}`, type: "button" }, icon(decision === "approved" ? "check" : "x"), decision === "approved" ? "Approve scene" : "Reject scene");
+      const ready = current.validation?.ok === true;
+      const button = el("button", { class: `btn small ${decision === "approved" ? "lime" : "ghost"}`, type: "button", disabled: !ready, title: ready ? "Human decision" : "Validation is incomplete; inspect the failure first" }, icon(decision === "approved" ? "check" : "x"), decision === "approved" ? "Approve scene" : "Reject scene");
       button.onclick = async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(run.id)}/decide`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sceneId: current.sceneId, decision, note: "Production Studio human decision" }) }); toast(`Scene ${decision}.`); reload(); } catch (error) { toast(error.message, { error: true }); } };
       return button;
     };
@@ -1306,13 +1307,23 @@ export function productionView(productionId) {
       el("p", { class: "help" }, run.brief),
       el("div", { class: "row" }, el("span", { class: "tag dark" }, `run revision ${run.revision}`), el("span", { class: "tag dark" }, `canonical ${snap.revision}`),
         el("span", { class: "tag dark" }, `renders ${run.budget.rendersUsed}/${run.budget.maxTotalRenders}`), el("span", { class: "tag dark" }, `obs ${run.budget.observationJobsUsed}/${run.budget.maxObservationJobs}`), el("span", { class: "tag dark" }, `senior ${run.budget.seniorReviewBatchesUsed}/${run.budget.maxSeniorReviewBatches}`)),
-      el("div", { class: "prod-analysis-list" }, ...run.scenePlan.map((scene, index) => el("div", { class: "prod-analysis-finding" },
-        el("b", {}, `${index + 1}. ${scene.title} · ${scene.status}`),
-        el("p", {}, scene.objective),
-        el("small", { class: "dim" }, `${scene.selectedApp} · ${scene.profile} · ${scene.targetDurationSeconds}s · ${scene.intendedTransition}`),
-        scene.candidateId ? el("small", { class: "dim" }, `Candidate ${scene.candidateId}`) : null,
-        scene.observationIds.length ? el("small", { class: "dim" }, `Observations ${scene.observationIds.join(", ")}`) : null,
-        scene.errors.length ? el("small", { class: "dim" }, scene.errors.join(" · ")) : null))),
+      el("div", { class: "prod-analysis-list" }, ...run.scenePlan.map((scene, index) => {
+        const candidate = scene.candidateId ? snap.candidates[scene.candidateId] : null;
+        const output = candidate?.outputs?.find((item) => item.type === "video" || item.type === "image");
+        const outputIndex = output ? candidate.outputs.indexOf(output) : -1;
+        const preview = output && outputIndex >= 0 ? (output.type === "video"
+          ? el("video", { src: candidateUrl(productionId, candidate.id, outputIndex), controls: true, muted: true, preload: "metadata", style: { maxWidth: "320px", maxHeight: "180px", borderRadius: "6px" } })
+          : el("img", { src: candidateUrl(productionId, candidate.id, outputIndex), alt: scene.title, style: { maxWidth: "320px", maxHeight: "180px", borderRadius: "6px" } })) : null;
+        return el("div", { class: "prod-analysis-finding" },
+          el("b", {}, `${index + 1}. ${scene.title} · ${scene.status}`),
+          el("p", {}, scene.objective),
+          preview,
+          el("small", { class: "dim" }, `${scene.selectedApp} · ${scene.profile} · ${scene.targetDurationSeconds}s · ${scene.intendedTransition}`),
+          scene.candidateId ? el("small", { class: "dim" }, `Candidate ${scene.candidateId}`) : null,
+          scene.observationIds.length ? el("small", { class: "dim" }, `Observations ${scene.observationIds.join(", ")}`) : null,
+          scene.validation ? el("small", { class: "dim" }, `Validation ${scene.validation.ok ? "passed" : "incomplete"} · ${scene.validation.errors.join(" · ")}`) : null,
+          scene.errors.length ? el("small", { class: "dim" }, scene.errors.join(" · ")) : null);
+      })),
       run.provisionalFacts.length ? el("div", {}, el("h3", {}, "Provisional timeline"), ...run.provisionalFacts.map((fact) => el("p", { class: "help" }, `${fact.sceneId}: ${fact.text} · ${fact.status} · ${fact.sourceObservationId}`))) : null,
       run.decisions.length ? el("div", {}, el("h3", {}, "Human decisions"), ...run.decisions.map((d) => el("p", { class: "help" }, `${d.sceneId}: ${d.decision} · ${d.actor} · ${dateLabel(d.at)}`))) : null,
       el("div", { class: "row" }, control("start", "Start", run.status !== "prepared"), control("pause", "Pause", !["running", "prepared"].includes(run.status)), control("resume", "Resume", !["paused"].includes(run.status)), control("cancel", "Cancel", ["completed", "canceled"].includes(run.status)),
