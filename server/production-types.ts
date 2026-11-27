@@ -333,12 +333,21 @@ export type ObservationFinding = {
   proposedChange?: FactChange;
 };
 
+export type RejectedProposal = {
+  /** Exact model output retained for audit; never cast into a valid FactChange. */
+  original: unknown;
+  code: string;
+  message: string;
+};
+
 export type ObservationComparison = {
   findings: ObservationFinding[];
   proposedChanges: FactChange[];
   limitations: string[];
   comparedAt: string;
   comparisonPromptVersion: string;
+  /** Optional proposals are rejected individually and preserved here. */
+  rejectedProposals?: RejectedProposal[];
 };
 
 export type ObservationReport = {
@@ -630,6 +639,10 @@ export type ProductionRunScene = {
   renderContextHash?: string;
   /** Observation revision explicitly accepted for this scene's provisional state. */
   acceptedObservation?: ProductionRunAcceptedObservation;
+  /** Generation references and observer references may differ to fit the nine-image budget. */
+  observerReferenceAssetIds?: string[];
+  /** Visual evidence frame count resolved before reserving the observation job. */
+  observationVisualFrames?: number;
   /** Opt in only selected scenes to a budgeted Senior Review pass. */
   seniorReview?: boolean;
   reuseCandidateId?: string;

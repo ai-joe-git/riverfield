@@ -262,6 +262,9 @@ export class ProductionRunEngine {
             continue;
           }
           if (pending && !pending.jobId) return this.fail(productionId, run, new ProductionRunError("RUN_RESERVED_WITHOUT_JOB", "An observation reservation has no durable job id; refusing to submit a duplicate"));
+          const observerRefs = scene.observerReferenceAssetIds ?? scene.referenceAssetIds;
+          const observerFrames = scene.observationVisualFrames ?? Math.max(1, Math.min(6, 9 - observerRefs.length));
+          if (observerRefs.length + observerFrames > 9) return this.fail(productionId, run, new ProductionRunError("RUN_OBSERVATION_IMAGE_BUDGET", `${observerFrames} evidence frames plus ${observerRefs.length} observer references exceed the nine-image workflow capacity; resolve the budget before reserving the observation`));
           const comparisonAlreadyReserved = run.jobs.some((job) => job.sceneId === scene.sceneId && job.kind === "comparison" && ["reserved", "submitted", "succeeded"].includes(job.status));
           if (!comparisonAlreadyReserved) {
             try { run = this.reserve(run, "comparison", scene); } catch (error) { return this.fail(productionId, run, error as Error); }

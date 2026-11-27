@@ -84,6 +84,11 @@ Return only one JSON object, no Markdown, no prose before or after it:
   "limitations": ["..."]
 }`;
 
+/** Build mode: findings only; no canonical proposal schema is requested. */
+export const COMPARISON_SYSTEM_PROMPT_BUILD = COMPARISON_SYSTEM_PROMPT
+  .replace("You may propose State, Episodic and Narrative changes, but they are proposals for a human. Never approve a candidate, never canonize, and never change the Bible.", "Do not propose State, Episodic or Narrative changes. Return findings only. Never approve a candidate, never canonize, and never change the Bible.")
+  .replace(`  "proposed_changes": [{"op":"add|update","category":"identity|state|episodic|narrative","text":"...","subject_ids":["..."],"tags":["..."],"phase":"opening|closing|global","evidence_ids":["frame-0001"]}],\n`, "");
+
 export function visualObserverPrompt(input: {
   technical: ObservationTechnical;
   shots: ObservationShot[];
@@ -159,6 +164,7 @@ export function comparisonPrompt(input: {
   dialogueAlignment?: DialogueAlignment;
   intendedBrief?: IntendedBrief;
   continuityConstraints?: string;
+  allowCanonicalProposals?: boolean;
 }): string {
   const compact = (value: any) => ({
     technical: value?.technical ? {
@@ -220,6 +226,8 @@ export function comparisonPrompt(input: {
     "",
     `COVERAGE LIMITATIONS: ${input.coverage}`,
     "",
-    "Compare the compact structured observation against intended actions and the deterministic dialogue alignment. Do not perform your own word-level calculations. Use not_observable when the supplied evidence cannot decide. Propose memory changes only as proposals; unknown subjects, unsupported facts and invalid evidence must be rejected by the calling code.",
+    input.allowCanonicalProposals === false
+      ? "BUILD MODE: Compare findings only. Do not return proposed_changes or canonical memory proposals; the calling code will reject and preserve any proposal field. Do not perform your own word-level calculations. Use not_observable when the supplied evidence cannot decide."
+      : "Compare the compact structured observation against intended actions and the deterministic dialogue alignment. Do not perform your own word-level calculations. Use not_observable when the supplied evidence cannot decide. Propose memory changes only as proposals; unknown subjects, unsupported facts and invalid evidence must be rejected by the calling code.",
   ].join("\n");
 }

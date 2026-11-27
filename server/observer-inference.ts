@@ -12,10 +12,11 @@ import type {
 } from "./production-types.ts";
 import {
   AUDIOVISUAL_OBSERVER_PROMPT_VERSION, AUDIOVISUAL_OBSERVER_SYSTEM_PROMPT,
-  COMPARISON_PROMPT_VERSION, COMPARISON_SYSTEM_PROMPT, OBSERVER_PROMPT_VERSION, OBSERVER_VERSION,
+  COMPARISON_PROMPT_VERSION, COMPARISON_SYSTEM_PROMPT, COMPARISON_SYSTEM_PROMPT_BUILD, OBSERVER_PROMPT_VERSION, OBSERVER_VERSION,
   VISUAL_OBSERVER_SYSTEM_PROMPT, audiovisualObserverPrompt, comparisonPrompt, visualObserverPrompt,
 } from "./observer-prompts.ts";
 import { ObservationError } from "./observation-evidence.ts";
+import { validateComparisonPayload } from "./comparison-validation.ts";
 import type { DialogueAlignment, IntendedBrief } from "./dialogue-alignment.ts";
 import type { AnalysisImage } from "./evidence-images.ts";
 
@@ -44,6 +45,8 @@ export type ComparisonResult = {
   comparison: ObservationComparison;
   rawText: string;
   promptVersion: string;
+  jobId?: string;
+  proposalRejections?: import("./production-types.ts").RejectedProposal[];
   model?: string;
   configuration?: Record<string, unknown>;
   inputModalities?: { text: true; image: boolean; video: boolean; audio: boolean };
@@ -75,6 +78,8 @@ export interface SceneComparator {
     dialogueAlignment?: DialogueAlignment;
     intendedBrief?: IntendedBrief;
     continuityConstraints?: string;
+    allowCanonicalProposals?: boolean;
+    onRawResponse?: (meta: { rawText: string; jobId?: string; systemPrompt: string; inputPrompt: string }) => void;
     signal?: AbortSignal;
   }): Promise<ComparisonResult>;
 }
@@ -416,117 +421,44 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     dialogueAlignment?: DialogueAlignment;
     intendedBrief?: IntendedBrief;
     continuityConstraints?: string;
+    allowCanonicalProposals?: boolean;
+    onRawResponse?: (meta: { rawText: string; jobId?: string; systemPrompt: string; inputPrompt: string }) => void;
     signal?: AbortSignal;
   }): Promise<ComparisonResult> {
+    const allowCanonicalProposals = input.allowCanonicalProposals !== false;
+    const systemPrompt = allowCanonicalProposals ? COMPARISON_SYSTEM_PROMPT : COMPARISON_SYSTEM_PROMPT_BUILD;
     const prompt = comparisonPrompt({
       ...input, observationJson: input.observation,
       dialogueAlignment: input.dialogueAlignment, intendedBrief: input.intendedBrief,
       continuityConstraints: input.continuityConstraints,
+      allowCanonicalProposals,
     });
-    const { outputs } = await this.runner.runTexts(this.app, {
+    const { job, outputs } = await this.runner.runTexts(this.app, {
       ...this.graphValues(),
-      system_prompt: COMPARISON_SYSTEM_PROMPT, prompt,
+      system_prompt: systemPrompt, prompt,
     }, input.signal);
     const rawText = outputs[0]?.text ?? "";
-    const parsed = parseRaw(rawText);
-    const allowed = new Set([
-      ...input.observation.evidence.map((entry) => entry.id),
-      ...(input.observation.nativeEvidence ?? []).map((entry) => entry.id),
-    ]);
-    const limitations = strings(parsed.limitations, 30);
-    const findings: ObservationFinding[] = [];
-    const rawFindings = Array.isArray(parsed.findings) ? parsed.findings : [];
-    const seenFindings = new Set<string>();
-    for (const [index, finding] of rawFindings.entries()) {
-      const categoryValue = String(finding?.category ?? "");
-      if (!["character", "wardrobe", "prop", "action", "dialogue", "event", "location", "continuity", "creative_deviation", "coverage"].includes(categoryValue)) {
-        throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Comparison finding ${index + 1} has unsupported category ${categoryValue || "(missing)"}`);
-      }
-      const category = categoryValue as ObservationFinding["category"];
-      const expected = String(finding?.expected ?? "").trim();
-      const observed = String(finding?.observed ?? "").trim();
-      if (!expected && !observed) continue;
-      const key = `${category}|${norm(expected)}|${norm(observed)}`;
-      if (seenFindings.has(key)) { limitations.push(`Comparison finding ${index + 1} was a duplicate and was removed.`); continue; }
-      seenFindings.add(key);
-      const ids = evidenceIds(finding?.evidence_ids, allowed, limitations);
-      let classification = asConfidence(finding?.classification, "not_observable", `comparison finding ${index + 1} classification`);
-      let rationale = String(finding?.rationale ?? "").trim();
-      const match = category === "dialogue" ? dialogueMatch(expected, observed, finding?.dialogue_match) : undefined;
-      const audioIds = ids.filter((id) => id.startsWith("audio-"));
-      if (category === "dialogue") {
-        if (match === "partial" && classification === "confirmed") {
-          classification = "probable";
-          rationale = `${rationale}${rationale ? " " : ""}The transcript is a partial match, not an exact match.`.trim();
-        } else if (match === "mismatch") {
-          classification = "uncertain";
-          rationale = `${rationale}${rationale ? " " : ""}The available transcript does not match the expected line.`.trim();
-        }
-        if (!audioIds.length) {
-          classification = "not_observable";
-          rationale = `${rationale}${rationale ? " " : ""}No audio evidence supports this dialogue finding.`.trim();
-        }
-      }
-      if (category === "prop" && /\b(liquid|contents|full|empty|filled)\b/i.test(`${expected} ${observed}`) && !audioIds.length) {
-        if (classification === "confirmed" || classification === "probable") classification = "uncertain";
-        rationale = `${rationale}${rationale ? " " : ""}A static visual frame does not establish liquid contents or quantity.`.trim();
-      }
-      if (category === "action" && /\b(previous|earlier|before|approach(?:es|ing)?|walk(?:s|ing)?)\b/i.test(`${expected} ${observed}`)) {
-        const visualIds = ids.filter((id) => id.startsWith("frame-"));
-        if (visualIds.length < 2 && classification === "confirmed") {
-          classification = "probable";
-          rationale = `${rationale}${rationale ? " " : ""}The previous or continuing movement is inferred from a single still, not directly observed.`.trim();
-        }
-      }
-      if (!ids.length && (classification === "confirmed" || classification === "probable")) {
-        classification = "not_observable";
-        rationale = `${rationale}${rationale ? " " : ""}No supplied visual or audio evidence id supports this finding; it was downgraded during validation.`.trim();
-        limitations.push(`Comparison finding ${index + 1} had no valid evidence id and was downgraded from the model's stated classification.`);
-      }
-      findings.push({
-        id: "", category, expected, observed, classification, rationale, evidenceIds: ids,
-        ...(match ? { dialogueMatch: match } : {}),
+    input.onRawResponse?.({ rawText, jobId: job?.id, systemPrompt, inputPrompt: prompt });
+    let validated;
+    try {
+      const parsed = parseRaw(rawText);
+      validated = validateComparisonPayload(parsed, input.observation, {
+        allowCanonicalProposals,
+        comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
       });
-      if (soundPattern.test(`${expected} ${observed}`) && !audioIds.length) {
-        findings.push({
-          id: "", category: "event",
-          expected: "Audio/sound-effect component",
-          observed: "Not observable from visual evidence; the audio track was not cited for this subclaim.",
-          classification: "not_observable",
-          rationale: "Compound visual/audio finding split into an atomic audio claim; a visible effect does not confirm a sound.",
-          evidenceIds: [], dialogueMatch: "none",
-        });
-      }
+    } catch (error) {
+      const enriched = error as Error & { rawText?: string; jobId?: string; systemPrompt?: string; inputPrompt?: string; proposalRejections?: unknown };
+      enriched.rawText = rawText;
+      enriched.jobId = job?.id;
+      enriched.systemPrompt = systemPrompt;
+      enriched.inputPrompt = prompt;
+      throw enriched;
     }
-    const dedupedFindings = dedupeBy(findings, (finding) => `${finding.category}|${norm(finding.expected)}|${norm(finding.observed)}`);
-    const numberedFindings = dedupedFindings.map((finding, index) => ({ ...finding, id: `finding-${String(index + 1).padStart(3, "0")}` }));
-    const proposedChanges: FactChange[] = (Array.isArray(parsed.proposed_changes) ? parsed.proposed_changes : [])
-      .map((change: any, index: number) => {
-        if (change?.op !== "add" && change?.op !== "update") throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Proposed change ${index + 1} has unsupported op ${String(change?.op)}`);
-        if (!["identity", "state", "episodic", "narrative"].includes(String(change?.category))) throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Proposed change ${index + 1} has unsupported category ${String(change?.category)}`);
-        if (!["opening", "closing", "global"].includes(String(change?.phase))) throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Proposed change ${index + 1} has unsupported phase ${String(change?.phase)}`);
-        return {
-          op: change.op as "add" | "update",
-          category: String(change.category) as FactChange["category"],
-          text: String(change?.text ?? "").trim(),
-          subjectIds: strings(change?.subject_ids).length ? strings(change.subject_ids) : undefined,
-          tags: strings(change?.tags).length ? strings(change.tags) : ["observed-proposal"],
-          phase: String(change.phase) as FactChange["phase"],
-          evidenceIds: evidenceIds(change?.evidence_ids, allowed, limitations),
-        };
-      })
-      .filter((change: FactChange) => {
-        if (!change.text) return false;
-        if (!change.evidenceIds?.length) { limitations.push("A proposed canonical change without a valid evidence id was dropped."); return false; }
-        return true;
-      });
     return {
-      comparison: {
-        findings: numberedFindings, proposedChanges,
-        limitations: [...limitations, "Comparison is evidence-backed; absent evidence is never treated as proof of absence."],
-        comparedAt: new Date().toISOString(), comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
-      },
+      comparison: validated.comparison,
+      proposalRejections: validated.proposalRejections,
       rawText, promptVersion: COMPARISON_PROMPT_VERSION,
+      jobId: job?.id,
       model: this.model,
       configuration: {
         clipType: this.clipType, temperature: this.temperature, maxLength: this.maxOutputTokens,
@@ -534,7 +466,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       },
       inputModalities: { text: true, image: false, video: false, audio: false },
       ...(this.checkpoint ? { checkpoint: this.checkpoint } : {}),
-      systemPrompt: COMPARISON_SYSTEM_PROMPT, inputPrompt: prompt,
+      systemPrompt, inputPrompt: prompt,
     };
   }
 }

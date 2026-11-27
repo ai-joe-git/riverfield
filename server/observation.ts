@@ -59,12 +59,14 @@ export type ObservationOptions = {
   seed: number;
   thinking: boolean;
   profile: ObserverProfileId;
+  /** ProductionRun Build mode disables canonical proposal generation. */
+  buildMode: boolean;
 };
 export const DEFAULT_OBSERVATION_OPTIONS: ObservationOptions = {
   ...DEFAULT_OBSERVATION_EVIDENCE_CONFIG, visual: true, asr: true, comparison: true, referenceAssetIds: [],
   visualModel: DEFAULT_OBSERVER_MODEL_ID, comparisonModel: DEFAULT_OBSERVER_MODEL_ID,
   nativeVideo: false, nativeAudio: false, temperature: 0.1, maxOutputTokens: 4096,
-  topK: 64, topP: 0.9, seed: 0, thinking: false, profile: "custom",
+  topK: 64, topP: 0.9, seed: 0, thinking: false, profile: "custom", buildMode: false,
 };
 
 export type ObservationJob = {
@@ -617,6 +619,12 @@ export class ObservationManager {
 
         if (job.options.comparison) {
           this.stage(job, "comparison", "running");
+          const persistRaw = (meta: { rawText: string; jobId?: string; systemPrompt: string; inputPrompt: string }) => {
+            writeArtifact("comparison-raw.txt", meta.rawText, true);
+            writeArtifact("comparison-job.json", { jobId: meta.jobId ?? null, persistedAt: new Date().toISOString() }, true);
+            writeArtifact("comparison-system-prompt.txt", meta.systemPrompt, true);
+            writeArtifact("comparison-input-prompt.txt", meta.inputPrompt, true);
+          };
           try {
             comparison = await comparisonBackend.compare({
               intended: scene.summary,
@@ -628,6 +636,8 @@ export class ObservationManager {
                 technical: bundle.technical, shots: bundle.shots, evidence: [...bundle.frames, ...bundle.audio],
               },
               coverage: `${bundle.frames.length} sampled frames across ${bundle.shots.length} detected shots; ${bundle.audio.length} scene audio range(s). Absence from a sample is not proof of absence.`,
+              allowCanonicalProposals: !job.options.buildMode,
+              onRawResponse: persistRaw,
               signal: controller.signal,
             });
             writeArtifact("comparison-system-prompt.txt", comparison.systemPrompt ?? "", true);
@@ -655,7 +665,11 @@ export class ObservationManager {
         proposalAudit = auditObservedProposals({
           changes: comparison.comparison.proposedChanges, snapshot: snap, sceneId: scene.id, allowedEvidence,
         });
-        writeArtifact("proposal-validation.json", proposalAudit);
+        writeArtifact("proposal-validation.json", {
+          ...proposalAudit,
+          rejectedProposals: comparison.comparison.rejectedProposals ?? [],
+          proposalRejections: comparison.proposalRejections ?? [],
+        });
       }
       const revision = Math.max(0, ...Object.values(snap.observations)
         .filter((item) => item.sceneId === scene.id && item.candidateId === candidate.id)
@@ -826,6 +840,12 @@ export class ObservationManager {
       let comparison: ComparisonResult | undefined;
       const stageErrors: string[] = [];
       this.stage(job, "comparison", "running");
+      const persistRaw = (meta: { rawText: string; jobId?: string; systemPrompt: string; inputPrompt: string }) => {
+        writeArtifact("comparison-raw.txt", meta.rawText, true);
+        writeArtifact("comparison-job.json", { jobId: meta.jobId ?? null, persistedAt: new Date().toISOString() }, true);
+        writeArtifact("comparison-system-prompt.txt", meta.systemPrompt, true);
+        writeArtifact("comparison-input-prompt.txt", meta.inputPrompt, true);
+      };
       try {
         comparison = await comparisonBackend.compare({
           intended: scene.summary, canonicalOpening: continuity, continuityConstraints: continuity,
@@ -835,6 +855,8 @@ export class ObservationManager {
             dialogue: sourceReport.dialogue, technical: sourceReport.technical, shots: sourceReport.shots, evidence: sourceReport.evidence,
           },
           coverage: `Senior review reuses existing observation ${source.id} (revision ${source.revision}); no new media evidence was extracted.`,
+          allowCanonicalProposals: !job.options.buildMode,
+          onRawResponse: persistRaw,
           signal: controller.signal,
         });
         writeArtifact("comparison-system-prompt.txt", comparison.systemPrompt ?? "", true);

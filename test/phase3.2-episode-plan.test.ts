@@ -25,7 +25,8 @@ test("the Phase 3.2 episode stops at its first human checkpoint", () => {
   assert.equal(run.budget.observationJobsUsed, 1);
   assert.equal(run.budget.comparisonCallsUsed, 1);
   assert.equal(run.budget.seniorReviewBatchesUsed, 0);
-  assert.equal(run.scenePlan[0].validation.ok, false);
+  assert.equal(run.scenePlan[0].validation.ok, true);
+  assert.equal(run.scenePlan[0].observationIds.length, 2);
   assert.equal(snapshot.revision, 0);
 });
 
@@ -97,6 +98,10 @@ test("the first scene reference manifest is ordered, trusted and hash-verified",
   ]);
   assert.equal(preflight.referenceSlotOrder.every((ref: any) => ref.trusted && ref.exists && ref.hashMatches), true);
   assert.equal(preflight.referenceCapacity.supplied, 5);
+  assert.equal(preflight.observation.referenceImages, 5);
+  assert.equal(preflight.observation.visualFrames, 4);
+  assert.equal(preflight.observation.totalImages, 9);
+  assert.equal(run.scenePlan.every((scene: any) => scene.observerReferenceAssetIds.length + scene.observationVisualFrames <= 9), true);
   assert.equal(preflight.pendingAssetCorrectionsApplied, false);
   assert.equal(preflight.noInferenceStarted, true);
 });
@@ -118,4 +123,22 @@ test("prop, voice and narrative corrections are explicit in the prepared scenes"
     const words = run.scenePlan[index].dialogueRequirements.map((line: string) => line.replace(/^[^:]+:\s*/, "")).join(" ").match(/\b[\w']+\b/g) ?? [];
     assert.ok(words.length <= 30, `${run.scenePlan[index].sceneId} has ${words.length} spoken words`);
   }
+});
+
+test("Scene 01 preserves the failed observation and validates a recovered successor without inference", () => {
+  const scene = run.scenePlan[0];
+  const original = snapshot.observations[scene.observationIds[0]];
+  const successor = snapshot.observations[scene.observationIds[1]];
+  assert.equal(original.report.failure.stage, "comparison");
+  assert.equal(original.report.comparison, undefined);
+  assert.equal(successor.previousRevisionId, original.id);
+  assert.equal(successor.revision, 2);
+  assert.equal(successor.report.failure, undefined);
+  assert.equal(successor.report.comparison.findings.length, 11);
+  assert.equal(successor.report.comparison.proposedChanges.length, 0);
+  assert.equal(successor.report.comparison.rejectedProposals?.length, 3);
+  assert.equal(successor.report.comparison.rejectedProposals?.every((item: any) => item.original.category === "wardrobe"), true);
+  assert.match(successor.report.comparison.limitations.join(" "), /Build mode: all canonical proposals were rejected individually/);
+  assert.equal(scene.errors.some((error: string) => /unsupported category wardrobe/.test(error)), true);
+  assert.equal(snapshot.revision, 0);
 });

@@ -323,3 +323,34 @@ Senior Review           0/2
 ```
 
 No automatic regeneration was performed.
+
+## Comparison validation architecture
+
+Comparison findings and optional canonical proposals are now validated independently.
+Findings remain strict; an invalid proposed change is rejected individually with its exact
+original object and rejection reason preserved, and cannot discard valid findings. Build Mode
+uses a findings-only comparison system prompt and schema; any proposal the model still emits is
+rejected with `BUILD_MODE_PROPOSALS_DISABLED`.
+
+The comparison adapter now persists the complete raw response, effective system/input prompts
+and backend job id immediately after inference returns, before parsing or schema validation.
+This covers syntax failures, semantic failures and unexpected exceptions.
+
+Observation capacity is resolved before reserving the job: generation references and observer
+references may differ, and the scene plan records the selected observer references and visual
+frame count. Scene 01 uses five observer references plus four visual frames.
+
+## Scene 01 recovery
+
+The failed comparison was recovered read-only from the exact ComfyUI job:
+
+```text
+job:     fe762a11-f3aa-4435-97e0-01983af58b14
+output:  observer_00029.txt
+sha256:  f70545d2fdfba07d517c31632f685d6aab4d8f1aeb13582a6b61ee7d16cfcc33
+```
+
+The original failed observation remains immutable. A successor observation revision 2 was
+created with **11 validated findings** and **3 individually rejected wardrobe proposals**.
+No inference was repeated. Scene 01 validation is complete but the scene remains
+**awaiting human retention**; Scene 02 was not launched.
