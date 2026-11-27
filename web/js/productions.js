@@ -1374,8 +1374,8 @@ export function productionView(productionId) {
           el("button", { class: "btn small ghost", type: "button", onclick: () => openCharacterSheet(productionId, snap) }, icon("user"), "New character sheet"),
           el("button", { class: "btn small lime", type: "button", onclick: () => openAssetBuilder(productionId) }, icon("spark"), "New asset"))),
       el("div", { class: "prod-assets-toolbar" }, el("label", { class: "search" }, icon("search"), search), filters, el("span", { class: "tag dark" }, `${all.length} assets`)),
-      corrections,
-      ...folders);
+      ...folders,
+      corrections);
   }
 
   async function assetCorrectionBatchPanel(productionId, host) {
@@ -1423,8 +1423,9 @@ export function productionView(productionId) {
           toast("Approved corrections applied; historical events and media hashes preserved."); await assetCorrectionBatchPanel(productionId, host);
         } catch (error) { toast(error.message, { error: true }); }
       };
-      host.replaceChildren(el("section", { class: "prod-section" },
-        el("div", { class: "prod-section-head" }, el("h2", {}, "Catalogue correction batch"), status),
+      const summary = last ? "human decision recorded" : "prepared · not applied";
+      host.replaceChildren(el("details", { class: "prod-section prod-corrections" },
+        el("summary", {}, `Catalogue correction batch · ${batch.entries.length} proposed corrections · ${summary}`),
         el("p", { class: "help" }, "Prepared from actual images. Approval records the decision only; original media and historical observations are never rewritten, and the batch is not applied automatically."),
         ...rows, ambiguous.length ? el("h3", {}, "Ambiguous hallway asset") : null, ...ambiguous,
         el("div", { class: "row" }, approve, reject, apply)));
