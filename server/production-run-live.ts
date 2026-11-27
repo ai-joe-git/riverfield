@@ -122,6 +122,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
       ...(scene.dialogueRequirements.length ? [`Dialogue requirements (English): ${scene.dialogueRequirements.join(" ")}`] : []),
       ...(productionStyle ? [`Visual style: ${productionStyle}`] : []),
       `Transition requirement: ${scene.intendedTransition}`,
+      "Cinematic coverage requirement: use at least three purposeful shot changes in this 15-second scene whenever justified by the action. Favor distinct framing, reaction close-ups, prop inserts, meaningful character movement, expressive anime acting and deliberate comic timing. Do not deliver the entire scene as one static two-shot or two near-identical compositions.",
       ...(scene.props?.length ? [`Prop identities (track state and possession; never invent an asset association): ${scene.props.map((prop) => `${prop.id}: ${prop.label} (${prop.persistence}); ${prop.description}; state=${prop.state}${prop.possession ? `; possession=${prop.possession}` : ""}`).join(" | ")}`] : []),
       ...(scene.voiceRequirements?.length ? [`Voice requirements (include offscreen speakers; do not omit): ${scene.voiceRequirements.map((voice) => `${voice.speaker}${voice.offscreen ? " [offscreen]" : ""}: ${voice.description}`).join(" | ")}`] : []),
       `Run-scoped provisional context from the preceding accepted scene (not canonical): ${priorText}`,

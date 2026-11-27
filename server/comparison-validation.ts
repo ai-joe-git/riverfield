@@ -53,6 +53,7 @@ export type ComparisonValidationOptions = {
 export type ComparisonValidationResult = {
   comparison: ObservationComparison;
   proposalRejections: RejectedProposal[];
+  findingRejections: import("./production-types.ts").RejectedFinding[];
 };
 
 /**
@@ -70,14 +71,21 @@ export function validateComparisonPayload(
   ]);
   const limitations = strings(payload.limitations, 30);
   const findings: ObservationFinding[] = [];
+  const findingRejections: import("./production-types.ts").RejectedFinding[] = [];
   const rawFindings = Array.isArray(payload.findings) ? payload.findings : [];
   const seenFindings = new Set<string>();
   for (const [index, finding] of rawFindings.entries()) {
     const categoryValue = String((finding as any)?.category ?? "");
     if (!allowedFindingCategories.has(categoryValue)) {
-      throw new ObservationError("OBSERVER_SCHEMA_INVALID", `Comparison finding ${index + 1} has unsupported category ${categoryValue || "(missing)"}`);
+      findingRejections.push({ original: finding, code: "OBSERVER_FINDING_CATEGORY_INVALID", message: `Comparison finding ${index + 1} has unsupported category ${categoryValue || "(missing)"}` });
+      continue;
     }
     const category = categoryValue as ObservationFinding["category"];
+    const classificationValue = String((finding as any)?.classification ?? "");
+    if (!allowedClassifications.has(classificationValue)) {
+      findingRejections.push({ original: finding, code: "OBSERVER_FINDING_CLASSIFICATION_INVALID", message: `Comparison finding ${index + 1} classification has unsupported value ${classificationValue || "(missing)"}` });
+      continue;
+    }
     const expected = String((finding as any)?.expected ?? "").trim();
     const observed = String((finding as any)?.observed ?? "").trim();
     if (!expected && !observed) continue;
@@ -85,7 +93,7 @@ export function validateComparisonPayload(
     if (seenFindings.has(key)) { limitations.push(`Comparison finding ${index + 1} was a duplicate and was removed.`); continue; }
     seenFindings.add(key);
     const ids = evidenceIds((finding as any)?.evidence_ids, allowed, limitations);
-    let classification = asConfidence((finding as any)?.classification, "not_observable", `comparison finding ${index + 1} classification`);
+    let classification = classificationValue as ObservationConfidence;
     let rationale = String((finding as any)?.rationale ?? "").trim();
     const match = category === "dialogue" ? dialogueMatch(expected, observed, (finding as any)?.dialogue_match) : undefined;
     const audioIds = ids.filter((id) => id.startsWith("audio-"));
@@ -170,7 +178,9 @@ export function validateComparisonPayload(
       comparedAt: options.comparedAt ?? new Date().toISOString(),
       comparisonPromptVersion: options.comparisonPromptVersion,
       ...(proposalRejections.length ? { rejectedProposals: proposalRejections } : {}),
+      ...(findingRejections.length ? { rejectedFindings: findingRejections } : {}),
     },
     proposalRejections,
+    findingRejections,
   };
 }

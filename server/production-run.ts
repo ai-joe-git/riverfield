@@ -49,12 +49,31 @@ export class ProductionRunEngine {
     return { ...next, productionId: run.productionId, id: run.id };
   }
 
+  private startActiveClock(budget: ProductionRunBudget): ProductionRunBudget {
+    return budget.activeProductionMinutesUsed !== undefined && !budget.activeProductionStartedAt
+      ? { ...budget, activeProductionStartedAt: now() } : budget;
+  }
+  private settleActiveClock(budget: ProductionRunBudget): ProductionRunBudget {
+    if (!budget.activeProductionStartedAt) return budget;
+    const elapsedMinutes = Math.max(0, Date.now() - Date.parse(budget.activeProductionStartedAt)) / 60_000;
+    return {
+      ...budget,
+      activeProductionMinutesUsed: Number(((budget.activeProductionMinutesUsed ?? 0) + elapsedMinutes).toFixed(4)),
+      activeProductionStartedAt: undefined,
+    };
+  }
   /** Hard reservation before an expensive call. The updated journal is durable first. */
   private reserve(run: ProductionRun, kind: "render" | "observation" | "comparison" | "senior_review", scene: ProductionRunScene): ProductionRun {
     const budget = clone(run.budget);
     const nowMs = Date.now();
     const started = budget.startedAt ? Date.parse(budget.startedAt) : nowMs;
-    if (nowMs - started > budget.wallClockMinutes * 60_000) throw new ProductionRunError("RUN_WALL_CLOCK_EXHAUSTED", "Production run wall-clock budget exhausted");
+    if (budget.activeProductionMinutesUsed !== undefined) {
+      const activeStart = budget.activeProductionStartedAt ? Date.parse(budget.activeProductionStartedAt) : nowMs;
+      const activeMs = budget.activeProductionMinutesUsed * 60_000 + Math.max(0, nowMs - activeStart);
+      if (activeMs > budget.wallClockMinutes * 60_000) throw new ProductionRunError("RUN_ACTIVE_BUDGET_EXHAUSTED", "Production run active-production budget exhausted");
+    } else if (nowMs - started > budget.wallClockMinutes * 60_000) {
+      throw new ProductionRunError("RUN_WALL_CLOCK_EXHAUSTED", "Production run wall-clock budget exhausted");
+    }
     if (kind === "render") {
       if (budget.rendersUsed >= budget.maxTotalRenders) throw new ProductionRunError("RUN_BUDGET_RENDER_TOTAL", "Total render budget exhausted");
       if (scene.attempts >= budget.maxRendersPerScene) throw new ProductionRunError("RUN_BUDGET_RENDER_SCENE", `Render budget exhausted for ${scene.sceneId}`);
@@ -99,7 +118,7 @@ export class ProductionRunEngine {
   private async startUnlocked(productionId: string, runId: string): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     if (["canceled", "completed"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
-    if (run.status === "prepared") run = this.update(productionId, run, { status: "running", stage: "render", budget: { ...run.budget, startedAt: run.budget.startedAt ?? now() } }, `run:${run.id}:start`);
+    if (run.status === "prepared") run = this.update(productionId, run, { status: "running", stage: "render", budget: this.startActiveClock({ ...run.budget, startedAt: run.budget.startedAt ?? now() }) }, `run:${run.id}:start`);
     return this.advance(productionId, run.id);
   }
   async resume(productionId: string, runId: string): Promise<ProductionRun> {
@@ -109,20 +128,20 @@ export class ProductionRunEngine {
     let run = this.run(productionId, runId);
     if (run.status === "awaiting_human") throw new ProductionRunError("RUN_AWAITING_HUMAN", "A human decision is required before resuming");
     if (!["paused", "running", "prepared"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
-    if (run.status !== "running") run = this.update(productionId, run, { status: "running" }, `run:${run.id}:resume`);
+    if (run.status !== "running") run = this.update(productionId, run, { status: "running", budget: this.startActiveClock(run.budget) }, `run:${run.id}:resume`);
     return this.advance(productionId, run.id);
   }
   async pause(productionId: string, runId: string): Promise<ProductionRun> {
     const run = this.run(productionId, runId);
     if (["completed", "canceled"].includes(run.status)) throw new ProductionRunError("RUN_NOT_PAUSABLE", `Run ${runId} is ${run.status}`);
-    return this.update(productionId, run, { status: "paused" }, `run:${run.id}:pause`);
+    return this.update(productionId, run, { status: "paused", budget: this.settleActiveClock(run.budget) }, `run:${run.id}:pause`);
   }
   async cancel(productionId: string, runId: string): Promise<ProductionRun> {
     const run = this.run(productionId, runId);
     for (const job of run.jobs.filter((item) => ["reserved", "submitted"].includes(item.status) && item.jobId)) {
       await this.adapters.cancel?.(job.jobId, { run, scene: run.scenePlan.find((scene) => scene.sceneId === job.sceneId)!, sceneIndex: run.currentSceneIndex, requestKey: job.requestKey });
     }
-    return this.update(productionId, run, { status: "canceled", stage: "awaiting_human" }, `run:${run.id}:cancel`);
+    return this.update(productionId, run, { status: "canceled", stage: "awaiting_human", budget: this.settleActiveClock(run.budget) }, `run:${run.id}:cancel`);
   }
   async decide(productionId: string, runId: string, sceneId: string, decision: "approved" | "rejected" | "replace" | "reuse", note = "", observationId?: string): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
@@ -161,6 +180,7 @@ export class ProductionRunEngine {
       run = this.update(productionId, run, {
         currentSceneIndex: index + 1, status: index + 1 >= run.scenePlan.length ? "completed" : "running",
         stage: index + 1 >= run.scenePlan.length ? "completed" : "next_scene",
+        budget: this.startActiveClock(run.budget),
         provisionalFacts: run.provisionalFacts.map((fact) => fact.sceneId === sceneId ? {
           ...fact, status: "approved", sourceObservationId: accepted!.observation.id, sourceObservationHash: accepted!.sourceHash,
           previousSourceObservationId: fact.sourceObservationId === accepted!.observation.id ? fact.previousSourceObservationId : fact.sourceObservationId,
@@ -306,7 +326,7 @@ export class ProductionRunEngine {
         } else {
           run = this.markScene(run, index, { status: "awaiting_human" });
         }
-        run = this.update(productionId, run, { status: "awaiting_human", stage: "awaiting_human" }, `run:${run.id}:awaiting:${scene.sceneId}`);
+        run = this.update(productionId, run, { status: "awaiting_human", stage: "awaiting_human", budget: this.settleActiveClock(run.budget) }, `run:${run.id}:awaiting:${scene.sceneId}`);
         return run;
       }
       return run;
@@ -355,6 +375,6 @@ export class ProductionRunEngine {
     }] }, `run:${run.id}:provisional:${sceneId}`);
   }
   private fail(productionId: string, run: ProductionRun, error: Error): ProductionRun {
-    return this.update(productionId, run, { status: "paused", stage: "awaiting_human", errors: [...run.errors, error.message] }, `run:${run.id}:fail:${Date.now()}`);
+    return this.update(productionId, run, { status: "paused", stage: "awaiting_human", budget: this.settleActiveClock(run.budget), errors: [...run.errors, error.message] }, `run:${run.id}:fail:${Date.now()}`);
   }
 }

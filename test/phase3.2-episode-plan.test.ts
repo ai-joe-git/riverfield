@@ -8,28 +8,30 @@ const snapshot = JSON.parse(readFileSync("out/productions/suite-404/snapshot.jso
 const run = snapshot.productionRuns["phase3.2-suite404-s01e03-production-001"];
 const plan = JSON.parse(readFileSync("out/productions/suite-404/phase3.2/episode-plan.json", "utf8"));
 
-test("the Phase 3.2 episode stops at its second human checkpoint", () => {
+test("the Phase 3.2 episode stops at its third human checkpoint", () => {
   assert.ok(run);
   assert.equal(run.status, "awaiting_human");
   assert.equal(run.stage, "awaiting_human");
-  assert.equal(run.currentSceneIndex, 1);
+  assert.equal(run.currentSceneIndex, 2);
   assert.equal(run.scenePlan.length, 12);
   assert.equal(run.scenePlan.every((scene: any) => Math.abs(scene.targetDurationSeconds - 362 / 24) < 1e-9), true);
   assert.equal(run.scenePlan.every((scene: any) => scene.renderConfig.target_frames === 362), true);
   assert.equal(run.scenePlan.every((scene: any) => scene.profile === "build"), true);
   assert.equal(run.scenePlan.every((scene: any) => scene.selectedApp === "h3-studio-director-flash"), true);
-  assert.equal(run.scenePlan[1].status, "awaiting_human");
-  assert.equal(run.scenePlan.slice(2).every((scene: any) => scene.status === "planned"), true);
-  assert.equal(run.budget.rendersUsed, 2);
-  assert.equal(run.budget.promptEnhancementsUsed, 2);
-  assert.equal(run.budget.observationJobsUsed, 2);
-  assert.equal(run.budget.comparisonCallsUsed, 2);
+  assert.equal(run.scenePlan[1].status, "approved");
+  assert.equal(run.scenePlan[2].status, "awaiting_human");
+  assert.equal(run.scenePlan.slice(3).every((scene: any) => scene.status === "planned"), true);
+  assert.equal(run.budget.rendersUsed, 3);
+  assert.equal(run.budget.promptEnhancementsUsed, 3);
+  assert.equal(run.budget.observationJobsUsed, 3);
+  assert.equal(run.budget.comparisonCallsUsed, 3);
   assert.equal(run.budget.seniorReviewBatchesUsed, 0);
   assert.equal(run.scenePlan[0].status, "approved");
   assert.equal(run.scenePlan[0].validation.ok, true);
   assert.equal(run.scenePlan[0].observationIds.length, 2);
-  assert.equal(run.scenePlan[1].status, "awaiting_human");
-  assert.equal(run.scenePlan[1].validation.ok, false);
+  assert.equal(run.scenePlan[1].status, "approved");
+  assert.equal(run.scenePlan[1].validation.ok, true);
+  assert.equal(run.scenePlan[2].validation.ok, true);
   assert.match(run.scenePlan[1].errors.join(" "), /unsupported value mismatch/);
   assert.equal(snapshot.revision, 0);
 });
@@ -161,14 +163,43 @@ test("Scene 01 human retention is explicit and Scene 02 uses the accepted revisi
   assert.equal(scene2.observerReferenceAssetIds.length, 3);
   assert.equal(scene2.observationVisualFrames, 6);
   assert.equal(scene2.observerReferenceAssetIds.length + scene2.observationVisualFrames, 9);
-  assert.equal(run.scenePlan.slice(2).every((item: any) => item.status === "planned"), true);
+  assert.equal(scene2.status, "approved");
+  assert.equal(scene2.acceptedObservation.observationId, "28b69bca-3eaa-4272-9077-59c8d9032a45-comparison-recovered-r2");
+  const scene3 = run.scenePlan[2];
+  assert.equal(scene3.status, "awaiting_human");
+  assert.equal(scene3.renderContext.priorObservationId, scene2.acceptedObservation.observationId);
+  assert.equal(scene3.renderContext.priorObservationRevision, 2);
+  assert.equal(scene3.renderContextHash, scene3.renderContext.effectiveContextHash);
+  assert.equal(scene3.observerReferenceAssetIds.length + scene3.observationVisualFrames, 9);
+  assert.equal(scene3.validation.ok, true);
+  assert.equal(scene3.observationIds.length, 1);
+  assert.equal(run.scenePlan.slice(3).every((item: any) => item.status === "planned"), true);
   assert.equal(snapshot.revision, 0);
 });
 
-test("Scene 02 wall-clock accounting separates active production from human waiting", () => {
-  const audit = JSON.parse(readFileSync("out/productions/suite-404/phase3.2/wall-clock-audit-scene02.json", "utf8"));
+test("Scene 02 comparison successor rejects only the invalid finding and preserves the human audit", () => {
+  const scene = run.scenePlan[1];
+  const original = snapshot.observations[scene.observationIds[0]];
+  const successor = snapshot.observations[scene.observationIds[1]];
+  assert.equal(original.report.failure.stage, "comparison");
+  assert.equal(successor.revision, 2);
+  assert.equal(successor.report.failure, undefined);
+  assert.equal(successor.report.comparison.findings.length, 9);
+  assert.equal(successor.report.comparison.rejectedFindings?.length, 1);
+  assert.equal((successor.report.comparison.rejectedFindings[0].original as any).classification, "mismatch");
+  assert.match(successor.report.comparison.rejectedFindings[0].code, /CLASSIFICATION_INVALID/);
+});
+
+test("the active-production budget amendment preserves counters and excludes human waiting", () => {
+  assert.equal(run.budgetDecision.fromBasis, "total-elapsed");
+  assert.equal(run.budgetDecision.toBasis, "active-production");
+  assert.equal(run.budgetDecision.activeMinutesUsed, 46.89);
+  assert.equal(run.budgetDecision.remainingActiveMinutes, 313.11);
+  assert.equal(run.budget.rendersUsed, 3);
+  assert.equal(run.budget.promptEnhancementsUsed, 3);
+  assert.equal(run.budget.observationJobsUsed, 3);
+  assert.equal(run.budget.comparisonCallsUsed, 3);
+  const audit = JSON.parse(readFileSync("out/productions/suite-404/phase3.2/wall-clock-audit-scene03.json", "utf8"));
   assert.equal(audit.budgetResetOrExtended, false);
-  assert.equal(audit.activeProduction.minutes > 0, true);
-  assert.equal(audit.humanReviewWaiting.minutes > audit.activeProduction.minutes, true);
-  assert.equal(audit.remaining.totalMinutes >= 0, true);
+  assert.equal(audit.remaining.activeMinutes > 0, true);
 });

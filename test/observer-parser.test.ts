@@ -79,9 +79,13 @@ test("comparison parser rejects an unsupported proposed fact", async () => {
   assert.equal(result.comparison.proposedChanges[0]?.category, "state");
 });
 
-test("strict comparison validation fails on an unsupported category instead of repairing it", async () => {
+test("an invalid finding category is rejected individually, not silently repaired", async () => {
   const observer = observerFor({ findings: [{ category: "expression", expected: "a", observed: "b", classification: "confirmed", rationale: "", evidence_ids: ["frame-0001"] }], proposed_changes: [], limitations: [] });
-  await assert.rejects(() => observer.compare({ intended: "One scene", canonicalOpening: "", observation: baseReport, coverage: "one frame" }), /unsupported category/);
+  const result = await observer.compare({ intended: "One scene", canonicalOpening: "", observation: baseReport, coverage: "one frame" });
+  assert.equal(result.comparison.findings.length, 0);
+  assert.equal(result.findingRejections?.length, 1);
+  assert.match(result.findingRejections?.[0]?.code ?? "", /CATEGORY_INVALID/);
+  assert.equal((result.findingRejections?.[0]?.original as any).category, "expression");
 });
 
 test("invalid model JSON retains its raw text for the failed stage", async () => {

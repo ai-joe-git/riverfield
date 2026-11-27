@@ -47,6 +47,7 @@ export type ComparisonResult = {
   promptVersion: string;
   jobId?: string;
   proposalRejections?: import("./production-types.ts").RejectedProposal[];
+  findingRejections?: import("./production-types.ts").RejectedFinding[];
   model?: string;
   configuration?: Record<string, unknown>;
   inputModalities?: { text: true; image: boolean; video: boolean; audio: boolean };
@@ -457,6 +458,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     return {
       comparison: validated.comparison,
       proposalRejections: validated.proposalRejections,
+      findingRejections: validated.findingRejections,
       rawText, promptVersion: COMPARISON_PROMPT_VERSION,
       jobId: job?.id,
       model: this.model,

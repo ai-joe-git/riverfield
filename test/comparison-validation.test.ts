@@ -61,3 +61,15 @@ test("raw output is handed to the caller immediately after inference and before 
   assert.equal(result.comparison.proposedChanges.length, 0);
   assert.equal(result.proposalRejections?.length, 3);
 });
+
+test("Scene 02 invalid classification is rejected individually while nine findings remain valid", () => {
+  const scene2Raw = readFileSync("out/observations/runs/obs-20261127082557983-8757a074/comparison-raw.txt", "utf8");
+  const scene2Parsed = JSON.parse(scene2Raw.slice(scene2Raw.indexOf("{"), scene2Raw.lastIndexOf("}") + 1));
+  const scene2Report = snapshot.observations["28b69bca-3eaa-4272-9077-59c8d9032a45"].report;
+  const result = validateComparisonPayload(scene2Parsed, scene2Report, { allowCanonicalProposals: false, comparisonPromptVersion: "test-scene02" });
+  assert.equal(result.comparison.findings.length, 9);
+  assert.equal(result.findingRejections.length, 1);
+  assert.equal(result.findingRejections[0].code, "OBSERVER_FINDING_CLASSIFICATION_INVALID");
+  assert.equal((result.findingRejections[0].original as any).classification, "mismatch");
+  assert.match(result.findingRejections[0].message, /unsupported value mismatch/);
+});

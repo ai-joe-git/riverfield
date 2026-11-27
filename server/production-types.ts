@@ -333,6 +333,28 @@ export type ObservationFinding = {
   proposedChange?: FactChange;
 };
 
+export type RejectedFinding = {
+  /** Exact model finding retained when its classification/category is invalid. */
+  original: unknown;
+  code: string;
+  message: string;
+};
+
+export type BudgetAmendment = {
+  id: string;
+  at: string;
+  approvedBy: string;
+  fromBasis: "total-elapsed";
+  toBasis: "active-production";
+  previousLimitMinutes: number;
+  newLimitMinutes: number;
+  activeMinutesUsed: number;
+  remainingActiveMinutes: number;
+  countersUnchanged: Record<string, number>;
+  note: string;
+  originalWallClockAudit: string;
+};
+
 export type RejectedProposal = {
   /** Exact model output retained for audit; never cast into a valid FactChange. */
   original: unknown;
@@ -348,6 +370,7 @@ export type ObservationComparison = {
   comparisonPromptVersion: string;
   /** Optional proposals are rejected individually and preserved here. */
   rejectedProposals?: RejectedProposal[];
+  rejectedFindings?: RejectedFinding[];
 };
 
 export type ObservationReport = {
@@ -579,6 +602,9 @@ export type ProductionRunBudget = {
   maxComparisonCalls: number;
   maxSeniorReviewBatches: number;
   wallClockMinutes: number;
+  /** Active-production accounting used after an explicit budget amendment. */
+  activeProductionMinutesUsed?: number;
+  activeProductionStartedAt?: string;
   rendersUsed: number;
   promptEnhancementsUsed: number;
   observationJobsUsed: number;
@@ -714,6 +740,8 @@ export type ProductionRun = {
   limitations?: string[];
   /** Human-readable closure audit; never canonical memory. */
   closure?: Record<string, unknown>;
+  /** Append-only human budget amendment for this run. */
+  budgetDecision?: BudgetAmendment;
   revision: number;
   createdAt: string;
   updatedAt: string;

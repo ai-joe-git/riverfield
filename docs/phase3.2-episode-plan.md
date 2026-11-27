@@ -407,3 +407,81 @@ total elapsed:    347.65 min
 total remaining:   12.35 min
 budget reset/extended: no
 ```
+
+## Scene 02 human review and comparison successor
+
+The Scene 02 comparison's first finding carried invalid classification `mismatch`. It was
+rejected individually and preserved verbatim; no conversion or semantic repair was made.
+The remaining **nine findings** passed validation. The original comparison and invalid
+finding remain in the raw response and failure audit.
+
+Human visual audit findings are recorded separately in
+`out/observations/phase3.2/scene02-human-audit.json`:
+
+- Akari and Daichi appearance/wardrobe consistent.
+- Elevator interior consistent with pink panels, oval mirror, golden doors, controls and
+  burgundy seating.
+- Akari appears to hold the room key.
+- Daichi's folder disappears around 7 seconds and reappears around 13 seconds; this is a
+  genuine visual continuity defect for the final production pass.
+- The scene is one nearly static shot.
+- The intended lurch/stall is not sufficiently supported visually.
+- Gemma's location contradiction is rejected as insufficiently supported.
+- Scene 01's incorrect staging of Daichi behind the reception counter is recorded as a
+  production warning; he is a guest and must not be staged as hotel staff.
+
+The successor observation is
+`28b69bca-3eaa-4272-9077-59c8d9032a45-comparison-recovered-r2` (revision 2).
+Scene 02 was retained non-canonically. No inference was repeated.
+
+## Active-production budget amendment
+
+The original total-elapsed six-hour limit was replaced by an append-only human decision with
+a **cumulative active-production 360-minute limit**. The earlier **46.89 minutes** remain
+consumed; operation counters were not reset or increased.
+
+```text
+active-production remaining at Scene 03 start: 313.11 min
+budget amendment: out/productions/suite-404/phase3.2/budget-amendment-scene03.json
+legacy audit preserved: out/productions/suite-404/phase3.2/wall-clock-audit-scene02.json
+```
+
+## Cinematic direction
+
+The Director prompt now requires purposeful coverage changes in each 15-second scene:
+varied framing, reaction close-ups, prop inserts, meaningful movement, expressive anime
+acting and deliberate comic timing. It explicitly rejects a single static two-shot or two
+near-identical compositions.
+
+## Scene 03 execution
+
+```text
+scene:        suite-404-s01e03-sc03 — Tape Across the Bedroom
+candidate:    run-phase3-2-suite404-s01e03-production-001-suite-404-s01e03-sc03
+history:      20261127-084701059-b423
+video:        362 frames · 24 fps · 15.083333 s · 416×256
+sha256:       5883533b8dafe6d5c24b723193b0fdb2e76b1da166fb864f07515852aa694baf
+observation:  1a5b4914-d486-4693-af83-b55cf577dafd
+context hash: b2c560994391e422e5468b10135c08fb8b49039e00f6fda2ed01e7cbcc3c3895
+validation:   passed
+findings:     9
+```
+
+The actual video shows the blue masking tape being pressed, Daichi stepping into it, the tape
+snapping onto his shoe, and a final two-shot across the border. Akari retains the room key and
+Daichi the survey folder.
+
+Scene 03 is at the third human-review checkpoint. Scene 04 was not launched. Senior Review
+remains 0/2; canonical revision remains 0.
+
+Final operation counters:
+
+```text
+renders                 3/12
+prompt enhancements     3/12
+observation jobs        3/12
+comparison calls        3/12
+Senior Review           0/2
+active production       68.6406 min
+remaining active        291.36 min
+```

@@ -99,7 +99,7 @@ export type CreateProductionRunInput = {
 export type ProductionRunPatch = Partial<Pick<ProductionRun,
   "title" | "brief" | "profile" | "status" | "stage" | "scenePlan" | "selectedApplications" | "referenceAssets" |
   "renderConfig" | "budget" | "jobs" | "provisionalFacts" | "decisions" | "errors" | "currentSceneIndex" |
-  "limitations" | "closure"
+  "limitations" | "closure" | "budgetDecision"
 >>;
 
 export type CreateAssetBuildInput = {
