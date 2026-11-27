@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";
 import type { RunAdapters, RunContext, RunHandle, RenderResult, ObservationResult, ValidationResult } from "./production-run.ts";
 import type { ObservationReport } from "./production-types.ts";
+import type { FileValue, Values } from "./runner.ts";
 import { planH3 } from "./h3-plan.ts";
 import { deriveObservedState, propFamily, propState } from "./observed-state.ts";
 import { classifyContinuityTransition } from "./continuity-analysis.ts";
@@ -41,7 +42,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.doFetch = options.fetchImpl ?? fetch;
     this.pollMs = options.pollMs ?? 800;
-    this.maxWaitMs = options.maxWaitMs ?? 60 * 60 * 1000;
+    this.maxWaitMs = options.maxWaitMs ?? Infinity;
   }
   private async request(path: string, init?: RequestInit): Promise<any> {
     const response = await this.doFetch(`${this.baseUrl}${path}`, init);
@@ -65,7 +66,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     const started = Date.now();
     while (Date.now() - started < this.maxWaitMs) {
       const job = await this.request(`/api/observation-jobs/${encodeURIComponent(id)}`);
-      if (["succeeded", "failed", "canceled"].includes(job.status)) return job;
+      if (["succeeded", "failed", "canceled", "lost"].includes(job.status)) return job;
       await sleep(this.pollMs);
     }
     throw new Error(`LIVE_OBSERVATION_TIMEOUT: ${id}`);
@@ -128,7 +129,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
       `Run-scoped provisional context from the preceding accepted scene (not canonical): ${priorText}`,
     ].join("\n");
   }
-  async startRender(context: RunContext): Promise<RunHandle<RenderResult>> {
+  async renderRequest(context: RunContext): Promise<{ app: string; values: Values; files: Record<string,FileValue> }> {
     const snapshot = await this.snapshot(context.run.productionId);
     const scene = context.scene;
     const refs = scene.referenceAssetIds.map((assetId) => snapshot.assets?.[assetId]).filter(Boolean);
@@ -141,21 +142,27 @@ export class LiveProductionRunAdapters implements RunAdapters {
     const targetFrames = Number(scene.renderConfig.target_frames);
     const targetSeconds = Number.isFinite(targetFrames) && targetFrames > 0 ? targetFrames / 24 : scene.targetDurationSeconds;
     const windows = scene.renderConfig.segment_windows ?? planH3({ seconds: targetSeconds, prompts: [prompt], images: refs.map((_, index) => index) }).segment_windows;
-    const form = new FormData();
-    const values: Record<string, unknown> = {
+    const values: Values = {
       ...scene.renderConfig,
       render_profile: scene.profile,
       production_megapixels: scene.profile === "build" ? 0.1 : 0.3,
       production_upscale: scene.profile === "build" ? "" : "x2",
       production_id: context.run.productionId,
-      production_scene_id: scene.sceneId, global_prompt: prompt, prompt_enhancer: true, segment_windows: windows,
+      production_scene_id: scene.sceneId, global_prompt: prompt, prompt_enhancer: scene.renderConfig.prompt_enhancer !== false, segment_windows: windows,
     };
+    const files = Object.fromEntries(refs.map((asset: any, index: number) => [`image${index+1}`, {bytes:new Uint8Array(readFileSync(asset.path)),name:basename(asset.path),type:"image/png"}]));
+    return {app:scene.selectedApp, values, files};
+  }
+  async startRender(context: RunContext): Promise<RunHandle<RenderResult>> {
+    const { app, values, files } = await this.renderRequest(context);
+    const form = new FormData();
+    form.append("request_id",context.requestKey);
     for (const [key, value] of Object.entries(values)) {
       if (value === undefined || value === null) continue;
       form.append(key, typeof value === "string" ? value : typeof value === "boolean" ? String(value) : JSON.stringify(value));
     }
-    refs.forEach((asset: any, index: number) => form.append(`image${index + 1}`, new Blob([readFileSync(asset.path)], { type: "image/png" }), basename(asset.path)));
-    const entry = await this.request(`/api/apps/${encodeURIComponent(scene.selectedApp)}/run`, {
+    for(const [slot,file] of Object.entries(files)) form.append(slot,new Blob([Buffer.from(file.bytes)],{type:file.type}),file.name);
+    const entry = await this.request(`/api/apps/${encodeURIComponent(app)}/run`, {
       method: "POST", headers: { "x-riverfield-actor": "production-run-live" }, body: form,
     });
     return { jobId: entry.id, wait: async () => {

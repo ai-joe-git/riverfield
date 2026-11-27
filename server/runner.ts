@@ -85,7 +85,7 @@ export function textValues(app: App, values: Values): Values {
 }
 
 /** Fill defaults, coerce types, check required fields. File inputs pass through as FileValue. */
-export function resolveValues(app: App, values: Values): Values {
+export function resolveValues(app: App, values: Values, { draftPrompt = false } = {}): Values {
   // Resolve manifest defaults first, then apply the declared render profile. Build & Test
   // still forces 0.1 MP/no upscale, and an explicit Production default is honoured for
   // web, MCP and Agent calls. Apps with a null/default-less render_profile stay legacy.
@@ -150,7 +150,7 @@ export function resolveValues(app: App, values: Values): Values {
     out.flex_mode=visual?"ref2va":"fl2va";
   }
   if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
-  if(app.id==="pika-studio-director"&&!out.advanced_timeline_json)validatePikaValues(out);
+  if(app.id==="pika-studio-director"&&!out.advanced_timeline_json&&!draftPrompt)validatePikaValues(out);
   if(app.id==="relayvsr-upscale"){
     const paired=app.inputs.find(i=>i.id==="unet_name")?.options?.find(o=>o.value===out.unet_name)?.sync?.vae_name;
     if(paired!==out.vae_name)throw new InputError("RelayVSR DIT and Flash VAE must use the same upscale factor",[{code:"RELAY_MODEL_PAIR",field:"vae_name",message:`Use ${String(paired)} with ${String(out.unet_name)}`}]);

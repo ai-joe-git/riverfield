@@ -7,6 +7,7 @@ import { deriveObservedState } from "./observed-state.ts";
 import { contextHash, resolveAcceptedObservation } from "./observation-selection.ts";
 
 export class ProductionRunError extends Error { code: string; constructor(code: string, message: string) { super(message); this.code = code; } }
+export type PreparedRender = { revision: number; sceneId: string; values: Record<string, unknown> };
 export type RunContext = { run: ProductionRun; scene: ProductionRunScene; sceneIndex: number; requestKey: string };
 export type RunHandle<T> = { jobId: string; wait(): Promise<T> };
 export type RenderResult = { candidateId: string; jobId?: string };
@@ -112,24 +113,37 @@ export class ProductionRunEngine {
     this.busy.set(key, operation);
     try { return await operation; } finally { this.busy.delete(key); }
   }
-  async start(productionId: string, runId: string): Promise<ProductionRun> {
-    return this.locked(productionId, runId, () => this.startUnlocked(productionId, runId));
+  previewRender(productionId: string, runId: string): RunContext | null {
+    const run = this.run(productionId, runId);
+    const sceneIndex = run.currentSceneIndex;
+    const scene = run.scenePlan[sceneIndex];
+    if (!scene || scene.status !== "planned" || scene.reuseCandidateId || this.findPending(run, scene.sceneId, "render")) return null;
+    return { run, scene:{...scene,renderContext:this.renderContext(run,sceneIndex)},sceneIndex,requestKey:keyFor(runId,scene.sceneId,"render",scene.attempts+1) };
   }
-  private async startUnlocked(productionId: string, runId: string): Promise<ProductionRun> {
+  private checkPrepared(run: ProductionRun, prepared?: PreparedRender) {
+    if(prepared && (run.revision!==prepared.revision || run.scenePlan[run.currentSceneIndex]?.sceneId!==prepared.sceneId))
+      throw new ProductionRunError("WORKSPACE_PROMPT_STALE","The production changed after prompt preparation. Prepare the current scene again.");
+  }
+  async start(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+    return this.locked(productionId, runId, () => this.startUnlocked(productionId, runId, prepared));
+  }
+  private async startUnlocked(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
+    this.checkPrepared(run, prepared);
     if (["canceled", "completed"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
     if (run.status === "prepared") run = this.update(productionId, run, { status: "running", stage: "render", budget: this.startActiveClock({ ...run.budget, startedAt: run.budget.startedAt ?? now() }) }, `run:${run.id}:start`);
-    return this.advance(productionId, run.id);
+    return this.advance(productionId, run.id, prepared);
   }
-  async resume(productionId: string, runId: string): Promise<ProductionRun> {
-    return this.locked(productionId, runId, () => this.resumeUnlocked(productionId, runId));
+  async resume(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+    return this.locked(productionId, runId, () => this.resumeUnlocked(productionId, runId, prepared));
   }
-  private async resumeUnlocked(productionId: string, runId: string): Promise<ProductionRun> {
+  private async resumeUnlocked(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
+    this.checkPrepared(run, prepared);
     if (run.status === "awaiting_human") throw new ProductionRunError("RUN_AWAITING_HUMAN", "A human decision is required before resuming");
     if (!["paused", "running", "prepared"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
     if (run.status !== "running") run = this.update(productionId, run, { status: "running", budget: this.startActiveClock(run.budget) }, `run:${run.id}:resume`);
-    return this.advance(productionId, run.id);
+    return this.advance(productionId, run.id, prepared);
   }
   async pause(productionId: string, runId: string): Promise<ProductionRun> {
     const run = this.run(productionId, runId);
@@ -203,7 +217,7 @@ export class ProductionRunEngine {
     return run;
   }
 
-  async advance(productionId: string, runId: string): Promise<ProductionRun> {
+  async advance(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     if (run.status !== "running") return run;
     for (let guard = 0; guard < 64; guard += 1) {
@@ -258,7 +272,8 @@ export class ProductionRunEngine {
         }
         if (pending && !pending.jobId && !reservedNow) return this.fail(productionId, run, new ProductionRunError("RUN_RESERVED_WITHOUT_JOB", "A render reservation has no durable job id; refusing to submit a duplicate"));
         if (!this.adapters.startRender) return this.fail(productionId, run, new ProductionRunError("RUN_RENDER_ADAPTER_MISSING", "No render adapter configured"));
-        let handle; try { handle = await this.adapters.startRender({ run, scene: { ...scene, status: "rendering" }, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "render", scene.attempts) }); } catch (error) { return this.fail(productionId, run, error as Error); }
+        const renderConfig = prepared?.sceneId === scene.sceneId ? { ...scene.renderConfig, ...prepared.values } : scene.renderConfig;
+        let handle; try { handle = await this.adapters.startRender({ run, scene: { ...scene, renderConfig, status: "rendering" }, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "render", scene.attempts) }); } catch (error) { return this.fail(productionId, run, error as Error); }
         run = this.markJob(run, scene.sceneId, "render", "submitted", handle.jobId);
         run = this.markScene(run, index, { status: "rendering", jobIds: unique([...scene.jobIds, handle.jobId]) });
         let result: RenderResult; try { result = await handle.wait(); } catch (error) { return this.fail(productionId, run, error as Error); }

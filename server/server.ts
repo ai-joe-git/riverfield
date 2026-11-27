@@ -24,9 +24,10 @@
 // RIVERFIELD_MAX_UPLOAD_MB, and each visitor sees only their own runs. Hosted or not, requests from other sites are
 // refused (guard.ts foreign()). RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
+import { validateWorkspaceWriter, writeWorkspacePrompt, type WorkspaceWriter } from "./workspace-writer.ts";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { loadRegistry, repoRoot, isFileInput, type App } from "./registry.ts";
 import { explainSubmitError, InputError, resolveValues, Runner, type Values } from "./runner.ts";
@@ -55,7 +56,7 @@ import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./
 import type { Actor, ProductionSnapshot } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
 import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
-import { ProductionRunEngine } from "./production-run.ts";
+import { ProductionRunEngine, type PreparedRender } from "./production-run.ts";
 import { LiveProductionRunAdapters } from "./production-run-live.ts";
 import { planProductionRun } from "./production-run-plan.ts";
 import { ObservationError } from "./observation-evidence.ts";
@@ -122,7 +123,36 @@ const productions = new ProductionStore(outDir, { mediaRoots: productionMediaRoo
 let observationManager: ObservationManager | null = null;
 const snapshotAsset = (snap: ProductionSnapshot, assetId: string) => snap.assets[assetId];
 let productionRunEngine: ProductionRunEngine | null = null;
-const productionRuns = () => productionRunEngine ??= new ProductionRunEngine(productions, new LiveProductionRunAdapters({ baseUrl: studioURL }));
+const liveProductionRuns = () => new LiveProductionRunAdapters({ baseUrl: studioURL });
+const productionRuns = () => productionRunEngine ??= new ProductionRunEngine(productions, liveProductionRuns());
+const workspacePreparations = new Map<string, {productionId:string; runId:string; at:number; prepared:PreparedRender}>();
+type WorkspaceDispatch = {requestKey:string; active:boolean; error?:string};
+const workspaceProductionCalls = new Map<string, WorkspaceDispatch>();
+const workspaceDispatchPath = (scope:string) => join(outDir,"workspace-dispatch",createHash("sha256").update(scope).digest("hex")+".json");
+function saveWorkspaceDispatch(scope:string, receipt:WorkspaceDispatch){
+  mkdirSync(join(outDir,"workspace-dispatch"),{recursive:true,mode:0o700});
+  const target=workspaceDispatchPath(scope), temporary=target+".tmp";
+  writeFileSync(temporary,JSON.stringify(receipt),{mode:0o600});
+  renameSync(temporary,target);
+}
+function workspaceDispatch(scope:string, run:NonNullable<ProductionSnapshot["productionRuns"]>[string]) {
+  const active=workspaceProductionCalls.get(scope);
+  if(active) return active;
+  try {
+    const previous=JSON.parse(readFileSync(workspaceDispatchPath(scope),"utf8")) as WorkspaceDispatch;
+    if(!previous.active)return previous;
+    const pending=run.jobs.some(job=>{
+      if(job.status!=="submitted" || !job.jobId) return false;
+      const current=job.kind==="render"?history.get(job.jobId):job.kind==="observation"?observations().get(job.jobId):null;
+      return current && !DONE.includes(current.status);
+    });
+    const queue=inference.snapshot();
+    if (queue.active || queue.waiting.length || pending) return previous;
+    return {...previous,active:false,...(run.status==="running"?{error:"The production service restarted. The saved run can be resumed after checking its latest job."}:{})};
+  } catch (error) {
+    if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;
+  }
+}
 const observations = () => observationManager ??= new ObservationManager({
   outDir, productions, inference: inference.run, runner: getRunner(),
   mediaRoots: productionMediaRoots(outDir), whisperApp: byId.get("whisper-turbo"),
@@ -251,8 +281,8 @@ async function toRequest(req: IncomingMessage,limitMb=maxUploadMb): Promise<Requ
   });
 }
 
-async function readValues(app: App, request: Request): Promise<{ values: Values; preset?: string; requestKey?:string }> {
-  const form = await request.formData();
+async function readValues(app: App, request: Request, preparedForm?: FormData): Promise<{ values: Values; preset?: string; requestKey?:string }> {
+  const form = preparedForm ?? await request.formData();
   const values: Values = {};
   for (const input of app.inputs) {
     const v = form.get(input.id);
@@ -285,7 +315,7 @@ async function jobView(id: string) {
  * call. The inline workflow enhancer is deliberately switched off afterwards so
  * the same prompt is not enhanced twice.
  */
-async function enhanceDirectorValues(app: App, values: Values, runner: Runner, enhancer: App, only?: number, onProgress?: (done: number, total: number) => void): Promise<Values> {
+async function enhanceDirectorValues(app: App, values: Values, runner: Runner | undefined, enhancer: App, only?: number, onProgress?: (done: number, total: number) => void, writer?: WorkspaceWriter, signal?: AbortSignal): Promise<Values> {
   const next: Values = { ...values };
   type Target =
     | { kind: "windows"; spec: any; prompts: string[] }
@@ -393,12 +423,10 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner, e
       refsHint,
       `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready prompt for this segment. Do not add a segment heading or commentary.`,
     ].filter(Boolean).join("\n\n");
-    const text = await runner.generateText(enhancer, {
-      ...mediaForSegment(i),
-      prompt_mode: mode,
-      model,
-      prompt,
-    });
+    signal?.throwIfAborted();
+    const media = mediaForSegment(i);
+    const text = writer ? await writeWorkspacePrompt(writer, enhancer, { prompt, mode, media, signal })
+      : await runner!.generateText(enhancer, { ...media, prompt_mode: mode, model, prompt });
     if (!text) throw new Error(`Prompt enhancer returned an empty segment ${i + 1}`);
     target.prompts[i] = text;
     done.push(text);
@@ -562,7 +590,9 @@ async function gpuStatus(withDevice = false) {
   const host = configured ? (guard.hosted ? "Modal" : new URL(process.env.COMFY_BASE_URL!).host) : null;
   const warm = Date.now() - lastContact < WARM_MS;
   const running = activeRuns();
-  const base = { configured, host, warm, last_contact: lastContact ? new Date(lastContact).toISOString() : null,
+  const queue = inference.snapshot();
+  const base = { configured, host, warm, inference_active: Boolean(queue.active) || queue.waiting.length > 0,
+    inference_blocked: queue.blocked, last_contact: lastContact ? new Date(lastContact).toISOString() : null,
     waking: waking ? { seconds: Math.round((Date.now() - waking.since) / 1000), error: waking.error ?? null } : null,
     running, demo: guard.hosted ? guard.status(running) : null };
   // only on request and only while warm: looking never starts a GPU, and the background poll never touches it
@@ -722,7 +752,9 @@ const server = createServer(async (req, res) => {
         if (id && req.method === "GET" && sub === "runs" && arg) {
           const snap = productions.snapshot(id);
           const run = snap.productionRuns?.[arg];
-          return run ? send(res, 200, run) : send(res, 404, { error: "unknown production run" });
+          const tracked=run?workspaceDispatch(id+":"+arg,run):undefined;
+          const key=url.searchParams.get("requestKey");
+          return run ? send(res, 200, {...run,...(key && tracked?.requestKey===key ? {workspaceDispatch:tracked}: {})}) : send(res, 404, { error: "unknown production run" });
         }
         if (id && req.method === "POST" && sub === "runs" && arg === "plan") {
           const body = await jsonBody();
@@ -757,6 +789,51 @@ const server = createServer(async (req, res) => {
           const engine = productionRuns();
           const body = await jsonBody();
           if (!snap.productionRuns?.[runId]) throw new InputError("unknown production run");
+          if (action === "prepare-workspace") {
+            localAccess(req);
+            if (guard.hosted) return send(res, 403, { error:"Workspace prompt preparation is local-only" });
+            const context=engine.previewRender(id,runId);
+            if(!context) return send(res,200,{applied:false});
+            const writer=validateWorkspaceWriter(body.writer);
+            const request=await liveProductionRuns().renderRequest(context);
+            const app=byId.get(request.app);
+            if(!app?.inputs.some(field=>field.id==="prompt_enhancer") || request.values.prompt_enhancer===false) return send(res,200,{applied:false});
+            const enhancer=byId.get(app.id.startsWith("ltx-")?"ltx-prompt-generator":"prompt-enhancer");
+            if(!enhancer) throw new InputError("Riverfield's prompt enhancer manifest is missing.");
+            const values=resolveValues(app,{...request.values,...request.files},{draftPrompt:true});
+            const controller=new AbortController();const stop=()=>controller.abort();res.once("close",stop);
+            try {
+              const enhanced=await enhanceDirectorValues(app,values,undefined,enhancer,undefined,undefined,writer,controller.signal);
+              resolveValues(app,{...enhanced,prompt_enhancer:false});
+              const patch=Object.fromEntries(["segment_windows","segment_prompts","prompt","global_prompt"].filter(key=>typeof enhanced[key]==="string").map(key=>[key,enhanced[key]]));
+              const token=randomUUID();
+              for(const [key,entry] of workspacePreparations) if(Date.now()-entry.at>3600000 || workspacePreparations.size>=64)workspacePreparations.delete(key);
+              workspacePreparations.set(token,{productionId:id,runId,at:Date.now(),prepared:{revision:context.run.revision,sceneId:context.scene.sceneId,values:{...patch,prompt_enhancer:false}}});
+              return send(res,200,{applied:true,preparationId:token,model:writer.model});
+            } finally {res.off("close",stop);}
+          }
+          if ((action === "start" || action === "resume") && body.background===true) {
+            localAccess(req);
+            if(guard.hosted) return send(res,403,{error:"Workspace control is local-only"});
+            if(typeof body.request_id!=="string" || !body.request_id || body.request_id.length>200) throw new InputError("Workspace control needs an exact request ID");
+            const scope=id+":"+runId;
+            const tracking=workspaceDispatch(scope,snap.productionRuns[runId]);
+            if(tracking?.requestKey===body.request_id) return send(res,202,{...snap.productionRuns[runId],workspaceDispatch:tracking});
+            if(tracking?.active) return send(res,409,{error:"A production control is already running"});
+            const token=typeof body.preparation_id==="string"?body.preparation_id:"";
+            const saved=token?workspacePreparations.get(token):undefined;
+            if (token && (!saved || saved.productionId!==id || saved.runId!==runId || saved.prepared.revision!==snap.productionRuns[runId].revision))
+              throw new InputError("The current scene changed after prompt preparation. Prepare it again before running.");
+            if(token) workspacePreparations.delete(token);
+            const receipt:{requestKey:string;active:boolean;error?:string}={requestKey:body.request_id,active:true};
+            saveWorkspaceDispatch(scope,receipt);
+            workspaceProductionCalls.set(scope,receipt);
+            void engine[action](id,runId,saved?.prepared)
+              .catch(error=>{receipt.error=(error as Error).message;})
+              .finally(()=>{receipt.active=false;saveWorkspaceDispatch(scope,receipt);workspaceProductionCalls.delete(scope);})
+              .catch(error=>console.error("[workspace dispatch]",String(error)));
+            return send(res,202,{...snap.productionRuns[runId],workspaceDispatch:receipt});
+          }
           if (action === "start") return send(res, 202, await engine.start(id, runId));
           if (action === "resume") return send(res, 202, await engine.resume(id, runId));
           if (action === "pause") return send(res, 200, await engine.pause(id, runId));
@@ -824,7 +901,9 @@ const server = createServer(async (req, res) => {
         }
         if (id && req.method === "GET" && sub === "observation-jobs") {
           localAccess(req);
-          return send(res, 200, { jobs: observations().list(id, url.searchParams.get("sceneId") || undefined) });
+          const key=url.searchParams.get("requestKey");
+          const jobs=observations().list(id, url.searchParams.get("sceneId") || undefined);
+          return send(res, 200, { jobs:key ? jobs.filter(job=>job.requestKey===key).slice(0,1) : jobs });
         }
         if (id && req.method === "POST" && sub === "observations" && arg && parts[5] === "propose") {
           localAccess(req);
@@ -1122,6 +1201,36 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, { "content-type": "application/json; charset=utf-8", "content-length": body.byteLength, "cache-control": "no-cache",
           "content-disposition": `attachment; filename="riverfield-${app.id}.json"` });
         return res.end(body);
+      }
+      if (req.method === "POST" && area === "apps" && sub === "prepare-prompts") {
+        localAccess(req);
+        if (guard.hosted) return send(res, 403, { error: "Workspace prompt preparation is local-only" });
+        const app = byId.get(id);
+        if (!app) return send(res, 404, { error: "unknown app" });
+        if (!app.inputs.some(input => input.id === "prompt_enhancer")) return send(res, 200, { applied: false });
+        const reqBody = await toRequest(req, 64);
+        const form = await reqBody.formData();
+        const { values } = await readValues(app, reqBody, form);
+        const resolved = resolveValues(app, values, { draftPrompt: true });
+        if (resolved.prompt_enhancer !== true && !["true", true].includes(values.prompt_enhancer as any)) return send(res, 200, { applied: false });
+        if (resolved.advanced_timeline_json) throw new InputError("Use the Director planner's segment_windows to prepare prompts.");
+        let option: unknown;
+        try { option = JSON.parse(String(form.get("workspace_writer") || "")); }
+        catch { throw new InputError("A valid local Workspace writer is required."); }
+        const writer = validateWorkspaceWriter(option);
+        const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
+        if (!enhancer) throw new InputError("Riverfield's prompt enhancer manifest is missing.");
+        const controller = new AbortController();
+        const stop = () => controller.abort();
+        res.once("close", stop);
+        try {
+          const enhanced = await enhanceDirectorValues(app, resolved, undefined, enhancer, undefined, undefined, writer, controller.signal);
+          const final = { ...enhanced, prompt_enhancer: false };
+          resolveValues(app, final);
+          const patch = Object.fromEntries(["segment_windows", "segment_prompts", "prompt", "global_prompt"]
+            .filter(key => typeof enhanced[key] === "string" && enhanced[key] !== resolved[key]).map(key => [key, enhanced[key]]));
+          return send(res, 200, { applied: true, model: writer.model, values: { ...patch, prompt_enhancer: false } });
+        } finally { res.off("close", stop); }
       }
       if (req.method === "POST" && area === "apps" && sub === "run") {
         const app = byId.get(id);

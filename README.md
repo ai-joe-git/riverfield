@@ -740,3 +740,13 @@ and [H3 Flash INT8 checkpoints](https://huggingface.co/BennyDaBall/HyperFlow-H3-
 [Video-Rebirth's Flash sigma nodes](https://github.com/Video-Rebirth/ComfyUI-HyperFlow-Flash) (MiniMax H3 Community
 License). `moss-turbo-jib-mix` uses J1B's Jib Mix Moss Realistic V2 (Civitai model 3016339), a local file with its
 own Civitai terms; it is the only app here marked 18+.
+
+### Piloter Riverfield depuis BlackRiver Workspace
+
+Connectez le MCP HTTP local à `http://127.0.0.1:3010/mcp`. Work et Chat peuvent chercher `production_scope` pour retrouver les IDs de production, de saison, d'épisode et les références. `get_app` et `plan_segments` décrivent le workflow et ses fenêtres natives. `run_app` soumet une preview, `register_candidate` l'associe à la scène, `analyze_scene` produit ses preuves visuelles et ASR, puis `render_production` peut repartir de la preview vérifiée. Les décisions canoniques restent des actions explicites. Pour Flash H3 Studio Director, passez `app: "h3-studio-director-flash"` et la durée de segment voulue à `plan_segments`. Le profil Build & Test utilise 0,1 MP. Le paramètre `steps` du manifeste Flash offre 4, 6 et 8.
+
+Avec un runtime local géré et compatible dans BlackRiver, `prepare_app_run` et `prepare_production_render` utilisent son URL OpenAI locale et l'identifiant du modèle chargé pour écrire les prompts. Riverfield choisit le texte système exact de son manifeste par mode, conserve la continuité et l'ordre des images, puis valide les prompts produits. Le GPU passe à ComfyUI après cette étape ; le rendu utilise les prompts déjà préparés. Une erreur de préparation est renvoyée avant le rendu. L'option explicite de désactiver l'enhancer est conservée. Le chemin local prend en charge le texte et PNG/JPEG/WebP avec un modèle vision. Les vidéos de référence restent à traiter par l'enhancer vidéo Riverfield.
+
+Le writer doit être sur la boucle locale, au chemin `/v1`. Les requêtes de préparation et le contrôle asynchrone adjoint sont réservés aux services locaux ; les déploiements hébergés conservent leur chemin existant. Un `start` ou `resume` du run de production s'arrête au point de décision prévu par le moteur. La préparation d'une scène est spécifique à sa révision. Une modification du plan demande de préparer la scène courante à nouveau. Les observations et rendus conservent leurs reçus d'origine.
+
+Une fois les services inactifs, redémarrez le serveur web et le MCP pour charger les nouveaux outils puis reconnectez le plugin dans BlackRiver. Le backend ComfyUI et les dossiers de données existants sont réutilisés.

@@ -18,7 +18,7 @@ import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 import { fileURLToPath } from "node:url";
 import { promptGuidance } from "./prompt-guidance.ts";
-import {planDirectorSegments,directorRequest,directorValues,directorDurations,DIRECTOR_DEFAULTS,DIRECTOR_MANAGED_INPUTS,DIRECTOR_DELIVERY} from "../server/h3-plan.ts";
+import {planH3,planDirectorSegments,directorRequest,directorValues,directorDurations,DIRECTOR_DEFAULTS,DIRECTOR_MANAGED_INPUTS,DIRECTOR_DELIVERY} from "../server/h3-plan.ts";
 import {resolveApp} from "../server/app-reference.ts";
 import {InputError,inputErrorBody} from "../server/input-error.ts";
 import {normalizeRunInputs} from "../server/run-inputs.ts";
@@ -28,6 +28,7 @@ const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
 const HOST = process.env.RIVERFIELD_MCP_HOST || "127.0.0.1";
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = process.env.RIVERFIELD_OUT || join(ROOT, "out");
+const localWriter = z.object({baseUrl:z.string(),model:z.string(),vision:z.boolean().optional()});
 const DONE = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 
 type Any = Record<string, any>;
@@ -106,7 +107,29 @@ export function build(base=BASE): McpServer {
   const call=(path:string,init?:RequestInit)=>api(path,init,base);
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
 
-  server.registerTool("plan_segments",{title:"Use native Director segments",description:"Stable Pika geometry/material assignment, no GPU. Segment length and interleaving are fixed native defaults: 175 frames at 24 fps, 39-frame overlap. Do NOT calculate durations or change these values. total_seconds is an approximate STORY target: omit prompts initially to get the required count/windows, then write exactly that many prompts. ready=false returns no runnable segment_windows; adapt the script, not the technical settings. Complete prompts pass through unchanged; this tool does not write/validate Pika prose. images/audios are zero-based slots; segment_images/segment_audios specify ordered inputs for each segment. Use get_app/examples for the Ref2VA/FL2VA text and copy the returned segment_windows unchanged.",inputSchema:directorRequest.shape,annotations:{readOnlyHint:true}},async args=>{try{return text(planDirectorSegments(args));}catch(e){return fail(e);}});
+  server.registerTool("plan_segments", {
+    title:"Plan Director windows with the selected app",
+    description:"Return real 24 fps timeline windows, legal lengths, overlaps and ordered attachments. Pika uses fixed native windows. H3 Studio Director Flash accepts segment_seconds. Pass the exact app ID. If you omit prompts, use the returned count and then prepare that many drafts. No generation.",
+    inputSchema:{ ...directorRequest.shape, app:z.enum(["pika-studio-director","h3-studio-director-flash"]).optional(),
+      segment_seconds:z.number().min(.5).max(60).optional() },
+    annotations:{readOnlyHint:true},
+  },async ({app,segment_seconds,...args})=>{
+    try {
+      if(app!=="h3-studio-director-flash"){
+        if(segment_seconds!==undefined)throw new InputError("Custom segment lengths are available with H3 Studio Director Flash. Pika uses fixed 175-frame windows.");
+        return text(planDirectorSegments(args));
+      }
+      const seconds=segment_seconds??7.3;
+      const one=planH3({seconds,prompts:["Draft"]});
+      const estimate=args.total_seconds?Math.round((args.total_seconds*24-one.overlapFrames)/(one.segmentFrames-one.overlapFrames)):1;
+      const count=args.prompts.length||Math.max(1,Math.min(64,estimate));
+      const plan=planH3({...args,seconds,total_seconds:undefined,prompts:args.prompts.length?args.prompts:Array(count).fill("Draft")});
+      if(args.prompts.length) return text({...plan,app,ready:true,requiredPrompts:count,requestedSeconds:args.total_seconds??null});
+      const {segment_windows,...geometry}=plan;
+      return text({...geometry,app,ready:false,requiredPrompts:count,requestedSeconds:args.total_seconds??null,
+        windows:JSON.parse(segment_windows).windows.map((window:Any)=>({...window,prompt:""}))});
+    } catch(e) {return fail(e);}
+  });
 
   server.registerTool("list_apps", {
     title: "List RiverField apps",
@@ -180,6 +203,41 @@ export function build(base=BASE): McpServer {
     } catch (e) { return fail(e); }
   });
 
+  server.registerTool("prepare_app_run", {
+    title: "Prepare render prompts on the active local writer",
+    description: "Use Riverfield's real enhancer instructions, production memory and ordered references to prepare one app request. Returns only its validated prompt fields. Does not submit any render or start ComfyUI. BlackRiver supplies its active local model.",
+    inputSchema: { app:z.string(), values:z.record(z.string(),z.any()).optional(), files:z.record(z.string(),z.string()).optional(), writer:localWriter },
+  }, async ({app, values, files, writer}) => {
+    try {
+      const canonical = await manifest(app,base);
+      if (!canonical.inputs.some((input: Any) => input.id === "prompt_enhancer")) return text({applied:false});
+      const normalized = normalizeRunInputs(canonical as any, values ?? {}, files ?? {});
+      const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values,normalized.files,undefined,base);
+      fd.append("workspace_writer",JSON.stringify(writer));
+      return text(await call(`/api/apps/${encodeURIComponent(canonical.id)}/prepare-prompts`,{method:"POST",body:fd}));
+    } catch(e) { return fail(e); }
+  });
+
+  server.registerTool("production_scope", {
+    title: "Find the season, episode, scenes and references in a production",
+    description: "Start here for an existing production. Returns compact official IDs, their labels and matching reference files. Use episodeId/assetQuery to narrow results.",
+    inputSchema: { productionId:z.string(), episodeId:z.string().optional(), assetQuery:z.string().optional(), offset:z.number().int().min(0).optional() },
+    annotations: { readOnlyHint:true },
+  }, async ({productionId,episodeId,assetQuery,offset=0}) => {
+    try {
+      const snap=await call(`/api/productions/${encodeURIComponent(productionId)}`);
+      const compact=(rows:unknown, id:string)=>Object.values((rows||{}) as Record<string,Any>).slice(0,60).map(row=>({id:row.id,title:row.title,number:row.number,[id]:row[id]}));
+      const terms=(assetQuery||"").toLowerCase().split(/\s+/).filter(Boolean);
+      const assets=Object.values((snap.assets||{}) as Record<string,Any>).filter(row=>
+        terms.every(term=>[row.id,row.label,row.category,...(row.tags||[])].join(" ").toLowerCase().includes(term)));
+      const scenes=Object.values((snap.scenes||{}) as Record<string,Any>).filter(row=>!episodeId||row.episodeId===episodeId);
+      return text({ production:snap.production && {id:snap.production.id,title:snap.production.title},
+        seasons:compact(snap.seasons,"productionId"), episodes:compact(snap.episodes,"seasonId"),scenes:compact(scenes,"episodeId"),
+        assets:assets.slice(offset,offset+32).map(row=>({id:row.id,label:row.label,kind:row.kind,category:row.category,...(terms.length?{path:row.path}:{})})),
+        assetCount:assets.length,...(assets.length>offset+32?{nextOffset:offset+32}:{}) });
+    } catch(e) { return fail(e); }
+  });
+
   server.registerTool("list_productions", {
     title: "List productions",
     description: "List persistent Production Engine universes. Read-only; canonical approvals are not exposed through MCP.",
@@ -227,7 +285,12 @@ export function build(base=BASE): McpServer {
     description: "Create a draft episode inside a season. No canonical content is approved.",
     inputSchema: { productionId: z.string(), seasonId: z.string(), number: z.number().int().positive(), title: z.string().min(1), status: z.enum(["draft", "active", "archived"]).optional(), id: z.string().optional() },
   }, async ({ productionId, ...body }) => {
-    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/episodes`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+    try {
+      const snapshot = await call(`/api/productions/${encodeURIComponent(productionId)}/episodes`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) });
+      const entries = Object.values((snapshot.episodes || {}) as Record<string, Any>);
+      const entity = entries.find(row => body.id ? row.id === body.id : row.number === body.number && row.title === body.title && row.seasonId === body.seasonId);
+      return text({ productionId, episode: entity || null });
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("create_scene", {
@@ -238,7 +301,12 @@ export function build(base=BASE): McpServer {
       characterIds: z.array(z.string()).optional(), locationIds: z.array(z.string()).optional(), summary: z.string().optional(), id: z.string().optional(),
     },
   }, async ({ productionId, ...body }) => {
-    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/scenes`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+    try {
+      const snapshot = await call(`/api/productions/${encodeURIComponent(productionId)}/scenes`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) });
+      const entries = Object.values((snapshot.scenes || {}) as Record<string, Any>);
+      const entity = entries.find(row => body.id ? row.id === body.id : row.number === body.number && row.title === body.title && row.episodeId === body.episodeId);
+      return text({ productionId, scene: entity || null });
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("get_scene_context", {
@@ -481,18 +549,27 @@ export function build(base=BASE): McpServer {
   server.registerTool("get_production_run", {
     title: "Read a production run",
     description: "Read one durable run: scope, plan, budget ledger, stage, persisted job ids, candidates, observation revisions, reviews, provisional state, decisions and errors.",
-    inputSchema: { productionId: z.string(), runId: z.string() },
+    inputSchema: { productionId: z.string(), runId: z.string(), request_id:z.string().max(200).optional() },
     annotations: { readOnlyHint: true },
-  }, async ({ productionId, runId }) => {
-    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}`)); } catch (e) { return fail(e); }
+  }, async ({ productionId, runId, request_id }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}${request_id?"?requestKey="+encodeURIComponent(request_id):""}`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("prepare_production_render", {
+    title:"Prepare the current production scene with the BlackRiver local writer",
+    description:"Use the current saved scene, exact enhancer instructions, references and prior approved continuity. Does not start rendering.",
+    inputSchema:{productionId:z.string(),runId:z.string(),writer:localWriter},
+  },async ({productionId,runId,writer})=>{
+    try{return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/prepare-workspace`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({writer})}));}
+    catch(e){return fail(e);}
   });
 
   server.registerTool("control_production_run", {
     title: "Start, pause, resume or cancel a production run",
     description: "Durable run controls. Starting may invoke the configured adapters and is never automatic from opening the UI. No canonical approval is exposed here.",
-    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]) },
-  }, async ({ productionId, runId, action }) => {
-    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: "{}" })); } catch (e) { return fail(e); }
+    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]), background:z.boolean().optional(), request_id:z.string().max(200).optional(), preparation_id:z.string().uuid().optional() },
+  }, async ({ productionId, runId, action, ...params }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(params) })); } catch (e) { return fail(e); }
   });
 
   server.registerTool("decide_production_run_scene", {
@@ -614,6 +691,18 @@ export function build(base=BASE): McpServer {
       if (body.sourceObservationId) payload.sourceObservationId = body.sourceObservationId;
       return text(await call(`/api/productions/${encodeURIComponent(productionId)}/observation-jobs`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(payload) }));
     } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("find_observation_job", {
+    title: "Recover a previously submitted observation",
+    description: "Read the observation receipt for one exact request key without submitting a job.",
+    inputSchema: {productionId:z.string(), request_id:z.string().min(1).max(200)},
+    annotations:{readOnlyHint:true},
+  }, async ({productionId,request_id}) => {
+    try {
+      const result=await call(`/api/productions/${encodeURIComponent(productionId)}/observation-jobs?requestKey=${encodeURIComponent(request_id)}`);
+      return text({runs:result.jobs||[]});
+    } catch(e) { return fail(e); }
   });
 
   server.registerTool("get_observation_job", {
