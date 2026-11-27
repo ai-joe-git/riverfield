@@ -4,6 +4,7 @@
 import type { ObservationReport, ProductionRun, ProductionRunBudget, ProductionRunScene } from "./production-types.ts";
 import type { ProductionStore } from "./production-store.ts";
 import { deriveObservedState } from "./observed-state.ts";
+import { contextHash, resolveAcceptedObservation } from "./observation-selection.ts";
 
 export class ProductionRunError extends Error { code: string; constructor(code: string, message: string) { super(message); this.code = code; } }
 export type RunContext = { run: ProductionRun; scene: ProductionRunScene; sceneIndex: number; requestKey: string };
@@ -123,7 +124,7 @@ export class ProductionRunEngine {
     }
     return this.update(productionId, run, { status: "canceled", stage: "awaiting_human" }, `run:${run.id}:cancel`);
   }
-  async decide(productionId: string, runId: string, sceneId: string, decision: "approved" | "rejected" | "replace" | "reuse", note = ""): Promise<ProductionRun> {
+  async decide(productionId: string, runId: string, sceneId: string, decision: "approved" | "rejected" | "replace" | "reuse", note = "", observationId?: string): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     const index = run.scenePlan.findIndex((scene) => scene.sceneId === sceneId);
     if (index < 0) throw new ProductionRunError("UNKNOWN_RUN_SCENE", `Unknown scene ${sceneId}`);
@@ -134,15 +135,40 @@ export class ProductionRunEngine {
       this.snapshot(productionId).observations[current.observationIds.at(-1)!]?.report
     )) throw new ProductionRunError("RUN_DECISION_NOT_READY", "Approval requires the current scene candidate, structured observation and completed deterministic validation at the human checkpoint");
     if (index !== run.currentSceneIndex) throw new ProductionRunError("RUN_DECISION_OUT_OF_ORDER", "Human decisions must follow the current ordered scene checkpoint");
-    if (decision === "approved") run = this.markScene(run, index, { status: "approved" });
-    else if (decision === "reuse") run = this.markScene(run, index, { status: "approved" });
-    else if (decision === "rejected") run = this.markScene(run, index, { status: "rejected" });
+    const accepted = decision === "approved" || decision === "reuse"
+      ? resolveAcceptedObservation(this.snapshot(productionId), current, observationId) : undefined;
+    if (decision === "approved" || decision === "reuse") {
+      run = this.markScene(run, index, {
+        status: "approved",
+        acceptedObservation: {
+          observationId: accepted!.observation.id, revision: accepted!.revision, sourceHash: accepted!.sourceHash,
+          selection: accepted!.selection, selectedAt: now(), selectedBy: "human",
+        },
+      });
+    } else if (decision === "rejected") run = this.markScene(run, index, { status: "rejected" });
     else run = this.markScene(run, index, { status: "planned", attempts: current.attempts + 1 });
     run = { ...run, decisions: [...run.decisions, { id: `decision-${Date.now()}`, sceneId, decision, note, actor: "human", at: now() }] };
     this.store.recordProductionRunDecision(productionId, runId, { sceneId, decision, note, actor: "human" }, this.actor, `run:${runId}:decision:${sceneId}:${decision}`);
     run = this.run(productionId, runId);
     if (decision === "approved" || decision === "reuse") {
-      run = this.update(productionId, run, { currentSceneIndex: index + 1, status: index + 1 >= run.scenePlan.length ? "completed" : "running", stage: index + 1 >= run.scenePlan.length ? "completed" : "next_scene", provisionalFacts: run.provisionalFacts.map((fact) => fact.sceneId === sceneId && fact.status === "provisional" ? { ...fact, status: "approved" } : fact) }, `run:${run.id}:approve:${sceneId}`);
+      const state = deriveObservedState(accepted!.observation.id, accepted!.report);
+      const acceptedText = Object.values(state.closing).flat().map((item) => item.description).filter(Boolean).join("; ") || "No observed closing state.";
+      const acceptedEvidence = [...new Set([
+        ...state.boundaryEvidence.opening.map((item) => `${accepted!.observation.id}:${item.id}`),
+        ...state.boundaryEvidence.closing.map((item) => `${accepted!.observation.id}:${item.id}`),
+        ...state.events.flatMap((item) => item.evidenceReferences),
+      ])];
+      run = this.update(productionId, run, {
+        currentSceneIndex: index + 1, status: index + 1 >= run.scenePlan.length ? "completed" : "running",
+        stage: index + 1 >= run.scenePlan.length ? "completed" : "next_scene",
+        provisionalFacts: run.provisionalFacts.map((fact) => fact.sceneId === sceneId ? {
+          ...fact, status: "approved", sourceObservationId: accepted!.observation.id, sourceObservationHash: accepted!.sourceHash,
+          previousSourceObservationId: fact.sourceObservationId === accepted!.observation.id ? fact.previousSourceObservationId : fact.sourceObservationId,
+          revision: accepted!.revision, text: acceptedText, openingState: state.opening, closingState: state.closing,
+          observedEvents: state.events.map((event) => event.description), evidenceReferences: acceptedEvidence,
+          uncertainties: [...new Set([...(accepted!.report.uncertainties ?? []), ...state.unknownBoundaryConditions])],
+        } : fact),
+      }, `run:${run.id}:approve:${sceneId}`);
       return run;
     }
     // Rejection/replacement invalidates downstream provisional assumptions, never media.
@@ -174,7 +200,13 @@ export class ProductionRunEngine {
       if (scene.status === "awaiting_human") return run;
       let reservedNow = false;
       if (scene.status === "planned") {
-        run = this.markScene(run, index, { renderContext: this.renderContext(run, index) });
+        let renderContext: Record<string, unknown>;
+        try { renderContext = this.renderContext(run, index); }
+        catch (error) { return this.fail(productionId, run, error as Error); }
+        run = this.markScene(run, index, {
+          renderContext,
+          ...(typeof renderContext.effectiveContextHash === "string" ? { renderContextHash: renderContext.effectiveContextHash } : {}),
+        });
         scene = run.scenePlan[index];
         if (scene.reuseCandidateId) {
           const reused = this.snapshot(productionId).candidates[scene.reuseCandidateId];
@@ -259,7 +291,7 @@ export class ProductionRunEngine {
         continue;
       }
       if (scene.status === "validated") {
-        if (run.budget.seniorReviewBatchesUsed < run.budget.maxSeniorReviewBatches && this.adapters.startReview) {
+        if (scene.seniorReview === true && run.budget.seniorReviewBatchesUsed < run.budget.maxSeniorReviewBatches && this.adapters.startReview) {
           try { run = this.reserve(run, "senior_review", scene); } catch (error) { return this.fail(productionId, run, error as Error); }
           const handle = await this.adapters.startReview({ run, scene, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "review", scene.attempts) });
           run = this.markJob(run, scene.sceneId, "senior_review", "submitted", handle.jobId);
@@ -281,18 +313,27 @@ export class ProductionRunEngine {
   private renderContext(run: ProductionRun, sceneIndex: number): Record<string, unknown> {
     const prior = [...run.scenePlan.slice(0, sceneIndex)].reverse().find((scene) => scene.status === "approved");
     if (!prior) return { priorScene: null, canonical: false, note: "No accepted run-scoped closing state before this scene." };
-    const fact = [...run.provisionalFacts].reverse().find((item) => item.sceneId === prior.sceneId && item.status === "approved");
-    return {
+    const accepted = resolveAcceptedObservation(this.snapshot(run.productionId), prior);
+    const state = deriveObservedState(accepted.observation.id, accepted.report);
+    const body = {
       priorSceneId: prior.sceneId,
       priorCandidateId: prior.candidateId ?? null,
-      priorObservationId: fact?.sourceObservationId ?? prior.observationIds.at(-1) ?? null,
-      priorObservationRevision: fact?.revision ?? null,
+      priorObservationId: accepted.observation.id,
+      priorObservationRevision: accepted.revision,
+      priorObservationSourceHash: accepted.sourceHash,
+      priorObservationSelection: accepted.selection,
       status: "run-provisional-not-canonical",
-      closingState: fact?.closingState ?? {},
-      observedEvents: fact?.observedEvents ?? [],
-      uncertainties: fact?.uncertainties ?? [],
-      evidenceReferences: fact?.evidenceReferences ?? [],
+      closingState: state.closing,
+      observedEvents: state.events.map((event) => event.description),
+      uncertainties: [...new Set([...(accepted.report.uncertainties ?? []), ...state.unknownBoundaryConditions])],
+      evidenceReferences: [...new Set([
+        ...state.boundaryEvidence.opening.map((item) => `${accepted.observation.id}:${item.id}`),
+        ...state.boundaryEvidence.closing.map((item) => `${accepted.observation.id}:${item.id}`),
+        ...state.events.flatMap((item) => item.evidenceReferences),
+      ])],
     };
+    const effectiveContextHash = contextHash(body);
+    return { ...body, effectiveContextHash };
   }
   private addProvisional(run: ProductionRun, sceneId: string, result: ObservationResult): ProductionRun {
     const scene = run.scenePlan.find((item) => item.sceneId === sceneId);
@@ -306,7 +347,7 @@ export class ProductionRunEngine {
       id: `provisional-${sceneId}-${result.observationId}`, sceneId, text, intent: [...scene.intendedEvents],
       openingState: state.opening, closingState: state.closing, observedEvents: state.events.map((event) => event.description),
       dialogueAlignment: dialogue, uncertainties: [...new Set([...(result.report.uncertainties ?? []), ...state.unknownBoundaryConditions])],
-      sourceObservationId: result.observationId, evidenceReferences: evidence, revision: result.report.reportVersion, status: "provisional",
+      sourceObservationId: result.observationId, sourceObservationHash: result.report.sourceOutputHash, evidenceReferences: evidence, revision: result.report.reportVersion, status: "provisional",
     }] }, `run:${run.id}:provisional:${sceneId}`);
   }
   private fail(productionId: string, run: ProductionRun, error: Error): ProductionRun {

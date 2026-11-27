@@ -170,7 +170,8 @@ test("opening state is boundary evidence only; late events and scene-wide detail
   assert.deepEqual(p4.boundaryEvidence.closing.map((item) => item.id), ["frame-0009"]);
   assert.ok(p4.events.some((event) => /leans over the toilet/i.test(event.description) && (event.observedAtSeconds ?? 0) > 8));
   assert.ok(p4.events.every((event, index, list) => index === 0 || (event.observedAtSeconds ?? 0) >= (list[index - 1].observedAtSeconds ?? 0)));
-  assert.equal(p4.opening.character_identity.length, 0, "identity is persistent, not automatically an opening fact");
+  const openingIds = new Set(p4.boundaryEvidence.opening.map((item) => item.id));
+  assert.ok(p4.opening.character_identity.every((value) => value.evidenceReferences.every((ref) => openingIds.has(ref.split(":").at(-1)!))), "boundary identity must cite opening evidence only");
   assert.ok(p4.persistent.character_identity.length > 0);
   assert.equal(p4.persistent.observed_events.length, 0, "events live in the chronological event list");
   assert.notDeepEqual(p4.opening, p4.closing);
@@ -191,7 +192,7 @@ test("P5 preserves boundary-specific wetness evidence while P6 wetness remains u
   assert.equal(p6.opening.temporary_physical_conditions.length, 0);
   assert.equal(p6.closing.temporary_physical_conditions.length, 0);
   assert.ok(p6.unknown.some((item) => item.includes("closing:temporary_physical_conditions")));
-  assert.ok(p6.unknown.some((item) => item.includes("prop:key_fob")));
+  assert.equal(p6.unknown.some((item) => item.includes("key_fob") || item.includes("heart_not_sampled")), false);
 });
 
 test("a controlled contradictory fixture is classified as a contradiction, not compatible", () => {

@@ -577,6 +577,16 @@ export type ProductionRunBudget = {
   seniorReviewBatchesUsed: number;
   startedAt?: string;
 };
+export type ProductionRunAcceptedObservation = {
+  observationId: string;
+  revision: number;
+  sourceHash: string;
+  /** Latest observation selected automatically, or an explicit human selection. */
+  selection: "accepted-latest" | "human-selected";
+  selectedAt: string;
+  selectedBy: string;
+};
+
 export type ProductionRunScene = {
   sceneId: string;
   title: string;
@@ -594,6 +604,12 @@ export type ProductionRunScene = {
   renderConfig: Record<string, unknown>;
   /** Exact run-scoped context supplied to the Director enhancer for this scene. */
   renderContext?: Record<string, unknown>;
+  /** Hash of the effective context payload persisted before prompt enhancement. */
+  renderContextHash?: string;
+  /** Observation revision explicitly accepted for this scene's provisional state. */
+  acceptedObservation?: ProductionRunAcceptedObservation;
+  /** Opt in only selected scenes to a budgeted Senior Review pass. */
+  seniorReview?: boolean;
   reuseCandidateId?: string;
   candidateId?: string;
   observationIds: string[];
@@ -616,6 +632,8 @@ export type ProductionRunProvisionalFact = {
   dialogueAlignment: string[];
   uncertainties: string[];
   sourceObservationId: string;
+  sourceObservationHash?: string;
+  previousSourceObservationId?: string;
   evidenceReferences: string[];
   revision: number;
   status: "provisional" | "approved" | "invalidated";
@@ -657,6 +675,10 @@ export type ProductionRun = {
   decisions: ProductionRunDecision[];
   errors: string[];
   currentSceneIndex: number;
+  /** Explicit non-canonical closure limitations, if the run is complete. */
+  limitations?: string[];
+  /** Human-readable closure audit; never canonical memory. */
+  closure?: Record<string, unknown>;
   revision: number;
   createdAt: string;
   updatedAt: string;

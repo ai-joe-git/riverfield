@@ -763,7 +763,7 @@ const server = createServer(async (req, res) => {
           if (action === "cancel") return send(res, 200, await engine.cancel(id, runId));
           if (action === "decide") {
             if (typeof body.sceneId !== "string" || !["approved", "rejected", "replace", "reuse"].includes(String(body.decision))) throw new InputError("sceneId and decision are required");
-            return send(res, 200, await engine.decide(id, runId, body.sceneId, body.decision as "approved" | "rejected" | "replace" | "reuse", typeof body.note === "string" ? body.note : ""));
+            return send(res, 200, await engine.decide(id, runId, body.sceneId, body.decision as "approved" | "rejected" | "replace" | "reuse", typeof body.note === "string" ? body.note : "", typeof body.observationId === "string" ? body.observationId : undefined));
           }
           throw new InputError("unknown production run action");
         }

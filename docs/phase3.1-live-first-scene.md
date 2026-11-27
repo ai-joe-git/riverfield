@@ -137,3 +137,40 @@ The two videos and combined review cut are packaged in:
 ```text
 /home/zardoz/SUITE404_Phase3.1_Two_Scene_Pilot_Review.zip
 ```
+
+## Phase 3.2 pilot closure
+
+Room Service Confession was retained by explicit human decision as a non-canonical Build-pilot
+candidate. The run is now **completed**; both candidates remain, and canonical revision is
+still **0**. The final budget remains:
+
+```text
+renders 2/2 · prompt enhancements 2/2 · observations 2/2 · comparisons 2/2
+senior reviews 0/0 · automatic regenerations 0
+```
+
+The observation-selection discrepancy is recorded separately in
+`out/observations/phase3-pilot/recovery/observation-selection-audit.json`: the intended
+next-scene context used recovered revision 2, while the historical scene-03 renderContext and
+generation payload used revision 1. The historical payload was not rewritten. The accepted
+revision is now explicitly stored on the scene, and future contexts require an accepted
+observation identity and persist an effective context hash before enhancement.
+
+The successor continuity review
+`continuity-suite404-phase3.1-pilot-prop-r2` records the glass change from short glasses with
+light-colored liquid to stemmed wine glasses with red liquid as a **possible offscreen prop
+transition**, not a confirmed contradiction. No regeneration is recommended. The earlier
+continuity review is preserved.
+
+Separate recovery hashes are recorded in
+`out/observations/phase3-pilot/recovery/recovery-hash-audit.json`: raw response, unfenced
+source text, exact repaired text, serialized recovered JSON and effective validated
+comparison. The delivered recovered file remains byte-preserved.
+
+## Phase 3.2 episode preparation
+
+A separate run, `phase3.2-suite404-s01e03-production-001`, has been prepared but not started.
+It is the original three-minute episode **The Key to Room 404**, with twelve independently
+generated fifteen-second scenes, Build profile at 0.1 MP, native English dialogue, Fast
+Review, deterministic continuity and two selectively budgeted Senior Review scenes. See
+`docs/phase3.2-episode-plan.md` and `out/productions/suite-404/phase3.2/episode-plan.json`.

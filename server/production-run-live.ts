@@ -7,7 +7,7 @@ import { basename } from "node:path";
 import type { RunAdapters, RunContext, RunHandle, RenderResult, ObservationResult, ValidationResult } from "./production-run.ts";
 import type { ObservationReport } from "./production-types.ts";
 import { planH3 } from "./h3-plan.ts";
-import { deriveObservedState } from "./observed-state.ts";
+import { deriveObservedState, propFamily, propState } from "./observed-state.ts";
 import { classifyContinuityTransition } from "./continuity-analysis.ts";
 
 type Snapshot = any;
@@ -18,13 +18,16 @@ function stateFixture(map: Record<string, any[]>) {
   const text = all.map((item) => String(item?.description ?? "")).join(" ");
   const wetness = /\bwet\b|damp|soaked/i.test(text) ? "wet" as const : /\bdry\b/i.test(text) ? "dry" as const : "unknown" as const;
   const props: Record<string, "present" | "absent" | "unknown"> = {};
+  const propStates: Record<string, string> = {};
   for (const item of [...(map.prop_presence_possession_condition ?? [])]) {
     const description = String(item?.description ?? "");
-    const name = description.split(/[—:]/)[0].trim().toLowerCase();
-    if (name) props[name] = /not visible|absent|missing/i.test(description) ? "absent" : "present";
+    const name = propFamily(description);
+    if (!name) continue;
+    props[name] = /not visible|absent|missing/i.test(description) ? "absent" : "present";
+    if (props[name] === "present") propStates[name] = propState(description);
   }
   const location = String((map.location_and_position ?? [])[0]?.description ?? "");
-  return { characters: [], ...(location ? { location } : {}), wetness, props };
+  return { characters: [], ...(location ? { location } : {}), wetness, props, propStates };
 }
 
 export type LiveRunAdapterOptions = { baseUrl: string; fetchImpl?: typeof fetch; pollMs?: number; maxWaitMs?: number };
@@ -111,7 +114,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
       if (asset.hash && sha256(readFileSync(asset.path)) !== asset.hash) throw new Error(`LIVE_REFERENCE_HASH_MISMATCH: ${asset.id}`);
     }
     const prompt = String(scene.renderConfig.global_prompt ?? this.scenePrompt(context, snapshot));
-    const windows = scene.renderConfig.segment_windows ?? planH3({ seconds: 7.3, prompts: [prompt], images: refs.map((_, index) => index) }).segment_windows;
+    const windows = scene.renderConfig.segment_windows ?? planH3({ seconds: scene.targetDurationSeconds, prompts: [prompt], images: refs.map((_, index) => index) }).segment_windows;
     const form = new FormData();
     const values: Record<string, unknown> = {
       ...scene.renderConfig,

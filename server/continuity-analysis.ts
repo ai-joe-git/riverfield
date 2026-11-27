@@ -14,6 +14,8 @@ export type ContinuityStateFixture = {
   location?: string;
   wetness?: "wet" | "dry" | "unknown";
   props?: Record<string, "present" | "absent" | "unknown">;
+  /** Evidence-backed prop identity -> condition/form/contents, e.g. glass -> stemmed wine glass with red liquid. */
+  propStates?: Record<string, string>;
   wardrobe?: string;
 };
 
@@ -21,6 +23,8 @@ export type ContinuityTransition = {
   classification: ContinuityClassification;
   reasons: string[];
 };
+
+const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** Compare only explicit observed states. Unknown is never converted into absence. */
 export function classifyContinuityTransition(from: ContinuityStateFixture, to: ContinuityStateFixture): ContinuityTransition {
@@ -35,6 +39,11 @@ export function classifyContinuityTransition(from: ContinuityStateFixture, to: C
     if (state === "present" && to.props?.[name] === "absent") reasons.push(`Prop ${name} is explicitly present then explicitly absent.`);
   }
   if (reasons.length) return { classification: "confirmed_contradiction", reasons };
+  for (const [name, state] of Object.entries(from.propStates ?? {})) {
+    const next = to.propStates?.[name];
+    if (next && normalize(state) !== normalize(next)) reasons.push(`Prop ${name} changes condition from ${state} to ${next}; this is a possible offscreen prop transition, not a confirmed contradiction.`);
+  }
+  if (reasons.length) return { classification: "plausible_offscreen_transition", reasons };
   if (from.location && to.location && from.location !== to.location) {
     return { classification: "plausible_offscreen_transition", reasons: [`Location changes from ${from.location} to ${to.location}; transition is not directly observed.`] };
   }

@@ -1290,6 +1290,11 @@ export function productionView(productionId) {
 
   function runCard(run, snap) {
     const current = run.scenePlan[run.currentSceneIndex];
+    let selectedObservationId = current?.acceptedObservation?.observationId || current?.observationIds?.at(-1) || "";
+    const observationSelect = current && current.observationIds.length > 1
+      ? el("select", { "aria-label": "Accepted observation revision" }, ...current.observationIds.map((id) => el("option", { value: id, selected: id === selectedObservationId }, id)))
+      : null;
+    if (observationSelect) observationSelect.onchange = () => { selectedObservationId = observationSelect.value; };
     const control = (action, label, disabled = false) => {
       const button = el("button", { class: "btn small ghost", type: "button", disabled }, icon(action === "cancel" ? "x" : "film"), label);
       button.onclick = async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(run.id)}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }); toast(`Run ${action}.`); reload(); } catch (error) { toast(error.message, { error: true }); } };
@@ -1299,7 +1304,7 @@ export function productionView(productionId) {
       if (!current) return null;
       const ready = current.validation?.ok === true;
       const button = el("button", { class: `btn small ${decision === "approved" ? "lime" : "ghost"}`, type: "button", disabled: !ready, title: ready ? "Human decision" : "Validation is incomplete; inspect the failure first" }, icon(decision === "approved" ? "check" : "x"), decision === "approved" ? "Approve scene" : "Reject scene");
-      button.onclick = async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(run.id)}/decide`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sceneId: current.sceneId, decision, note: "Production Studio human decision" }) }); toast(`Scene ${decision}.`); reload(); } catch (error) { toast(error.message, { error: true }); } };
+      button.onclick = async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(run.id)}/decide`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sceneId: current.sceneId, decision, note: "Production Studio human decision", ...(selectedObservationId ? { observationId: selectedObservationId } : {}) }) }); toast(`Scene ${decision}.`); reload(); } catch (error) { toast(error.message, { error: true }); } };
       return button;
     };
     return el("details", { class: "prod-details", open: true },
@@ -1321,12 +1326,13 @@ export function productionView(productionId) {
           el("small", { class: "dim" }, `${scene.selectedApp} · ${scene.profile} · ${scene.targetDurationSeconds}s · ${scene.intendedTransition}`),
           scene.candidateId ? el("small", { class: "dim" }, `Candidate ${scene.candidateId}`) : null,
           scene.observationIds.length ? el("small", { class: "dim" }, `Observations ${scene.observationIds.join(", ")}`) : null,
+          scene.acceptedObservation ? el("small", { class: "dim" }, `Accepted observation ${scene.acceptedObservation.observationId} · revision ${scene.acceptedObservation.revision} · ${scene.acceptedObservation.selection}`) : null,
           scene.validation ? el("small", { class: "dim" }, `Validation ${scene.validation.ok ? "passed" : "incomplete"} · ${scene.validation.errors.join(" · ")}`) : null,
           scene.errors.length ? el("small", { class: "dim" }, scene.errors.join(" · ")) : null);
       })),
       run.provisionalFacts.length ? el("div", {}, el("h3", {}, "Provisional timeline"), ...run.provisionalFacts.map((fact) => el("p", { class: "help" }, `${fact.sceneId}: ${fact.text} · ${fact.status} · ${fact.sourceObservationId}`))) : null,
       run.decisions.length ? el("div", {}, el("h3", {}, "Human decisions"), ...run.decisions.map((d) => el("p", { class: "help" }, `${d.sceneId}: ${d.decision} · ${d.actor} · ${dateLabel(d.at)}`))) : null,
-      el("div", { class: "row" }, control("start", "Start", run.status !== "prepared"), control("pause", "Pause", !["running", "prepared"].includes(run.status)), control("resume", "Resume", !["paused"].includes(run.status)), control("cancel", "Cancel", ["completed", "canceled"].includes(run.status)),
+      el("div", { class: "row" }, ...(observationSelect ? [el("label", { class: "ag-field" }, el("span", {}, "Accepted observation revision"), observationSelect)] : []), control("start", "Start", run.status !== "prepared"), control("pause", "Pause", !["running", "prepared"].includes(run.status)), control("resume", "Resume", !["paused"].includes(run.status)), control("cancel", "Cancel", ["completed", "canceled"].includes(run.status)),
         run.status === "awaiting_human" ? decide("approved") : null, run.status === "awaiting_human" ? decide("rejected") : null));
   }
 

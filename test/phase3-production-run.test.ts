@@ -166,6 +166,8 @@ test("approval advances to the next scene and resumes without regenerating the a
     assert.equal((resumed.scenePlan[1].renderContext as any)?.priorSceneId, "run-test-s01e01-sc01");
     assert.equal((resumed.scenePlan[1].renderContext as any)?.status, "run-provisional-not-canonical");
     assert.equal((resumed.scenePlan[1].renderContext as any)?.closingState != null, true);
+    assert.match((resumed.scenePlan[1] as any).renderContextHash, /^[a-f0-9]{64}$/);
+    assert.equal((resumed.scenePlan[0] as any).acceptedObservation?.observationId, "observation-1");
     assert.equal(store.snapshot("run-test").revision, 0);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
@@ -175,7 +177,10 @@ test("incomplete senior coverage cannot become an automatic acceptance", async (
   try {
     makeRun(store);
     const current = store.snapshot("run-test").productionRuns["run-test-run"];
-    store.updateProductionRun("run-test", "run-test-run", { budget: { ...current.budget, maxSeniorReviewBatches: 1 } }, actor, "senior-budget");
+    store.updateProductionRun("run-test", "run-test-run", {
+      budget: { ...current.budget, maxSeniorReviewBatches: 1 },
+      scenePlan: current.scenePlan.map((item, index) => index === 0 ? { ...item, seniorReview: true } : item),
+    }, actor, "senior-budget");
     const a = adapters({ reviewCoverage: false });
     const engine = new ProductionRunEngine(store, a);
     const run = await engine.start("run-test", "run-test-run");
@@ -318,7 +323,7 @@ test("the SUITE 404 pilot remains non-canonical and within its first-scene budge
   const snapshot = JSON.parse(readFileSync("out/productions/suite-404/snapshot.json", "utf8"));
   const run = snapshot.productionRuns["phase3-suite404-pilot-001"];
   assert.ok(run);
-  assert.ok(["prepared", "awaiting_human"].includes(run.status));
+  assert.ok(["prepared", "awaiting_human", "completed"].includes(run.status));
   assert.equal(run.profile, "build");
   assert.equal(run.scenePlan.length, 2);
   assert.deepEqual(run.scenePlan.map((scene: any) => scene.sceneId), ["suite-404-s01e02-sc02", "suite-404-s01e02-sc03"]);

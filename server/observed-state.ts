@@ -33,6 +33,29 @@ export type ObservedStateRecord = {
   };
 };
 
+/** Generic prop family/state labels used by continuity checks. */
+export function propFamily(description: string): string {
+  const text = description.toLowerCase();
+  if (/wine glass|tumbler|glass\b/.test(text)) return "glass";
+  if (/key\s?fob|keycard|room key/.test(text)) return "key";
+  if (/menu/.test(text)) return "menu";
+  if (/cart|trolley/.test(text)) return "service cart";
+  if (/microphone|mic\b/.test(text)) return "microphone";
+  if (/heart/.test(text)) return "heart";
+  const noun = text.replace(/^(a|an|the)\s+/, "").split(/[—,.;:]/)[0].trim().split(/\s+/).slice(0, 2).join(" ");
+  return noun || "prop";
+}
+
+export function propState(description: string): string {
+  const text = description.toLowerCase();
+  const form = /wine glass/.test(text) ? "stemmed wine glass" : /tumbler/.test(text) ? "short tumbler" : /glass\b/.test(text) ? "glass" : "";
+  const contents = /\bred liquid\b|\bred wine\b/.test(text) ? "red liquid"
+    : /light[- ]colored liquid|clear liquid|white wine/.test(text) ? "light-colored liquid"
+      : /dark liquid/.test(text) ? "dark liquid" : "";
+  if (form || contents) return [form, contents].filter(Boolean).join(" with ");
+  return text.replace(/^(a|an|the)\s+/, "").replace(/\s+/g, " ").trim();
+}
+
 const ref = (observationId: string, id: string) => `${observationId}:${id}`;
 const refs = (observationId: string, ids: string[] | undefined) => [...new Set((ids ?? []).map((id) => ref(observationId, id)))];
 const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -157,14 +180,40 @@ export function deriveObservedState(observationId: string, report: ObservationRe
     unknown.push("closing:location_and_position");
   }
 
+  // Preserve scene-wide information in `persistent`, and also attach it to the
+  // relevant temporal boundary only when its own evidence reaches that boundary.
+  const addBoundary = (
+    key: keyof StateCategoryMap, description: string, confidence: ObservationConfidence,
+    ids: string[], source: ObservationStateValueSource,
+  ) => {
+    if (intersects(ids, openingIds)) opening[key].push(value(observationId, report, evidence, description, confidence, "opening", ids.filter((id) => openingIds.has(id)), source));
+    if (intersects(ids, closingIds)) closing[key].push(value(observationId, report, evidence, description, confidence, "closing", ids.filter((id) => closingIds.has(id)), source));
+  };
   for (const character of visual?.characters ?? []) {
-    persistent.character_identity.push(value(observationId, report, evidence, character.description, character.identityMatch === "matches" ? "confirmed" : character.identityMatch === "probable" ? "probable" : "uncertain", "scene", character.evidenceIds, "visual"));
-    if (character.clothing) persistent.wardrobe.push(value(observationId, report, evidence, character.clothing, "probable", "scene", character.evidenceIds, "visual"));
+    const identityConfidence = character.identityMatch === "matches" ? "confirmed" : character.identityMatch === "probable" ? "probable" : "uncertain";
+    persistent.character_identity.push(value(observationId, report, evidence, character.description, identityConfidence, "scene", character.evidenceIds, "visual"));
+    addBoundary("character_identity", character.description, identityConfidence, character.evidenceIds, "visual");
+    if (character.clothing) {
+      persistent.wardrobe.push(value(observationId, report, evidence, character.clothing, "probable", "scene", character.evidenceIds, "visual"));
+      addBoundary("wardrobe", character.clothing, "probable", character.evidenceIds, "visual");
+    }
   }
-  if (visual?.location?.description) persistent.location_and_position.push(value(observationId, report, evidence, visual.location.description, visual.location.confidence, "scene", visual.location.evidenceIds, "visual"));
-  if (visual?.location?.description) persistent.environmental_state.push(value(observationId, report, evidence, visual.location.description, visual.location.confidence, "scene", visual.location.evidenceIds, "visual"));
-  for (const prop of visual?.props ?? []) persistent.prop_presence_possession_condition.push(value(observationId, report, evidence, `${prop.description}${prop.state ? ` — ${prop.state}` : ""}`, "probable", "scene", prop.evidenceIds, "visual"));
-  for (const expression of visual?.expressions ?? []) persistent.emotional_and_relationship_state.push(value(observationId, report, evidence, expression.description, "probable", "scene", expression.evidenceIds, "visual"));
+  if (visual?.location?.description) {
+    const location = value(observationId, report, evidence, visual.location.description, visual.location.confidence, "scene", visual.location.evidenceIds, "visual");
+    persistent.location_and_position.push(location);
+    persistent.environmental_state.push({ ...location });
+    addBoundary("location_and_position", visual.location.description, visual.location.confidence, visual.location.evidenceIds, "visual");
+    addBoundary("environmental_state", visual.location.description, visual.location.confidence, visual.location.evidenceIds, "visual");
+  }
+  for (const prop of visual?.props ?? []) {
+    const description = `${prop.description}${prop.state ? ` — ${prop.state}` : ""}`;
+    persistent.prop_presence_possession_condition.push(value(observationId, report, evidence, description, "probable", "scene", prop.evidenceIds, "visual"));
+    addBoundary("prop_presence_possession_condition", description, "probable", prop.evidenceIds, "visual");
+  }
+  for (const expression of visual?.expressions ?? []) {
+    persistent.emotional_and_relationship_state.push(value(observationId, report, evidence, expression.description, "probable", "scene", expression.evidenceIds, "visual"));
+    addBoundary("emotional_and_relationship_state", expression.description, "probable", expression.evidenceIds, "visual");
+  }
   for (const finding of report.comparison?.findings ?? []) {
     if (finding.classification === "confirmed" || finding.classification === "probable") {
       persistent.narrative_consequences.push(value(observationId, report, evidence, finding.observed, finding.classification, "scene", finding.evidenceIds, "comparison"));
@@ -189,8 +238,8 @@ export function deriveObservedState(observationId: string, report: ObservationRe
   // Explicitly preserve unknown boundary conditions instead of converting them to absence.
   if (!opening.temporary_physical_conditions.length) unknown.push("opening:temporary_physical_conditions");
   if (!closing.temporary_physical_conditions.length) unknown.push("closing:temporary_physical_conditions");
-  if (!persistent.prop_presence_possession_condition.some((item) => /key|fob/i.test(item.description))) unknown.push("prop:key_fob_not_sampled");
-  if (!persistent.prop_presence_possession_condition.some((item) => /heart/i.test(item.description))) unknown.push("prop:heart_not_sampled");
+  if (!opening.prop_presence_possession_condition.length) unknown.push("opening:prop_presence_possession_condition");
+  if (!closing.prop_presence_possession_condition.length) unknown.push("closing:prop_presence_possession_condition");
   if (!openingIds.size) unknown.push("opening:no_boundary_evidence");
   if (!closingIds.size) unknown.push("closing:no_boundary_evidence");
   const dedupe = (list: ObservedStateValue[]) => {

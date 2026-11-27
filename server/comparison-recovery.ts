@@ -9,7 +9,16 @@ export type ComparisonRecovery = {
   unfencedHash: string;
   insertion: { index: number; character: "]"; context: string };
   parserError: string;
+  /** SHA-256 of the parsed-object serialization used by the historical artifact. */
   recoveredJsonHash: string;
+  /** SHA-256 of the exact unfenced text with the single insertion applied. */
+  repairedTextHash?: string;
+  /** SHA-256 of the serialized recovered object (pretty or compact as supplied). */
+  serializedRecoveredJsonHash?: string;
+  /** SHA-256 of the effective validated comparison object. */
+  effectiveComparisonHash?: string;
+  /** All whitespace-equivalent insertion positions that produce the same parsed object. */
+  semanticRepairCandidateCount?: number;
   candidateInsertionPositions: number[];
   recoveredJson: Record<string, unknown>;
   valid: boolean;
@@ -101,5 +110,12 @@ export function recoverComparison(raw: string, report: ObservationReport, expect
     findings, proposedChanges: [], limitations: [...stringArray(recovered.limitations), "Comparison JSON syntax-recovered by one bracket insertion; proposed changes rejected: missing factId / unknown subject location."],
     comparedAt: new Date().toISOString(), comparisonPromptVersion: "recovery-v1",
   };
-  return { rawHash, unfencedHash: sha256(unfenced.text), insertion: { index, character: "]", context: unfenced.text.slice(Math.max(0, index - 30), index + 30) }, parserError, recoveredJsonHash: sha256(JSON.stringify(recovered)), candidateInsertionPositions: candidates.map((candidate) => candidate.index), recoveredJson: recovered, valid: errors.length === 0, errors, warnings, rejectedProposedChanges, downgrades, effectiveComparison };
+  const repairedText = unfenced.text.slice(0, index) + "]" + unfenced.text.slice(index);
+  const serializedRecoveredJson = JSON.stringify(recovered);
+  return {
+    rawHash, unfencedHash: sha256(unfenced.text), insertion: { index, character: "]", context: unfenced.text.slice(Math.max(0, index - 30), index + 30) }, parserError,
+    recoveredJsonHash: sha256(serializedRecoveredJson), repairedTextHash: sha256(repairedText), serializedRecoveredJsonHash: sha256(serializedRecoveredJson),
+    effectiveComparisonHash: sha256(JSON.stringify(effectiveComparison)), semanticRepairCandidateCount: candidates.length,
+    candidateInsertionPositions: candidates.map((candidate) => candidate.index), recoveredJson: recovered, valid: errors.length === 0, errors, warnings, rejectedProposedChanges, downgrades, effectiveComparison,
+  };
 }
