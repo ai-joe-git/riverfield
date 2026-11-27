@@ -1,7 +1,11 @@
 # Phase 3.1 — First Live Scene
 
-Status: **stopped at the first human-review checkpoint**. No candidate approval, canonical
-proposal, Bible change or second scene render occurred. Canonical revision remains **0**.
+> **Phase 3.2 update:** this page preserves the first-scene history. The two-scene pilot was
+> later closed as non-canonical; see “Phase 3.2 pilot closure” below. Canonical revision
+> remains **0**.
+
+Status at the historical checkpoint: **stopped at the first human-review checkpoint**. No
+candidate approval, canonical proposal, Bible change or second scene render had occurred.
 
 ## Run
 
