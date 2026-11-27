@@ -49,3 +49,17 @@ test("the pilot boundary states carry evidence-backed glasses and no unrelated k
   assert.equal(transition.classification, "plausible_offscreen_transition");
   assert.match(transition.reasons.join(" "), /possible offscreen prop transition, not a confirmed contradiction/i);
 });
+
+test("a non-failing older revision is rejected as superseded but allowed when explicitly selected", () => {
+  const scene = structuredClone(run.scenePlan[0]);
+  const oldId = "7e975d52-7f9e-4b52-afa9-6acebefa5ec9";
+  const newerId = "7e975d52-7f9e-4b52-afa9-6acebefa5ec9-recovered-r2";
+  const synthetic = structuredClone(snapshot);
+  synthetic.observations[oldId].report.failure = undefined;
+  scene.observationIds = [oldId, newerId];
+  scene.acceptedObservation = { observationId: oldId, revision: 1, sourceHash: synthetic.observations[oldId].report.sourceOutputHash, selection: "accepted-latest", selectedAt: new Date().toISOString(), selectedBy: "test" };
+  assert.throws(() => resolveAcceptedObservation(synthetic, scene), (error: unknown) => error instanceof ObservationSelectionError && error.code === "OBSERVATION_SELECTION_SUPERSEDED");
+  const explicit = resolveAcceptedObservation(synthetic, scene, oldId);
+  assert.equal(explicit.observation.id, oldId);
+  assert.equal(explicit.selection, "human-selected");
+});

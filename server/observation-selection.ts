@@ -39,8 +39,8 @@ export function resolveAcceptedObservation(
   const report = observation.report;
   if (report.reportVersion !== observation.revision) throw new ObservationSelectionError("OBSERVATION_SELECTION_REVISION_MISMATCH", `Observation ${selectedId} revision does not match its report`);
   if (report.failure) throw new ObservationSelectionError("OBSERVATION_SELECTION_INCOMPLETE", `Observation ${selectedId} is incomplete and cannot be accepted without a recovered successor`);
-  if (explicit && explicit !== scene.acceptedObservation?.observationId) return { observation, report, revision: report.reportVersion, sourceHash: report.sourceOutputHash, selection: "human-selected" };
-  if (!explicit && scene.acceptedObservation && scene.acceptedObservation.selection !== "human-selected" && selectedId !== ids.at(-1)) {
+  if (explicit) return { observation, report, revision: report.reportVersion, sourceHash: report.sourceOutputHash, selection: "human-selected" };
+  if (scene.acceptedObservation && scene.acceptedObservation.selection !== "human-selected" && selectedId !== ids.at(-1)) {
     throw new ObservationSelectionError("OBSERVATION_SELECTION_SUPERSEDED", `Observation ${selectedId} was superseded by ${ids.at(-1)}; select it explicitly to override`);
   }
   return {
