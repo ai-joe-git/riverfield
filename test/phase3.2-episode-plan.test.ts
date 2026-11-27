@@ -2,26 +2,30 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { auditAssetCatalogue } from "../server/asset-audit.ts";
+import { planH3 } from "../server/h3-plan.ts";
 
 const snapshot = JSON.parse(readFileSync("out/productions/suite-404/snapshot.json", "utf8"));
 const run = snapshot.productionRuns["phase3.2-suite404-s01e03-production-001"];
 const plan = JSON.parse(readFileSync("out/productions/suite-404/phase3.2/episode-plan.json", "utf8"));
 
-test("the Phase 3.2 episode is prepared but not launched", () => {
+test("the Phase 3.2 episode stops at its first human checkpoint", () => {
   assert.ok(run);
-  assert.equal(run.status, "prepared");
-  assert.equal(run.stage, "plan");
+  assert.equal(run.status, "awaiting_human");
+  assert.equal(run.stage, "awaiting_human");
   assert.equal(run.currentSceneIndex, 0);
   assert.equal(run.scenePlan.length, 12);
-  assert.equal(run.scenePlan.every((scene: any) => scene.targetDurationSeconds === 15), true);
+  assert.equal(run.scenePlan.every((scene: any) => Math.abs(scene.targetDurationSeconds - 362 / 24) < 1e-9), true);
+  assert.equal(run.scenePlan.every((scene: any) => scene.renderConfig.target_frames === 362), true);
   assert.equal(run.scenePlan.every((scene: any) => scene.profile === "build"), true);
   assert.equal(run.scenePlan.every((scene: any) => scene.selectedApp === "h3-studio-director-flash"), true);
-  assert.equal(run.scenePlan.every((scene: any) => scene.status === "planned"), true);
-  assert.equal(run.budget.rendersUsed, 0);
-  assert.equal(run.budget.promptEnhancementsUsed, 0);
-  assert.equal(run.budget.observationJobsUsed, 0);
-  assert.equal(run.budget.comparisonCallsUsed, 0);
+  assert.equal(run.scenePlan[0].status, "awaiting_human");
+  assert.equal(run.scenePlan.slice(1).every((scene: any) => scene.status === "planned"), true);
+  assert.equal(run.budget.rendersUsed, 1);
+  assert.equal(run.budget.promptEnhancementsUsed, 1);
+  assert.equal(run.budget.observationJobsUsed, 1);
+  assert.equal(run.budget.comparisonCallsUsed, 1);
   assert.equal(run.budget.seniorReviewBatchesUsed, 0);
+  assert.equal(run.scenePlan[0].validation.ok, false);
   assert.equal(snapshot.revision, 0);
 });
 
@@ -62,4 +66,56 @@ test("the screenplay has a setup, escalating complications, emotional developmen
   assert.match(screenplay.structure.emotionalDevelopment, /Scenes 07–09/);
   assert.match(screenplay.structure.payoff, /Scenes 10–12/);
   assert.match(screenplay.scenes.at(-1).dialogue.join(" "), /I call it a beginning/);
+});
+
+test("H3 preflight uses a legal 362-frame window and never reuses the 175-frame pilot", () => {
+  const preflight = JSON.parse(readFileSync("out/productions/suite-404/phase3.2/preflight.json", "utf8"));
+  const geometry = planH3({ seconds: 362 / 24, prompts: ["preflight"], images: [0, 1, 2, 3, 4] });
+  assert.equal(geometry.frames, 362);
+  assert.equal(geometry.segmentFrames, 362);
+  assert.equal(geometry.seconds, 362 / 24);
+  assert.equal((362 - 5) % 17, 0);
+  assert.equal(preflight.frames.h3Legal, true);
+  assert.equal(preflight.frames.targetFrames, 362);
+  assert.equal(preflight.frames.previousPilotFrames, 175);
+  assert.equal(preflight.frames.doesNotReusePilotDuration, true);
+  assert.deepEqual(preflight.frames.plannedWindows.map((window: any) => [window.start, window.end]), [[0, 362]]);
+  assert.equal(preflight.render.production_megapixels, 0.1);
+  assert.equal(preflight.render.production_upscale, "");
+  assert.equal(preflight.render.selectedApp, "h3-studio-director-flash");
+});
+
+test("the first scene reference manifest is ordered, trusted and hash-verified", () => {
+  const preflight = JSON.parse(readFileSync("out/productions/suite-404/phase3.2/preflight.json", "utf8"));
+  assert.deepEqual(preflight.referenceSlotOrder.map((ref: any) => ref.slot), [1, 2, 3, 4, 5]);
+  assert.deepEqual(preflight.referenceSlotOrder.map((ref: any) => ref.assetId), [
+    "suite404-official-akari-character-sheet",
+    "suite404-official-daichi-character-sheet",
+    "suite404-asset-20261124-220335005-2eb3-1",
+    "suite404-asset-20261124-220640547-5d0c-1",
+    "suite404-asset-20261125-004302381-a475-1",
+  ]);
+  assert.equal(preflight.referenceSlotOrder.every((ref: any) => ref.trusted && ref.exists && ref.hashMatches), true);
+  assert.equal(preflight.referenceCapacity.supplied, 5);
+  assert.equal(preflight.pendingAssetCorrectionsApplied, false);
+  assert.equal(preflight.noInferenceStarted, true);
+});
+
+test("prop, voice and narrative corrections are explicit in the prepared scenes", () => {
+  const first = run.scenePlan[0];
+  assert.deepEqual(first.props.map((prop: any) => prop.id), ["room-key", "survey-folder"]);
+  assert.equal(first.props.every((prop: any) => prop.assetStatus === "intended-only-untrusted"), true);
+  const allPropIds = new Set(run.scenePlan.flatMap((scene: any) => scene.propIds));
+  for (const id of ["room-key", "survey-folder", "masking-tape", "romance-panel", "karaoke-equipment", "cocktail-menu", "drinking-glasses"]) assert.equal(allPropIds.has(id), true, id);
+  assert.deepEqual(run.scenePlan[1].voiceRequirements.map((voice: any) => voice.speaker), ["Kuroda"]);
+  assert.deepEqual(run.scenePlan[3].voiceRequirements.map((voice: any) => voice.speaker), ["Yumi"]);
+  assert.deepEqual(run.scenePlan[8].voiceRequirements.map((voice: any) => voice.speaker), ["Romance panel"]);
+  assert.match(run.scenePlan[7].dialogueRequirements[0], /merged the keys/);
+  assert.match(run.scenePlan[9].objective, /calibration toast/);
+  assert.match(run.scenePlan[11].objective, /chosen rooftop toast/);
+  assert.match(run.scenePlan[10].objective, /swapped his key fob into 404's slot/);
+  for (const index of [6, 10]) {
+    const words = run.scenePlan[index].dialogueRequirements.map((line: string) => line.replace(/^[^:]+:\s*/, "")).join(" ").match(/\b[\w']+\b/g) ?? [];
+    assert.ok(words.length <= 30, `${run.scenePlan[index].sceneId} has ${words.length} spoken words`);
+  }
 });

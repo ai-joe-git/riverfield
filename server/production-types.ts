@@ -587,6 +587,24 @@ export type ProductionRunAcceptedObservation = {
   selectedBy: string;
 };
 
+export type ProductionRunProp = {
+  id: string;
+  label: string;
+  persistence: "persistent" | "temporary";
+  description: string;
+  state: string;
+  possession?: string;
+  /** Trusted reference asset only; omit for intended-only/untrusted props. */
+  assetId?: string;
+  assetStatus: "trusted-reference" | "intended-only-untrusted";
+};
+
+export type ProductionRunVoiceRequirement = {
+  speaker: string;
+  description: string;
+  offscreen: boolean;
+};
+
 export type ProductionRunScene = {
   sceneId: string;
   title: string;
@@ -596,6 +614,10 @@ export type ProductionRunScene = {
   characterIds: string[];
   locationIds: string[];
   propIds: string[];
+  /** Explicit prop identities, persistence, condition and possession for this scene. */
+  props?: ProductionRunProp[];
+  /** Voice-only speakers must remain explicit even when not visible. */
+  voiceRequirements?: ProductionRunVoiceRequirement[];
   targetDurationSeconds: number;
   intendedTransition: string;
   selectedApp: string;

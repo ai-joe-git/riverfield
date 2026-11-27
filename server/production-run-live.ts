@@ -78,7 +78,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     const existing = await this.candidateForRun(snapshot, historyId, context.scene.sceneId);
     if (existing) return { candidateId: existing.id };
     const candidateId = `run-${context.run.id}-${context.scene.sceneId}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 120);
-    const frames = Math.max(5, Math.round(context.scene.targetDurationSeconds * 24));
+    const frames = Math.max(5, Number(context.scene.renderConfig.target_frames) || Math.round(context.scene.targetDurationSeconds * 24));
     const body = {
       id: candidateId, label: `${context.run.title} / ${context.scene.title}`, runId: historyId,
       bindings: [{ id: `${candidateId}-b001`, sceneId: context.scene.sceneId, segmentIndex: 0, timelineStartFrame: 0, timelineEndFrame: frames }],
@@ -101,6 +101,8 @@ export class LiveProductionRunAdapters implements RunAdapters {
       ...(scene.dialogueRequirements.length ? [`Dialogue requirements (English): ${scene.dialogueRequirements.join(" ")}`] : []),
       ...(productionStyle ? [`Visual style: ${productionStyle}`] : []),
       `Transition requirement: ${scene.intendedTransition}`,
+      ...(scene.props?.length ? [`Prop identities (track state and possession; never invent an asset association): ${scene.props.map((prop) => `${prop.id}: ${prop.label} (${prop.persistence}); ${prop.description}; state=${prop.state}${prop.possession ? `; possession=${prop.possession}` : ""}`).join(" | ")}`] : []),
+      ...(scene.voiceRequirements?.length ? [`Voice requirements (include offscreen speakers; do not omit): ${scene.voiceRequirements.map((voice) => `${voice.speaker}${voice.offscreen ? " [offscreen]" : ""}: ${voice.description}`).join(" | ")}`] : []),
       `Run-scoped provisional context from the preceding accepted scene (not canonical): ${priorText}`,
     ].join("\n");
   }
@@ -114,7 +116,9 @@ export class LiveProductionRunAdapters implements RunAdapters {
       if (asset.hash && sha256(readFileSync(asset.path)) !== asset.hash) throw new Error(`LIVE_REFERENCE_HASH_MISMATCH: ${asset.id}`);
     }
     const prompt = String(scene.renderConfig.global_prompt ?? this.scenePrompt(context, snapshot));
-    const windows = scene.renderConfig.segment_windows ?? planH3({ seconds: scene.targetDurationSeconds, prompts: [prompt], images: refs.map((_, index) => index) }).segment_windows;
+    const targetFrames = Number(scene.renderConfig.target_frames);
+    const targetSeconds = Number.isFinite(targetFrames) && targetFrames > 0 ? targetFrames / 24 : scene.targetDurationSeconds;
+    const windows = scene.renderConfig.segment_windows ?? planH3({ seconds: targetSeconds, prompts: [prompt], images: refs.map((_, index) => index) }).segment_windows;
     const form = new FormData();
     const values: Record<string, unknown> = {
       ...scene.renderConfig,
@@ -148,9 +152,13 @@ export class LiveProductionRunAdapters implements RunAdapters {
   }
   async startObservation(context: RunContext): Promise<RunHandle<ObservationResult>> {
     if (!context.scene.candidateId) throw new Error("LIVE_OBSERVATION_CANDIDATE_MISSING");
+    // The Fast workflow has nine image slots total. Reference sheets occupy slots too;
+    // request only the visual frames that fit instead of failing after rendering.
+    const visualFrames = Math.max(1, Math.min(6, 9 - context.scene.referenceAssetIds.length));
+    if (context.scene.referenceAssetIds.length + visualFrames > 9) throw new Error("LIVE_OBSERVATION_IMAGE_CAPACITY: references plus visual frames exceed nine slots");
     const job = await this.request(`/api/productions/${encodeURIComponent(context.run.productionId)}/observation-jobs`, {
       method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "production-run-live" },
-      body: JSON.stringify({ sceneId: context.scene.sceneId, candidateId: context.scene.candidateId, profile: "fast", bindingIds: undefined, options: { visualFrames: 6 }, referenceAssetIds: context.scene.referenceAssetIds, requestKey: context.requestKey }),
+      body: JSON.stringify({ sceneId: context.scene.sceneId, candidateId: context.scene.candidateId, profile: "fast", bindingIds: undefined, options: { visualFrames }, referenceAssetIds: context.scene.referenceAssetIds, requestKey: context.requestKey }),
     });
     return { jobId: job.id, wait: async () => {
       const done = await this.waitObservation(job.id);
@@ -173,6 +181,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     const observations = await this.request(`/api/productions/${encodeURIComponent(context.run.productionId)}/scenes/${encodeURIComponent(context.scene.sceneId)}/observations`);
     const observation = (observations.observations ?? []).find((item: any) => item.id === context.scene.observationIds.at(-1));
     if (!observation?.report) return { ok: false, errors: ["Structured observation is missing"] };
+    if (observation.report.failure) return { ok: false, errors: [`Observation incomplete: ${observation.report.failure.stage}: ${observation.report.failure.message}`] };
     const state = deriveObservedState(observation.id, observation.report);
     if (!Object.values(state.opening).flat().length && !Object.values(state.closing).flat().length) return { ok: false, errors: ["Observation has no usable opening or closing evidence"] };
     const prior = context.run.provisionalFacts.filter((fact) => fact.status === "approved").at(-1);

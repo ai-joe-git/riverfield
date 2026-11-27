@@ -3,11 +3,11 @@
 **SUITE 404 — The Key to Room 404**
 
 Run: `phase3.2-suite404-s01e03-production-001`  
-Status: **prepared only — no inference, renders, observations, or decisions**
+Status: **Scene 01 executed to the first human checkpoint; Scene 02 not launched**
 
 A double-booked hotel suite, a malfunctioning romance panel and two people who plan everything except each other.
 
-Target: approximately **180 seconds**, **12 scenes** × 15 seconds.  
+Target: approximately **181 seconds**, **12 scenes** × **15.083 seconds (362 frames at 24 fps)**.  
 Profile: **Build**, 0.1 MP, upscale **Off**, app **H3 Studio Director Flash**, native English dialogue.
 
 ## Story structure
@@ -271,3 +271,55 @@ Only scenes 04 and 08 are marked `seniorReview: true`; the remaining ten scenes 
 - `out/productions/suite-404/phase3.2/episode-plan.json` — machine-readable editable plan and run reference.
 - `out/productions/suite-404/phase3.2/screenplay.json` — complete scene-by-scene screenplay.
 - `out/productions/suite-404/phase3.2/scene-plan.json` — exact ProductionRun scene objects.
+
+## Preflight corrections applied
+
+- H3 legal window verified: **362 frames** = 5 + 17 × 21 at 24 fps = **15.083333 s**.
+- Every scene stores `target_frames: 362`; the previous pilot duration of **175 frames** is not reused.
+- The effective sampler window for Scene 01 is `0–362` frames.
+- H3 Studio Director Flash, Build profile, 0.1 MP and upscale Off are preserved.
+- Pending asset corrections were not applied.
+- Persistent/temporary prop identities were added to scene plans, with trusted asset IDs only for the trusted romance-panel reference. Room key, survey folder, masking tape, karaoke equipment, cocktail menu and drinking glasses are described as intended props without invented asset associations.
+- Offscreen voices are explicit: Kuroda on the elevator intercom, Yumi on the phone, and the romance panel.
+- Scene 08 now distinguishes separate reservations from a key-assignment merge. Scene 11 confirms Daichi swapped his key fob into 404’s slot. Scene 10 uses a deliberately unromantic calibration toast with bathroom glasses; Scene 12 keeps the chosen rooftop toast as the emotional payoff.
+- Scenes 07 and 11 were tightened to keep natural pacing while preserving their emotional meaning.
+
+## Scene 01 execution
+
+```text
+scene:          suite-404-s01e03-sc01 — One Key, Two Names
+candidate:      run-phase3-2-suite404-s01e03-production-001-suite-404-s01e03-sc01
+history:        20261127-024704232-39e0
+video:          362 frames · 24 fps · 15.083333 s · 416×256
+sha256:         2046ac7b5d80ea677c912be0786a7d4de9cc0a799b030f8d817f555bfa2a9e84
+observation:    f76bb88d-cbbc-4220-9fcc-9d64b2d4c66a
+status:         awaiting_human
+```
+
+Preflight capacity rejected the first observation submission before inference: 6 evidence
+frames plus 5 references exceeded nine image slots. The render and prompt enhancement were
+preserved; the observation was retried only for the authorized observation stage with **4
+visual frames**, and the failed reservation records remain in the ledger with notes.
+
+The comparison stage then failed strict semantic validation:
+
+```text
+comparison: Proposed change 1 has unsupported category wardrobe
+```
+
+This is not a JSON syntax error, so the audited syntax-recovery path was not used and no
+comparison retry was made. The observer did not emit `comparison-raw.txt` for this failure;
+the limitation is recorded. Scene 01 is **not approved**, Scene 02 has not been launched,
+and canonical revision remains **0**.
+
+## Remaining budget at the checkpoint
+
+```text
+renders                 1/12
+prompt enhancements     1/12
+observation jobs        1/12
+comparison calls        1/12
+Senior Review           0/2
+```
+
+No automatic regeneration was performed.
