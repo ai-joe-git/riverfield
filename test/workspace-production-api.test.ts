@@ -27,6 +27,7 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
   const rewritten = "A steady camera tracks a paper boat across the pond.";
   let writes = 0;
   let backendSubmissions = 0;
+  let parkRequests = 0;
   const backend = createServer((req, res) => {
     res.setHeader("content-type", "application/json");
     if (req.url === "/v1/chat/completions") {
@@ -35,6 +36,9 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
         writes++;
         res.end(JSON.stringify({ choices: [{ finish_reason: "stop", message: { content: "```text\n" + rewritten + "\n```" } }] }));
       });
+    } else if (req.url === "/riverfield/workspace-comfy") {
+      if (req.method === "POST") parkRequests++;
+      res.end(JSON.stringify({ managed: true, state: "parked" }));
     } else if (req.url === "/riverfield/prepare") {
       // Leave the saved History job pending. No workflow reaches ComfyUI.
       backendSubmissions++;
@@ -59,6 +63,10 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     const response = await fetch(base + path, { signal: AbortSignal.timeout(2_000),
       ...(data === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) }) });
     return { status: response.status, body: await response.json() };
+  }
+
+  async function park(headers: Record<string, string>) {
+    return fetch(base + "/api/gpu/workspace", { method: "POST", headers, signal: AbortSignal.timeout(2_000) });
   }
 
   async function until<T>(read: () => Promise<T | undefined>): Promise<T> {
@@ -104,6 +112,12 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
 
   try {
     await start();
+    assert.deepEqual((await json("/api/gpu/workspace")).body, { managed: true, state: "parked" });
+    assert.equal((await park({})).status, 403);
+    assert.equal((await park({ "x-riverfield-workspace": "1", origin: base })).status, 403);
+    assert.equal(parkRequests, 0);
+    assert.equal((await park({ "x-riverfield-workspace": "1" })).status, 200);
+    assert.equal(parkRequests, 1);
     const app = "h3-studio-director-flash";
     const standalone = await tool("prepare_app_run", { app, writer, values: { prompt_enhancer: true, global_prompt: "A paper boat floats.", steps: 8 } });
     assert.equal(standalone.isError, false, JSON.stringify(standalone.data));
@@ -153,6 +167,8 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     const jobId = running.jobs.find((job: any) => job.kind === "render").jobId;
     assert.equal((await control("render-1")).data.workspaceDispatch.active, true);
     assert.equal((await control("other", "resume")).data.status, 409);
+    assert.equal((await park({ "x-riverfield-workspace": "1" })).status, 409);
+    assert.equal(parkRequests, 1);
     const timedOut = await until(async () => {
       const run = await read("render-1");
       return run.workspaceDispatch?.active === false ? run : undefined;

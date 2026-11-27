@@ -87,7 +87,7 @@ wait_http() {  # url, timeout
   done
 }
 
-echo "== ComfyUI :$COMFY_PORT (ROCm 10.1, gfx1151)"
+echo "== ComfyUI :$COMFY_PORT (ROCm 10.1, starts on demand)"
 # Acknowledge /free completion before Riverfield reloads its managed llama.cpp model.
 mkdir -p "$COMFYUI/custom_nodes/riverfield-memory-bridge"
 cp "$RIVERFIELD_DIR/local/riverfield-memory-bridge/__init__.py" "$COMFYUI/custom_nodes/riverfield-memory-bridge/__init__.py"
@@ -107,10 +107,7 @@ cp "$RIVERFIELD_DIR/local/riverfield-memory-bridge/__init__.py" "$COMFYUI/custom
 # --disable-pinned-memory : la mémoire pinned n'est pas swappable, et sur un iGPU elle ne
 # sert à rien (aucun transfert PCIe) : elle empêche juste le noyau de récupérer la mémoire.
 export PYTORCH_HIP_ALLOC_CONF="${PYTORCH_HIP_ALLOC_CONF:-expandable_segments:True}"
-( cd "$COMFYUI" && exec python main.py --listen 127.0.0.1 --port "$COMFY_PORT" --disable-auto-launch \
-    --dont-upcast-attention --cache-none --disable-dynamic-vram --disable-pinned-memory ) &
-COMFY_PID=$!
-PIDS+=($COMFY_PID)
+COMFY_PID_FILE="$LOG_DIR/comfy-worker.pid"
 
 # Échantillonneur mémoire : si ça retombe, on saura qui consomme quoi (RAM dispo, RSS du
 # backend, GTT utilisé par le GPU). Écrit toutes les 5 s dans $LOG_DIR/mem.log.
@@ -119,13 +116,13 @@ PIDS+=($COMFY_PID)
   while sleep 5; do
     ts=$(date +%H:%M:%S)
     ram=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
-    rss=$(awk '/VmRSS/{print int($2/1024)}' "/proc/$COMFY_PID/status" 2>/dev/null || echo 0)
+    comfy_pid=$(cat "$COMFY_PID_FILE" 2>/dev/null || true)
+    rss=$(awk '/VmRSS/{print int($2/1024)}' "/proc/$comfy_pid/status" 2>/dev/null || echo 0)
     gtt=$(awk '{print int($1/1048576)}' "$GTT" 2>/dev/null || echo 0)
     printf '%s ram_dispo=%sMB comfy_rss=%sMB gtt=%sMB\n' "$ts" "$ram" "$rss" "${gtt:-0}"
   done
 ) >> "$LOG_DIR/mem.log" &
 PIDS+=($!)
-wait_http "http://127.0.0.1:$COMFY_PORT/system_stats"
 echo "== comfy-api-proxy :$PROXY_PORT"
 comfy-api-proxy --comfyui "http://127.0.0.1:$COMFY_PORT" --port "$PROXY_PORT" --comfyui-base-dir "$COMFYUI" &
 PIDS+=($!)
@@ -133,6 +130,8 @@ until (echo > "/dev/tcp/127.0.0.1/$PROXY_PORT") 2>/dev/null; do sleep 1; done
 echo "== gateway :$GATEWAY_PORT"
 RIVERFIELD_TOKEN="$RIVERFIELD_TOKEN" \
 COMFYUI_URL="http://127.0.0.1:$COMFY_PORT" \
+RIVERFIELD_MANAGED_COMFY_DIR="$COMFYUI" \
+RIVERFIELD_MANAGED_COMFY_PID_FILE="$COMFY_PID_FILE" \
 PROXY_URL="http://127.0.0.1:$PROXY_PORT" \
 GATEWAY_PORT="$GATEWAY_PORT" \
 python "$RIVERFIELD_DIR/infra/gateway.py" &

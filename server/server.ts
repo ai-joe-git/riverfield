@@ -1374,6 +1374,22 @@ const server = createServer(async (req, res) => {
       }
       if (area === "gpu") {
         if (req.method === "GET" && !id) return send(res, 200, await gpuStatus(url.searchParams.get("device") === "1"));
+        if (id === "workspace" && !sub && (req.method === "GET" || req.method === "POST")) {
+          localAccess(req);
+          if (guard.hosted) return send(res, 403, { error: "Workspace worker controls are local-only" });
+          const park = req.method === "POST";
+          if (park && (req.headers.origin || req.headers["x-riverfield-workspace"] !== "1"))
+            return send(res, 403, { error: "Workspace worker control requires a local application request" });
+          if (!process.env.COMFY_BASE_URL) return send(res, 200, { managed: false });
+          const state = inference.snapshot();
+          if (park && (activeRuns() || state.active || state.waiting.length))
+            return send(res, 409, { error: "Riverfield still has active or queued work" });
+          const control = () => getRunner().workspaceComfy(park);
+          const response = park ? await inference.run("Park idle Workspace ComfyUI worker", control) : await control();
+          if (response.status === 404) return send(res, 200, { managed: false });
+          if (!response.ok) return send(res, response.status, { error: await response.text() });
+          return send(res, 200, await response.json());
+        }
         if (req.method === "POST" && id === "wake") {
           try { wake(); } catch (e) { throw new InputError((e as Error).message); }
           return send(res, 202, await gpuStatus());

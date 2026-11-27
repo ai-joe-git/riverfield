@@ -828,6 +828,29 @@ async function main() {
       res.end(JSON.stringify({ ok: appOk, app: BASE, port: PORT }));
       return;
     }
+    if (url === "/api/gpu/workspace" && (req.method === "GET" || req.method === "POST")) {
+      try {
+        const localNames = ["127.0.0.1", "localhost", "[::1]"];
+        const host = new URL("http://" + req.headers.host).hostname;
+        const studio = new URL(BASE);
+        if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress || "") ||
+            !localNames.includes(host) || !localNames.includes(studio.hostname) || studio.protocol !== "http:" ||
+            req.headers.origin || (req.method === "POST" && req.headers["x-riverfield-workspace"] !== "1")) {
+          res.writeHead(403, { "content-type": "application/json" });
+          return res.end(JSON.stringify({ error: "Workspace worker controls require a local application request" }));
+        }
+        const response = await fetch(new URL(url, studio), {
+          method: req.method, redirect: "error", signal: AbortSignal.timeout(req.method === "POST" ? 32_000 : 7_000),
+          headers: { "x-riverfield-workspace": "1" },
+        });
+        const body = await response.text();
+        res.writeHead(response.status, { "content-type": "application/json" });
+        return res.end(body);
+      } catch {
+        if (!res.headersSent) res.writeHead(502, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: "Riverfield could not verify the Workspace worker" }));
+      }
+    }
     if (!url.startsWith("/mcp")) {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "the MCP endpoint is /mcp" }));

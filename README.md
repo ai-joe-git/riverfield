@@ -757,4 +757,6 @@ Les commandes en arrière-plan gardent un reçu par `request_id`. Après interru
 
 Le writer local attend jusqu'à 10 minutes par prompt ou segment (`RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS`). Définissez `RIVERFIELD_WORKSPACE_WRITER_REASONING_EFFORT` uniquement si le moteur local accepte ce paramètre.
 
+Avec le backend Linux démarré par `run-backend.sh`, Riverfield possède son processus ComfyUI. Après un handoff BlackRiver, le gateway attend que les deux files soient inactives, demande au worker de refuser de nouveaux prompts, puis confirme la sortie du processus avant de rendre le GPU au LLM. ComfyUI reste arrêté jusqu'à la prochaine génération. Le proxy, le serveur web, le MCP et les reçus restent disponibles. Les backends ComfyUI externes gardent leur cycle de vie et le mécanisme `/free`.
+
 Une fois les services inactifs, redémarrez le serveur web et le MCP pour charger les nouveaux outils puis reconnectez le plugin dans BlackRiver. Le backend ComfyUI et les dossiers de données existants sont réutilisés.

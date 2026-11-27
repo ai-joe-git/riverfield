@@ -357,6 +357,17 @@ export class Runner {
     return (await res.json()) as { freed: boolean };
   }
 
+  async workspaceComfy(park: boolean): Promise<Response> {
+    const gateway = new URL(this.baseUrl);
+    if (gateway.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(gateway.hostname))
+      return Response.json({ managed: false });
+    return this.doFetch(new URL("/riverfield/workspace-comfy", gateway), {
+      method: park ? "POST" : "GET", redirect: "error",
+      headers: this.token ? { authorization: `Bearer ${this.token}` } : {},
+      signal: AbortSignal.timeout(park ? 30_000 : 6_000),
+    });
+  }
+
   /** A managed LLM must not be loaded on top of cached media models. No silent 404 fallback. */
   async release(signal?:AbortSignal):Promise<void>{
     const response=await this.doFetch(`${this.baseUrl}/riverfield/release`,{method:"POST",headers:{"content-type":"application/json",...(this.token?{authorization:`Bearer ${this.token}`}:{})},body:"{}",signal:AbortSignal.any([AbortSignal.timeout(60000),...(signal?[signal]:[])])}).catch(error=>{

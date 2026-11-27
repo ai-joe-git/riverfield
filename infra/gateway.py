@@ -23,9 +23,13 @@ import hmac
 import ipaddress
 import logging
 import os
+from pathlib import Path
+import secrets
+import sys
 import time
+from urllib.parse import urlsplit
 
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
 PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:8189")
@@ -37,18 +41,127 @@ HOP_HEADERS = {"host", "authorization", "content-length", "transfer-encoding", "
 log = logging.getLogger("gateway")
 
 
+class ComfyWorker:
+    """Own only the worker spawned by the local Riverfield launcher."""
+
+    def __init__(self, session: ClientSession, directory: str, pid_file: str):
+        self.session = session
+        self.directory = directory
+        self.pid_file = Path(pid_file)
+        endpoint = urlsplit(COMFYUI_URL)
+        if endpoint.scheme != "http" or endpoint.hostname != "127.0.0.1" or not endpoint.port:
+            raise ValueError("The managed ComfyUI worker requires a literal loopback HTTP port")
+        self.port = endpoint.port
+        self.process = None
+        self.ready = False
+        self.token = ""
+
+    async def bridge(self) -> dict:
+        process = self.process
+        if not process or process.returncode is not None:
+            raise web.HTTPConflict(text="Riverfield's ComfyUI worker is not running")
+        async with self.session.get(f"{COMFYUI_URL}/riverfield-memory/status", timeout=ClientTimeout(total=4)) as response:
+            response.raise_for_status()
+            state = await response.json()
+        if self.process is not process or state.get("worker_pid") != process.pid:
+            raise web.HTTPConflict(text="ComfyUI did not identify the worker owned by Riverfield")
+        return state
+
+    async def status(self) -> dict:
+        if self.process is None or self.process.returncode is not None:
+            return {"managed": True, "state": "parked"}
+        if not self.ready:
+            return {"managed": True, "state": "starting"}
+        return {"managed": True, "state": "running", "comfyui": await self.bridge()}
+
+    async def start(self) -> bool:
+        if self.process and self.process.returncode is None:
+            if self.ready:
+                return False
+            raise web.HTTPConflict(text="Riverfield is still retiring its previous ComfyUI worker")
+        self.ready = False
+        self.token = secrets.token_urlsafe(32)
+        self.process = await asyncio.create_subprocess_exec(
+            sys.executable, "main.py", "--listen", "127.0.0.1", "--port", str(self.port),
+            "--disable-auto-launch", "--dont-upcast-attention", "--cache-none",
+            "--disable-dynamic-vram", "--disable-pinned-memory",
+            cwd=self.directory, env={**os.environ, "RIVERFIELD_MEMORY_OWNER_TOKEN": self.token},
+        )
+        try:
+            self.pid_file.write_text(str(self.process.pid))
+            deadline = time.monotonic() + 180
+            while time.monotonic() < deadline and self.process.returncode is None:
+                try:
+                    await self.bridge()
+                    self.ready = True
+                    log.info("ComfyUI worker %s ready", self.process.pid)
+                    return True
+                except (ClientError, asyncio.TimeoutError):
+                    await asyncio.sleep(0.5)
+            raise web.HTTPServiceUnavailable(text="Riverfield's ComfyUI worker did not become ready")
+        except BaseException:
+            await self.stop()
+            raise
+
+    async def park(self) -> dict:
+        if self.process and self.process.returncode is None and self.ready:
+            async with self.session.post(f"{COMFYUI_URL}/riverfield-memory/retire",
+                                         headers={"Authorization": f"Bearer {self.token}"},
+                                         timeout=ClientTimeout(total=5)) as response:
+                if response.status != 200 or (await response.json()).get("worker_pid") != self.process.pid:
+                    raise web.HTTPConflict(text="ComfyUI is busy or could not confirm that its owned worker is safe to stop")
+        await self.stop()
+        return await self.status()
+
+    async def stop(self) -> None:
+        self.ready = False
+        process = self.process
+        if process and process.returncode is None:
+            try:
+                process.terminate()
+            except ProcessLookupError:
+                pass
+            try:
+                await asyncio.wait_for(process.wait(), timeout=12)
+            except asyncio.TimeoutError:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                await asyncio.wait_for(process.wait(), timeout=5)
+            log.info("ComfyUI worker %s exited", process.pid)
+        self.process = None
+        self.pid_file.unlink(missing_ok=True)
+
+
 class Pantry:
     """Remembers which models are on the GPU and clears it when an app needs others."""
 
-    def __init__(self, session: ClientSession):
+    def __init__(self, session: ClientSession, worker: ComfyWorker | None = None):
         self.session = session
+        self.worker = worker
         self.models: str | None = None
         self.app: str | None = None
         self.lock = asyncio.Lock()
         self.frees = 0
 
+    async def ensure_worker(self) -> None:
+        if self.worker and await self.worker.start():
+            self.models, self.app = None, None
+
+    async def workspace(self, park: bool) -> dict:
+        if not self.worker:
+            return {"managed": False}
+        if not park:
+            return await self.worker.status()
+        async with self.lock:
+            state = await self.worker.park()
+            self.models, self.app = None, None
+            return state
+
     async def prepare(self, app: str, models: str) -> dict:
         async with self.lock:
+            await self.ensure_worker()
             # ComfyUI serializes prompts, but /free must not race a running or pending prompt.
             # This also protects clients which submit outside RiverField's web queue.
             while True:
@@ -72,6 +185,9 @@ class Pantry:
 
     async def release(self) -> dict:
         async with self.lock:
+            if self.worker and (await self.worker.status())["state"] == "parked":
+                self.models, self.app = None, None
+                return {"released": True, "retained_gpu_bytes": 0, "parked": True}
             # Require the bridge: /free alone acknowledges a request, not released memory.
             async with self.session.get(f"{COMFYUI_URL}/riverfield-memory/status", timeout=ClientTimeout(total=5)) as r:
                 if r.status != 200:
@@ -144,6 +260,12 @@ async def release(request: web.Request) -> web.Response:
     return web.json_response(await request.app["pantry"].release())
 
 
+async def workspace_comfy(request: web.Request) -> web.Response:
+    if request.remote not in ("127.0.0.1", "::1") or request.headers.get("Origin"):
+        raise web.HTTPForbidden()
+    return web.json_response(await request.app["pantry"].workspace(request.method == "POST"))
+
+
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "0.0.0.0", "[::1]")
 
 
@@ -176,6 +298,15 @@ def relink(body: bytes, request: web.Request) -> bytes:
 
 
 async def forward(request: web.Request) -> web.StreamResponse:
+    pantry = request.app["pantry"]
+    if pantry.worker and request.method == "POST" and request.path.rstrip("/") == "/api/v2/jobs":
+        async with pantry.lock:
+            await pantry.ensure_worker()
+            return await forward_request(request)
+    return await forward_request(request)
+
+
+async def forward_request(request: web.Request) -> web.StreamResponse:
     session: ClientSession = request.app["session"]
     headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP_HEADERS}
 
@@ -203,11 +334,18 @@ async def forward(request: web.Request) -> web.StreamResponse:
 
 async def on_startup(app: web.Application) -> None:
     app["session"] = ClientSession(timeout=ClientTimeout(total=None, sock_connect=30), auto_decompress=False)
-    app["pantry"] = Pantry(app["session"])
+    directory = os.environ.get("RIVERFIELD_MANAGED_COMFY_DIR")
+    pid_file = os.environ.get("RIVERFIELD_MANAGED_COMFY_PID_FILE")
+    worker = ComfyWorker(app["session"], directory, pid_file) if directory and pid_file else None
+    app["pantry"] = Pantry(app["session"], worker)
 
 
 async def on_cleanup(app: web.Application) -> None:
-    await app["session"].close()
+    try:
+        if app["pantry"].worker:
+            await app["pantry"].worker.stop()
+    finally:
+        await app["session"].close()
 
 
 def make_app() -> web.Application:
@@ -217,6 +355,8 @@ def make_app() -> web.Application:
     app.router.add_get("/health", health)
     app.router.add_post("/riverfield/prepare", prepare)
     app.router.add_post("/riverfield/release", release)
+    app.router.add_get("/riverfield/workspace-comfy", workspace_comfy)
+    app.router.add_post("/riverfield/workspace-comfy", workspace_comfy)
     app.router.add_get("/riverfield/status", status)
     app.router.add_route("*", "/{tail:.*}", forward)
     app.on_startup.append(on_startup)
