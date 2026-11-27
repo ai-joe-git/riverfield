@@ -634,6 +634,7 @@ export type ProductionRunJob = {
   jobId: string;
   requestKey: string;
   status: "reserved" | "submitted" | "succeeded" | "failed" | "canceled";
+  note?: string;
   reservedAt: string;
 };
 export type ProductionRun = {

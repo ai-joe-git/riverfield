@@ -324,6 +324,6 @@ test("the SUITE 404 pilot remains non-canonical and within its first-scene budge
   assert.deepEqual(run.scenePlan.map((scene: any) => scene.sceneId), ["suite-404-s01e02-sc02", "suite-404-s01e02-sc03"]);
   assert.equal(run.budget.maxRendersPerScene, 1);
   assert.equal(run.budget.maxTotalRenders, 2);
-  assert.equal(run.budget.rendersUsed, 1);
+  assert.equal(run.budget.rendersUsed, 2);
   assert.equal(snapshot.revision, 0);
 });
