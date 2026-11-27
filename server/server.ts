@@ -26,8 +26,8 @@
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
 import { validateWorkspaceWriter, writeWorkspacePrompt, type WorkspaceWriter } from "./workspace-writer.ts";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { loadRegistry, repoRoot, isFileInput, type App } from "./registry.ts";
 import { explainSubmitError, InputError, resolveValues, Runner, type Values } from "./runner.ts";
@@ -56,8 +56,9 @@ import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./
 import type { Actor, ProductionSnapshot } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
 import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
-import { ProductionRunEngine, type PreparedRender } from "./production-run.ts";
-import { LiveProductionRunAdapters } from "./production-run-live.ts";
+import { ProductionRunEngine } from "./production-run.ts";
+import { LiveProductionRunAdapters, productionJobTimeoutMs, productionTrackingStatus } from "./production-run-live.ts";
+import { WorkspaceProduction, workspacePreparationPreview } from "./workspace-production.ts";
 import { planProductionRun } from "./production-run-plan.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
@@ -125,34 +126,9 @@ const snapshotAsset = (snap: ProductionSnapshot, assetId: string) => snap.assets
 let productionRunEngine: ProductionRunEngine | null = null;
 const liveProductionRuns = () => new LiveProductionRunAdapters({ baseUrl: studioURL });
 const productionRuns = () => productionRunEngine ??= new ProductionRunEngine(productions, liveProductionRuns());
-const workspacePreparations = new Map<string, {productionId:string; runId:string; at:number; prepared:PreparedRender}>();
-type WorkspaceDispatch = {requestKey:string; active:boolean; error?:string};
-const workspaceProductionCalls = new Map<string, WorkspaceDispatch>();
-const workspaceDispatchPath = (scope:string) => join(outDir,"workspace-dispatch",createHash("sha256").update(scope).digest("hex")+".json");
-function saveWorkspaceDispatch(scope:string, receipt:WorkspaceDispatch){
-  mkdirSync(join(outDir,"workspace-dispatch"),{recursive:true,mode:0o700});
-  const target=workspaceDispatchPath(scope), temporary=target+".tmp";
-  writeFileSync(temporary,JSON.stringify(receipt),{mode:0o600});
-  renameSync(temporary,target);
-}
-function workspaceDispatch(scope:string, run:NonNullable<ProductionSnapshot["productionRuns"]>[string]) {
-  const active=workspaceProductionCalls.get(scope);
-  if(active) return active;
-  try {
-    const previous=JSON.parse(readFileSync(workspaceDispatchPath(scope),"utf8")) as WorkspaceDispatch;
-    if(!previous.active)return previous;
-    const pending=run.jobs.some(job=>{
-      if(job.status!=="submitted" || !job.jobId) return false;
-      const current=job.kind==="render"?history.get(job.jobId):job.kind==="observation"?observations().get(job.jobId):null;
-      return current && !DONE.includes(current.status);
-    });
-    const queue=inference.snapshot();
-    if (queue.active || queue.waiting.length || pending) return previous;
-    return {...previous,active:false,...(run.status==="running"?{error:"The production service restarted. The saved run can be resumed after checking its latest job."}:{})};
-  } catch (error) {
-    if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;
-  }
-}
+const workspaceProduction = new WorkspaceProduction(outDir);
+const usesWorkspaceEnhancer = (app: App | undefined, value: unknown) =>
+  !!app?.inputs.some(field => field.id === "prompt_enhancer") && value !== false;
 const observations = () => observationManager ??= new ObservationManager({
   outDir, productions, inference: inference.run, runner: getRunner(),
   mediaRoots: productionMediaRoots(outDir), whisperApp: byId.get("whisper-turbo"),
@@ -752,9 +728,17 @@ const server = createServer(async (req, res) => {
         if (id && req.method === "GET" && sub === "runs" && arg) {
           const snap = productions.snapshot(id);
           const run = snap.productionRuns?.[arg];
-          const tracked=run?workspaceDispatch(id+":"+arg,run):undefined;
-          const key=url.searchParams.get("requestKey");
-          return run ? send(res, 200, {...run,...(key && tracked?.requestKey===key ? {workspaceDispatch:tracked}: {})}) : send(res, 404, { error: "unknown production run" });
+          if (!run) return send(res, 404, { error: "unknown production run" });
+          const preparationId = url.searchParams.get("preparationId");
+          if (preparationId) {
+            localAccess(req);
+            if (guard.hosted) return send(res, 403, { error: "Workspace prompt preparation is local-only" });
+            const record = workspaceProduction.preparation(id, arg, preparationId);
+            return record ? send(res, 200, workspacePreparationPreview(record)) : send(res, 404, { error: "unknown workspace preparation" });
+          }
+          const key = url.searchParams.get("requestKey");
+          const receipt = key ? workspaceProduction.dispatch(id + ":" + arg, key) : undefined;
+          return send(res, 200, { ...run, ...(receipt ? { workspaceDispatch: receipt } : {}) });
         }
         if (id && req.method === "POST" && sub === "runs" && arg === "plan") {
           const body = await jsonBody();
@@ -783,56 +767,75 @@ const server = createServer(async (req, res) => {
           return send(res, 201, { run: created.productionRuns[runId ?? Object.keys(created.productionRuns).at(-1)!], plan });
         }
         if (id && req.method === "POST" && sub === "runs" && arg) {
-          const snap = productions.snapshot(id);
           const runId = arg;
           const action = parts[5];
-          const engine = productionRuns();
           const body = await jsonBody();
-          if (!snap.productionRuns?.[runId]) throw new InputError("unknown production run");
+          const run = productions.snapshot(id).productionRuns?.[runId];
+          if (!run) throw new InputError("unknown production run");
+          const engine = productionRuns();
           if (action === "prepare-workspace") {
             localAccess(req);
-            if (guard.hosted) return send(res, 403, { error:"Workspace prompt preparation is local-only" });
-            const context=engine.previewRender(id,runId);
-            if(!context) return send(res,200,{applied:false});
-            const writer=validateWorkspaceWriter(body.writer);
-            const request=await liveProductionRuns().renderRequest(context);
-            const app=byId.get(request.app);
-            if(!app?.inputs.some(field=>field.id==="prompt_enhancer") || request.values.prompt_enhancer===false) return send(res,200,{applied:false});
-            const enhancer=byId.get(app.id.startsWith("ltx-")?"ltx-prompt-generator":"prompt-enhancer");
-            if(!enhancer) throw new InputError("Riverfield's prompt enhancer manifest is missing.");
-            const values=resolveValues(app,{...request.values,...request.files},{draftPrompt:true});
-            const controller=new AbortController();const stop=()=>controller.abort();res.once("close",stop);
+            if (guard.hosted) return send(res, 403, { error: "Workspace prompt preparation is local-only" });
+            const context = engine.previewRender(id, runId);
+            if (!context) return send(res, 200, { applied: false });
+            const app = byId.get(context.scene.selectedApp);
+            if (!app || !usesWorkspaceEnhancer(app, context.scene.renderConfig.prompt_enhancer)) return send(res, 200, { applied: false });
+            const writer = validateWorkspaceWriter(body.writer);
+            const request = await liveProductionRuns().renderRequest(context);
+            const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
+            if (!enhancer) throw new InputError("Riverfield's prompt enhancer manifest is missing.");
+            const values = resolveValues(app, { ...request.values, ...request.files }, { draftPrompt: true });
+            const controller = new AbortController();
+            const stop = () => controller.abort();
+            res.once("close", stop);
             try {
-              const enhanced=await enhanceDirectorValues(app,values,undefined,enhancer,undefined,undefined,writer,controller.signal);
-              resolveValues(app,{...enhanced,prompt_enhancer:false});
-              const patch=Object.fromEntries(["segment_windows","segment_prompts","prompt","global_prompt"].filter(key=>typeof enhanced[key]==="string").map(key=>[key,enhanced[key]]));
-              const token=randomUUID();
-              for(const [key,entry] of workspacePreparations) if(Date.now()-entry.at>3600000 || workspacePreparations.size>=64)workspacePreparations.delete(key);
-              workspacePreparations.set(token,{productionId:id,runId,at:Date.now(),prepared:{revision:context.run.revision,sceneId:context.scene.sceneId,values:{...patch,prompt_enhancer:false}}});
-              return send(res,200,{applied:true,preparationId:token,model:writer.model});
-            } finally {res.off("close",stop);}
+              const enhanced = await enhanceDirectorValues(app, values, undefined, enhancer, undefined, undefined, writer, controller.signal);
+              resolveValues(app, { ...enhanced, prompt_enhancer: false });
+              const current = engine.previewRender(id, runId);
+              if (current?.run.revision !== context.run.revision || current.scene.sceneId !== context.scene.sceneId)
+                return send(res, 409, { error: "The current scene changed during prompt preparation. Prepare it again before running." });
+              const patch = Object.fromEntries(["segment_windows", "segment_prompts", "prompt", "global_prompt"]
+                .filter(key => typeof enhanced[key] === "string" && enhanced[key]).map(key => [key, enhanced[key]]));
+              const record = workspaceProduction.prepare(id, runId, writer.model, {
+                revision: context.run.revision, sceneId: context.scene.sceneId, values: { ...patch, prompt_enhancer: false },
+              });
+              return send(res, 200, workspacePreparationPreview(record));
+            } finally {
+              res.off("close", stop);
+            }
           }
-          if ((action === "start" || action === "resume") && body.background===true) {
+          if ((action === "start" || action === "resume") && body.background === true) {
             localAccess(req);
-            if(guard.hosted) return send(res,403,{error:"Workspace control is local-only"});
-            if(typeof body.request_id!=="string" || !body.request_id || body.request_id.length>200) throw new InputError("Workspace control needs an exact request ID");
-            const scope=id+":"+runId;
-            const tracking=workspaceDispatch(scope,snap.productionRuns[runId]);
-            if(tracking?.requestKey===body.request_id) return send(res,202,{...snap.productionRuns[runId],workspaceDispatch:tracking});
-            if(tracking?.active) return send(res,409,{error:"A production control is already running"});
-            const token=typeof body.preparation_id==="string"?body.preparation_id:"";
-            const saved=token?workspacePreparations.get(token):undefined;
-            if (token && (!saved || saved.productionId!==id || saved.runId!==runId || saved.prepared.revision!==snap.productionRuns[runId].revision))
-              throw new InputError("The current scene changed after prompt preparation. Prepare it again before running.");
-            if(token) workspacePreparations.delete(token);
-            const receipt:{requestKey:string;active:boolean;error?:string}={requestKey:body.request_id,active:true};
-            saveWorkspaceDispatch(scope,receipt);
-            workspaceProductionCalls.set(scope,receipt);
-            void engine[action](id,runId,saved?.prepared)
-              .catch(error=>{receipt.error=(error as Error).message;})
-              .finally(()=>{receipt.active=false;saveWorkspaceDispatch(scope,receipt);workspaceProductionCalls.delete(scope);})
-              .catch(error=>console.error("[workspace dispatch]",String(error)));
-            return send(res,202,{...snap.productionRuns[runId],workspaceDispatch:receipt});
+            if (guard.hosted) return send(res, 403, { error: "Workspace control is local-only" });
+            if (typeof body.request_id !== "string" || !body.request_id.trim() || body.request_id.length > 200)
+              throw new InputError("Workspace control needs an exact request ID");
+            const scope = id + ":" + runId;
+            const existing = workspaceProduction.dispatch(scope, body.request_id);
+            if (existing) return send(res, 202, { ...run, workspaceDispatch: existing });
+            const previous = workspaceProduction.dispatch(scope);
+            if (previous?.active) return send(res, 409, { error: "A production control is already running" });
+            const token = typeof body.preparation_id === "string" ? body.preparation_id : "";
+            const saved = token ? workspaceProduction.preparation(id, runId, token) : undefined;
+            const context = engine.previewRender(id, runId);
+            if (token && (!saved || saved.expiresAt <= Date.now() || saved.prepared.revision !== run.revision || saved.prepared.sceneId !== context?.scene.sceneId))
+              throw new InputError("The prompt preparation is unavailable, expired or belongs to an older scene revision. Prepare the current scene again.");
+            const scene = context?.scene;
+            if (!saved && scene && usesWorkspaceEnhancer(byId.get(scene.selectedApp), scene.renderConfig.prompt_enhancer) && body.use_riverfield_enhancer !== true)
+              throw new InputError("This scene needs prompt preparation. Call prepare_production_render and pass preparation_id, or explicitly set use_riverfield_enhancer to true.");
+            const receipt = workspaceProduction.begin(scope, body.request_id, previous);
+            void engine[action](id, runId, saved?.prepared)
+              .then(result => {
+                const error = result.status === "paused" && result.errors.length > run.errors.length ? result.errors.at(-1) : undefined;
+                receipt.status = error ? productionTrackingStatus(error) : "succeeded";
+                if (error) receipt.error = error;
+              })
+              .catch(error => {
+                receipt.error = (error as Error).message;
+                receipt.status = productionTrackingStatus(receipt.error);
+              })
+              .finally(() => workspaceProduction.finish(scope, receipt))
+              .catch(error => console.error("[workspace dispatch]", String(error)));
+            return send(res, 202, { ...run, workspaceDispatch: receipt });
           }
           if (action === "start") return send(res, 202, await engine.start(id, runId));
           if (action === "resume") return send(res, 202, await engine.resume(id, runId));
@@ -1421,7 +1424,10 @@ const server = createServer(async (req, res) => {
 });
 
 // runs that were still going when the server stopped are followed again
-void inference.run("Recover existing backend jobs", () => history.resume(async (jobId) => getRunner().jobs().get(jobId))).catch(e=>console.error("[recovery]",e));
+void inference.run("Recover existing backend jobs", () => history.resume(
+  (jobId) => getRunner().jobs().get(jobId),
+  (entry) => entry.production ? productionJobTimeoutMs() : 60 * 60 * 1000,
+)).catch(error => console.error("[recovery]", error));
 
 const port = Number(process.env.PORT ?? 3000);
 server.listen(port, host, () => console.log(`riverfield on http://${host}:${port} (${apps.length} apps)`

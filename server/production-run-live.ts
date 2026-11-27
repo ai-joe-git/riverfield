@@ -12,6 +12,29 @@ import { deriveObservedState, propFamily, propState } from "./observed-state.ts"
 import { classifyContinuityTransition } from "./continuity-analysis.ts";
 
 type Snapshot = any;
+const DEFAULT_PRODUCTION_JOB_TIMEOUT_MS = 48 * 60 * 60 * 1000;
+
+export function productionJobTimeoutMs() {
+  const timeout = Number(process.env.RIVERFIELD_PRODUCTION_JOB_TIMEOUT_MS || DEFAULT_PRODUCTION_JOB_TIMEOUT_MS);
+  if (!Number.isSafeInteger(timeout) || timeout <= 0)
+    throw new Error("RIVERFIELD_PRODUCTION_JOB_TIMEOUT_MS must be a positive timeout in milliseconds.");
+  return timeout;
+}
+const LIVE_REQUEST_TIMEOUT_MS = 60_000;
+
+class LiveServiceError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) {
+    super(`LIVE_SERVICE_${status}: ${detail}`);
+    this.status = status;
+  }
+}
+
+export function productionTrackingStatus(message: string) {
+  if (/^LIVE_(HISTORY|OBSERVATION)_TIMEOUT:/.test(message)) return "timeout";
+  if (/^LIVE_(HISTORY|OBSERVATION)_LOST:/.test(message)) return "lost";
+  return "failed";
+}
 const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 function stateFixture(map: Record<string, any[]>) {
@@ -42,34 +65,37 @@ export class LiveProductionRunAdapters implements RunAdapters {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.doFetch = options.fetchImpl ?? fetch;
     this.pollMs = options.pollMs ?? 800;
-    this.maxWaitMs = options.maxWaitMs ?? Infinity;
+    this.maxWaitMs = options.maxWaitMs ?? productionJobTimeoutMs();
+    if (!Number.isSafeInteger(this.maxWaitMs) || this.maxWaitMs <= 0) throw new RangeError("Invalid production job tracking timeout.");
   }
   private async request(path: string, init?: RequestInit): Promise<any> {
-    const response = await this.doFetch(`${this.baseUrl}${path}`, init);
+    const response = await this.doFetch(`${this.baseUrl}${path}`, { ...init, signal: init?.signal ?? AbortSignal.timeout(LIVE_REQUEST_TIMEOUT_MS) });
     const text = await response.text();
     let body: any = null;
     try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-    if (!response.ok) throw new Error(`LIVE_SERVICE_${response.status}: ${body?.error || body?.message || String(text).slice(0, 300)}`);
+    if (!response.ok) throw new LiveServiceError(response.status, body?.error || body?.message || String(text).slice(0, 300));
     return body;
   }
   private async snapshot(productionId: string): Promise<Snapshot> { return this.request(`/api/productions/${encodeURIComponent(productionId)}`); }
-  private async waitHistory(id: string): Promise<any> {
-    const started = Date.now();
-    while (Date.now() - started < this.maxWaitMs) {
-      const entry = await this.request(`/api/history/${encodeURIComponent(id)}`);
-      if (["succeeded", "failed", "canceled", "expired", "lost"].includes(entry.status)) return entry;
-      await sleep(this.pollMs);
+  private async waitJob(kind: "HISTORY" | "OBSERVATION", id: string): Promise<any> {
+    const deadline = Date.now() + this.maxWaitMs;
+    const route = kind === "HISTORY" ? "history" : "observation-jobs";
+    while (Date.now() < deadline) {
+      const signal = AbortSignal.timeout(Math.max(1, Math.min(LIVE_REQUEST_TIMEOUT_MS, deadline - Date.now())));
+      let job;
+      try {
+        job = await this.request(`/api/${route}/${encodeURIComponent(id)}`, { signal });
+      } catch (error) {
+        if (error instanceof LiveServiceError && error.status === 404)
+          throw new Error(`LIVE_${kind}_LOST: Riverfield has no saved job ${id}.`, { cause: error });
+        if (!signal.aborted) throw error;
+      }
+      if (job?.status === "lost") throw new Error(`LIVE_${kind}_LOST: ${job.error?.message || job.error || id}`);
+      if (job && ["succeeded", "failed", "canceled", "expired"].includes(job.status)) return job;
+      const remaining = deadline - Date.now();
+      if (remaining > 0) await sleep(Math.min(this.pollMs, remaining));
     }
-    throw new Error(`LIVE_HISTORY_TIMEOUT: ${id}`);
-  }
-  private async waitObservation(id: string): Promise<any> {
-    const started = Date.now();
-    while (Date.now() - started < this.maxWaitMs) {
-      const job = await this.request(`/api/observation-jobs/${encodeURIComponent(id)}`);
-      if (["succeeded", "failed", "canceled", "lost"].includes(job.status)) return job;
-      await sleep(this.pollMs);
-    }
-    throw new Error(`LIVE_OBSERVATION_TIMEOUT: ${id}`);
+    throw new Error(`LIVE_${kind}_TIMEOUT: Job ${id} could not be confirmed within ${this.maxWaitMs / 1000} seconds. Check the backend queue before resuming.`);
   }
   private async candidateForRun(snapshot: Snapshot, runId: string, sceneId: string): Promise<any | undefined> {
     return Object.values(snapshot.candidates ?? {}).find((candidate: any) => candidate.sourceRunId === runId && candidate.bindings?.some((binding: any) => binding.sceneId === sceneId));
@@ -166,8 +192,8 @@ export class LiveProductionRunAdapters implements RunAdapters {
       method: "POST", headers: { "x-riverfield-actor": "production-run-live" }, body: form,
     });
     return { jobId: entry.id, wait: async () => {
-      const history = await this.waitHistory(entry.id);
-      if (history.status !== "succeeded") throw new Error(`LIVE_RENDER_${history.status}: ${history.error || entry.id}`);
+      const history = await this.waitJob("HISTORY", entry.id);
+      if (history.status !== "succeeded") throw new Error(`LIVE_RENDER_${history.status}: ${history.error?.message || history.error || entry.id}`);
       return this.registerCandidate(context, entry.id);
     } };
   }
@@ -175,7 +201,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     const snapshot = await this.snapshot(context.run.productionId);
     const existing = await this.candidateForRun(snapshot, jobId, context.scene.sceneId);
     if (existing) return { candidateId: existing.id };
-    const history = await this.waitHistory(jobId);
+    const history = await this.waitJob("HISTORY", jobId);
     if (history.status !== "succeeded") return null;
     return this.registerCandidate(context, jobId);
   }
@@ -191,7 +217,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
       body: JSON.stringify({ sceneId: context.scene.sceneId, candidateId: context.scene.candidateId, profile: "fast", bindingIds: undefined, options: { visualFrames, buildMode: context.run.profile === "build" }, referenceAssetIds: observerRefs, requestKey: context.requestKey }),
     });
     return { jobId: job.id, wait: async () => {
-      const done = await this.waitObservation(job.id);
+      const done = await this.waitJob("OBSERVATION", job.id);
       if (done.status !== "succeeded" || !done.observationId) throw new Error(`LIVE_OBSERVATION_${done.status}: ${done.error || job.id}`);
       const observations = await this.request(`/api/productions/${encodeURIComponent(context.run.productionId)}/scenes/${encodeURIComponent(context.scene.sceneId)}/observations`);
       const observation = (observations.observations ?? []).find((item: any) => item.id === done.observationId);
@@ -200,7 +226,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     } };
   }
   async reconcileObservation(jobId: string, context: RunContext): Promise<ObservationResult | null> {
-    const done = await this.waitObservation(jobId);
+    const done = await this.waitJob("OBSERVATION", jobId);
     if (done.status !== "succeeded" || !done.observationId) return null;
     const observations = await this.request(`/api/productions/${encodeURIComponent(context.run.productionId)}/scenes/${encodeURIComponent(context.scene.sceneId)}/observations`);
     const observation = (observations.observations ?? []).find((item: any) => item.id === done.observationId);

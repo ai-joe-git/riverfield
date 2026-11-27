@@ -557,7 +557,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("prepare_production_render", {
     title:"Prepare the current production scene with the BlackRiver local writer",
-    description:"Use the current saved scene, exact enhancer instructions, references and prior approved continuity. Does not start rendering.",
+    description:"Prepare and return the final prompts for the current scene revision, including its references and approved continuity. Pass preparationId to the background render after review. This tool only writes prompts.",
     inputSchema:{productionId:z.string(),runId:z.string(),writer:localWriter},
   },async ({productionId,runId,writer})=>{
     try{return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/prepare-workspace`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({writer})}));}
@@ -566,8 +566,8 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("control_production_run", {
     title: "Start, pause, resume or cancel a production run",
-    description: "Durable run controls. Starting may invoke the configured adapters and is never automatic from opening the UI. No canonical approval is exposed here.",
-    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]), background:z.boolean().optional(), request_id:z.string().max(200).optional(), preparation_id:z.string().uuid().optional() },
+    description: "Durable run controls. A background start or resume of a fresh scene with enhancement enabled requires preparation_id from prepare_production_render, or explicit use_riverfield_enhancer. Resuming an existing job keeps its original prompts.",
+    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]), background:z.boolean().optional(), request_id:z.string().max(200).optional(), preparation_id:z.string().uuid().optional(), use_riverfield_enhancer:z.boolean().optional() },
   }, async ({ productionId, runId, action, ...params }) => {
     try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(params) })); } catch (e) { return fail(e); }
   });

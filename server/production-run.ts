@@ -115,13 +115,14 @@ export class ProductionRunEngine {
   }
   previewRender(productionId: string, runId: string): RunContext | null {
     const run = this.run(productionId, runId);
-    const sceneIndex = run.currentSceneIndex;
+    let sceneIndex = run.currentSceneIndex;
+    while (["approved", "skipped"].includes(run.scenePlan[sceneIndex]?.status)) sceneIndex += 1;
     const scene = run.scenePlan[sceneIndex];
     if (!scene || scene.status !== "planned" || scene.reuseCandidateId || this.findPending(run, scene.sceneId, "render")) return null;
     return { run, scene:{...scene,renderContext:this.renderContext(run,sceneIndex)},sceneIndex,requestKey:keyFor(runId,scene.sceneId,"render",scene.attempts+1) };
   }
   private checkPrepared(run: ProductionRun, prepared?: PreparedRender) {
-    if(prepared && (run.revision!==prepared.revision || run.scenePlan[run.currentSceneIndex]?.sceneId!==prepared.sceneId))
+    if(prepared && (run.revision!==prepared.revision || this.previewRender(run.productionId, run.id)?.scene.sceneId!==prepared.sceneId))
       throw new ProductionRunError("WORKSPACE_PROMPT_STALE","The production changed after prompt preparation. Prepare the current scene again.");
   }
   async start(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
@@ -218,6 +219,15 @@ export class ProductionRunEngine {
   }
 
   async advance(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+    try {
+      return await this.advanceRunning(productionId, runId, prepared);
+    } catch (error) {
+      const run = this.run(productionId, runId);
+      return run.status === "running" ? this.fail(productionId, run, error as Error) : run;
+    }
+  }
+
+  private async advanceRunning(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     if (run.status !== "running") return run;
     for (let guard = 0; guard < 64; guard += 1) {
@@ -276,7 +286,7 @@ export class ProductionRunEngine {
         let handle; try { handle = await this.adapters.startRender({ run, scene: { ...scene, renderConfig, status: "rendering" }, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "render", scene.attempts) }); } catch (error) { return this.fail(productionId, run, error as Error); }
         run = this.markJob(run, scene.sceneId, "render", "submitted", handle.jobId);
         run = this.markScene(run, index, { status: "rendering", jobIds: unique([...scene.jobIds, handle.jobId]) });
-        let result: RenderResult; try { result = await handle.wait(); } catch (error) { return this.fail(productionId, run, error as Error); }
+        const result = await handle.wait();
         const afterRender = this.run(productionId, run.id);
         if (afterRender.status !== "running") return afterRender;
         run = this.markJob(run, scene.sceneId, "render", "succeeded", handle.jobId);

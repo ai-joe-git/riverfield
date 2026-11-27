@@ -204,14 +204,24 @@ test("runs that were going when the server stopped are lost or followed again", 
     staleFile.job = "job-old"; staleFile.status = "running"; staleFile.created = new Date(Date.now() - 864e5).toISOString();
     writeFileSync(join(dir, stale.id, "meta.json"), JSON.stringify(staleFile));
 
+    const production = history.start(app, resolveValues(app, { prompt: "long production" }));
+    const productionPath = join(dir, production.id, "meta.json");
+    const productionFile = JSON.parse(readFileSync(productionPath, "utf-8"));
+    productionFile.job = "job-production";
+    productionFile.status = "running";
+    productionFile.created = new Date(Date.now() - 4 * 3600_000).toISOString();
+    productionFile.production = { productionId: "fixture" };
+    writeFileSync(productionPath, JSON.stringify(productionFile));
+
     const restarted = new History(dir);
     const asked: string[] = [];
-    restarted.resume(async (id) => { asked.push(id); return fakeJob("succeeded"); });
+    await restarted.resume(async (id) => { asked.push(id); return fakeJob("succeeded"); }, entry => entry.production ? 48 * 3600_000 : 3600_000);
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(restarted.get(orphan.id)!.status, "lost");
     assert.equal(restarted.get(pending.id)!.status, "succeeded");
     assert.equal(restarted.get(stale.id)!.status, "lost");
-    assert.deepEqual(asked, ["job-1"], "an old run is not looked up (that could start a GPU for nothing)");
+    assert.equal(restarted.get(production.id)!.status, "succeeded");
+    assert.deepEqual(asked.sort(), ["job-1", "job-production"]);
   } finally { done(); }
 });
 

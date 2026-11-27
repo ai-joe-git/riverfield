@@ -18,7 +18,8 @@ export function validateWorkspaceWriter(value: unknown): WorkspaceWriter {
 
 export function workspaceSystemPrompt(app: App, mode: string): string {
   const input = app.inputs.find(field => field.id === "prompt_mode");
-  const node = app.graph?.gen?.inputs?.system_prompt;
+  const generators = Object.values(app.graph ?? {}).filter(node => node.class_type === "TextGenerateV2");
+  const node = generators.length === 1 ? generators[0].inputs.system_prompt : undefined;
   if (!Array.isArray(node) || node[1] !== 0) throw new Error("Riverfield enhancer has no supported system prompt binding.");
   const choice = input?.options?.find(option => option.value === mode);
   const setting = choice?.sets?.find(item => item.node === node[0] && item.field === "value")?.value;
@@ -36,6 +37,20 @@ function imageMime(image: FileValue): string {
   throw new InputError("The local writer accepts PNG, JPEG and WebP reference images.");
 }
 
+export const DEFAULT_WORKSPACE_WRITER_TIMEOUT_MS = 600_000;
+
+function normalizePrompt(content: unknown): string {
+  if (typeof content !== "string") return "";
+  let text = content.replace(/^(?:\s*<think>[\s\S]*?<\/think>)+\s*/i, "").trim();
+  if (/^<think>/i.test(text)) return "";
+  if (/^(?:`{3,}|~{3,})/.test(text)) {
+    const fenced = /^(`{3,}|~{3,})[\w-]*[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*\1[ \t]*$/.exec(text);
+    if (!fenced || /^(?:`{3,}|~{3,})[ \t]*$/m.test(fenced[2])) return "";
+    text = fenced[2].trim();
+  }
+  return text;
+}
+
 export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: App, input: {
   prompt: string; mode: string; media: Record<string, unknown>; signal?: AbortSignal;
 }, request = fetch): Promise<string> {
@@ -50,16 +65,28 @@ export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: Ap
     { type: "text", text: input.prompt },
     ...images.map(image => ({ type: "image_url", image_url: { url: `data:${imageMime(image)};base64,${Buffer.from(image.bytes).toString("base64")}` } })),
   ] : input.prompt;
-  const response = await request(writer.baseUrl + "/chat/completions", {
-    method: "POST", redirect: "error", headers: { "content-type": "application/json" },
-    signal: AbortSignal.any([AbortSignal.timeout(180000), ...(input.signal ? [input.signal] : [])]),
-    body: JSON.stringify({ model: writer.model, stream: false, temperature: 0.7, top_p: 0.95,
-      max_tokens: 4096, reasoning_effort: "none", messages: [{ role: "system", content: system }, { role: "user", content }] }),
-  });
-  if (!response.ok) throw new Error(`BlackRiver's local prompt writer returned HTTP ${response.status}.`);
-  const choice = (await response.json() as any)?.choices?.[0];
-  const text = typeof choice?.message?.content === "string" ?
-    choice.message.content.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim() : "";
+  const timeoutMs = Number(process.env.RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS || DEFAULT_WORKSPACE_WRITER_TIMEOUT_MS);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)
+    throw new Error("RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS must be a positive timeout in milliseconds.");
+  const reasoningEffort = process.env.RIVERFIELD_WORKSPACE_WRITER_REASONING_EFFORT?.trim();
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const signal = input.signal ? AbortSignal.any([timeout, input.signal]) : timeout;
+  let choice: any;
+  try {
+    const response = await request(writer.baseUrl + "/chat/completions", {
+      method: "POST", redirect: "error", headers: { "content-type": "application/json" }, signal,
+      body: JSON.stringify({ model: writer.model, stream: false, temperature: 0.7, top_p: 0.95,
+        max_tokens: 4096, ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+        messages: [{ role: "system", content: system }, { role: "user", content }] }),
+    });
+    if (!response.ok) throw new Error(`BlackRiver's local prompt writer returned HTTP ${response.status}.`);
+    choice = (await response.json() as any)?.choices?.[0];
+  } catch (error) {
+    if (timeout.aborted && !input.signal?.aborted)
+      throw new Error(`BlackRiver's local prompt writer timed out after ${timeoutMs / 1000} seconds.`, { cause: error });
+    throw error;
+  }
+  const text = normalizePrompt(choice?.message?.content);
   if (choice?.finish_reason === "length" || !text || text.length > 12000)
     throw new Error("BlackRiver's local writer did not return a complete prompt within Riverfield's 12,000-character limit.");
   return text;

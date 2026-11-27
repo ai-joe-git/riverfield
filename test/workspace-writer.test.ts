@@ -17,6 +17,7 @@ test("Workspace uses the exact installed mode preset and ordered images", async 
   assert.equal(url,"http://127.0.0.1:8731/v1/chat/completions");
   const body=JSON.parse(String(init?.body));
   assert.equal(body.model,model);
+  assert.equal(body.reasoning_effort,process.env.RIVERFIELD_WORKSPACE_WRITER_REASONING_EFFORT?.trim() || undefined);
   assert.equal(body.messages[0].content,expected);
   assert.match(body.messages[1].content[1].image_url.url,/^data:image\/jpeg/);
   assert.match(body.messages[1].content[2].image_url.url,/^data:image\/png/);
@@ -31,4 +32,27 @@ test("Writer rejects remote endpoints, text-only reference use and truncated rew
   assert.throws(()=>validateWorkspaceWriter({baseUrl,model}),/active local/);
  await assert.rejects(writeWorkspacePrompt({...writer,vision:false},app,{mode:"ref2va",prompt:"draft",media:{image1:{bytes:Buffer.alloc(8)}}}),/image support/);
  await assert.rejects(writeWorkspacePrompt(writer,app,{mode:"t2va",prompt:"draft",media:{}},async()=>Response.json({choices:[{finish_reason:"length",message:{content:"partial"}}]})),/complete prompt/);
+});
+
+
+test("Workspace resolves a renamed generator and rejects ambiguous manifests", () => {
+  const { gen, ...other } = app.graph!;
+  const renamed = { ...app, graph: { ...other, model_writer: gen } };
+  assert.equal(workspaceSystemPrompt(renamed, "t2va"), workspaceSystemPrompt(app, "t2va"));
+  assert.throws(() => workspaceSystemPrompt({ ...renamed, graph: { ...renamed.graph, other_writer: gen } }, "t2va"), /system prompt binding/);
+});
+
+test("Workspace normalizes complete fences and rejects unfinished wrappers", async () => {
+  for (const [content, expected] of [
+    ["<think>notes</think>\n<ThInK>more</tHiNk>\n```text\r\nA quiet shot.\r\n```", "A quiet shot."],
+    ["First line.\n```text\nA prompt example.\n```", "First line.\n```text\nA prompt example.\n```"],
+    ["```text\nUnfinished", null],
+    ["<think>unfinished", null],
+    ["```text\nA shot.\n```\nOutro\n```", null],
+  ] as const) {
+    const result = writeWorkspacePrompt(writer, app, { mode: "t2va", prompt: "Draft", media: {} },
+      async () => Response.json({ choices: [{ finish_reason: "stop", message: { content } }] }));
+    if (expected === null) await assert.rejects(result, /complete prompt/);
+    else assert.equal(await result, expected);
+  }
 });

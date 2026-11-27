@@ -500,7 +500,7 @@ export class History {
    * from its id). Runs that never got a job id, or are too old for the backend to still hold them,
    * are marked lost without asking it: asking would start a GPU just to hear the job is gone.
    */
-  resume(getJob: (id: string) => Promise<JobLike>, maxAgeMs = 60 * 60 * 1000): Promise<void> {
+  resume(getJob: (id: string) => Promise<JobLike>, maxAgeMs: number | ((entry: Entry) => number) = 60 * 60 * 1000): Promise<void> {
     const recovering: Promise<unknown>[] = [];
     for (const entry of this.entries()) {
       if (TERMINAL.has(entry.status)) continue;
@@ -508,7 +508,7 @@ export class History {
         this.fail(entry, "the server stopped before this run reached the backend", "lost");
         continue;
       }
-      if (Date.now() - new Date(entry.started ?? entry.created).getTime() > maxAgeMs) {
+      if (Date.now() - new Date(entry.started ?? entry.created).getTime() > (typeof maxAgeMs === "function" ? maxAgeMs(entry) : maxAgeMs)) {
         this.fail(entry, "the server stopped while this run was going, too long ago to pick it up again", "lost");
         continue;
       }
