@@ -13,7 +13,7 @@ const statusLabel = (state) => state === "canon" ? "Canonical" : state === "alte
 const statusTag = (state) => el("span", { class: `tag ${state === "canon" ? "lime" : state === "rejected" ? "red" : state === "proposed" ? "violet" : "dark"}` }, statusLabel(state));
 const dateLabel = (value) => value ? new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
 const candidateUrl = (productionId, candidateId, index = 0) => `/api/productions/${encodeURIComponent(productionId)}/media?candidateId=${encodeURIComponent(candidateId)}&index=${index}`;
-const assetUrl = (productionId, assetId) => `/api/productions/${encodeURIComponent(productionId)}/media?assetId=${encodeURIComponent(assetId)}`;
+const assetUrl = (productionId, assetId, version = "") => `/api/productions/${encodeURIComponent(productionId)}/media?assetId=${encodeURIComponent(assetId)}${version ? `&v=${encodeURIComponent(version)}` : ""}`;
 
 function field(label, value, type = "text") {
   const input = el(type === "textarea" ? "textarea" : "input", {
@@ -59,7 +59,7 @@ function sceneCandidates(snapshot, sceneId) {
 
 function coverFor(snapshot) {
   const asset = Object.values(snapshot.assets).find((item) => item.kind === "image" || item.kind === "video");
-  if (asset) return { url: assetUrl(snapshot.production.id, asset.id), video: asset.kind === "video" };
+  if (asset) return { url: assetUrl(snapshot.production.id, asset.id, asset.hash), video: asset.kind === "video" };
   for (const candidate of Object.values(snapshot.candidates)) {
     const index = candidate.outputs.findIndex((output) => output.type === "image" || output.type === "video");
     if (index >= 0) return { url: candidateUrl(snapshot.production.id, candidate.id, index), video: candidate.outputs[index].type === "video" };
@@ -327,7 +327,7 @@ function deleteAsset(productionId, asset, onDone) {
 function openAssetViewer(productionId, asset, onDone) {
   const dialog = modal(asset.label, `${ASSET_FOLDER_LABEL[asset.category || "references"] || asset.category || "References"} · asset viewer`);
   dialog.classList.add("prod-asset-viewer-dialog");
-  const url = assetUrl(productionId, asset.id);
+  const url = assetUrl(productionId, asset.id, asset.hash);
   const visual = asset.kind === "image"
     ? el("img", { src: url, alt: asset.label })
     : asset.kind === "video"
@@ -531,7 +531,7 @@ async function editAssetInApp(appId, asset) {
     const label = `Edited asset — ${asset.label}`;
     const prompt = String(f.values.prompt || "");
     const build = await createAssetBuild(productionId, appId, category, label, prompt);
-    const blob = await fetch(assetUrl(productionId, asset.id)).then((response) => {
+    const blob = await fetch(assetUrl(productionId, asset.id, asset.hash)).then((response) => {
       if (!response.ok) throw new Error(`Asset media answered ${response.status}`);
       return response.blob();
     });
@@ -558,7 +558,7 @@ function openDirectorHandoff(productionId, snapshot, scene) {
       if (checkbox.checked && index < 0) selected.push(asset.id);
       else if (!checkbox.checked && index >= 0) selected.splice(index, 1);
     };
-    return el("label", { class: "prod-ref-choice" }, checkbox, el("img", { src: assetUrl(productionId, asset.id), alt: "" }), el("span", {}, asset.label));
+    return el("label", { class: "prod-ref-choice" }, checkbox, el("img", { src: assetUrl(productionId, asset.id, asset.hash), alt: "" }), el("span", {}, asset.label));
   }));
   const note = el("p", { class: "help" }, "Opening never starts inference. Selected images fill only empty picture slots in the Director; an existing saved timeline or occupied slot is never silently replaced.");
   const open = el("button", { class: "btn lime", type: "button" }, icon("ext"), "Open Director");
@@ -1253,8 +1253,8 @@ export function productionView(productionId) {
     }));
     const assets = Object.values(snap.assets).sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label));
     const assetGrid = el("div", { class: "prod-assets" }, ...assets.map((asset) => el("figure", { class: "prod-asset" },
-      asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id), alt: asset.label, loading: "lazy" })
-        : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id), muted: true, preload: "metadata" })
+      asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id, asset.hash), alt: asset.label, loading: "lazy" })
+        : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id, asset.hash), muted: true, preload: "metadata" })
           : el("span", { class: "prod-asset-icon" }, icon("audio")),
       el("figcaption", {}, asset.label, el("small", {}, asset.sourceRunId ? ` · ${asset.sourceRunId}` : "")))));
     return el("div", { class: "prod-bible-layout" },
@@ -1402,7 +1402,7 @@ export function productionView(productionId) {
         };
         return el("article", { class: "prod-analysis-finding" },
           el("div", { class: "row" },
-            el("img", { src: assetUrl(productionId, entry.assetId), alt: entry.currentLabel, style: { width: "120px", height: "72px", objectFit: "cover", borderRadius: "6px" } }),
+            el("img", { src: assetUrl(productionId, entry.assetId, entry.currentHash), alt: entry.currentLabel, style: { width: "120px", height: "72px", objectFit: "cover", borderRadius: "6px" } }),
             el("div", {}, el("b", {}, `${entry.currentLabel} → ${entry.proposedLabel}`),
               el("p", {}, `Category: ${entry.currentCategory} → ${entry.proposedCategory} · Reference: ${entry.referenceSuitability}`),
               el("small", { class: "dim" }, `Aliases: ${entry.proposedAliases.join(", ") || "none"} · tags: ${entry.proposedTags.join(", ")}`),
@@ -1439,8 +1439,8 @@ export function productionView(productionId) {
   }
 
   function assetCard(asset) {
-    const media = asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id), alt: asset.label, loading: "lazy" })
-      : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id), muted: true, preload: "metadata" })
+    const media = asset.kind === "image" ? el("img", { src: assetUrl(productionId, asset.id, asset.hash), alt: asset.label, loading: "lazy" })
+      : asset.kind === "video" ? el("video", { src: assetUrl(productionId, asset.id, asset.hash), muted: true, preload: "metadata" })
         : el("div", { class: "prod-asset-icon" }, icon(asset.kind === "audio" ? "audio" : "file"));
     const visibleTags = (asset.tags || []).filter((tag) => !tag.startsWith("Assets/") && !tag.startsWith("official-category:"));
     const card = el("article", { class: "prod-asset-card" },
