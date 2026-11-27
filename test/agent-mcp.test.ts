@@ -18,9 +18,14 @@ function studio(received: any[] = []) {
     ],
     renderProfile: { supported: true, build_megapixels: 0.1, production_default_megapixels: 0.4, generation: { min: 0.1, max: 3, step: 0.1 }, upscale: null, detail: null },
     outputs: [{ node: "9", type: "image" }], models: [] };
+  const h3 = {
+    id: "h3-studio-director-flash", name: "H3 Studio Director Flash", section: "video", status: "ready", pack: "h3",
+    inputs: [{ id: "segment_windows", type: "textarea", label: "Timeline" }],
+    outputs: [{ node: "1", type: "video" }], models: [],
+  };
   const catalog = [app, ...Array.from({ length: 24 }, (_, i) => ({
     id: `flash-director-${i}`, name: `Flash Director ${i}`, section: "video", status: "ready", pack: "h3",
-  }))];
+  })), h3];
   const snapshot = {
     schemaVersion: 1, production: { id: "fixture", title: "Fixture", status: "active" }, revision: 2,
     seasons: [{ id: "s1", productionId: "fixture", number: 1, title: "Season" }],
@@ -39,6 +44,16 @@ function studio(received: any[] = []) {
     const send = (body: unknown) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
     if (url.pathname === "/api/apps") return send({ apps: catalog });
     if (url.pathname === "/api/productions/fixture") return send(snapshot);
+    if (url.pathname === "/api/productions/fixture/candidates") {
+      const body = await request.json() as any;
+      const candidate = { id: body.id, sourceRunId: body.runId, label: "Draft",
+        bindings: body.bindings.map((binding: any) => ({ ...binding, id: "binding-1", candidateId: body.id })) };
+      return send({ ...snapshot, candidates: { unrelated: { id: "unrelated" }, [body.id]: candidate } });
+    }
+    if (url.pathname === "/api/apps/h3-studio-director-flash/run") {
+      received.push(Object.fromEntries((await request.formData()).entries()));
+      return send({ id: "h3-job", app: h3.id, status: "starting" });
+    }
     if (url.pathname === "/api/apps/z-image/run") {
       const form = await request.formData();
       received.push(Object.fromEntries([...form.entries()].map(([k, v]) => [k, typeof v === "string" ? v : (v as File).name])));
@@ -80,7 +95,7 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
 
     const listed = resultData(await client.call("list_apps", {}));
     assert.equal(listed.apps[0].id, "z-image");
-    assert.equal(listed.count, 25);
+    assert.equal(listed.count, 26);
     assert.equal(listed.apps.length, 16);
     assert.equal(listed.nextOffset, 16);
     const page = resultData(await client.call("list_apps", { section: "video", query: "director flash", limit: 3, offset: 2 }));
@@ -107,6 +122,16 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     const named=resultData(await client.call("get_app",{app:"Z Image"}));assert.equal(named.id,"z-image");
 
     const plan=resultData(await client.call("plan_segments",{prompts:["Arrival","Exit"]}));assert.equal(plan.frames,311);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,39);assert.equal(received.length,0,"pure planning never submits a job");
+    const timing = resultData(await client.call("plan_segments", {
+      app: "h3-studio-director-flash", total_seconds: 50, overlap_frames: 0,
+    }));
+    assert.equal(timing.requiredPrompts, 7);
+    assert.equal(timing.frames, 1225);
+    assert.equal(timing.overlapFrames, 0);
+    assert.deepEqual(timing.windows.map((window: any) => window.start), [0, 175, 350, 525, 700, 875, 1050]);
+    const invalidOverlap = await client.call("plan_segments", { app: "h3-studio-director-flash", overlap_frames: 2 });
+    assert.equal(invalidOverlap.isError, true);
+    assert.equal(received.length, 0);
     const invalid=await client.call("run_app",{app:"z-image",values:{prompt:"x",invented_model:"turbo"}});assert.equal(invalid.isError,true);assert.match(JSON.stringify(invalid),/Unknown input invented_model/);assert.equal(received.length,0,"invented parameters cannot be silently ignored");
 
     await client.call("run_app", { app: "z-image", values: { prompt: "a grandmother" }, request_id: "conv:tool" });
@@ -120,6 +145,17 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     assert.ok(!promoted.isError,JSON.stringify(promoted));assert.equal(resultData(promoted).id,"job-2");
     assert.deepEqual(received.at(-1).production,{production_megapixels:0.8,production_upscale:"x2",production_upscale_detail:0.5},"render_production forwards only explicit rendering choices");
 
+    const timeline = { windows: timing.windows.map((window: any) => ({ ...window, prompt: 'She says "Exit".\nHard cut.' })), videos: [], audios: [] };
+    const h3Run = await client.call("run_app", { app: "h3-studio-director-flash", values: { segment_windows: timeline }, request_id: "hard-cut" });
+    assert.equal(resultData(h3Run).id, "h3-job");
+    assert.equal(received.at(-1).request_id, "hard-cut");
+    assert.deepEqual(JSON.parse(received.at(-1).segment_windows), timeline);
+    const registered = resultData(await client.call("register_candidate", { productionId: "fixture", runId: "h3-job",
+      bindings: [{ sceneId: "scene", segmentIndex: 0, timelineStartFrame: 0, timelineEndFrame: 175 }] }));
+    assert.match(registered.candidate_id, /^[a-f0-9-]{36}$/);
+    assert.equal(registered.bindings[0].candidateId, registered.candidate_id);
+    assert.equal(registered.run_id, "h3-job");
+    assert.ok(JSON.stringify(registered).length < 1024);
     const job = resultData(await client.call("job", { id: "job-1" }));
     assert.equal(job.status, "succeeded");
     assert.ok(String(job.outputs[0].path).endsWith("out-01.png"), "job returns real absolute artifact paths");

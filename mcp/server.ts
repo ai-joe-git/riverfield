@@ -9,6 +9,7 @@
 //
 // Tools: list_apps, get_app, run_app, job, wait_job, cancel_job, history, gpu, examples.
 // Files: pass absolute paths of this machine in `files` (the MCP runs beside the app).
+import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -109,21 +110,21 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("plan_segments", {
     title:"Plan Director windows with the selected app",
-    description:"Return real 24 fps timeline windows, legal lengths, overlaps and ordered attachments. Pika uses fixed native windows. H3 Studio Director Flash accepts segment_seconds. Pass the exact app ID. If you omit prompts, use the returned count and then prepare that many drafts. No generation.",
+    description:"Return real 24 fps timeline windows, legal lengths, overlaps and ordered attachments. Pika uses fixed native windows. H3 Studio Director Flash accepts segment_seconds and overlap_frames, including 0 for clean cuts. Pass the exact app ID. If you omit prompts, use the returned count and then prepare that many drafts. No generation.",
     inputSchema:{ ...directorRequest.shape, app:z.enum(["pika-studio-director","h3-studio-director-flash"]).optional(),
-      segment_seconds:z.number().min(.5).max(60).optional() },
+      segment_seconds:z.number().min(.5).max(60).optional(), overlap_frames:z.number().int().min(0).max(3591).optional().describe("H3 Flash only. 0 places each new segment immediately after the previous one.") },
     annotations:{readOnlyHint:true},
-  },async ({app,segment_seconds,...args})=>{
+  },async ({app,segment_seconds,overlap_frames,...args})=>{
     try {
       if(app!=="h3-studio-director-flash"){
-        if(segment_seconds!==undefined)throw new InputError("Custom segment lengths are available with H3 Studio Director Flash. Pika uses fixed 175-frame windows.");
+        if(segment_seconds!==undefined||overlap_frames!==undefined)throw new InputError("Only H3 Studio Director Flash accepts custom segment lengths and overlap. Pika uses fixed native windows.");
         return text(planDirectorSegments(args));
       }
       const seconds=segment_seconds??7.3;
-      const one=planH3({seconds,prompts:["Draft"]});
+      const one=planH3({seconds,overlap_frames,prompts:["Draft"]});
       const estimate=args.total_seconds?Math.round((args.total_seconds*24-one.overlapFrames)/(one.segmentFrames-one.overlapFrames)):1;
       const count=args.prompts.length||Math.max(1,Math.min(64,estimate));
-      const plan=planH3({...args,seconds,total_seconds:undefined,prompts:args.prompts.length?args.prompts:Array(count).fill("Draft")});
+      const plan=planH3({...args,seconds,overlap_frames,total_seconds:undefined,prompts:args.prompts.length?args.prompts:Array(count).fill("Draft")});
       if(args.prompts.length) return text({...plan,app,ready:true,requiredPrompts:count,requestedSeconds:args.total_seconds??null});
       const {segment_windows,...geometry}=plan;
       return text({...geometry,app,ready:false,requiredPrompts:count,requestedSeconds:args.total_seconds??null,
@@ -191,10 +192,10 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("run_app", {
     title: "Run an app",
-    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects, JSON strings such as studio-director's segment_windows); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses the app's production default (0.3 MP on the current H3 directors) and production_upscale x2 by default; omitting render_profile uses the manifest's declared starting profile (Production on the current H3 directors), or legacy settings for a manifest that declares none. Directors also accept the hidden production_id and production_scene_id fields: when set, approved canonical Production Engine memory is injected into the prompt enhancer; when absent the existing Director context is used unchanged.",
+    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects. Director segment_windows can be an object with windows, videos and audios, or its JSON string); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses the app's production default (0.3 MP on the current H3 directors) and production_upscale x2 by default; omitting render_profile uses the manifest's declared starting profile (Production on the current H3 directors), or legacy settings for a manifest that declares none. Directors also accept the hidden production_id and production_scene_id fields: when set, approved canonical Production Engine memory is injected into the prompt enhancer; when absent the existing Director context is used unchanged.",
     inputSchema: {
       app: z.string().describe("app id"),
-      values: z.record(z.string(), z.any()).optional().describe("input values, by input id"),
+      values: z.record(z.string(), z.any()).optional().describe("input values, by input id. Director segment_windows accepts a timeline object; call plan_segments without prompts to obtain timings first."),
       files: z.record(z.string(), z.string()).optional().describe("file inputs, by input id: absolute path"),
       preset: z.string().optional().describe("preset id, when the app has presets"),
       request_id: z.string().max(200).optional().describe("optional durable idempotency key; retrying this key returns the original job, never a second generation"),
@@ -361,7 +362,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("register_candidate", {
     title: "Register an immutable candidate",
-    description: "Index a succeeded history run as an immutable render candidate. Outputs stay in history; nothing is copied. Bindings use final-output frame ranges and can cover several scenes. No scene obtains canonical status automatically.",
+    description: "Index a succeeded history run as an immutable render candidate. Outputs stay in history; nothing is copied. Bindings use final-output frame ranges and can cover several scenes. Returns the exact candidate_id and binding IDs to use with analyze_scene. No scene obtains canonical status automatically.",
     inputSchema: {
       productionId: z.string(), runId: z.string().describe("succeeded history run id"),
       label: z.string().optional(), prompt: z.string().optional(), id: z.string().optional(),
@@ -373,7 +374,19 @@ export function build(base=BASE): McpServer {
       })).min(1),
     },
   }, async ({ productionId, ...body }) => {
-    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/candidates`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+    try {
+      const id = body.id ?? randomUUID();
+      const snapshot = await call(`/api/productions/${encodeURIComponent(productionId)}/candidates`, {
+        method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" },
+        body: JSON.stringify({ ...body, id }),
+      });
+      const candidate = snapshot.candidates?.[id];
+      if (!candidate) throw Error("Riverfield returned no exact candidate receipt. Read the saved production before retrying.");
+      return text({
+        productionId, revision: snapshot.revision, candidate_id: candidate.id, run_id: candidate.sourceRunId,
+        label: candidate.label, bindings: candidate.bindings,
+      }, true);
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("record_scene_observation", {

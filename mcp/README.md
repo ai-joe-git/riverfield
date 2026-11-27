@@ -123,3 +123,12 @@ timeline clips indexed into `video1..video3` and are sliced per segment by their
 | `RIVERFIELD_MCP_PORT` | `3010` | HTTP port |
 | `RIVERFIELD_MCP_HOST` | `127.0.0.1` | HTTP bind address |
 | `RIVERFIELD_OUT` | `<repo>/out` | where history lives (for absolute paths) |
+
+
+For H3 Studio Director Flash hard cuts, call `plan_segments` with
+`app: "h3-studio-director-flash"` and `overlap_frames: 0`. Request timing
+without prompts first, then send the completed timeline object in
+`run_app.values.segment_windows` together with the ordered file slots. The MCP
+server serializes the timeline. The existing JSON string form also works.
+`register_candidate` returns the exact `candidate_id` and scene bindings for
+`analyze_scene` in a compact receipt.
