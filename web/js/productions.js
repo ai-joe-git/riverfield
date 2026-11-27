@@ -1296,6 +1296,8 @@ export function productionView(productionId) {
           el("div", { class: "prod-assets large" }, ...list.map(assetCard)));
       }).filter(Boolean);
     if (!folders.length) folders.push(el("div", { class: "prod-empty" }, icon("image"), el("h3", {}, "No assets in this folder"), el("p", {}, "Add an existing History output, or generate a new image with MiniMax H3 Image.")));
+    const corrections = el("div", { class: "prod-asset-corrections" });
+    void assetCorrectionBatchPanel(productionId, corrections);
     return el("div", { class: "prod-assets-layout" },
       el("div", { class: "prod-toolbar" }, el("div", {}, el("h2", {}, "Production assets"), el("p", {}, "Classified reference stills, plates, characters and generated media. Assets are indexed in place; removing one never deletes the original file.")),
         el("div", { class: "row" },
@@ -1303,7 +1305,43 @@ export function productionView(productionId) {
           el("button", { class: "btn small ghost", type: "button", onclick: () => openCharacterSheet(productionId, snap) }, icon("user"), "New character sheet"),
           el("button", { class: "btn small lime", type: "button", onclick: () => openAssetBuilder(productionId) }, icon("spark"), "New asset"))),
       el("div", { class: "prod-assets-toolbar" }, el("label", { class: "search" }, icon("search"), search), filters, el("span", { class: "tag dark" }, `${all.length} assets`)),
+      corrections,
       ...folders);
+  }
+
+  async function assetCorrectionBatchPanel(productionId, host) {
+    try {
+      const [audit, history] = await Promise.all([api("/api/asset-audit"), api("/api/asset-corrections/decisions")]);
+      const batch = audit.correctionBatch;
+      if (!batch?.entries?.length) return;
+      const last = [...(history.decisions || [])].reverse().find((item) => item.batchId === batch.id);
+      const status = el("span", { class: "tag dark" }, last ? `human ${last.decision} · ${last.createdAt}` : "prepared · not applied");
+      const rows = batch.entries.map((entry) => el("article", { class: "prod-analysis-finding" },
+        el("div", { class: "row" },
+          el("img", { src: assetUrl(productionId, entry.assetId), alt: entry.currentLabel, style: { width: "120px", height: "72px", objectFit: "cover", borderRadius: "6px" } }),
+          el("div", {}, el("b", {}, `${entry.currentLabel} → ${entry.proposedLabel}`),
+            el("p", {}, `Category: ${entry.currentCategory} → ${entry.proposedCategory} · Reference: ${entry.referenceSuitability}`),
+            el("small", { class: "dim" }, `Aliases: ${entry.proposedAliases.join(", ") || "none"} · tags: ${entry.proposedTags.join(", ")}`),
+            el("p", {}, entry.reason)))));
+      const ambiguous = (batch.ambiguous || []).map((entry) => el("div", { class: "prod-analysis-finding" },
+        el("b", {}, `${entry.currentLabel} → ${entry.proposedLabel}`), el("p", {}, entry.reason), el("small", { class: "dim" }, "Kept under review; never selected as a trusted reference.")));
+      const approve = el("button", { class: "btn small lime", type: "button" }, icon("check"), "Approve for later application");
+      const reject = el("button", { class: "btn small ghost danger", type: "button" }, icon("x"), "Reject batch");
+      const decide = async (decision) => {
+        try {
+          await api("/api/asset-corrections/decisions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ batchId: batch.id, decision, note: "Production Studio human review" }) });
+          toast(`Correction batch ${decision}. Metadata is not applied automatically.`);
+          await assetCorrectionBatchPanel(productionId, host);
+        } catch (error) { toast(error.message, { error: true }); }
+      };
+      approve.onclick = () => void decide("approved");
+      reject.onclick = () => void decide("rejected");
+      host.replaceChildren(el("section", { class: "prod-section" },
+        el("div", { class: "prod-section-head" }, el("h2", {}, "Catalogue correction batch"), status),
+        el("p", { class: "help" }, "Prepared from actual images. Approval records the decision only; original media and historical observations are never rewritten, and the batch is not applied automatically."),
+        ...rows, ambiguous.length ? el("h3", {}, "Ambiguous hallway asset") : null, ...ambiguous,
+        el("div", { class: "row" }, approve, reject)));
+    } catch (error) { /* assets remain usable; batch review is optional */ }
   }
 
   function assetCard(asset) {

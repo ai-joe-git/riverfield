@@ -58,7 +58,7 @@ import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
 import { OBSERVER_PROFILES } from "./observer-profiles.ts";
-import { P6_REFERENCE_WARNING, auditAssetCatalogue, buildAssetCorrectionBatch } from "./asset-audit.ts";
+import { P6_REFERENCE_WARNING, auditAssetCatalogue, buildAssetCorrectionBatch, readAssetCorrectionDecisions, recordAssetCorrectionDecision } from "./asset-audit.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -713,10 +713,20 @@ const server = createServer(async (req, res) => {
           const body = await jsonBody();
           if (body.confirm !== true) throw new InputError("confirm:true is required for the single authorized senior inference pass");
           if (typeof body.preparedReviewId !== "string") throw new InputError("preparedReviewId is required");
-          const result = await runSeniorContinuityReview({
-            store: productions, runner: getRunner(), outDir, productionId: id,
-            preparedReviewId: body.preparedReviewId, actor: { kind: "agent", id: "senior-continuity-review" },
-          });
+          if (typeof body.baselineReviewId !== "string") throw new InputError("baselineReviewId is required; no baseline fallback is permitted");
+          let result;
+          try {
+            result = await runSeniorContinuityReview({
+              store: productions, runner: getRunner(), outDir, productionId: id,
+              preparedReviewId: body.preparedReviewId, baselineReviewId: body.baselineReviewId,
+              ...(typeof body.maxImages === "number" ? { maxImages: body.maxImages } : {}),
+              ...(Array.isArray(body.humanAuditFindings) ? { humanAuditFindings: body.humanAuditFindings } : {}),
+              actor: { kind: "agent", id: "senior-continuity-review" },
+            });
+          } catch (error) {
+            if ((error as Error).message.startsWith("SENIOR_")) throw new InputError((error as Error).message);
+            throw error;
+          }
           return send(res, 201, result);
         }
         if (id && req.method === "POST" && sub === "continuity-reviews") {
@@ -996,6 +1006,20 @@ const server = createServer(async (req, res) => {
         const assets=auditAssetCatalogue(snap);
         const correctionBatch=buildAssetCorrectionBatch(snap);
         return send(res,200,{productionId:"suite-404",assets,correctionBatch,summary:{total:assets.length,trusted:assets.filter(a=>a.trusted).length,requiresReview:assets.filter(a=>!a.trusted).length,independentlyVerified:assets.filter(a=>a.semanticStatus==="visually-verified").length,notIndependentlyVerified:assets.filter(a=>a.semanticStatus==="not-independently-verified").length,correctionBatchEntries:correctionBatch.entries.length,ambiguous:correctionBatch.ambiguous.length},p6ReferenceWarning:P6_REFERENCE_WARNING,note:"Semantic audit; corrections are proposals, original media and historical reports are unchanged."});
+      }
+      if (req.method === "GET" && area === "asset-corrections" && id === "decisions") {
+        localAccess(req);
+        return send(res, 200, { decisions: readAssetCorrectionDecisions(outDir) });
+      }
+      if (req.method === "POST" && area === "asset-corrections" && id === "decisions") {
+        localAccess(req);
+        const body = await (await toRequest(req, 32)).json().catch(() => null) as Record<string, unknown> | null;
+        if (!body || typeof body.batchId !== "string" || !["approved", "rejected"].includes(String(body.decision))) throw new InputError("batchId and decision approved|rejected are required");
+        const snap = productions.snapshot("suite-404");
+        const batch = buildAssetCorrectionBatch(snap);
+        if (body.batchId !== batch.id) throw new InputError("unknown asset correction batch");
+        const decision = recordAssetCorrectionDecision(outDir, batch, body.decision as "approved" | "rejected", "human-ui", typeof body.note === "string" ? body.note : "");
+        return send(res, 201, { decision, note: "Approval records the batch decision only; asset metadata is not rewritten or applied automatically." });
       }
       if(req.method==="GET" && area==="observer-profiles" && parts.length===2)return send(res,200,{ profiles: OBSERVER_PROFILES, defaultProfile: "custom", note: "Profiles only supply defaults; explicit options and custom model selection remain available. Senior Review reuses an existing observation." });
       if(req.method==="GET" && area==="observer-models" && parts.length===2)return send(res,200,{

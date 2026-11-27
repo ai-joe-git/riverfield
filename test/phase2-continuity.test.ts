@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { auditAssetCatalogue, buildAssetCorrectionBatch, assertTrustedReferences, P6_REFERENCE_WARNING } from "../server/asset-audit.ts";
+import { auditAssetCatalogue, buildAssetCorrectionBatch, assertTrustedReferences, readAssetCorrectionDecisions, recordAssetCorrectionDecision, P6_REFERENCE_WARNING } from "../server/asset-audit.ts";
 import { classifyContinuityTransition } from "../server/continuity-analysis.ts";
 import { deriveObservedState } from "../server/observed-state.ts";
 import { ProductionStore } from "../server/production-store.ts";
@@ -41,6 +41,19 @@ test("asset audit identifies the semantic label shift and blocks untrusted refer
   assert.ok(mic);
   assert.equal(mic.supersededTagChange, "remove");
   assert.equal(mic.proposedTags.includes("superseded"), false);
+});
+
+test("asset correction approval records a decision without rewriting historical assets", () => {
+  const out = mkdtempSync(join(tmpdir(), "riverfield-asset-decision-"));
+  try {
+    const batch = buildAssetCorrectionBatch(snapshot);
+    const decision = recordAssetCorrectionDecision(out, batch, "approved", "test-human", "reviewed contact sheet");
+    assert.equal(decision.decision, "approved");
+    assert.equal(decision.entries, 11);
+    assert.equal(decision.ambiguous, 1);
+    assert.deepEqual(readAssetCorrectionDecisions(out).map((item) => item.decision), ["approved"]);
+    assert.equal(snapshot.assets["suite404-asset-20261124-234855840-40f7-1"].label, "Inflatable_Heart_Prop");
+  } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
 test("the historical P6 observation keeps its contaminated reference provenance beside a separate warning", () => {

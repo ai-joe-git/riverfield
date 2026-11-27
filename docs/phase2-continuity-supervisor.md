@@ -126,7 +126,7 @@ MCP exposes:
 
 ## Validation
 
-- `npm test`: 320 passing.
+- `npm test`: 331 passing.
 - `npm run typecheck`: passed.
 - `npm run validate`: 171 apps, 0 errors, 0 warnings.
 - Browser verification against a local Phase 2 server: Continuity tab renders reviews,

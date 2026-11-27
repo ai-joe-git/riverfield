@@ -1,5 +1,7 @@
 // Semantic catalogue audit. Filenames and hashes prove transport identity only; these
 // corrections are derived from actual image inspection plus the source History prompt.
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ProductionSnapshot } from "./production-types.ts";
 
 export type AssetAuditStatus = "trusted" | "requires_review" | "ambiguous";
@@ -236,3 +238,39 @@ export const P6_REFERENCE_WARNING = {
   status: "requires_review",
   warning: "The historical P6 observation retains its original reference provenance. Its Inflatable_Heart_Prop reference actually contained the Momo character sheet, and its Key_Fob_Prop reference actually contained the intercom telephone. Do not reuse these associations as trusted references.",
 } as const;
+
+export type AssetCorrectionDecision = {
+  id: string;
+  batchId: string;
+  decision: "approved" | "rejected";
+  note: string;
+  entries: number;
+  ambiguous: number;
+  createdAt: string;
+  actor: string;
+};
+
+/** Human decision only. It never rewrites asset metadata or applies the batch. */
+export function readAssetCorrectionDecisions(outDir: string): AssetCorrectionDecision[] {
+  const file = join(outDir, "observations", "phase2-asset-audit", "asset-correction-decisions.json");
+  if (!existsSync(file)) return [];
+  try {
+    const value = JSON.parse(readFileSync(file, "utf8"));
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+
+export function recordAssetCorrectionDecision(
+  outDir: string, batch: AssetCorrectionBatch, decision: "approved" | "rejected", actor: string, note = "",
+): AssetCorrectionDecision {
+  const file = join(outDir, "observations", "phase2-asset-audit", "asset-correction-decisions.json");
+  const history = readAssetCorrectionDecisions(outDir);
+  const record: AssetCorrectionDecision = {
+    id: `asset-decision-${Date.now()}-${history.length + 1}`, batchId: batch.id, decision,
+    note: String(note).trim(), entries: batch.entries.length, ambiguous: batch.ambiguous.length,
+    createdAt: new Date().toISOString(), actor: String(actor || "human"),
+  };
+  mkdirSync(join(outDir, "observations", "phase2-asset-audit"), { recursive: true });
+  writeFileSync(file, JSON.stringify([...history, record], null, 2));
+  return record;
+}

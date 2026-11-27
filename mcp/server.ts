@@ -494,6 +494,27 @@ export function build(base=BASE): McpServer {
     try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
   });
 
+  server.registerTool("run_senior_continuity_review", {
+    title: "Run one senior continuity review",
+    description: "Execute the production-independent senior review using an explicit deterministic baseline. Requires confirm=true. It never retries automatically, never regenerates media, and never approves or canonizes.",
+    inputSchema: {
+      productionId: z.string(), preparedReviewId: z.string(), baselineReviewId: z.string(),
+      maxImages: z.number().int().min(4).max(9).optional(),
+      confirm: z.literal(true),
+    },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/continuity-reviews/run-senior`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_asset_correction_decisions", {
+    title: "Read asset correction decisions",
+    description: "Read human decisions on the prepared asset correction batch. A decision never applies metadata automatically. Read-only.",
+    inputSchema: {},
+    annotations: { readOnlyHint: true },
+  }, async () => {
+    try { return text(await call("/api/asset-corrections/decisions")); } catch (e) { return fail(e); }
+  });
+
   server.registerTool("get_asset_audit", {
     title: "Read asset catalogue audit",
     description: "Semantic asset catalogue audit: trusted assets, proposed corrections, review-required assets and the historical P6 reference warning. Proposals do not alter original media or reports. Read-only.",
