@@ -100,3 +100,40 @@ effective payload, enhanced prompt, reference manifest,
 History/candidate IDs, raw and structured observation reports, dialogue alignment, provisional
 state, next-scene context preview, ProductionRun events, budget ledger, timings, errors and
 SHA-256 manifest.
+
+## Phase 3.1 completion — second scene
+
+The first candidate was explicitly retained as non-canonical for the Build pilot after the
+comparison recovery and validation. The second prepared scene, Room Service Confession, was
+then executed with the accepted first-scene provisional closing state in the Director
+enhancer context.
+
+```text
+scene:         suite-404-s01e02-sc03
+candidate:     run-phase3-suite404-pilot-001-suite-404-s01e02-sc03
+history:       20261127-015801915-6fa2
+observation:   56edfdfd-2ef4-4065-9d7f-cb51e7e2468a
+status:        awaiting_human
+```
+
+The second scene generated a 416×256, 24 fps, 175-frame, 7.2917 s H.264 + audio clip and a
+valid Fast Review observation/comparison. No Senior Review was called. The deterministic
+cross-scene continuity review classified the transition as a plausible offscreen transition
+from the bar to the suite, not as proof that the intended unstable-glass gag occurred.
+
+Budget consumption is complete for the authorized pilot operations:
+
+```text
+renders 2/2 · prompt enhancements 2/2 · observations 2/2 · comparisons 2/2
+senior reviews 0/0 · automatic regenerations 0
+```
+
+The first scene has an explicit non-canonical retention decision. The second scene remains
+at its human-review checkpoint with no decision. Canonical revision is **0** and no Bible
+fact or canonical proposal was created.
+
+The two videos and combined review cut are packaged in:
+
+```text
+/home/zardoz/SUITE404_Phase3.1_Two_Scene_Pilot_Review.zip
+```
