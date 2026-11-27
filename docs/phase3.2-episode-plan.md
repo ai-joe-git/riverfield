@@ -354,3 +354,56 @@ The original failed observation remains immutable. A successor observation revis
 created with **11 validated findings** and **3 individually rejected wardrobe proposals**.
 No inference was repeated. Scene 01 validation is complete but the scene remains
 **awaiting human retention**; Scene 02 was not launched.
+
+## Scene 02 execution
+
+Scene 01 was retained as a non-canonical Build candidate using the accepted revision-2
+observation. Human review notes are stored separately in
+`out/productions/suite-404/phase3.2/scene01-human-review.json`.
+
+Scene 02 used the exact run-scoped context captured before inference:
+
+```text
+prior observation: f76bb88d-cbbc-4220-9fcc-9d64b2d4c66a-comparison-recovered-r2
+revision:          2
+context hash:      ce398e373a6dabb917aee107df9aa50fc9d363abe695cbf3d85aec96e52b88c5
+```
+
+The first Scene 02 preflight was rejected before inference because the full context made the
+prompt exceed the 12,000-character H3 input limit. No History job was created; the stale
+render reservation was released. The context stored for audit remains complete, while the
+Director prompt carries a compact identity/wardrobe/prop/event context plus the exact context
+hash. The retry used the authorized Scene 02 render operation.
+
+```text
+scene:        suite-404-s01e03-sc02 — The Very Thorough Elevator
+candidate:    run-phase3-2-suite404-s01e03-production-001-suite-404-s01e03-sc02
+history:      20261127-081401874-3598
+video:        362 frames · 24 fps · 15.083333 s · 416×256
+sha256:       d8d9af437d1074b2950b82d9c7fe268d9af50944f883501db061c5b76f259822
+observation:  28b69bca-3eaa-4272-9077-59c8d9032a45
+```
+
+The key is already in Akari's hand in the elevator; Scene 02 does not assert that the earlier
+handover was visually confirmed. The actual frames show the key and Daichi's folder.
+
+The comparison stage failed strict validation:
+
+```text
+comparison: comparison finding 1 classification has unsupported value mismatch
+```
+
+This is a semantic classification failure, not a JSON syntax error. No repair, retry or
+additional inference was performed. The raw response, exact comparison job id
+`012510cf-9a45-4965-8b46-b48f54ed8caa` and prompts were preserved before parsing. Scene 02 is
+at the human-review checkpoint; Scene 03 was not launched.
+
+Wall-clock accounting:
+
+```text
+active production: 46.89 min
+human waiting:    300.76 min
+total elapsed:    347.65 min
+total remaining:   12.35 min
+budget reset/extended: no
+```

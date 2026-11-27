@@ -327,6 +327,7 @@ export class ProductionRunEngine {
       priorObservationSelection: accepted.selection,
       status: "run-provisional-not-canonical",
       closingState: state.closing,
+      persistentState: state.persistent,
       observedEvents: state.events.map((event) => event.description),
       uncertainties: [...new Set([...(accepted.report.uncertainties ?? []), ...state.unknownBoundaryConditions])],
       evidenceReferences: [...new Set([

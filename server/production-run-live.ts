@@ -94,7 +94,28 @@ export class LiveProductionRunAdapters implements RunAdapters {
     const scene = context.scene;
     const productionStyle = String(snapshot.production?.style ?? "");
     const prior = scene.renderContext ?? {};
-    const priorText = prior && Object.keys(prior).length ? JSON.stringify(prior) : "No prior accepted run-scoped closing state is available.";
+    const stateMap = (value: unknown) => Array.isArray(value) ? value : [];
+    const descriptions = (value: unknown) => stateMap(value).map((item: any) => String(item?.description ?? "")).filter(Boolean);
+    const compactPrior = prior && Object.keys(prior).length ? {
+      priorSceneId: prior.priorSceneId,
+      priorCandidateId: prior.priorCandidateId,
+      priorObservationId: prior.priorObservationId,
+      priorObservationRevision: prior.priorObservationRevision,
+      priorObservationSourceHash: prior.priorObservationSourceHash,
+      priorObservationSelection: prior.priorObservationSelection,
+      effectiveContextHash: prior.effectiveContextHash,
+      status: prior.status,
+      closing: descriptions((prior.closingState as any)?.location_and_position).slice(0, 3),
+      characterAppearance: descriptions((prior.persistentState as any)?.character_identity).slice(0, 6),
+      wardrobe: descriptions((prior.persistentState as any)?.wardrobe).slice(0, 6),
+      persistentLocation: descriptions((prior.persistentState as any)?.location_and_position).slice(0, 3),
+      persistentProps: descriptions((prior.persistentState as any)?.prop_presence_possession_condition).slice(0, 8),
+      environmental: descriptions((prior.persistentState as any)?.environmental_state).slice(0, 3),
+      observedEvents: stateMap(prior.observedEvents).slice(-8),
+      uncertainties: stateMap(prior.uncertainties).slice(0, 8),
+      evidenceReferences: stateMap(prior.evidenceReferences).slice(0, 8),
+    } : { note: "No prior accepted run-scoped closing state is available." };
+    const priorText = JSON.stringify(compactPrior);
     return [
       `Scene objective: ${scene.objective}`,
       `Intended events (intent only, not observed facts): ${scene.intendedEvents.join(" ")}`,
