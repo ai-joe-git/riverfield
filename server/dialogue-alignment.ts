@@ -239,6 +239,12 @@ export function alignDialogue(
   intended: IntendedUtterance[],
   transcript: ObservationDialogue | undefined,
 ): DialogueAlignment {
+  if (transcript?.provider === "halogen-npu" && !transcript.utterances.length) {
+    return {
+      intended, transcript: [], matches: [], unmatchedIntended: [], unmatchedTranscript: [],
+      limitations: [...transcript.limitations, "Transcript text is available for review. Missing lines, speaker and timing are unverified without aligned segments."],
+    };
+  }
   const utterances = transcript?.utterances ?? [];
   const intendedTokens = intended.map((item) => dialogueTokens(item.text));
   const observedTokens = utterances.map((utterance) => dialogueTokens(utterance.text));

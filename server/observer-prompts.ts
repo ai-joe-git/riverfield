@@ -188,6 +188,9 @@ export function comparisonPrompt(input: {
     })),
     visual: value?.visual ?? null,
     audiovisual: value?.audiovisual ?? null,
+    ...(value?.dialogue?.provider === "halogen-npu" ? { transcriptOnly: {
+      text: value.dialogue.text, evidenceIds: value.dialogue.evidenceIds, limitations: value.dialogue.limitations,
+    } } : {}),
   });
   const actionLines = (input.intendedBrief?.shots ?? []).map((shot) => `- Shot ${shot.index}: ${shot.text}`);
   const intendedById = new Map((input.dialogueAlignment?.intended ?? []).map((item) => [item.id, item]));

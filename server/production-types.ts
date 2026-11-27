@@ -309,7 +309,7 @@ export type ObservationUtterance = {
 };
 
 export type ObservationDialogue = {
-  provider: "whisper-turbo" | "manual" | "none";
+  provider: "whisper-turbo" | "halogen-npu" | "manual" | "none";
   model?: string;
   text: string;
   language?: string;
@@ -394,7 +394,7 @@ export type ObservationReport = {
   };
   observer: {
     model: string;
-    provider: "qwen-comfyui" | "comfyui" | "mock";
+    provider: "qwen-comfyui" | "comfyui" | "blackriver" | "mock";
     version: string;
     promptVersion: string;
     configuration: Record<string, unknown>;

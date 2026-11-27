@@ -214,7 +214,7 @@ export class LiveProductionRunAdapters implements RunAdapters {
     if (observerRefs.length + visualFrames > 9) throw new Error("LIVE_OBSERVATION_IMAGE_CAPACITY: references plus visual frames exceed nine slots");
     const job = await this.request(`/api/productions/${encodeURIComponent(context.run.productionId)}/observation-jobs`, {
       method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "production-run-live" },
-      body: JSON.stringify({ sceneId: context.scene.sceneId, candidateId: context.scene.candidateId, profile: "fast", bindingIds: undefined, options: { visualFrames, buildMode: context.run.profile === "build" }, referenceAssetIds: observerRefs, requestKey: context.requestKey }),
+      body: JSON.stringify({ sceneId: context.scene.sceneId, candidateId: context.scene.candidateId, profile: "fast", bindingIds: undefined, options: { visualFrames, buildMode: context.run.profile === "build" }, referenceAssetIds: observerRefs, requestKey: context.requestKey, workspace_observer: context.workspaceObserver }),
     });
     return { jobId: job.id, wait: async () => {
       const done = await this.waitJob("OBSERVATION", job.id);

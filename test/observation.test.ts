@@ -294,3 +294,63 @@ test("Fast Review profile binds the Gemma visual and comparison model", async ()
     await finished(observations, job.id);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
+
+
+test("Workspace observations use Riverfield system prompts and skip both ComfyUI and its inference queue", async () => {
+  const { out, store } = fixture();
+  const { VISUAL_OBSERVER_SYSTEM_PROMPT, COMPARISON_SYSTEM_PROMPT } = await import("../server/observer-prompts.ts");
+  const originalFetch = globalThis.fetch;
+  const calls: { url: string; system?: string }[] = [];
+  globalThis.fetch = async (input, init) => {
+    if (String(input).endsWith("/audio/transcriptions")) {
+      const body = init?.body as FormData;
+      assert.equal(body.get("model"), "qwen3-asr-1.7b");
+      calls.push({ url: String(input) });
+      return Response.json({ text: "Hello", language: "en" });
+    }
+    const body = JSON.parse(String(init?.body));
+    const system = body.messages[0].content;
+    calls.push({ url: String(input), system });
+    assert.equal(body.model, "local-vision");
+    if (system === VISUAL_OBSERVER_SYSTEM_PROMPT) {
+      assert.equal(body.messages[1].content[1].type, "image_url");
+    } else {
+      assert.equal(system, COMPARISON_SYSTEM_PROMPT);
+      assert.match(body.messages[1].content, /"transcriptOnly"[\s\S]*"Hello"/);
+    }
+    return Response.json({ choices: [{ finish_reason: "stop", message: { content: "{}" } }] });
+  };
+  try {
+    const observer = new ObservationManager({
+      outDir: out, productions: store, mediaRoots: [join(out, "media")],
+      inference: async () => { throw new Error("ComfyUI queue called"); },
+      runner: { runTexts: async () => { throw new Error("ComfyUI inference called"); } } as any,
+      evidence(input) {
+        const result = fakeEvidence(input);
+        writeFileSync(result.audio[0]!.path!, Buffer.from("RIFF0000WAVE"));
+        return result;
+      },
+    });
+    const job = observer.start("suite-404", {
+      sceneId: "scene-a", candidateId: "candidate-a", options: { visualFrames: 1 },
+      workspace: { chat: { baseUrl: "http://127.0.0.1:9000/v1", model: "local-vision", vision: true },
+        asr: { baseUrl: "http://127.0.0.1:9001/v1", model: "qwen3-asr-1.7b" } },
+    }, actor);
+    const done = await finished(observer, job.id);
+    assert.equal(done.status, "succeeded");
+    assert.deepEqual(calls.map(call => call.system), [undefined, VISUAL_OBSERVER_SYSTEM_PROMPT, COMPARISON_SYSTEM_PROMPT]);
+    const report = store.snapshot("suite-404").observations[done.observationId!]!.report!;
+    assert.equal(report.observer.provider, "blackriver");
+    assert.equal(report.dialogue?.provider, "halogen-npu");
+    assert.equal(report.dialogue?.text, "Hello");
+    assert.deepEqual(report.dialogueAlignment?.unmatchedIntended, []);
+    calls.length = 0;
+    const visualOnly = observer.start("suite-404", {
+      sceneId: "scene-a", candidateId: "candidate-a", profile: "detailed",
+      options: { visualFrames: 1, asr: false, comparison: false },
+      workspace: { chat: { baseUrl: "http://127.0.0.1:9000/v1", model: "local-vision", vision: true } },
+    }, actor);
+    assert.equal((await finished(observer, visualOnly.id)).status, "succeeded");
+    assert.deepEqual(calls.map(call => call.system), [VISUAL_OBSERVER_SYSTEM_PROMPT]);
+  } finally { globalThis.fetch = originalFetch; rmSync(out, { recursive: true, force: true }); }
+});

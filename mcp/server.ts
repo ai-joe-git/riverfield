@@ -600,7 +600,7 @@ export function build(base=BASE): McpServer {
   server.registerTool("control_production_run", {
     title: "Start, pause, resume or cancel a production run",
     description: "Durable run controls. A background start or resume of a fresh scene with enhancement enabled requires preparation_id from prepare_production_render, or explicit use_riverfield_enhancer. Resuming an existing job keeps its original prompts.",
-    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]), background:z.boolean().optional(), request_id:z.string().max(200).optional(), preparation_id:z.string().uuid().optional(), use_riverfield_enhancer:z.boolean().optional() },
+    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]), background:z.boolean().optional(), request_id:z.string().max(200).optional(), preparation_id:z.string().uuid().optional(), use_riverfield_enhancer:z.boolean().optional(), workspace_observation_mode:z.enum(["defer", "local"]).optional(), workspace_observer:z.unknown().optional() },
   }, async ({ productionId, runId, action, ...params }) => {
     try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(params) })); } catch (e) { return fail(e); }
   });
@@ -708,6 +708,7 @@ export function build(base=BASE): McpServer {
       topP: z.number().min(0).max(1).optional(),
       referenceAssetIds: z.array(z.string()).optional().describe("production image assets to compare against identity; not proof of appearance"),
       request_id: z.string().max(200).optional(),
+      workspace_observer: z.unknown().optional().describe("Local BlackRiver runtime routing supplied by the desktop integration."),
     },
   }, async ({ productionId, request_id, ...body }) => {
     try {

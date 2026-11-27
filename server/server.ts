@@ -1,3 +1,4 @@
+import { validateWorkspaceObserver } from "./workspace-observer.ts";
 // Minimal HTTP API for the web UI. Node's built-in http plus the Fetch API types; no framework.
 //   GET    /api/apps                         catalog (what the UI needs to draw cards and forms)
 //   GET    /api/apps/:id/workflow            the app's ComfyUI workflow in API format, as a download (open it in ComfyUI)
@@ -701,6 +702,7 @@ const server = createServer(async (req, res) => {
           localAccess(req);
           const body = await jsonBody();
           if (typeof body.sceneId !== "string" || typeof body.candidateId !== "string") throw new InputError("sceneId and candidateId are required");
+          if (body.workspace_observer !== undefined && guard.hosted) return send(res, 403, { error: "Workspace observation is local-only" });
           const job = observations().start(id, {
             sceneId: body.sceneId, candidateId: body.candidateId,
             ...(Array.isArray(body.bindingIds) ? { bindingIds: body.bindingIds.map(String) } : {}),
@@ -708,6 +710,7 @@ const server = createServer(async (req, res) => {
             ...(typeof body.profile === "string" ? { profile: body.profile as StartObservationInput["profile"] } : {}),
             ...(typeof body.sourceObservationId === "string" ? { sourceObservationId: body.sourceObservationId } : {}),
             ...(Array.isArray(body.referenceAssetIds) ? { referenceAssetIds: body.referenceAssetIds.map(String) } : {}),
+            ...(body.workspace_observer !== undefined ? { workspace: validateWorkspaceObserver(body.workspace_observer) } : {}),
             ...(typeof body.requestKey === "string" ? { requestKey: body.requestKey } : {}),
           }, actor);
           return send(res, 202, job);
@@ -814,6 +817,13 @@ const server = createServer(async (req, res) => {
             if (existing) return send(res, 202, { ...run, workspaceDispatch: existing });
             const previous = workspaceProduction.dispatch(scope);
             if (previous?.active) return send(res, 409, { error: "A production control is already running" });
+            const analysis = body.workspace_observation_mode === "defer" ? "defer" as const
+              : body.workspace_observation_mode === "local" ? validateWorkspaceObserver(body.workspace_observer) : undefined;
+            if (body.workspace_observation_mode !== undefined && !analysis)
+              throw new InputError("Unknown Workspace observation mode.");
+            if (analysis && analysis !== "defer" && (action !== "resume" || run.stage !== "observation" ||
+                run.scenePlan[run.currentSceneIndex]?.status !== "candidate_registered"))
+              throw new InputError("Local observation can only resume a run at its registered candidate.");
             const token = typeof body.preparation_id === "string" ? body.preparation_id : "";
             const saved = token ? workspaceProduction.preparation(id, runId, token) : undefined;
             const context = engine.previewRender(id, runId);
@@ -823,7 +833,7 @@ const server = createServer(async (req, res) => {
             if (!saved && scene && usesWorkspaceEnhancer(byId.get(scene.selectedApp), scene.renderConfig.prompt_enhancer) && body.use_riverfield_enhancer !== true)
               throw new InputError("This scene needs prompt preparation. Call prepare_production_render and pass preparation_id, or explicitly set use_riverfield_enhancer to true.");
             const receipt = workspaceProduction.begin(scope, body.request_id, previous);
-            void engine[action](id, runId, saved?.prepared)
+            void engine[action](id, runId, saved?.prepared, analysis)
               .then(result => {
                 const error = result.status === "paused" && result.errors.length > run.errors.length ? result.errors.at(-1) : undefined;
                 receipt.status = error ? productionTrackingStatus(error) : "succeeded";

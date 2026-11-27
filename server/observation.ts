@@ -1,3 +1,4 @@
+import { observeWithWorkspace, workspaceAsr, type WorkspaceObserver } from "./workspace-observer.ts";
 // Phase 1 — Riverfield Audiovisual Observer.
 // A job operates on one immutable candidate binding set, extracts cached evidence, runs
 // evidence-only inference through the shared queue, records an immutable observation report,
@@ -102,6 +103,7 @@ export type StartObservationInput = {
   requestKey?: string;
   profile?: ObserverProfileId;
   sourceObservationId?: string;
+  workspace?: WorkspaceObserver;
 };
 
 export type ObservationDeps = {
@@ -326,6 +328,7 @@ export class ObservationManager {
       ...DEFAULT_OBSERVATION_OPTIONS,
       ...explicitOptions,
       ...(profile.id === "custom" ? {} : profileDefaults(profile)),
+      ...(input.workspace ? explicitOptions : {}),
       profile: profile.id,
     };
     let sourceObservationId = input.sourceObservationId;
@@ -357,8 +360,10 @@ export class ObservationManager {
         throw error;
       }
     };
-    const visualModel = resolveSelected(options.visualModel);
-    const comparisonModel = resolveSelected(options.comparisonModel);
+    if (input.workspace && (options.nativeVideo || options.nativeAudio)) throw new ObservationError("WORKSPACE_NATIVE_AV_UNSUPPORTED", "Use sampled frames and NPU transcription for the BlackRiver observer.");
+    if (input.workspace && options.visual && !input.workspace.chat.vision) throw new ObservationError("WORKSPACE_VISION_REQUIRED", "Select a local BlackRiver model with image support for visual observation.");
+    const visualModel = input.workspace ? DEFAULT_OBSERVER_MODEL : resolveSelected(options.visualModel);
+    const comparisonModel = input.workspace ? DEFAULT_OBSERVER_MODEL : resolveSelected(options.comparisonModel);
     assertObserverModalities(visualModel, { video: options.nativeVideo, audio: options.nativeAudio });
     if (options.visualFrames + referenceAssetIds.length > 9) {
       throw new ObservationError("OBSERVER_IMAGE_BUDGET", `${options.visualFrames} evidence frames plus ${referenceAssetIds.length} reference images exceed the nine-image workflow capacity`);
@@ -373,7 +378,7 @@ export class ObservationManager {
     const id = `obs-${this.now().toISOString().replace(/[-:.TZ]/g, "").slice(0, 17)}-${randomUUID().slice(0, 8)}`;
     const job: ObservationJob = {
       id, productionId, sceneId: scene.id, candidateId: candidate.id, bindingIds: bindings.map((binding) => binding.id),
-      status: "queued", createdAt: this.now().toISOString(), options, modelBindings, stages: stageList(),
+      status: "queued", createdAt: this.now().toISOString(), options, ...(!input.workspace ? { modelBindings } : {}), stages: stageList(),
       ...(sourceObservationId ? { sourceObservationId } : {}),
       progress: { stage: "resolve", percent: 0 }, ...(actor.id ? { owner: actor.id } : {}),
       ...(input.requestKey ? { requestKey: input.requestKey } : {}),
@@ -381,15 +386,15 @@ export class ObservationManager {
     this.save(job);
     const controller = new AbortController();
     this.controllers.set(job.id, controller);
-    void this.run(job, snap, scene, candidate, bindings, output.path, output.hash, actor, controller).finally(() => this.controllers.delete(job.id));
+    void this.run(job, snap, scene, candidate, bindings, output.path, output.hash, actor, controller, input.workspace).finally(() => this.controllers.delete(job.id));
     return job;
   }
 
   private async run(
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
-    bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController,
+    bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController, workspace?: WorkspaceObserver,
   ) {
-    if (job.options.profile === "senior") return this.runSenior(job, snap, scene, candidate, bindings, actor, controller);
+    if (job.options.profile === "senior") return this.runSenior(job, snap, scene, candidate, bindings, actor, controller, workspace);
     let artifactDir: string | null = null;
     let memoryTimer: NodeJS.Timeout | null = null;
     const writeArtifact = (name: string, value: unknown, raw = false) => {
@@ -443,7 +448,7 @@ export class ObservationManager {
       if (job.options.visual && coveredShots.size !== bundle.shots.length) {
         throw new ObservationError("OBSERVATION_VISUAL_COVERAGE", `The ${job.options.visualFrames} selected visual frames cover ${coveredShots.size}/${bundle.shots.length} detected shots; refusing to run without complete shot coverage`);
       }
-      writeArtifact("backend-log-before.txt", fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log"), true);
+      if (!workspace) writeArtifact("backend-log-before.txt", fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log"), true);
       const memoryFile = join(artifactDir, "memory.jsonl");
       appendFileSync(memoryFile, `${JSON.stringify(sampleMemory())}\n`);
       memoryTimer = setInterval(() => { try { appendFileSync(memoryFile, `${JSON.stringify(sampleMemory())}\n`); } catch { /* best effort */ } }, 2000);
@@ -474,22 +479,22 @@ export class ObservationManager {
         writeArtifact("analysis-images.json", analysisImageManifest(analysisImages));
       }
 
-      const visualModel = job.modelBindings?.visual ?? observerModel(job.options.visualModel || DEFAULT_OBSERVER_MODEL_ID);
-      const comparisonModel = job.modelBindings?.comparison ?? observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID);
+      const visualModel = job.modelBindings?.visual ?? (workspace ? DEFAULT_OBSERVER_MODEL : observerModel(job.options.visualModel || DEFAULT_OBSERVER_MODEL_ID));
+      const comparisonModel = job.modelBindings?.comparison ?? (workspace ? DEFAULT_OBSERVER_MODEL : observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID));
       const visualBackend: VisualObserver = this.visualObserver ?? this.observer ?? new QwenVisualObserver(
         this.runner, createObserverApp(visualModel), {
-          model: visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: Math.max(0, 9 - job.options.visualFrames),
+          model: workspace?.chat.model ?? visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: Math.max(0, 9 - job.options.visualFrames),
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family },
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace(workspace.chat, values, signal) } : { checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family } }),
         });
       const comparisonBackend: SceneComparator = this.comparator ??
         (this.observer?.compare ? this.observer as SceneComparator : undefined) ??
         new QwenVisualObserver(this.runner, createObserverApp(comparisonModel), {
-          model: comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
+          model: workspace?.chat.model ?? comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family },
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace(workspace.chat, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
         });
 
       const nativeInputs: NonNullable<ObservationReport["observer"]["nativeInputs"]> = {};
@@ -538,18 +543,19 @@ export class ObservationManager {
       }
       writeArtifact("native-inputs.json", { requested: { video: job.options.nativeVideo, audio: job.options.nativeAudio }, supplied: nativeInputs, evidence: nativeEvidence, limitations: nativeLimitations });
 
-      await this.inference(`Observe ${scene.title}`, async () => {
+      const asr = workspace ? workspaceAsr(workspace.asr) : this.asr;
+      const runStages = async () => {
         controller.signal.throwIfAborted();
         // Whisper first, then Qwen visual + comparison consecutively. The visual pass
         // still receives neither the transcript nor the intended screenplay.
-        if (job.options.asr && this.asr && bundle.audio.length) {
+        if (job.options.asr && asr && bundle.audio.length) {
           this.stage(job, "asr", "running");
           try {
             const parts: ObservationDialogue[] = [];
             for (const clip of bundle.audio) {
               if (controller.signal.aborted) throw new Error("Observation canceled");
               const boundary = bundle.nativeBoundaries.find((item) => item.bindingId === clip.bindingId);
-              parts.push(await this.asr.transcribe({
+              parts.push(await asr.transcribe({
                 audio: clip.path!, offsetSeconds: boundary?.startSeconds ?? 0,
                 fps: bundle.technical.fps,
                 bindingId: clip.bindingId ?? "", signal: controller.signal,
@@ -655,7 +661,9 @@ export class ObservationManager {
         } else {
           this.stage(job, "comparison", "skipped");
         }
-      }, controller.signal);
+      };
+      if (workspace) await runStages();
+      else await this.inference(`Observe ${scene.title}`, runStages, controller.signal);
 
       controller.signal.throwIfAborted();
       this.stage(job, "report", "running");
@@ -681,24 +689,24 @@ export class ObservationManager {
         sourceOutputHash: sourceHash || bundle.source.hash,
         bindingIds: bindings.map((binding) => binding.id), timebase: "final-output",
         observer: {
-          model: visualModel.file,
-          provider: visual ? "comfyui" : "mock",
+          model: workspace?.chat.model ?? visualModel.file,
+          provider: workspace ? "blackriver" : visual ? "comfyui" : "mock",
           version: visual?.version ?? OBSERVER_VERSION,
           promptVersion: visual?.promptVersion ?? OBSERVER_PROMPT_VERSION,
           configuration: {
             ...job.options, evidenceCacheKey: bundle.cacheKey,
             comparisonPromptVersion: COMPARISON_PROMPT_VERSION,
-            visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel),
+            ...(!workspace ? { visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel) } : {}),
           },
-          visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel),
+          ...(!workspace ? { visualCheckpoint: modelCheckpoint(visualModel), comparisonCheckpoint: modelCheckpoint(comparisonModel) } : {}),
           inputModalities: visual?.inputModalities ?? { text: true, image: job.options.visual, video: Boolean(nativeVideo), audio: Boolean(nativeAudio) },
           observationMode: visual?.observationMode ?? (nativeVideo || nativeAudio ? "audiovisual" : "visual"),
           profile: job.options.profile,
           experimental: job.options.profile === "experimental-av",
           audioClaimsUnverified: job.options.profile === "experimental-av",
           effectiveConfiguration: {
-            visual: { ...(visual?.configuration ?? {}), checkpoint: modelCheckpoint(visualModel) },
-            comparison: { ...(comparison?.configuration ?? {}), checkpoint: modelCheckpoint(comparisonModel) },
+            visual: { ...(visual?.configuration ?? {}), ...(!workspace ? { checkpoint: modelCheckpoint(visualModel) } : {}) },
+            comparison: { ...(comparison?.configuration ?? {}), ...(!workspace ? { checkpoint: modelCheckpoint(comparisonModel) } : {}) },
             nativeInputs: { video: Boolean(nativeVideo), audio: Boolean(nativeAudio) },
           },
           ...(Object.keys(nativeInputs).length ? { nativeInputs } : {}),
@@ -757,8 +765,8 @@ export class ObservationManager {
       if (artifactDir) {
         try {
           appendFileSync(join(artifactDir, "memory.jsonl"), `${JSON.stringify(sampleMemory())}\n`);
-          const backendLog = fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log", 400_000);
-          writeArtifact("backend-log-after.txt", backendLog, true);
+          const backendLog = workspace ? "" : fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log", 400_000);
+          if (!workspace) writeArtifact("backend-log-after.txt", backendLog, true);
           const lines = backendLog.split(/\r?\n/);
           writeArtifact("profile.json", {
             stageSeconds: Object.fromEntries(job.stages.map((stage) => [stage.name,
@@ -768,7 +776,7 @@ export class ObservationManager {
               modelLoads: lines.filter((line) => /Requested to load|loaded completely|CLIP\/text encoder model load/.test(line)).slice(-20),
               generationTail: lines.filter((line) => /Generating tokens:/.test(line)).slice(-3),
             },
-            instrumentation: {
+            instrumentation: workspace ? { provider: "BlackRiver", decode: "not measured" } : {
               prefill: "not separately exposed by the installed TextGenerateV2/ComfyUI log",
               decode: "not separately exposed; only total prompt execution and token progress are available",
               visionEncoding: "not separately exposed; vision frames are encoded inside the TextGenerateV2 prompt",
@@ -796,7 +804,7 @@ export class ObservationManager {
   /** Qwen3.8 reviews an existing observation without repeating extraction, ASR or visual inference. */
   private async runSenior(
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
-    bindings: SceneRenderBinding[], actor: Actor, controller: AbortController,
+    bindings: SceneRenderBinding[], actor: Actor, controller: AbortController, workspace?: WorkspaceObserver,
   ) {
     const source = job.sourceObservationId ? snap.observations[job.sourceObservationId] : undefined;
     const sourceReport = source?.report;
@@ -815,14 +823,14 @@ export class ObservationManager {
     try {
       this.stage(job, "resolve", "running"); this.stage(job, "resolve", "succeeded");
       this.stage(job, "evidence", "skipped"); this.stage(job, "asr", "skipped"); this.stage(job, "visual", "skipped");
-      const comparisonModel = job.modelBindings?.comparison ?? observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID);
+      const comparisonModel = job.modelBindings?.comparison ?? (workspace ? DEFAULT_OBSERVER_MODEL : observerModel(job.options.comparisonModel || DEFAULT_OBSERVER_MODEL_ID));
       const comparisonBackend: SceneComparator = this.comparator ??
         (this.observer?.compare ? this.observer as SceneComparator : undefined) ??
         new QwenVisualObserver(this.runner, createObserverApp(comparisonModel), {
-          model: comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
+          model: workspace?.chat.model ?? comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family },
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace(workspace.chat, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
         });
       const intendedBrief = extractIntendedBrief(candidate.prompt || scene.summary, candidate.prompt ? "candidate-prompt" : "scene");
       const dialogueAlignment = alignDialogue(intendedBrief.utterances, sourceReport.dialogue);
@@ -888,7 +896,7 @@ export class ObservationManager {
           reusedVisual: Boolean(sourceReport.visual), reusedDialogue: Boolean(sourceReport.dialogue),
         },
         observer: {
-          model: comparisonModel.file, provider: "comfyui", version: OBSERVER_VERSION, promptVersion: COMPARISON_PROMPT_VERSION,
+          model: workspace?.chat.model ?? comparisonModel.file, provider: workspace ? "blackriver" : "comfyui", version: OBSERVER_VERSION, promptVersion: COMPARISON_PROMPT_VERSION,
           configuration: {
             profile: "senior", sourceObservationId: source.id, sourceRevision: source.revision,
             temperature: job.options.temperature, maxOutputTokens: job.options.maxOutputTokens,
@@ -896,12 +904,12 @@ export class ObservationManager {
             ...(typeof sourceReport.observer.configuration.evidenceCacheKey === "string" ? { evidenceCacheKey: sourceReport.observer.configuration.evidenceCacheKey } : {}),
           },
           ...(sourceReport.observer.visualCheckpoint ? { visualCheckpoint: sourceReport.observer.visualCheckpoint } : {}),
-          comparisonCheckpoint: modelCheckpoint(comparisonModel),
+          ...(!workspace ? { comparisonCheckpoint: modelCheckpoint(comparisonModel) } : {}),
           ...(sourceReport.observer.inputModalities ? { inputModalities: sourceReport.observer.inputModalities } : {}),
           observationMode: sourceReport.observer.observationMode ?? "visual",
           profile: "senior", experimental: false,
           effectiveConfiguration: {
-            comparison: { ...(comparison?.configuration ?? {}), checkpoint: modelCheckpoint(comparisonModel) },
+            comparison: { ...(comparison?.configuration ?? {}), ...(!workspace ? { checkpoint: modelCheckpoint(comparisonModel) } : {}) },
             reusedEvidence: true, reusedVisual: Boolean(sourceReport.visual), reusedDialogue: Boolean(sourceReport.dialogue),
           },
         },

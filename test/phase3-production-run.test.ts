@@ -332,3 +332,29 @@ test("the SUITE 404 pilot remains non-canonical and within its first-scene budge
   assert.equal(run.budget.rendersUsed, 2);
   assert.equal(snapshot.revision, 0);
 });
+
+test("Workspace pauses after render and resumes observation on the registered candidate without rendering again", async () => {
+  const { out, store } = fixture();
+  try {
+    makeRun(store);
+    const mock = adapters();
+    const workspaceObserver = { chat: { baseUrl: "http://127.0.0.1:9000/v1", model: "local-vision", vision: true } };
+    const observe = mock.startObservation!;
+    mock.startObservation = async context => {
+      assert.deepEqual(context.workspaceObserver, workspaceObserver);
+      assert.equal(context.scene.candidateId, "candidate-1");
+      return observe(context);
+    };
+    const engine = new ProductionRunEngine(store, mock);
+    const paused = await engine.start("run-test", "run-test-run", undefined, "defer");
+    assert.equal(paused.status, "paused");
+    assert.equal(paused.stage, "observation");
+    assert.equal(paused.scenePlan[0].candidateId, "candidate-1");
+    assert.equal(mock.counts.startRender, 1);
+    assert.equal(mock.counts.startObservation, 0);
+    const done = await engine.resume("run-test", "run-test-run", undefined, workspaceObserver);
+    assert.equal(done.status, "awaiting_human");
+    assert.equal(mock.counts.startRender, 1);
+    assert.equal(mock.counts.startObservation, 1);
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});

@@ -1,3 +1,4 @@
+import type { WorkspaceObserver } from "./workspace-observer.ts";
 // Durable, resumable production orchestration. The engine owns budget reservations,
 // job persistence and state transitions; generation/observation/review work is supplied
 // by adapters so the same loop can use the real Riverfield services or mocks in tests.
@@ -8,7 +9,8 @@ import { contextHash, resolveAcceptedObservation } from "./observation-selection
 
 export class ProductionRunError extends Error { code: string; constructor(code: string, message: string) { super(message); this.code = code; } }
 export type PreparedRender = { revision: number; sceneId: string; values: Record<string, unknown> };
-export type RunContext = { run: ProductionRun; scene: ProductionRunScene; sceneIndex: number; requestKey: string };
+type RunAnalysis = "defer" | WorkspaceObserver;
+export type RunContext = { run: ProductionRun; scene: ProductionRunScene; sceneIndex: number; requestKey: string; workspaceObserver?: WorkspaceObserver };
 export type RunHandle<T> = { jobId: string; wait(): Promise<T> };
 export type RenderResult = { candidateId: string; jobId?: string };
 export type ObservationResult = { observationId: string; report?: ObservationReport; evidenceReferences?: string[] };
@@ -125,26 +127,26 @@ export class ProductionRunEngine {
     if(prepared && (run.revision!==prepared.revision || this.previewRender(run.productionId, run.id)?.scene.sceneId!==prepared.sceneId))
       throw new ProductionRunError("WORKSPACE_PROMPT_STALE","The production changed after prompt preparation. Prepare the current scene again.");
   }
-  async start(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
-    return this.locked(productionId, runId, () => this.startUnlocked(productionId, runId, prepared));
+  async start(productionId: string, runId: string, prepared?: PreparedRender, analysis?: RunAnalysis): Promise<ProductionRun> {
+    return this.locked(productionId, runId, () => this.startUnlocked(productionId, runId, prepared, analysis));
   }
-  private async startUnlocked(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+  private async startUnlocked(productionId: string, runId: string, prepared?: PreparedRender, analysis?: RunAnalysis): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     this.checkPrepared(run, prepared);
     if (["canceled", "completed"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
     if (run.status === "prepared") run = this.update(productionId, run, { status: "running", stage: "render", budget: this.startActiveClock({ ...run.budget, startedAt: run.budget.startedAt ?? now() }) }, `run:${run.id}:start`);
-    return this.advance(productionId, run.id, prepared);
+    return this.advance(productionId, run.id, prepared, analysis);
   }
-  async resume(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
-    return this.locked(productionId, runId, () => this.resumeUnlocked(productionId, runId, prepared));
+  async resume(productionId: string, runId: string, prepared?: PreparedRender, analysis?: RunAnalysis): Promise<ProductionRun> {
+    return this.locked(productionId, runId, () => this.resumeUnlocked(productionId, runId, prepared, analysis));
   }
-  private async resumeUnlocked(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+  private async resumeUnlocked(productionId: string, runId: string, prepared?: PreparedRender, analysis?: RunAnalysis): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     this.checkPrepared(run, prepared);
     if (run.status === "awaiting_human") throw new ProductionRunError("RUN_AWAITING_HUMAN", "A human decision is required before resuming");
     if (!["paused", "running", "prepared"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
     if (run.status !== "running") run = this.update(productionId, run, { status: "running", budget: this.startActiveClock(run.budget) }, `run:${run.id}:resume`);
-    return this.advance(productionId, run.id, prepared);
+    return this.advance(productionId, run.id, prepared, analysis);
   }
   async pause(productionId: string, runId: string): Promise<ProductionRun> {
     const run = this.run(productionId, runId);
@@ -218,16 +220,16 @@ export class ProductionRunEngine {
     return run;
   }
 
-  async advance(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+  async advance(productionId: string, runId: string, prepared?: PreparedRender, analysis?: RunAnalysis): Promise<ProductionRun> {
     try {
-      return await this.advanceRunning(productionId, runId, prepared);
+      return await this.advanceRunning(productionId, runId, prepared, analysis);
     } catch (error) {
       const run = this.run(productionId, runId);
       return run.status === "running" ? this.fail(productionId, run, error as Error) : run;
     }
   }
 
-  private async advanceRunning(productionId: string, runId: string, prepared?: PreparedRender): Promise<ProductionRun> {
+  private async advanceRunning(productionId: string, runId: string, prepared?: PreparedRender, analysis?: RunAnalysis): Promise<ProductionRun> {
     let run = this.run(productionId, runId);
     if (run.status !== "running") return run;
     for (let guard = 0; guard < 64; guard += 1) {
@@ -295,6 +297,9 @@ export class ProductionRunEngine {
       }
       if (scene.status === "candidate_registered") {
         if (!scene.observationIds.length) {
+          if (analysis === "defer") return this.update(productionId, run, {
+            status: "paused", stage: "observation", budget: this.settleActiveClock(run.budget),
+          }, `run:${run.id}:workspace-observation:${scene.sceneId}`);
           const pending = this.findPending(run, scene.sceneId, "observation");
           if (pending?.jobId) {
             if (!this.adapters.reconcileObservation) return this.fail(productionId, run, new ProductionRunError("RUN_RECONCILE_UNAVAILABLE", "A pending observation exists but no reconciliation adapter is configured"));
@@ -316,7 +321,7 @@ export class ProductionRunEngine {
           }
           try { run = this.reserve(run, "observation", scene); } catch (error) { return this.fail(productionId, run, error as Error); }
           if (!this.adapters.startObservation) return this.fail(productionId, run, new ProductionRunError("RUN_OBSERVATION_ADAPTER_MISSING", "No observation adapter configured"));
-          const handle = await this.adapters.startObservation({ run, scene, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "observation", scene.attempts) });
+          const handle = await this.adapters.startObservation({ run, scene, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "observation", scene.attempts), workspaceObserver: analysis });
           run = this.markJob(run, scene.sceneId, "observation", "submitted", handle.jobId);
           run = this.markScene(run, index, { jobIds: unique([...scene.jobIds, handle.jobId]) });
           const result = await handle.wait();

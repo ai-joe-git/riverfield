@@ -172,14 +172,13 @@ export type ObserverBackendOptions = {
   thinking?: boolean;
   /** Optional immutable checkpoint identity for the report. */
   checkpoint?: { file: string; quantization: string; clipType: string; family: string };
+  complete?: (values: Record<string, unknown>, signal?: AbortSignal) => Promise<{ text: string }>;
 };
 
 export class QwenVisualObserver implements VisualObserver, SceneComparator {
   readonly model: string;
   readonly version = OBSERVER_VERSION;
   readonly promptVersion = OBSERVER_PROMPT_VERSION;
-  private readonly runner: Runner;
-  private readonly app: App;
   private readonly maxImages: number;
   private readonly maxReferenceImages: number;
   private readonly maxOutputTokens: number;
@@ -191,9 +190,9 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
   private readonly thinking: boolean;
   private readonly checkpoint?: ObserverBackendOptions["checkpoint"];
 
+  private readonly workspace: boolean;
+  private readonly complete: (values: Record<string, unknown>, signal?: AbortSignal) => Promise<{ text: string; jobId?: string }>;
   constructor(runner: Runner, app: App, options: ObserverBackendOptions = {}) {
-    this.runner = runner;
-    this.app = app;
     this.model = options.model ?? "qwen3.8_27b_w4a8.safetensors";
     this.clipType = options.clipType ?? "stable_diffusion";
     this.maxImages = Math.max(1, Math.min(9, options.maxImages ?? 9));
@@ -205,6 +204,11 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     this.seed = options.seed ?? 0;
     this.thinking = options.thinking ?? false;
     this.checkpoint = options.checkpoint;
+    this.workspace = Boolean(options.complete);
+    this.complete = options.complete ?? (async (values, signal) => {
+      const { outputs, job } = await runner.runTexts(app, values, signal);
+      return { text: outputs[0]?.text ?? "", jobId: job?.id };
+    });
   }
 
   private graphValues(): Record<string, unknown> {
@@ -301,8 +305,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       })),
     ];
     visualImages.forEach((image, index) => { values[`frame${index + 1}`] = image.file; });
-    const { outputs } = await this.runner.runTexts(this.app, values, input.signal);
-    const rawText = outputs[0]?.text ?? "";
+    const { text: rawText } = await this.complete(values, input.signal);
     const parsed = parseRaw(rawText);
     const limitations = strings(parsed.limitations, 30);
     const uncertainties = strings(parsed.uncertainties, 30);
@@ -396,7 +399,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       visual, model: this.model, version: this.version,
       promptVersion: audiovisualMode ? AUDIOVISUAL_OBSERVER_PROMPT_VERSION : this.promptVersion,
       configuration: {
-        clipType: this.clipType, maxImages: this.maxImages, maxReferenceImages: this.maxReferenceImages,
+        ...(this.workspace ? { provider: "blackriver" } : { clipType: this.clipType }), maxImages: this.maxImages, maxReferenceImages: this.maxReferenceImages,
         frames: frames.length, referenceFrames: references.length,
         temperature: this.temperature, maxLength: this.maxOutputTokens, topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
         observationMode: audiovisualMode ? "audiovisual" : "visual",
@@ -434,12 +437,11 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       continuityConstraints: input.continuityConstraints,
       allowCanonicalProposals,
     });
-    const { job, outputs } = await this.runner.runTexts(this.app, {
+    const { text: rawText, jobId } = await this.complete({
       ...this.graphValues(),
       system_prompt: systemPrompt, prompt,
     }, input.signal);
-    const rawText = outputs[0]?.text ?? "";
-    input.onRawResponse?.({ rawText, jobId: job?.id, systemPrompt, inputPrompt: prompt });
+    input.onRawResponse?.({ rawText, jobId, systemPrompt, inputPrompt: prompt });
     let validated;
     try {
       const parsed = parseRaw(rawText);
@@ -450,7 +452,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
     } catch (error) {
       const enriched = error as Error & { rawText?: string; jobId?: string; systemPrompt?: string; inputPrompt?: string; proposalRejections?: unknown };
       enriched.rawText = rawText;
-      enriched.jobId = job?.id;
+      enriched.jobId = jobId;
       enriched.systemPrompt = systemPrompt;
       enriched.inputPrompt = prompt;
       throw enriched;
@@ -460,10 +462,10 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       proposalRejections: validated.proposalRejections,
       findingRejections: validated.findingRejections,
       rawText, promptVersion: COMPARISON_PROMPT_VERSION,
-      jobId: job?.id,
+      jobId,
       model: this.model,
       configuration: {
-        clipType: this.clipType, temperature: this.temperature, maxLength: this.maxOutputTokens,
+        ...(this.workspace ? { provider: "blackriver" } : { clipType: this.clipType }), temperature: this.temperature, maxLength: this.maxOutputTokens,
         topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
       },
       inputModalities: { text: true, image: false, video: false, audio: false },
@@ -526,7 +528,7 @@ export function mergeDialogue(parts: ObservationDialogue[], evidenceIds: string[
   const utterances = parts.flatMap((part) => part.utterances).sort((a, b) => a.startSeconds - b.startSeconds)
     .map((utterance, index) => ({ ...utterance, id: `utterance-${String(index + 1).padStart(3, "0")}`, evidenceIds }));
   return {
-    provider: parts.some((part) => part.provider === "whisper-turbo") ? "whisper-turbo" : "none",
+    provider: parts.find((part) => part.provider !== "none")?.provider ?? "none",
     ...(parts.find((part) => part.model)?.model ? { model: parts.find((part) => part.model)!.model } : {}),
     text: parts.map((part) => part.text).filter(Boolean).join(" ").trim(),
     ...(parts.find((part) => part.language)?.language ? { language: parts.find((part) => part.language)!.language } : {}),

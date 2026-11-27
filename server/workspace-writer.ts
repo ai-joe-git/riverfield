@@ -37,6 +37,16 @@ function imageMime(image: FileValue): string {
   throw new InputError("The local writer accepts PNG, JPEG and WebP reference images.");
 }
 
+export function workspaceChatContent(writer: WorkspaceWriter, prompt: string, images: FileValue[]) {
+  if (images.length && !writer.vision) throw new InputError("The active BlackRiver writer needs image support to use these Riverfield references.");
+  if (images.reduce((n, image) => n + image.bytes.byteLength, 0) > 24 * 1024 ** 2)
+    throw new InputError("The reference images exceed the local writer's 24 MiB per-segment request limit.");
+  return images.length ? [
+    { type: "text", text: prompt },
+    ...images.map(image => ({ type: "image_url", image_url: { url: `data:${imageMime(image)};base64,${Buffer.from(image.bytes).toString("base64")}` } })),
+  ] : prompt;
+}
+
 export const DEFAULT_WORKSPACE_WRITER_TIMEOUT_MS = 600_000;
 
 function normalizePrompt(content: unknown): string {
@@ -58,13 +68,7 @@ export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: Ap
   if (Object.keys(input.media).some(key => key.startsWith("video")))
     throw new InputError("This local writer path accepts image references. Video reference enhancement needs Riverfield's video-capable enhancer.");
   const images = Object.entries(input.media).filter(([key]) => key.startsWith("image")).map(([, value]) => value as FileValue);
-  if (images.length && !writer.vision) throw new InputError("The active BlackRiver writer needs image support to use these Riverfield references.");
-  if (images.reduce((n, image) => n + image.bytes.byteLength, 0) > 24 * 1024 ** 2)
-    throw new InputError("The reference images exceed the local writer's 24 MiB per-segment request limit.");
-  const content = images.length ? [
-    { type: "text", text: input.prompt },
-    ...images.map(image => ({ type: "image_url", image_url: { url: `data:${imageMime(image)};base64,${Buffer.from(image.bytes).toString("base64")}` } })),
-  ] : input.prompt;
+  const content = workspaceChatContent(writer, input.prompt, images);
   const timeoutMs = Number(process.env.RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS || DEFAULT_WORKSPACE_WRITER_TIMEOUT_MS);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)
     throw new Error("RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS must be a positive timeout in milliseconds.");
