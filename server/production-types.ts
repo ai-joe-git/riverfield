@@ -557,6 +557,102 @@ export type ContinuityReview = {
   createdBy: string;
 };
 
+export type ProductionRunProfile = "build" | "production";
+export type ProductionRunStatus = "prepared" | "running" | "awaiting_human" | "paused" | "completed" | "canceled" | "failed";
+export type ProductionRunStage =
+  | "plan" | "render" | "candidate_registered" | "observation" | "deterministic_validation"
+  | "continuity_review" | "awaiting_human" | "canonicalization" | "next_scene" | "completed";
+export type ProductionRunBudget = {
+  maxRendersPerScene: number;
+  maxTotalRenders: number;
+  maxPromptEnhancements: number;
+  maxObservationJobs: number;
+  maxComparisonCalls: number;
+  maxSeniorReviewBatches: number;
+  wallClockMinutes: number;
+  rendersUsed: number;
+  promptEnhancementsUsed: number;
+  observationJobsUsed: number;
+  comparisonCallsUsed: number;
+  seniorReviewBatchesUsed: number;
+  startedAt?: string;
+};
+export type ProductionRunScene = {
+  sceneId: string;
+  title: string;
+  objective: string;
+  intendedEvents: string[];
+  dialogueRequirements: string[];
+  characterIds: string[];
+  locationIds: string[];
+  propIds: string[];
+  targetDurationSeconds: number;
+  intendedTransition: string;
+  selectedApp: string;
+  profile: ProductionRunProfile;
+  referenceAssetIds: string[];
+  renderConfig: Record<string, unknown>;
+  reuseCandidateId?: string;
+  candidateId?: string;
+  observationIds: string[];
+  continuityReviewIds: string[];
+  status: "planned" | "rendering" | "candidate_registered" | "observed" | "validated" | "awaiting_human" | "approved" | "rejected" | "stale" | "skipped";
+  jobIds: string[];
+  attempts: number;
+  errors: string[];
+};
+export type ProductionRunProvisionalFact = {
+  id: string;
+  sceneId: string;
+  text: string;
+  sourceObservationId: string;
+  evidenceReferences: string[];
+  revision: number;
+  status: "provisional" | "approved" | "invalidated";
+};
+export type ProductionRunDecision = {
+  id: string;
+  sceneId: string;
+  decision: "approved" | "rejected" | "replace" | "reuse";
+  note: string;
+  actor: string;
+  at: string;
+};
+export type ProductionRunJob = {
+  sceneId: string;
+  kind: "render" | "observation" | "comparison" | "senior_review";
+  jobId: string;
+  requestKey: string;
+  status: "reserved" | "submitted" | "succeeded" | "failed" | "canceled";
+  reservedAt: string;
+};
+export type ProductionRun = {
+  id: string;
+  productionId: string;
+  seasonId?: string;
+  episodeId?: string;
+  title: string;
+  brief: string;
+  profile: ProductionRunProfile;
+  status: ProductionRunStatus;
+  stage: ProductionRunStage;
+  scenePlan: ProductionRunScene[];
+  selectedApplications: string[];
+  referenceAssets: string[];
+  renderConfig: Record<string, unknown>;
+  budget: ProductionRunBudget;
+  jobs: ProductionRunJob[];
+  provisionalFacts: ProductionRunProvisionalFact[];
+  decisions: ProductionRunDecision[];
+  errors: string[];
+  currentSceneIndex: number;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  canonicalRevision: number;
+};
+
 export type ProductionSnapshot = {
   schemaVersion: typeof PRODUCTION_SCHEMA_VERSION;
   production: ProductionMeta;
@@ -569,6 +665,7 @@ export type ProductionSnapshot = {
   bindingCorrections: BindingCorrection[];
   observations: Record<string, Observation>;
   continuityReviews: Record<string, ContinuityReview>;
+  productionRuns: Record<string, ProductionRun>;
   sceneDecisions: Record<string, SceneDecision>;
   bible: Record<MemoryCategory, BibleFact[]>;
   proposals: Record<string, CanonProposal>;
@@ -591,6 +688,9 @@ export type ProductionEventType =
   | "candidate.registered"
   | "binding.corrected"
   | "continuity.reviewed"
+  | "production.run.created"
+  | "production.run.updated"
+  | "production.run.decided"
   | "observation.recorded"
   | "asset.indexed"
   | "asset.updated"

@@ -52,13 +52,15 @@ import {directorDurations,planDirectorSegments,directorPromptMode} from "./h3-pl
 import { ProductionStore, ProductionError, type CreateAssetBuildInput, type CreateEpisodeInput, type CreateSceneInput, type CreateSeasonInput, type IndexAssetInput, type ProposeCanonInput, type RegisterCandidateInput, type RegisterObservationInput } from "./production-store.ts";
 import { buildProductionContext } from "./production-context.ts";
 import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
-import type { Actor } from "./production-types.ts";
+import type { Actor, ProductionSnapshot } from "./production-types.ts";
 import { ObservationManager, type StartObservationInput } from "./observation.ts";
 import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
+import { ProductionRunEngine } from "./production-run.ts";
+import { planProductionRun } from "./production-run-plan.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
 import { OBSERVER_PROFILES } from "./observer-profiles.ts";
-import { P6_REFERENCE_WARNING, auditAssetCatalogue, buildAssetCorrectionBatch, readAssetCorrectionDecisions, recordAssetCorrectionDecision } from "./asset-audit.ts";
+import { P6_REFERENCE_WARNING, applyAssetCorrections, auditAssetCatalogue, buildAssetCorrectionBatch, readAssetCorrectionApplications, readAssetCorrectionDecisions, recordAssetCorrectionDecision } from "./asset-audit.ts";
 import {parseNativeHelp,speculativeTypes} from "./native-options.ts";
 import {productionRequestFromPreview,renderMetadataFor,renderProfileCapability} from "./render-profile.ts";
 
@@ -117,6 +119,7 @@ const flags = new Flags(join(root, "lab", "flags.json"), apps);
 const directors = new DirectorStore(outDir, byId);
 const productions = new ProductionStore(outDir, { mediaRoots: productionMediaRoots(outDir) });
 let observationManager: ObservationManager | null = null;
+const snapshotAsset = (snap: ProductionSnapshot, assetId: string) => snap.assets[assetId];
 const observations = () => observationManager ??= new ObservationManager({
   outDir, productions, inference: inference.run, runner: getRunner(),
   mediaRoots: productionMediaRoots(outDir), whisperApp: byId.get("whisper-turbo"),
@@ -709,6 +712,58 @@ const server = createServer(async (req, res) => {
           const review = snap.continuityReviews?.[arg];
           return review ? send(res, 200, review) : send(res, 404, { error: "unknown continuity review" });
         }
+        if (id && req.method === "GET" && sub === "runs" && !arg) {
+          const snap = productions.snapshot(id);
+          return send(res, 200, { runs: Object.values(snap.productionRuns ?? {}).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) });
+        }
+        if (id && req.method === "GET" && sub === "runs" && arg) {
+          const snap = productions.snapshot(id);
+          const run = snap.productionRuns?.[arg];
+          return run ? send(res, 200, run) : send(res, 404, { error: "unknown production run" });
+        }
+        if (id && req.method === "POST" && sub === "runs" && arg === "plan") {
+          const body = await jsonBody();
+          const plan = planProductionRun(productions.snapshot(id), {
+            brief: String(body.brief ?? ""), ...(body.sceneCount !== undefined ? { sceneCount: Number(body.sceneCount) } : {}),
+            ...(body.profile === "build" || body.profile === "production" ? { profile: body.profile } : {}),
+            ...(typeof body.episodeId === "string" ? { episodeId: body.episodeId } : {}), ...(typeof body.seasonId === "string" ? { seasonId: body.seasonId } : {}),
+            ...(typeof body.selectedApp === "string" ? { selectedApp: body.selectedApp } : {}), ...(Array.isArray(body.sceneIds) ? { sceneIds: body.sceneIds.map(String) } : {}),
+          });
+          return send(res, 200, { plan, note: "Editable plan only; no scenes, candidates or inference were created." });
+        }
+        if (id && req.method === "POST" && sub === "runs" && !arg) {
+          const body = await jsonBody();
+          const plan = body.plan && typeof body.plan === "object" ? body.plan as ReturnType<typeof planProductionRun> : planProductionRun(productions.snapshot(id), {
+            brief: String(body.brief ?? ""), ...(body.sceneCount !== undefined ? { sceneCount: Number(body.sceneCount) } : {}),
+            ...(body.profile === "build" || body.profile === "production" ? { profile: body.profile } : {}),
+            ...(typeof body.episodeId === "string" ? { episodeId: body.episodeId } : {}), ...(typeof body.seasonId === "string" ? { seasonId: body.seasonId } : {}),
+          });
+          const runId = typeof body.runId === "string" ? body.runId : undefined;
+          const created = productions.createProductionRun(id, {
+            ...(runId ? { id: runId } : {}), title: String(body.title ?? "Production run"), brief: plan.brief, profile: plan.profile,
+            ...(plan.seasonId ? { seasonId: plan.seasonId } : {}), ...(plan.episodeId ? { episodeId: plan.episodeId } : {}),
+            scenePlan: plan.scenes, selectedApplications: plan.selectedApplications, referenceAssets: plan.referenceAssets,
+            renderConfig: plan.renderConfig, ...(body.budget && typeof body.budget === "object" ? { budget: body.budget } : {}),
+          }, actor, typeof body.commandKey === "string" ? body.commandKey : undefined);
+          return send(res, 201, { run: created.productionRuns[runId ?? Object.keys(created.productionRuns).at(-1)!], plan });
+        }
+        if (id && req.method === "POST" && sub === "runs" && arg) {
+          const snap = productions.snapshot(id);
+          const runId = arg;
+          const action = parts[5];
+          const engine = new ProductionRunEngine(productions);
+          const body = await jsonBody();
+          if (!snap.productionRuns?.[runId]) throw new InputError("unknown production run");
+          if (action === "start") return send(res, 202, await engine.start(id, runId));
+          if (action === "resume") return send(res, 202, await engine.resume(id, runId));
+          if (action === "pause") return send(res, 200, await engine.pause(id, runId));
+          if (action === "cancel") return send(res, 200, await engine.cancel(id, runId));
+          if (action === "decide") {
+            if (typeof body.sceneId !== "string" || !["approved", "rejected", "replace", "reuse"].includes(String(body.decision))) throw new InputError("sceneId and decision are required");
+            return send(res, 200, await engine.decide(id, runId, body.sceneId, body.decision as "approved" | "rejected" | "replace" | "reuse", typeof body.note === "string" ? body.note : ""));
+          }
+          throw new InputError("unknown production run action");
+        }
         if (id && req.method === "POST" && sub === "continuity-reviews" && arg === "run-senior") {
           const body = await jsonBody();
           if (body.confirm !== true) throw new InputError("confirm:true is required for the single authorized senior inference pass");
@@ -1009,7 +1064,7 @@ const server = createServer(async (req, res) => {
       }
       if (req.method === "GET" && area === "asset-corrections" && id === "decisions") {
         localAccess(req);
-        return send(res, 200, { decisions: readAssetCorrectionDecisions(outDir) });
+        return send(res, 200, { decisions: readAssetCorrectionDecisions(outDir), applications: readAssetCorrectionApplications(outDir) });
       }
       if (req.method === "POST" && area === "asset-corrections" && id === "decisions") {
         localAccess(req);
@@ -1018,8 +1073,22 @@ const server = createServer(async (req, res) => {
         const snap = productions.snapshot("suite-404");
         const batch = buildAssetCorrectionBatch(snap);
         if (body.batchId !== batch.id) throw new InputError("unknown asset correction batch");
-        const decision = recordAssetCorrectionDecision(outDir, batch, body.decision as "approved" | "rejected", "human-ui", typeof body.note === "string" ? body.note : "");
-        return send(res, 201, { decision, note: "Approval records the batch decision only; asset metadata is not rewritten or applied automatically." });
+        const decision = recordAssetCorrectionDecision(outDir, batch, body.decision as "approved" | "rejected", "human-ui", typeof body.note === "string" ? body.note : "", typeof body.assetId === "string" ? body.assetId : undefined);
+        return send(res, 201, { decision, note: "A decision is not an application; asset metadata is not rewritten automatically." });
+      }
+      if (req.method === "POST" && area === "asset-corrections" && id === "apply") {
+        localAccess(req);
+        const body = await (await toRequest(req, 32)).json().catch(() => null) as Record<string, unknown> | null;
+        if (!body || body.confirm !== true || typeof body.batchId !== "string" || !Array.isArray(body.assetIds)) throw new InputError("confirm:true, batchId and assetIds are required");
+        const snap = productions.snapshot("suite-404");
+        const batch = buildAssetCorrectionBatch(snap);
+        if (body.batchId !== batch.id) throw new InputError("unknown asset correction batch");
+        const application = applyAssetCorrections(outDir, batch, body.assetIds.map(String), (assetId, patch) => {
+          const asset = snapshotAsset(productions.snapshot("suite-404"), assetId);
+          if (!asset) throw new InputError(`unknown asset ${assetId}`);
+          productions.updateAsset("suite-404", assetId, patch, { kind: "human", id: "asset-correction-application" }, `asset:apply:${batch.id}:${assetId}`);
+        }, "human-ui", typeof body.note === "string" ? body.note : "");
+        return send(res, 201, { application, note: "Only individually approved entries were applied; historical events and media hashes remain." });
       }
       if(req.method==="GET" && area==="observer-profiles" && parts.length===2)return send(res,200,{ profiles: OBSERVER_PROFILES, defaultProfile: "custom", note: "Profiles only supply defaults; explicit options and custom model selection remain available. Senior Review reuses an existing observation." });
       if(req.method==="GET" && area==="observer-models" && parts.length===2)return send(res,200,{

@@ -109,7 +109,7 @@ POST /api/asset-corrections/decisions
 - scene ranges exceeding image capacity
 - no Passion Max IDs or warnings in another production prompt
 
-All deterministic; no inference. Full regression result: `npm test` **331 passing**;
+All deterministic; no inference. Full regression result: `npm test` **344 passing**;
 `npm run typecheck` passed; `npm run validate` reports 171 apps, 0 errors, 0 warnings.
 
 ## Phase 3

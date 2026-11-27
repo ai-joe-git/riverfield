@@ -11,7 +11,7 @@ import {
   type Actor, type ApprovalCheck, type Asset, type BibleFact, type Candidate, type CanonProposal,
   type FactChange, type HumanApproval, type Observation, type ObservationReport, type ProductionEvent, type ProductionEventType,
   type ProductionMeta, type ProductionSnapshot, type ProductionSummary, type Scene, type SceneDecision,
-  type SceneRenderBinding, type BindingCorrection, type ContinuityReview, type ContinuityReviewStatus, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
+  type SceneRenderBinding, type BindingCorrection, type ContinuityReview, type ContinuityReviewStatus, type ProductionRun, type ProductionRunDecision, type ProductionRunBudget, type ProductionRunScene, type Season, type Episode, type MemoryCategory, type Provenance, type CandidateProvenance, type AssetBuild,
 } from "./production-types.ts";
 
 export class ProductionError extends Error {
@@ -83,6 +83,24 @@ export type RecordContinuityReviewInput = {
   execution?: Record<string, unknown>;
 };
 
+export type CreateProductionRunInput = {
+  id?: string;
+  seasonId?: string;
+  episodeId?: string;
+  title: string;
+  brief: string;
+  profile: "build" | "production";
+  scenePlan: ProductionRunScene[];
+  selectedApplications?: string[];
+  referenceAssets?: string[];
+  renderConfig?: Record<string, unknown>;
+  budget?: Partial<ProductionRunBudget>;
+};
+export type ProductionRunPatch = Partial<Pick<ProductionRun,
+  "title" | "brief" | "profile" | "status" | "stage" | "scenePlan" | "selectedApplications" | "referenceAssets" |
+  "renderConfig" | "budget" | "jobs" | "provisionalFacts" | "decisions" | "errors" | "currentSceneIndex"
+>>;
+
 export type CreateAssetBuildInput = {
   id?: string;
   app: string;
@@ -136,6 +154,7 @@ function emptySnapshot(production: ProductionMeta, at = nowIso()): ProductionSna
     bindingCorrections: [],
     observations: {},
     continuityReviews: {},
+    productionRuns: {},
     sceneDecisions: {},
     bible: emptyBible(),
     proposals: {},
@@ -373,6 +392,13 @@ export class ProductionStore {
           snap.continuityReviews[review.id] = review;
           break;
         }
+        case "production.run.created":
+        case "production.run.updated":
+        case "production.run.decided": {
+          const run = event.payload.run as ProductionRun;
+          snap.productionRuns[run.id] = run;
+          break;
+        }
         case "observation.recorded": {
           const observation = event.payload.observation as Observation;
           snap.observations[observation.id] = observation;
@@ -543,7 +569,7 @@ export class ProductionStore {
     try {
       const raw = readJson(this.snapshotFile(id)) as ProductionSnapshot;
       if (raw?.schemaVersion === PRODUCTION_SCHEMA_VERSION && raw.production?.id === id
-        && raw.lastEventSeq === events.at(-1)?.seq && raw.lastEventHash === events.at(-1)?.hash) return raw;
+        && raw.lastEventSeq === events.at(-1)?.seq && raw.lastEventHash === events.at(-1)?.hash) return { ...raw, productionRuns: raw.productionRuns ?? {} };
     } catch { /* rebuild below */ }
     const rebuilt = this.rebuild(id);
     atomicWrite(this.snapshotFile(id), rebuilt);
@@ -845,6 +871,50 @@ export class ProductionStore {
       });
     }
     return active.sort((a, b) => a.timelineStartFrame - b.timelineStartFrame || a.id.localeCompare(b.id));
+  }
+
+  createProductionRun(productionId: string, input: CreateProductionRunInput, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    if (!input.title?.trim()) throw new ProductionError("INVALID_PRODUCTION_RUN", "A production run needs a title");
+    if (!input.scenePlan?.length) throw new ProductionError("INVALID_PRODUCTION_RUN", "A production run needs at least one planned scene");
+    const budget: ProductionRunBudget = {
+      maxRendersPerScene: 1, maxTotalRenders: input.scenePlan.length, maxPromptEnhancements: input.scenePlan.length,
+      maxObservationJobs: input.scenePlan.length, maxComparisonCalls: input.scenePlan.length, maxSeniorReviewBatches: 0,
+      wallClockMinutes: 120, rendersUsed: 0, promptEnhancementsUsed: 0, observationJobsUsed: 0,
+      comparisonCallsUsed: 0, seniorReviewBatchesUsed: 0, ...input.budget,
+    };
+    const run: ProductionRun = {
+      id: input.id ?? `run-${randomUUID()}`, productionId,
+      ...(input.seasonId ? { seasonId: input.seasonId } : {}), ...(input.episodeId ? { episodeId: input.episodeId } : {}),
+      title: input.title.trim(), brief: String(input.brief ?? "").trim(), profile: input.profile,
+      status: "prepared", stage: "plan", scenePlan: input.scenePlan.map((scene) => ({ ...scene, observationIds: [...scene.observationIds], continuityReviewIds: [...scene.continuityReviewIds], jobIds: [...scene.jobIds], errors: [...scene.errors] })),
+      selectedApplications: [...new Set(input.selectedApplications ?? input.scenePlan.map((scene) => scene.selectedApp))],
+      referenceAssets: [...new Set(input.referenceAssets ?? input.scenePlan.flatMap((scene) => scene.referenceAssetIds))],
+      renderConfig: input.renderConfig ?? {}, budget, jobs: [], provisionalFacts: [], decisions: [], errors: [],
+      currentSceneIndex: 0, revision: 1, createdAt: nowIso(), updatedAt: nowIso(), createdBy: actor.id ?? actor.kind, canonicalRevision: snap.revision,
+    };
+    return this.append(productionId, "production.run.created", { run }, actor, commandKey ?? `production-run:create:${run.id}`);
+  }
+
+  /** Append-only run update. The scope and budget are persisted before an expensive operation starts. */
+  updateProductionRun(productionId: string, runId: string, patch: ProductionRunPatch, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    const current = (snap.productionRuns ?? {})[runId];
+    if (!current) throw new ProductionError("UNKNOWN_PRODUCTION_RUN", `Unknown production run ${runId}`);
+    const run: ProductionRun = {
+      ...current, ...structuredClone(patch), productionId: current.productionId, id: current.id,
+      canonicalRevision: current.canonicalRevision, revision: current.revision + 1, updatedAt: nowIso(),
+    };
+    return this.append(productionId, "production.run.updated", { run }, actor, commandKey ?? `production-run:update:${runId}:${run.revision}`);
+  }
+
+  recordProductionRunDecision(productionId: string, runId: string, decision: Omit<ProductionRunDecision, "id" | "at">, actor: Actor, commandKey?: string): ProductionSnapshot {
+    const snap = this.snapshot(productionId);
+    const current = (snap.productionRuns ?? {})[runId];
+    if (!current) throw new ProductionError("UNKNOWN_PRODUCTION_RUN", `Unknown production run ${runId}`);
+    const record: ProductionRunDecision = { ...decision, id: `decision-${randomUUID()}`, at: nowIso() };
+    const run: ProductionRun = { ...current, decisions: [...current.decisions, record], revision: current.revision + 1, updatedAt: nowIso() };
+    return this.append(productionId, "production.run.decided", { run }, actor, commandKey ?? `production-run:decision:${runId}:${record.id}`);
   }
 
   /** Immutable, append-only continuity review. It never changes canonical memory. */

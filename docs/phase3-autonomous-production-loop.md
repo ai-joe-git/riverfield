@@ -144,3 +144,29 @@ regeneration. It should produce:
 - no canonical change unless a human approves it
 
 No benchmark or additional model inference is launched by this document.
+
+## Implementation status (Phase 3 preparation)
+
+The durable run entity, budget ledger and engine are implemented in:
+
+```text
+server/production-types.ts       ProductionRun, scene plan, budget, provisional facts
+server/production-store.ts       append-only production.run.* events
+server/production-run.ts         resumable state machine, reservations, reconciliation
+server/production-run-plan.ts    editable brief → scene plan
+web/js/productions.js            Production Run workspace
+mcp/server.ts                    project-scoped run tools
+```
+
+The first SUITE 404 pilot is prepared but not launched:
+
+```text
+run: phase3-suite404-pilot-001
+plan: out/observations/phase3-pilot/pilot-plan.json
+run:  out/observations/phase3-pilot/production-run.json
+doc:  docs/phase3-first-suite404-pilot.md
+```
+
+The engine is tested with mocked adapters and existing observations. Live rendering,
+observation and review adapters remain an explicit service-layer integration step; no
+adapter is invoked by opening Production Studio or by planning a run.

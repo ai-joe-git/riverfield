@@ -452,6 +452,57 @@ export function build(base=BASE): McpServer {
     try { return text(await call("/api/observer-profiles")); } catch (e) { return fail(e); }
   });
 
+  server.registerTool("list_production_runs", {
+    title: "List production runs",
+    description: "List durable production runs with their plan, stage, budget, jobs, candidates, provisional facts and human decisions. Read-only; no inference.",
+    inputSchema: { productionId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("plan_production_run", {
+    title: "Plan a production run",
+    description: "Create an editable scene plan from a natural-language brief using existing production context and trusted assets. Planning creates no scenes, candidates or inference.",
+    inputSchema: { productionId: z.string(), brief: z.string().min(1), sceneCount: z.number().int().min(1).max(8).optional(), profile: z.enum(["build", "production"]).optional(), seasonId: z.string().optional(), episodeId: z.string().optional(), selectedApp: z.string().optional() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/plan`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("create_production_run", {
+    title: "Create a prepared production run",
+    description: "Persist a prepared run from a plan or brief. It does not start rendering or inference. A human must later authorize the run and every human approval boundary.",
+    inputSchema: { productionId: z.string(), title: z.string().min(1), brief: z.string().optional(), runId: z.string().optional(), budget: z.record(z.string(), z.any()).optional(), plan: z.record(z.string(), z.any()).optional(), commandKey: z.string().optional() },
+  }, async ({ productionId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("get_production_run", {
+    title: "Read a production run",
+    description: "Read one durable run: scope, plan, budget ledger, stage, persisted job ids, candidates, observation revisions, reviews, provisional state, decisions and errors.",
+    inputSchema: { productionId: z.string(), runId: z.string() },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, runId }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}`)); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("control_production_run", {
+    title: "Start, pause, resume or cancel a production run",
+    description: "Durable run controls. Starting may invoke the configured adapters and is never automatic from opening the UI. No canonical approval is exposed here.",
+    inputSchema: { productionId: z.string(), runId: z.string(), action: z.enum(["start", "pause", "resume", "cancel"]) },
+  }, async ({ productionId, runId, action }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: "{}" })); } catch (e) { return fail(e); }
+  });
+
+  server.registerTool("decide_production_run_scene", {
+    title: "Record a production run decision",
+    description: "Record explicit human review for a run scene. Approval advances the run plan; it does not canonize a candidate. Rejection/replacement invalidates downstream provisional assumptions without deleting media.",
+    inputSchema: { productionId: z.string(), runId: z.string(), sceneId: z.string(), decision: z.enum(["approved", "rejected", "replace", "reuse"]), note: z.string().optional() },
+  }, async ({ productionId, runId, ...body }) => {
+    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/decide`, { method: "POST", headers: { "content-type": "application/json", "x-riverfield-actor": "agent" }, body: JSON.stringify(body) })); } catch (e) { return fail(e); }
+  });
+
   server.registerTool("list_continuity_reviews", {
     title: "List continuity reviews",
     description: "Immutable, non-canonical continuity reviews for a production, linked to exact observations, scene bindings and candidates. Read-only.",

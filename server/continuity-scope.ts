@@ -174,15 +174,19 @@ function orderedScenes(snapshot: ProductionSnapshot, prepared: ContinuityReview)
     if (!bindings.length) invalid("SENIOR_SCOPE_BINDING_MISSING", `No active binding for ${candidateId} in ${sceneId}`);
     const source = snapshot.observations[observation.observationId];
     if (!source?.report) invalid("SENIOR_SCOPE_OBSERVATION_MISSING", `No structured observation ${observation.observationId}`);
-    if (source.report.reportVersion !== observation.revision || source.report.sourceOutputHash !== observation.sourceHash) invalid("SENIOR_SCOPE_OBSERVATION_MISMATCH", `Observation ${observation.observationId} no longer matches its recorded revision/hash`);
+    const report = source.report;
+    if (report.reportVersion !== observation.revision || report.sourceOutputHash !== observation.sourceHash) invalid("SENIOR_SCOPE_OBSERVATION_MISMATCH", `Observation ${observation.observationId} no longer matches its recorded revision/hash`);
+    if (source.sceneId !== sceneId || report.sceneId !== sceneId) invalid("SENIOR_SCOPE_OBSERVATION_SCENE_MISMATCH", `Observation ${observation.observationId} belongs to a different scene`);
+    if (source.candidateId !== candidateId || report.candidateId !== candidateId) invalid("SENIOR_SCOPE_OBSERVATION_CANDIDATE_MISMATCH", `Observation ${observation.observationId} belongs to a different candidate`);
+    if (!bindings.every((binding) => report.bindingIds.includes(binding.id))) invalid("SENIOR_SCOPE_OBSERVATION_BINDING_MISMATCH", `Observation ${observation.observationId} does not cover the selected active binding range`);
     return {
       sceneId, order: index + 1, alias: `S${String(index + 1).padStart(2, "0")}`, sceneTitle: scene.title,
       candidateId, candidateAlias: `C${String(index + 1).padStart(2, "0")}`,
       bindingIds: bindings.map((binding) => binding.id), bindingAliases: bindings.map((_, bindingIndex) => `AB${index + 1}.${bindingIndex + 1}`),
       observationId: observation.observationId, observationRevision: observation.revision, sourceHash: observation.sourceHash,
-      transcriptText: source.report.dialogue?.rawTranscript ?? source.report.dialogue?.text ?? "",
-      transcriptUtterances: (source.report.dialogue?.utterances ?? []).map((utterance) => ({ text: utterance.text, ...(utterance.startSeconds !== undefined ? { startSeconds: utterance.startSeconds } : {}), ...(utterance.endSeconds !== undefined ? { endSeconds: utterance.endSeconds } : {}), evidenceIds: utterance.evidenceIds })),
-      state: deriveObservedState(observation.observationId, source.report),
+      transcriptText: report.dialogue?.rawTranscript ?? report.dialogue?.text ?? "",
+      transcriptUtterances: (report.dialogue?.utterances ?? []).map((utterance) => ({ text: utterance.text, ...(utterance.startSeconds !== undefined ? { startSeconds: utterance.startSeconds } : {}), ...(utterance.endSeconds !== undefined ? { endSeconds: utterance.endSeconds } : {}), evidenceIds: utterance.evidenceIds })),
+      state: deriveObservedState(observation.observationId, report),
     };
   });
 }
@@ -197,7 +201,7 @@ function validateBaseline(snapshot: ProductionSnapshot, prepared: ContinuityRevi
   const expectedCandidates = unique(scenes.map((scene) => scene.candidateId)).sort();
   if (json([...baseline.candidateIds].sort()) !== json(expectedCandidates)) invalid("SENIOR_BASELINE_CANDIDATE_MISMATCH", "Baseline candidates differ from active candidates");
   const expectedBindings = unique(scenes.flatMap((scene) => scene.bindingIds)).sort();
-  if (baseline.bindingIds.length && json([...baseline.bindingIds].sort()) !== json(expectedBindings)) invalid("SENIOR_BASELINE_BINDING_MISMATCH", "Baseline bindings differ from active bindings");
+  if (json([...baseline.bindingIds].sort()) !== json(expectedBindings)) invalid("SENIOR_BASELINE_BINDING_MISMATCH", "Baseline bindings differ from active bindings; missing binding scope is not accepted");
   const expectedObs = scenes.map((scene) => `${scene.observationId}@${scene.observationRevision}:${scene.sourceHash}`).sort();
   const actualObs = baseline.observations.map((item) => `${item.observationId}@${item.revision}:${item.sourceHash}`).sort();
   if (json(expectedObs) !== json(actualObs)) invalid("SENIOR_BASELINE_OBSERVATION_MISMATCH", "Baseline observation revisions/hashes differ");
@@ -265,10 +269,12 @@ function selectEvidence(snapshot: ProductionSnapshot, batch: ContinuityBatch, sc
       if (ref) candidates.push({ ref, sceneAlias: scene.alias, reason: "observed event", priority: 3 });
     }
   }
+  const selectedObservations = new Set(scenes.map((scene) => scene.observationId));
   const seen = new Set<string>();
   for (const candidate of candidates.sort((a, b) => a.priority - b.priority)) {
     if (batch.images.length >= maxImages) break;
     if (seen.has(candidate.ref)) continue;
+    if (!selectedObservations.has(candidate.ref.split(":")[0])) continue;
     const evidence = evidenceAt(snapshot, candidate.ref);
     if (!evidence) { batch.missingEvidence.push(candidate.ref); continue; }
     if (evidence.kind === "audio" || evidence.kind === "video") continue;

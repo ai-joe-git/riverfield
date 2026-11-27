@@ -44,6 +44,8 @@ export type AssetCorrectionBatchEntry = {
   proposedCategory: string;
   currentAliases: string[];
   proposedAliases: string[];
+  currentPath: string;
+  currentHash?: string;
   currentTags: string[];
   proposedTags: string[];
   supersededTagChange: "none" | "remove" | "add";
@@ -198,6 +200,7 @@ export function buildAssetCorrectionBatch(snapshot: ProductionSnapshot): AssetCo
       assetId: entry.assetId, currentLabel: entry.currentLabel, proposedLabel: entry.proposedLabel,
       currentCategory: entry.currentCategory, proposedCategory: entry.proposedCategory,
       currentAliases: entry.aliases, proposedAliases: entry.proposedAliases,
+      currentPath: entry.path, ...(entry.hash ? { currentHash: entry.hash } : {}),
       currentTags: entry.tags, proposedTags: entry.proposedTags,
       supersededTagChange: entry.supersededTagChange, referenceSuitability: entry.referenceSuitability,
       semanticIdentity: entry.semanticIdentity, observedContent: entry.observedContent, reason: entry.reason,
@@ -242,11 +245,22 @@ export const P6_REFERENCE_WARNING = {
 export type AssetCorrectionDecision = {
   id: string;
   batchId: string;
+  assetId?: string;
   decision: "approved" | "rejected";
   note: string;
   entries: number;
   ambiguous: number;
   createdAt: string;
+  actor: string;
+};
+export type AssetCorrectionApplication = {
+  id: string;
+  batchId: string;
+  assetIds: string[];
+  before: Record<string, { label: string; category: string; tags: string[]; path: string; hash?: string }>;
+  after: Record<string, { label: string; category: string; tags: string[] }>;
+  note: string;
+  appliedAt: string;
   actor: string;
 };
 
@@ -261,16 +275,54 @@ export function readAssetCorrectionDecisions(outDir: string): AssetCorrectionDec
 }
 
 export function recordAssetCorrectionDecision(
-  outDir: string, batch: AssetCorrectionBatch, decision: "approved" | "rejected", actor: string, note = "",
+  outDir: string, batch: AssetCorrectionBatch, decision: "approved" | "rejected", actor: string, note = "", assetId?: string,
 ): AssetCorrectionDecision {
+  if (assetId && !batch.entries.some((entry) => entry.assetId === assetId)) throw new Error("ASSET_CORRECTION_UNKNOWN_ENTRY");
   const file = join(outDir, "observations", "phase2-asset-audit", "asset-correction-decisions.json");
   const history = readAssetCorrectionDecisions(outDir);
   const record: AssetCorrectionDecision = {
-    id: `asset-decision-${Date.now()}-${history.length + 1}`, batchId: batch.id, decision,
+    id: `asset-decision-${Date.now()}-${history.length + 1}`, batchId: batch.id, ...(assetId ? { assetId } : {}), decision,
     note: String(note).trim(), entries: batch.entries.length, ambiguous: batch.ambiguous.length,
     createdAt: new Date().toISOString(), actor: String(actor || "human"),
   };
   mkdirSync(join(outDir, "observations", "phase2-asset-audit"), { recursive: true });
   writeFileSync(file, JSON.stringify([...history, record], null, 2));
   return record;
+}
+
+export function readAssetCorrectionApplications(outDir: string): AssetCorrectionApplication[] {
+  const file = join(outDir, "observations", "phase2-asset-audit", "asset-correction-applications.json");
+  if (!existsSync(file)) return [];
+  try { const value = JSON.parse(readFileSync(file, "utf8")); return Array.isArray(value) ? value : []; } catch { return []; }
+}
+
+/** Explicit per-asset application. Callers must have recorded an approved decision for every id. */
+export function applyAssetCorrections(
+  outDir: string, batch: AssetCorrectionBatch, assetIds: string[], updateAsset: (assetId: string, patch: { label: string; category: string; tags: string[] }) => void, actor: string, note = "",
+): AssetCorrectionApplication {
+  const decisions = readAssetCorrectionDecisions(outDir);
+  const approved = new Set(decisions.filter((decision) => decision.decision === "approved" && decision.assetId).map((decision) => decision.assetId));
+  const selected = [...new Set(assetIds)];
+  if (!selected.length) throw new Error("ASSET_CORRECTION_SELECTION_REQUIRED");
+  for (const id of selected) {
+    if (batch.ambiguous.some((entry) => entry.assetId === id)) throw new Error(`ASSET_CORRECTION_AMBIGUOUS: ${id} remains under review`);
+    if (!batch.entries.some((entry) => entry.assetId === id)) throw new Error(`ASSET_CORRECTION_UNKNOWN_ENTRY: ${id}`);
+    if (!approved.has(id)) throw new Error(`ASSET_CORRECTION_NOT_INDIVIDUALLY_APPROVED: ${id}`);
+  }
+  const before: AssetCorrectionApplication["before"] = {};
+  const after: AssetCorrectionApplication["after"] = {};
+  for (const id of selected) {
+    const entry = batch.entries.find((item) => item.assetId === id)!;
+    before[id] = { label: entry.currentLabel, category: entry.currentCategory, tags: entry.currentTags, path: entry.currentPath, ...(entry.currentHash ? { hash: entry.currentHash } : {}) };
+    after[id] = { label: entry.proposedLabel, category: entry.proposedCategory, tags: entry.proposedTags };
+    updateAsset(id, { label: entry.proposedLabel, category: entry.proposedCategory, tags: entry.proposedTags });
+  }
+  const application: AssetCorrectionApplication = {
+    id: `asset-application-${Date.now()}`, batchId: batch.id, assetIds: selected, before, after,
+    note: String(note).trim(), appliedAt: new Date().toISOString(), actor: String(actor || "human"),
+  };
+  const file = join(outDir, "observations", "phase2-asset-audit", "asset-correction-applications.json");
+  const history = readAssetCorrectionApplications(outDir);
+  writeFileSync(file, JSON.stringify([...history, application], null, 2));
+  return application;
 }

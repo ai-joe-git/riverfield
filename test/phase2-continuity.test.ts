@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { auditAssetCatalogue, buildAssetCorrectionBatch, assertTrustedReferences, readAssetCorrectionDecisions, recordAssetCorrectionDecision, P6_REFERENCE_WARNING } from "../server/asset-audit.ts";
+import { applyAssetCorrections, auditAssetCatalogue, buildAssetCorrectionBatch, assertTrustedReferences, readAssetCorrectionApplications, readAssetCorrectionDecisions, recordAssetCorrectionDecision, P6_REFERENCE_WARNING } from "../server/asset-audit.ts";
 import { classifyContinuityTransition } from "../server/continuity-analysis.ts";
 import { deriveObservedState } from "../server/observed-state.ts";
 import { ProductionStore } from "../server/production-store.ts";
@@ -53,6 +53,26 @@ test("asset correction approval records a decision without rewriting historical 
     assert.equal(decision.ambiguous, 1);
     assert.deepEqual(readAssetCorrectionDecisions(out).map((item) => item.decision), ["approved"]);
     assert.equal(snapshot.assets["suite404-asset-20261124-234855840-40f7-1"].label, "Inflatable_Heart_Prop");
+  } finally { rmSync(out, { recursive: true, force: true }); }
+});
+
+test("asset corrections require individual approval and application remains a separate auditable operation", () => {
+  const out = mkdtempSync(join(tmpdir(), "riverfield-asset-apply-"));
+  try {
+    const batch = buildAssetCorrectionBatch(snapshot);
+    const first = batch.entries[0];
+    assert.throws(() => applyAssetCorrections(out, batch, [first.assetId], () => {}, "test-human"), /NOT_INDIVIDUALLY_APPROVED/);
+    recordAssetCorrectionDecision(out, batch, "approved", "test-human", "batch decision only", undefined);
+    assert.throws(() => applyAssetCorrections(out, batch, [first.assetId], () => {}, "test-human"), /NOT_INDIVIDUALLY_APPROVED/);
+    recordAssetCorrectionDecision(out, batch, "approved", "test-human", "individual", first.assetId);
+    const patches: any[] = [];
+    const application = applyAssetCorrections(out, batch, [first.assetId], (assetId, patch) => patches.push({ assetId, patch }), "test-human", "explicit apply");
+    assert.equal(patches.length, 1);
+    assert.equal(patches[0].assetId, first.assetId);
+    assert.equal(application.before[first.assetId].label, first.currentLabel);
+    assert.equal(application.after[first.assetId].label, first.proposedLabel);
+    assert.equal(readAssetCorrectionApplications(out).length, 1);
+    assert.equal(batch.ambiguous.length, 1);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 

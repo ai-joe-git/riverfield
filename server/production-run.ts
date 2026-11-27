@@ -1,0 +1,252 @@
+// Durable, resumable production orchestration. The engine owns budget reservations,
+// job persistence and state transitions; generation/observation/review work is supplied
+// by adapters so the same loop can use the real Riverfield services or mocks in tests.
+import type { ProductionRun, ProductionRunBudget, ProductionRunScene } from "./production-types.ts";
+import type { ProductionStore } from "./production-store.ts";
+
+export class ProductionRunError extends Error { code: string; constructor(code: string, message: string) { super(message); this.code = code; } }
+export type RunContext = { run: ProductionRun; scene: ProductionRunScene; sceneIndex: number; requestKey: string };
+export type RunHandle<T> = { jobId: string; wait(): Promise<T> };
+export type RenderResult = { candidateId: string; jobId?: string };
+export type ObservationResult = { observationId: string; provisionalText?: string; evidenceReferences?: string[] };
+export type ReviewResult = { reviewId: string; coverageComplete?: boolean };
+export type ValidationResult = { ok: boolean; errors?: string[] };
+export type RunAdapters = {
+  startRender?(context: RunContext): Promise<RunHandle<RenderResult>>;
+  reconcileRender?(jobId: string, context: RunContext): Promise<RenderResult | null>;
+  startObservation?(context: RunContext): Promise<RunHandle<ObservationResult>>;
+  reconcileObservation?(jobId: string, context: RunContext): Promise<ObservationResult | null>;
+  validate?(context: RunContext): Promise<ValidationResult>;
+  startReview?(context: RunContext): Promise<RunHandle<ReviewResult>>;
+  reconcileReview?(jobId: string, context: RunContext): Promise<ReviewResult | null>;
+  cancel?(jobId: string, context: RunContext): Promise<void>;
+};
+
+const now = () => new Date().toISOString();
+const keyFor = (runId: string, sceneId: string, kind: string, revision = 0) => `run:${runId}:${sceneId}:${kind}:${revision}`;
+const clone = <T>(value: T): T => structuredClone(value);
+const unique = <T>(values: T[]) => [...new Set(values)];
+
+export class ProductionRunEngine {
+  private readonly store: ProductionStore;
+  private readonly adapters: RunAdapters;
+  private readonly actor = { kind: "agent" as const, id: "production-run-engine" };
+
+  constructor(store: ProductionStore, adapters: RunAdapters = {}) { this.store = store; this.adapters = adapters; }
+
+  private snapshot(productionId: string) { return this.store.snapshot(productionId); }
+  private run(productionId: string, runId: string): ProductionRun {
+    const run = (this.snapshot(productionId).productionRuns ?? {})[runId];
+    if (!run) throw new ProductionRunError("UNKNOWN_PRODUCTION_RUN", `Unknown production run ${runId}`);
+    return run;
+  }
+  private update(productionId: string, run: ProductionRun, patch: Partial<ProductionRun>, key: string): ProductionRun {
+    const next = { ...run, ...patch, revision: run.revision + 1, updatedAt: now() };
+    this.store.updateProductionRun(productionId, run.id, patch, this.actor, key);
+    return { ...next, productionId: run.productionId, id: run.id };
+  }
+
+  /** Hard reservation before an expensive call. The updated journal is durable first. */
+  private reserve(run: ProductionRun, kind: "render" | "observation" | "comparison" | "senior_review", scene: ProductionRunScene): ProductionRun {
+    const budget = clone(run.budget);
+    const nowMs = Date.now();
+    const started = budget.startedAt ? Date.parse(budget.startedAt) : nowMs;
+    if (nowMs - started > budget.wallClockMinutes * 60_000) throw new ProductionRunError("RUN_WALL_CLOCK_EXHAUSTED", "Production run wall-clock budget exhausted");
+    if (kind === "render") {
+      if (budget.rendersUsed >= budget.maxTotalRenders) throw new ProductionRunError("RUN_BUDGET_RENDER_TOTAL", "Total render budget exhausted");
+      if (scene.attempts >= budget.maxRendersPerScene) throw new ProductionRunError("RUN_BUDGET_RENDER_SCENE", `Render budget exhausted for ${scene.sceneId}`);
+      budget.rendersUsed += 1;
+      scene.attempts += 1;
+      if (scene.renderConfig.prompt_enhancer !== false) {
+        if (budget.promptEnhancementsUsed >= budget.maxPromptEnhancements) throw new ProductionRunError("RUN_BUDGET_PROMPT_ENHANCER", "Prompt enhancement budget exhausted");
+        budget.promptEnhancementsUsed += 1;
+      }
+    } else if (kind === "observation") {
+      if (budget.observationJobsUsed >= budget.maxObservationJobs) throw new ProductionRunError("RUN_BUDGET_OBSERVATION", "Observation job budget exhausted");
+      budget.observationJobsUsed += 1;
+    } else if (kind === "comparison") {
+      if (budget.comparisonCallsUsed >= budget.maxComparisonCalls) throw new ProductionRunError("RUN_BUDGET_COMPARISON", "Comparison budget exhausted");
+      budget.comparisonCallsUsed += 1;
+    } else {
+      if (budget.seniorReviewBatchesUsed >= budget.maxSeniorReviewBatches) throw new ProductionRunError("RUN_BUDGET_SENIOR", "Senior review batch budget exhausted");
+      budget.seniorReviewBatchesUsed += 1;
+    }
+    const reserved = { sceneId: scene.sceneId, kind, jobId: "", requestKey: keyFor(run.id, scene.sceneId, kind, scene.attempts), status: "reserved" as const, reservedAt: now() };
+    return this.update(run.productionId, run, { budget, jobs: [...run.jobs, reserved], scenePlan: run.scenePlan.map((item) => item.sceneId === scene.sceneId ? scene : item) }, `run:${run.id}:reserve:${kind}:${scene.sceneId}:${scene.attempts}`);
+  }
+  private markJob(run: ProductionRun, sceneId: string, kind: string, status: ProductionRun["jobs"][number]["status"], jobId: string): ProductionRun {
+    return this.update(run.productionId, run, { jobs: run.jobs.map((job) => job.sceneId === sceneId && job.kind === kind && job.requestKey === keyFor(run.id, sceneId, kind, job.requestKey.split(":").at(-1) ? Number(job.requestKey.split(":").at(-1)) : 0) ? { ...job, status, jobId } : job) }, `run:${run.id}:job:${kind}:${sceneId}:${status}:${jobId}`);
+  }
+  private findPending(run: ProductionRun, sceneId: string, kind: string) { return [...run.jobs].reverse().find((job) => job.sceneId === sceneId && job.kind === kind && (job.status === "reserved" || job.status === "submitted")); }
+  private markScene(run: ProductionRun, index: number, patch: Partial<ProductionRunScene>): ProductionRun {
+    const plan = run.scenePlan.map((scene, i) => i === index ? { ...scene, ...patch } : scene);
+    return this.update(run.productionId, run, { scenePlan: plan }, `run:${run.id}:scene:${index}:${patch.status ?? "update"}`);
+  }
+
+  async start(productionId: string, runId: string): Promise<ProductionRun> {
+    let run = this.run(productionId, runId);
+    if (["canceled", "completed"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
+    if (run.status === "prepared") run = this.update(productionId, run, { status: "running", stage: "render", budget: { ...run.budget, startedAt: run.budget.startedAt ?? now() } }, `run:${run.id}:start`);
+    return this.advance(productionId, run.id);
+  }
+  async resume(productionId: string, runId: string): Promise<ProductionRun> {
+    let run = this.run(productionId, runId);
+    if (run.status === "awaiting_human") throw new ProductionRunError("RUN_AWAITING_HUMAN", "A human decision is required before resuming");
+    if (!["paused", "running", "prepared"].includes(run.status)) throw new ProductionRunError("RUN_NOT_RESUMABLE", `Run ${runId} is ${run.status}`);
+    if (run.status !== "running") run = this.update(productionId, run, { status: "running" }, `run:${run.id}:resume`);
+    return this.advance(productionId, run.id);
+  }
+  async pause(productionId: string, runId: string): Promise<ProductionRun> {
+    const run = this.run(productionId, runId);
+    if (["completed", "canceled"].includes(run.status)) throw new ProductionRunError("RUN_NOT_PAUSABLE", `Run ${runId} is ${run.status}`);
+    return this.update(productionId, run, { status: "paused" }, `run:${run.id}:pause`);
+  }
+  async cancel(productionId: string, runId: string): Promise<ProductionRun> {
+    const run = this.run(productionId, runId);
+    for (const job of run.jobs.filter((item) => ["reserved", "submitted"].includes(item.status) && item.jobId)) {
+      await this.adapters.cancel?.(job.jobId, { run, scene: run.scenePlan.find((scene) => scene.sceneId === job.sceneId)!, sceneIndex: run.currentSceneIndex, requestKey: job.requestKey });
+    }
+    return this.update(productionId, run, { status: "canceled", stage: "awaiting_human" }, `run:${run.id}:cancel`);
+  }
+  async decide(productionId: string, runId: string, sceneId: string, decision: "approved" | "rejected" | "replace" | "reuse", note = ""): Promise<ProductionRun> {
+    let run = this.run(productionId, runId);
+    const index = run.scenePlan.findIndex((scene) => scene.sceneId === sceneId);
+    if (index < 0) throw new ProductionRunError("UNKNOWN_RUN_SCENE", `Unknown scene ${sceneId}`);
+    const current = run.scenePlan[index];
+    if (decision === "approved") run = this.markScene(run, index, { status: "approved" });
+    else if (decision === "reuse") run = this.markScene(run, index, { status: "approved" });
+    else if (decision === "rejected") run = this.markScene(run, index, { status: "rejected" });
+    else run = this.markScene(run, index, { status: "planned", attempts: current.attempts + 1 });
+    run = { ...run, decisions: [...run.decisions, { id: `decision-${Date.now()}`, sceneId, decision, note, actor: "human", at: now() }] };
+    this.store.recordProductionRunDecision(productionId, runId, { sceneId, decision, note, actor: "human" }, this.actor, `run:${runId}:decision:${sceneId}:${decision}`);
+    run = this.run(productionId, runId);
+    if (decision === "approved" || decision === "reuse") {
+      run = this.update(productionId, run, { currentSceneIndex: index + 1, status: index + 1 >= run.scenePlan.length ? "completed" : "running", stage: index + 1 >= run.scenePlan.length ? "completed" : "next_scene" }, `run:${run.id}:approve:${sceneId}`);
+      return run;
+    }
+    // Rejection/replacement invalidates downstream provisional assumptions, never media.
+    const invalidated = new Set(run.scenePlan.slice(index + 1).map((scene) => scene.sceneId));
+    const invalidatedFacts = new Set(run.scenePlan.slice(index).map((scene) => scene.sceneId));
+    run = this.update(productionId, run, {
+      status: "paused", stage: "awaiting_human",
+      scenePlan: run.scenePlan.map((scene, i) => i > index && invalidated.has(scene.sceneId) ? { ...scene, status: "stale" } : scene),
+      provisionalFacts: run.provisionalFacts.map((fact) => invalidatedFacts.has(fact.sceneId) ? { ...fact, status: "invalidated" } : fact),
+      errors: [...run.errors, ...(invalidated.size ? [`Invalidated provisional assumptions in: ${[...invalidated].join(", ")}`] : [])],
+    }, `run:${run.id}:invalidate:${sceneId}`);
+    return run;
+  }
+
+  async advance(productionId: string, runId: string): Promise<ProductionRun> {
+    let run = this.run(productionId, runId);
+    if (run.status !== "running") return run;
+    for (let guard = 0; guard < 64; guard += 1) {
+      const index = run.currentSceneIndex;
+      const scene = run.scenePlan[index];
+      if (!scene) {
+        run = this.update(productionId, run, { status: "completed", stage: "completed" }, `run:${run.id}:complete`);
+        return run;
+      }
+      if (scene.status === "approved" || scene.status === "skipped") {
+        run = this.update(productionId, run, { currentSceneIndex: index + 1, stage: "next_scene" }, `run:${run.id}:next:${index}`);
+        continue;
+      }
+      if (scene.status === "awaiting_human") return run;
+      let reservedNow = false;
+      if (scene.status === "planned") {
+        const reused = scene.reuseCandidateId && this.snapshot(productionId).candidates[scene.reuseCandidateId];
+        if (reused) {
+          run = this.markScene(run, index, { status: scene.observationIds.length ? "observed" : "candidate_registered", candidateId: reused.id });
+          continue;
+        }
+        const pending = this.findPending(run, scene.sceneId, "render");
+        if (pending?.jobId) {
+          if (!this.adapters.reconcileRender) return this.fail(productionId, run, new ProductionRunError("RUN_RECONCILE_UNAVAILABLE", "A pending render exists but no reconciliation adapter is configured"));
+          const result = await this.adapters.reconcileRender(pending.jobId, { run, scene, sceneIndex: index, requestKey: pending.requestKey });
+          if (!result) return this.fail(productionId, run, new ProductionRunError("RUN_JOB_NOT_FOUND", `Render job ${pending.jobId} cannot be reconciled; refusing duplicate submission`));
+          run = this.markJob(run, scene.sceneId, "render", "succeeded", pending.jobId);
+          run = this.markScene(run, index, { status: "candidate_registered", candidateId: result.candidateId });
+          continue;
+        }
+        if (pending && !pending.jobId) return this.fail(productionId, run, new ProductionRunError("RUN_RESERVED_WITHOUT_JOB", "A render reservation has no durable job id; refusing to submit a duplicate"));
+        try { run = this.reserve(run, "render", scene); reservedNow = true; } catch (error) { return this.fail(productionId, run, error as Error); }
+      }
+      if (scene.status === "rendering" || scene.status === "planned") {
+        const pending = this.findPending(run, scene.sceneId, "render");
+        if (pending?.jobId) {
+          if (!this.adapters.reconcileRender) return this.fail(productionId, run, new ProductionRunError("RUN_RECONCILE_UNAVAILABLE", "A pending render exists but no reconciliation adapter is configured"));
+          const result = await this.adapters.reconcileRender(pending.jobId, { run, scene, sceneIndex: index, requestKey: pending.requestKey });
+          if (!result) return this.fail(productionId, run, new ProductionRunError("RUN_JOB_NOT_FOUND", `Render job ${pending.jobId} cannot be reconciled; refusing duplicate submission`));
+          run = this.markJob(run, scene.sceneId, "render", "succeeded", pending.jobId);
+          run = this.markScene(run, index, { status: "candidate_registered", candidateId: result.candidateId });
+          continue;
+        }
+        if (pending && !pending.jobId && !reservedNow) return this.fail(productionId, run, new ProductionRunError("RUN_RESERVED_WITHOUT_JOB", "A render reservation has no durable job id; refusing to submit a duplicate"));
+        if (!this.adapters.startRender) return this.fail(productionId, run, new ProductionRunError("RUN_RENDER_ADAPTER_MISSING", "No render adapter configured"));
+        let handle; try { handle = await this.adapters.startRender({ run, scene: { ...scene, status: "rendering" }, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "render", scene.attempts) }); } catch (error) { return this.fail(productionId, run, error as Error); }
+        run = this.markJob(run, scene.sceneId, "render", "submitted", handle.jobId);
+        run = this.markScene(run, index, { status: "rendering", jobIds: unique([...scene.jobIds, handle.jobId]) });
+        let result: RenderResult; try { result = await handle.wait(); } catch (error) { return this.fail(productionId, run, error as Error); }
+        run = this.markJob(run, scene.sceneId, "render", "succeeded", handle.jobId);
+        run = this.markScene(run, index, { status: "candidate_registered", candidateId: result.candidateId });
+        continue;
+      }
+      if (scene.status === "candidate_registered") {
+        if (!scene.observationIds.length) {
+          const pending = this.findPending(run, scene.sceneId, "observation");
+          if (pending?.jobId) {
+            if (!this.adapters.reconcileObservation) return this.fail(productionId, run, new ProductionRunError("RUN_RECONCILE_UNAVAILABLE", "A pending observation exists but no reconciliation adapter is configured"));
+            const result = await this.adapters.reconcileObservation(pending.jobId, { run, scene, sceneIndex: index, requestKey: pending.requestKey });
+            if (!result) return this.fail(productionId, run, new ProductionRunError("RUN_JOB_NOT_FOUND", `Observation job ${pending.jobId} cannot be reconciled; refusing duplicate submission`));
+            run = this.markJob(run, scene.sceneId, "observation", "succeeded", pending.jobId);
+            run = this.markScene(run, index, { status: "observed", observationIds: [result.observationId] });
+            run = this.addProvisional(run, scene.sceneId, result);
+            continue;
+          }
+          if (pending && !pending.jobId) return this.fail(productionId, run, new ProductionRunError("RUN_RESERVED_WITHOUT_JOB", "An observation reservation has no durable job id; refusing to submit a duplicate"));
+          try { run = this.reserve(run, "observation", scene); } catch (error) { return this.fail(productionId, run, error as Error); }
+          if (!this.adapters.startObservation) return this.fail(productionId, run, new ProductionRunError("RUN_OBSERVATION_ADAPTER_MISSING", "No observation adapter configured"));
+          const handle = await this.adapters.startObservation({ run, scene, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "observation", scene.attempts) });
+          run = this.markJob(run, scene.sceneId, "observation", "submitted", handle.jobId);
+          run = this.markScene(run, index, { jobIds: unique([...scene.jobIds, handle.jobId]) });
+          const result = await handle.wait();
+          run = this.markJob(run, scene.sceneId, "observation", "succeeded", handle.jobId);
+          run = this.markScene(run, index, { status: "observed", observationIds: [result.observationId] });
+          run = this.addProvisional(run, scene.sceneId, result);
+          continue;
+        }
+        run = this.markScene(run, index, { status: "observed" });
+        continue;
+      }
+      if (scene.status === "observed") {
+        const validation = this.adapters.validate ? await this.adapters.validate({ run, scene, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "validation") }) : { ok: true };
+        if (!validation.ok) return this.fail(productionId, run, new ProductionRunError("RUN_DETERMINISTIC_VALIDATION_FAILED", (validation.errors ?? []).join("; ") || "Deterministic validation failed"));
+        run = this.markScene(run, index, { status: "validated" });
+        continue;
+      }
+      if (scene.status === "validated") {
+        if (run.budget.seniorReviewBatchesUsed < run.budget.maxSeniorReviewBatches && this.adapters.startReview) {
+          try { run = this.reserve(run, "senior_review", scene); } catch (error) { return this.fail(productionId, run, error as Error); }
+          const handle = await this.adapters.startReview({ run, scene, sceneIndex: index, requestKey: keyFor(run.id, scene.sceneId, "review", scene.attempts) });
+          run = this.markJob(run, scene.sceneId, "senior_review", "submitted", handle.jobId);
+          const result = await handle.wait();
+          run = this.markJob(run, scene.sceneId, "senior_review", "succeeded", handle.jobId);
+          run = this.markScene(run, index, { status: "awaiting_human", continuityReviewIds: unique([...scene.continuityReviewIds, result.reviewId]), ...(result.coverageComplete === false ? { errors: [...scene.errors, "Senior review coverage is incomplete; no automatic acceptance."] } : {}) });
+        } else {
+          run = this.markScene(run, index, { status: "awaiting_human" });
+        }
+        run = this.update(productionId, run, { status: "awaiting_human", stage: "awaiting_human" }, `run:${run.id}:awaiting:${scene.sceneId}`);
+        return run;
+      }
+      return run;
+    }
+    return this.fail(productionId, run, new ProductionRunError("RUN_LOOP_LIMIT", "Production run exceeded its transition guard"));
+  }
+  private addProvisional(run: ProductionRun, sceneId: string, result: ObservationResult): ProductionRun {
+    const scene = run.scenePlan.find((item) => item.sceneId === sceneId);
+    if (!scene) return run;
+    return this.update(run.productionId, run, { provisionalFacts: [...run.provisionalFacts, { id: `provisional-${sceneId}-${result.observationId}`, sceneId, text: scene.intendedEvents.join("; ") || scene.objective, sourceObservationId: result.observationId, evidenceReferences: result.evidenceReferences ?? [], revision: 1, status: "provisional" }] }, `run:${run.id}:provisional:${sceneId}`);
+  }
+  private fail(productionId: string, run: ProductionRun, error: Error): ProductionRun {
+    return this.update(productionId, run, { status: "paused", stage: "awaiting_human", errors: [...run.errors, error.message] }, `run:${run.id}:fail:${Date.now()}`);
+  }
+}

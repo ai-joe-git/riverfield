@@ -983,7 +983,7 @@ export function productionView(productionId) {
     const cover = coverFor(snap);
     const progress = snap.scenes.length ? Math.round((Object.values(snap.sceneDecisions).filter((decision) => decision.status === "canon").length / snap.scenes.length) * 100) : 0;
     const tabs = el("div", { class: "prod-tabs", role: "tablist" },
-      ...[["episodes", "Episodes"], ["bible", "Production Bible"], ["assets", "Assets"], ["continuity", "Continuity"], ["history", "Canon history"]].map(([id, label]) =>
+      ...[["episodes", "Episodes"], ["bible", "Production Bible"], ["assets", "Assets"], ["runs", "Production Run"], ["continuity", "Continuity"], ["history", "Canon history"]].map(([id, label]) =>
         el("button", { type: "button", role: "tab", "aria-selected": String(state.tab === id), onclick: () => { state.tab = id; if (id === "history") void loadHistory(); paint(); } }, label)));
     const head = el("div", { class: "prod-hero" },
       coverNode(cover, snap.production.title),
@@ -1000,7 +1000,7 @@ export function productionView(productionId) {
         el("div", { class: "prod-progress wide" }, el("i", { style: { width: `${progress}%` } }), el("span", {}, `${progress}% canonical`))));
     body.replaceChildren(head, el("div", { class: "prod-studio-bar" }, tabs,
       el("div", { class: "row" }, el("button", { class: "btn small ghost", type: "button", onclick: reload }, icon("redo"), "Refresh"))),
-      state.tab === "episodes" ? episodesPanel(snap) : state.tab === "bible" ? biblePanel(snap) : state.tab === "assets" ? assetsPanel(snap) : state.tab === "continuity" ? continuityPanel(snap) : historyPanel(snap));
+      state.tab === "episodes" ? episodesPanel(snap) : state.tab === "bible" ? biblePanel(snap) : state.tab === "assets" ? assetsPanel(snap) : state.tab === "runs" ? runsPanel(snap) : state.tab === "continuity" ? continuityPanel(snap) : historyPanel(snap));
   };
   const loadHistory = async () => {
     try {
@@ -1279,6 +1279,64 @@ export function productionView(productionId) {
       fact.provenance?.sourceEventId ? el("small", { class: "dim" }, `evidence event ${fact.provenance.sourceEventId}`) : null);
   }
 
+  function runsPanel(snap) {
+    const runs = Object.values(snap.productionRuns || {}).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const panel = el("div", { class: "prod-section" },
+      el("div", { class: "prod-toolbar" }, el("div", {}, el("h2", {}, "Production Run"), el("p", { class: "help" }, "Durable, resumable orchestration. Opening this tab starts no inference; each control is explicit.")),
+        el("button", { class: "btn small ghost", type: "button", onclick: () => openRunPlanner(snap, reload) }, icon("plus"), "Plan run")),
+      runs.length ? el("div", { class: "prod-analysis-list" }, ...runs.map((run) => runCard(run, snap))) : el("div", { class: "prod-empty" }, icon("film"), el("h3", {}, "No production runs"), el("p", {}, "Prepare an editable brief or load the prepared pilot.")));
+    return panel;
+  }
+
+  function runCard(run, snap) {
+    const current = run.scenePlan[run.currentSceneIndex];
+    const control = (action, label, disabled = false) => {
+      const button = el("button", { class: "btn small ghost", type: "button", disabled }, icon(action === "cancel" ? "x" : "film"), label);
+      button.onclick = async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(run.id)}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }); toast(`Run ${action}.`); reload(); } catch (error) { toast(error.message, { error: true }); } };
+      return button;
+    };
+    const decide = (decision) => {
+      if (!current) return null;
+      const button = el("button", { class: `btn small ${decision === "approved" ? "lime" : "ghost"}`, type: "button" }, icon(decision === "approved" ? "check" : "x"), decision === "approved" ? "Approve scene" : "Reject scene");
+      button.onclick = async () => { try { await api(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(run.id)}/decide`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sceneId: current.sceneId, decision, note: "Production Studio human decision" }) }); toast(`Scene ${decision}.`); reload(); } catch (error) { toast(error.message, { error: true }); } };
+      return button;
+    };
+    return el("details", { class: "prod-details", open: true },
+      el("summary", {}, `${run.title} · ${run.status} · ${run.stage} · ${run.profile}`),
+      el("p", { class: "help" }, run.brief),
+      el("div", { class: "row" }, el("span", { class: "tag dark" }, `run revision ${run.revision}`), el("span", { class: "tag dark" }, `canonical ${snap.revision}`),
+        el("span", { class: "tag dark" }, `renders ${run.budget.rendersUsed}/${run.budget.maxTotalRenders}`), el("span", { class: "tag dark" }, `obs ${run.budget.observationJobsUsed}/${run.budget.maxObservationJobs}`), el("span", { class: "tag dark" }, `senior ${run.budget.seniorReviewBatchesUsed}/${run.budget.maxSeniorReviewBatches}`)),
+      el("div", { class: "prod-analysis-list" }, ...run.scenePlan.map((scene, index) => el("div", { class: "prod-analysis-finding" },
+        el("b", {}, `${index + 1}. ${scene.title} · ${scene.status}`),
+        el("p", {}, scene.objective),
+        el("small", { class: "dim" }, `${scene.selectedApp} · ${scene.profile} · ${scene.targetDurationSeconds}s · ${scene.intendedTransition}`),
+        scene.candidateId ? el("small", { class: "dim" }, `Candidate ${scene.candidateId}`) : null,
+        scene.observationIds.length ? el("small", { class: "dim" }, `Observations ${scene.observationIds.join(", ")}`) : null,
+        scene.errors.length ? el("small", { class: "dim" }, scene.errors.join(" · ")) : null))),
+      run.provisionalFacts.length ? el("div", {}, el("h3", {}, "Provisional timeline"), ...run.provisionalFacts.map((fact) => el("p", { class: "help" }, `${fact.sceneId}: ${fact.text} · ${fact.status} · ${fact.sourceObservationId}`))) : null,
+      run.decisions.length ? el("div", {}, el("h3", {}, "Human decisions"), ...run.decisions.map((d) => el("p", { class: "help" }, `${d.sceneId}: ${d.decision} · ${d.actor} · ${dateLabel(d.at)}`))) : null,
+      el("div", { class: "row" }, control("start", "Start", run.status !== "prepared"), control("pause", "Pause", !["running", "prepared"].includes(run.status)), control("resume", "Resume", !["paused"].includes(run.status)), control("cancel", "Cancel", ["completed", "canceled"].includes(run.status)),
+        run.status === "awaiting_human" ? decide("approved") : null, run.status === "awaiting_human" ? decide("rejected") : null));
+  }
+
+  function openRunPlanner(snap, onDone) {
+    const dialog = modal("Plan a production run", "Editable scene plan from a natural-language brief. No scene generation or inference starts here.");
+    const title = field("Run title", "New production run");
+    const brief = field("Creative brief", "", "textarea");
+    const count = field("Scenes", "2", "number");
+    const profile = el("select", { "aria-label": "Run profile" }, el("option", { value: "build" }, "Build — 0.1 MP, no upscale, Fast Review"), el("option", { value: "production" }, "Production — 0.3 MP, RelayVSR x2, Detailed Review"));
+    const planButton = el("button", { class: "btn lime", type: "button" }, icon("spark"), "Prepare run");
+    planButton.onclick = async () => {
+      try {
+        const result = await api(`/api/productions/${encodeURIComponent(productionId)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: title.input.value.trim() || "Production run", brief: brief.input.value.trim(), sceneCount: Number(count.input.value) || 2, profile: profile.value }) });
+        dialog.close(); toast(`Prepared run ${result.run.id}`); onDone?.();
+      } catch (error) { toast(error.message, { error: true }); }
+    };
+    dialog.append(el("div", { class: "ag-dialog-form" }, title.node, brief.node, count.node, el("label", { class: "ag-field" }, el("span", {}, "Profile"), profile), el("p", { class: "help" }, "The existing Director prompt enhancer writes detailed model prompts. Canonical approval remains a separate human CLI boundary.")),
+      el("div", { class: "ag-dialog-actions" }, el("button", { class: "btn ghost", type: "button", onclick: () => dialog.close() }, "Cancel"), planButton));
+    dialog.showModal();
+  }
+
   function assetsPanel(snap) {
     const all = Object.values(snap.assets)
       .filter((asset) => !state.assetQuery || `${asset.label} ${(asset.tags || []).join(" ")} ${asset.sourceRunId || ""} ${asset.category || ""}`.toLowerCase().includes(state.assetQuery.toLowerCase()))
@@ -1316,17 +1374,29 @@ export function productionView(productionId) {
       if (!batch?.entries?.length) return;
       const last = [...(history.decisions || [])].reverse().find((item) => item.batchId === batch.id);
       const status = el("span", { class: "tag dark" }, last ? `human ${last.decision} · ${last.createdAt}` : "prepared · not applied");
-      const rows = batch.entries.map((entry) => el("article", { class: "prod-analysis-finding" },
-        el("div", { class: "row" },
-          el("img", { src: assetUrl(productionId, entry.assetId), alt: entry.currentLabel, style: { width: "120px", height: "72px", objectFit: "cover", borderRadius: "6px" } }),
-          el("div", {}, el("b", {}, `${entry.currentLabel} → ${entry.proposedLabel}`),
-            el("p", {}, `Category: ${entry.currentCategory} → ${entry.proposedCategory} · Reference: ${entry.referenceSuitability}`),
-            el("small", { class: "dim" }, `Aliases: ${entry.proposedAliases.join(", ") || "none"} · tags: ${entry.proposedTags.join(", ")}`),
-            el("p", {}, entry.reason)))));
+      const rows = batch.entries.map((entry) => {
+        const approved = (history.decisions || []).some((item) => item.assetId === entry.assetId && item.decision === "approved");
+        const approveEntry = el("button", { class: `btn small ${approved ? "lime" : "ghost"}`, type: "button" }, icon(approved ? "check" : "plus"), approved ? "Individually approved" : "Approve this correction");
+        approveEntry.onclick = async () => {
+          try {
+            await api("/api/asset-corrections/decisions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ batchId: batch.id, assetId: entry.assetId, decision: "approved", note: "Production Studio per-asset review" }) });
+            toast("Individual correction approved. Application is separate."); await assetCorrectionBatchPanel(productionId, host);
+          } catch (error) { toast(error.message, { error: true }); }
+        };
+        return el("article", { class: "prod-analysis-finding" },
+          el("div", { class: "row" },
+            el("img", { src: assetUrl(productionId, entry.assetId), alt: entry.currentLabel, style: { width: "120px", height: "72px", objectFit: "cover", borderRadius: "6px" } }),
+            el("div", {}, el("b", {}, `${entry.currentLabel} → ${entry.proposedLabel}`),
+              el("p", {}, `Category: ${entry.currentCategory} → ${entry.proposedCategory} · Reference: ${entry.referenceSuitability}`),
+              el("small", { class: "dim" }, `Aliases: ${entry.proposedAliases.join(", ") || "none"} · tags: ${entry.proposedTags.join(", ")}`),
+              el("p", {}, entry.reason), approveEntry)));
+      });
       const ambiguous = (batch.ambiguous || []).map((entry) => el("div", { class: "prod-analysis-finding" },
         el("b", {}, `${entry.currentLabel} → ${entry.proposedLabel}`), el("p", {}, entry.reason), el("small", { class: "dim" }, "Kept under review; never selected as a trusted reference.")));
-      const approve = el("button", { class: "btn small lime", type: "button" }, icon("check"), "Approve for later application");
+      const approve = el("button", { class: "btn small lime", type: "button" }, icon("check"), "Approve batch review");
       const reject = el("button", { class: "btn small ghost danger", type: "button" }, icon("x"), "Reject batch");
+      const approvedIds = (history.decisions || []).filter((item) => item.decision === "approved" && item.assetId).map((item) => item.assetId);
+      const apply = el("button", { class: "btn small ghost", type: "button", disabled: !approvedIds.length }, icon("sliders"), `Apply ${approvedIds.length} individually approved`);
       const decide = async (decision) => {
         try {
           await api("/api/asset-corrections/decisions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ batchId: batch.id, decision, note: "Production Studio human review" }) });
@@ -1336,11 +1406,17 @@ export function productionView(productionId) {
       };
       approve.onclick = () => void decide("approved");
       reject.onclick = () => void decide("rejected");
+      apply.onclick = async () => {
+        try {
+          await api("/api/asset-corrections/apply", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ batchId: batch.id, assetIds: approvedIds, confirm: true, note: "Production Studio explicit application" }) });
+          toast("Approved corrections applied; historical events and media hashes preserved."); await assetCorrectionBatchPanel(productionId, host);
+        } catch (error) { toast(error.message, { error: true }); }
+      };
       host.replaceChildren(el("section", { class: "prod-section" },
         el("div", { class: "prod-section-head" }, el("h2", {}, "Catalogue correction batch"), status),
         el("p", { class: "help" }, "Prepared from actual images. Approval records the decision only; original media and historical observations are never rewritten, and the batch is not applied automatically."),
         ...rows, ambiguous.length ? el("h3", {}, "Ambiguous hallway asset") : null, ...ambiguous,
-        el("div", { class: "row" }, approve, reject)));
+        el("div", { class: "row" }, approve, reject, apply)));
     } catch (error) { /* assets remain usable; batch review is optional */ }
   }
 

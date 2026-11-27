@@ -49,7 +49,9 @@ function fixture(sceneCount = 2, episodeId = "synth-ep-01") {
   const observations: Record<string, any> = {};
   for (const [index, sceneId] of scenes.entries()) {
     const observationId = `synthetic-observation-${index + 1}`;
-    observations[observationId] = { id: observationId, productionId: "synthetic-prod", sceneId, candidateId, kind: "analysis", revision: 1, text: "synthetic", report: report(sceneId, candidateId, episodeId, `opening ${sceneId}`, `closing ${sceneId}`), createdAt: "2026-01-01T00:00:00.000Z", createdBy: "test", source: "agent" };
+    const observationReport = report(sceneId, candidateId, episodeId, `opening ${sceneId}`, `closing ${sceneId}`);
+    observationReport.bindingIds = [bindings[index].id];
+    observations[observationId] = { id: observationId, productionId: "synthetic-prod", sceneId, candidateId, kind: "analysis", revision: 1, text: "synthetic", report: observationReport, createdAt: "2026-01-01T00:00:00.000Z", createdBy: "test", source: "agent" };
   }
   const obs = scenes.map((sceneId, index) => ({ observationId: `synthetic-observation-${index + 1}`, sceneId, revision: 1, sourceHash: `hash-${sceneId}` }));
   const baselineFindings = [{ id: "baseline-synthetic-001", summary: "The lamp remains present.", from: scenes[0], to: scenes[1], closingEvidence: [`synthetic-observation-1:ev-close`], openingEvidence: [`synthetic-observation-2:ev-open`] }];
@@ -99,6 +101,22 @@ test("missing observations are rejected before any inference planning", () => {
   const { snapshot } = fixture(2);
   delete snapshot.observations["synthetic-observation-2"];
   assert.throws(() => buildContinuityPlan(snapshot, { preparedReviewId: "synthetic-prepared", baselineReviewId: "synthetic-baseline-a" }), /SENIOR_SCOPE_OBSERVATION_MISSING/);
+});
+
+test("observations must match the exact candidate, scene and active binding scope", () => {
+  const { snapshot } = fixture(2);
+  snapshot.observations["synthetic-observation-1"].candidateId = "other-candidate";
+  assert.throws(() => buildContinuityPlan(snapshot, { preparedReviewId: "synthetic-prepared", baselineReviewId: "synthetic-baseline-a" }), /OBSERVATION_CANDIDATE_MISMATCH/);
+  const { snapshot: second } = fixture(2);
+  second.continuityReviews["synthetic-baseline-a"].bindingIds = [];
+  assert.throws(() => buildContinuityPlan(second, { preparedReviewId: "synthetic-prepared", baselineReviewId: "synthetic-baseline-a" }), /BASELINE_BINDING_MISMATCH/);
+});
+
+test("evidence from an unrelated observation cannot enter a transition batch", () => {
+  const { snapshot } = fixture(2);
+  snapshot.continuityReviews["synthetic-baseline-a"].findings[0].closingEvidence = ["unrelated-observation:ev-close"];
+  const plan = buildContinuityPlan(snapshot, { preparedReviewId: "synthetic-prepared", baselineReviewId: "synthetic-baseline-a" });
+  assert.equal(plan.batches.every((batch) => batch.images.every((image) => image.observationId.startsWith("synthetic-observation-"))), true);
 });
 
 test("missing selected evidence is recorded, never silently treated as a supported finding", () => {
