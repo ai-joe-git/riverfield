@@ -18,11 +18,27 @@ function studio(received: any[] = []) {
     ],
     renderProfile: { supported: true, build_megapixels: 0.1, production_default_megapixels: 0.4, generation: { min: 0.1, max: 3, step: 0.1 }, upscale: null, detail: null },
     outputs: [{ node: "9", type: "image" }], models: [] };
+  const catalog = [app, ...Array.from({ length: 24 }, (_, i) => ({
+    id: `flash-director-${i}`, name: `Flash Director ${i}`, section: "video", status: "ready", pack: "h3",
+  }))];
+  const snapshot = {
+    schemaVersion: 1, production: { id: "fixture", title: "Fixture", status: "active" }, revision: 2,
+    seasons: [{ id: "s1", productionId: "fixture", number: 1, title: "Season" }],
+    episodes: [{ id: "e1", seasonId: "s1", number: 1, title: "Episode" }],
+    scenes: [{ id: "scene", episodeId: "e1", number: 1, title: "Scene" }],
+    assets: {
+      actor: { id: "actor", label: "Actor reference", kind: "image", category: "characters", path: "/fixture/actor.png" },
+      set: { id: "set", label: "Environment", kind: "image", category: "environments", path: "/fixture/set.png" },
+    },
+    observations: { heavy: { report: "long observation evidence ".repeat(65_000) } },
+    continuityReviews: {},
+  };
   const server = createServer(async (req, res) => {
     const request = new Request(new URL(req.url!, "http://local"), { method: req.method, headers: req.headers as any, body: (["POST","PUT"].includes(req.method!) ? req : undefined) as any, duplex: "half" } as any);
     const url = new URL(request.url);
     const send = (body: unknown) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
-    if (url.pathname === "/api/apps") return send({ apps: [app] });
+    if (url.pathname === "/api/apps") return send({ apps: catalog });
+    if (url.pathname === "/api/productions/fixture") return send(snapshot);
     if (url.pathname === "/api/apps/z-image/run") {
       const form = await request.formData();
       received.push(Object.fromEntries([...form.entries()].map(([k, v]) => [k, typeof v === "string" ? v : (v as File).name])));
@@ -64,6 +80,25 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
 
     const listed = resultData(await client.call("list_apps", {}));
     assert.equal(listed.apps[0].id, "z-image");
+    assert.equal(listed.count, 25);
+    assert.equal(listed.apps.length, 16);
+    assert.equal(listed.nextOffset, 16);
+    const page = resultData(await client.call("list_apps", { section: "video", query: "director flash", limit: 3, offset: 2 }));
+    assert.deepEqual(page.apps.map((a: { id: string }) => a.id), ["flash-director-2", "flash-director-3", "flash-director-4"]);
+    assert.equal(page.nextOffset, 5);
+
+    const metadata = await client.call("get_production", { productionId: "fixture" });
+    const summary = resultData(metadata);
+    assert.equal(summary.production.id, "fixture");
+    assert.equal(summary.counts.observations, 1);
+    assert.ok(JSON.stringify(metadata).length < 1024);
+    assert.equal(summary.observations, undefined);
+    const scope = resultData(await client.call("production_scope", { productionId: "fixture", episodeId: "e1", assetCategory: "characters" }));
+    assert.equal(scope.scenes[0].id, "scene");
+    assert.deepEqual(scope.assets.map((a: { path: string }) => a.path), ["/fixture/actor.png"]);
+    assert.equal(scope.assetCount, 1);
+    const full = resultData(await client.call("get_production", { productionId: "fixture", includeSnapshot: true }));
+    assert.ok(full.observations.heavy.report.length > 1_000_000);
 
     const described = resultData(await client.call("get_app", { app: "z-image" }));
     assert.ok(described.prompting?.rules?.length, "get_app must return workflow prompting guidance");

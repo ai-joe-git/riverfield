@@ -95,8 +95,8 @@ function local(entry: Any): Any {
   };
 }
 
-const text = (v: unknown) => ({
-  content: [{ type: "text" as const, text: typeof v === "string" ? v : JSON.stringify(v, null, 2) }],
+const text = (v: unknown, compact = false) => ({
+  content: [{ type: "text" as const, text: typeof v === "string" ? v : JSON.stringify(v, null, compact ? undefined : 2) }],
 });
 const fail = (e: unknown) => {
  const data=e instanceof InputError?inputErrorBody(e):e instanceof StudioHttpError?{...((e.body&&typeof e.body==="object")?e.body:{}),error:e.body?.error||e.message,status:e.status,code:e.body?.code||"HTTP_ERROR",retryable:e.status>=500}:undefined;
@@ -132,19 +132,28 @@ export function build(base=BASE): McpServer {
   });
 
   server.registerTool("list_apps", {
-    title: "List RiverField apps",
-    description: "Every app of the studio with its section, status and pack. Filter by section (image, video, audio, 3d, utility).",
+    title: "Find Riverfield apps",
+    description: "Find one page of apps by name or capability. Filter by query, section or status. Use nextOffset to page or get_app for one exact manifest.",
     inputSchema: {
       section: z.enum(["image", "video", "audio", "3d", "utility"]).optional().describe("only this studio"),
       status: z.enum(["ready", "draft"]).optional().describe("only this status"),
+      query: z.string().max(160).optional().describe("app name or keywords, for example director flash"),
+      offset: z.number().int().min(0).optional(),
+      limit: z.number().int().min(1).max(40).optional(),
     },
-  }, async ({ section, status }) => {
+    annotations: { readOnlyHint: true },
+  }, async ({ section, status, query, offset = 0, limit = 16 }) => {
     try {
-      const all = await apps(base);
-      const list = all
-        .filter((a) => (!section || a.section === section) && (!status || a.status === status))
-        .map((a) => ({ id: a.id, name: a.name, section: a.section, status: a.status, summary: a.summary, pack: a.pack }));
-      return text({ count: list.length, apps: list });
+      const words = (query ?? "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      const list = (await apps(base)).filter(app => {
+        if ((section && app.section !== section) || (status && app.status !== status)) return false;
+        const label = [app.id, app.name, app.summary, app.pack].join(" ").toLowerCase();
+        return words.every(word => label.includes(word));
+      });
+      const page = list.slice(offset, offset + limit).map(app => ({
+        id: app.id, name: app.name, section: app.section, status: app.status, summary: app.summary, pack: app.pack,
+      }));
+      return text({ count: list.length, apps: page, ...(offset + limit < list.length ? { nextOffset: offset + limit } : {}) }, true);
     } catch (e) { return fail(e); }
   });
 
@@ -176,7 +185,7 @@ export function build(base=BASE): McpServer {
         prompting: promptGuidance(a as any),
         ...(a.id==="pika-studio-director"?{agentDefaults:DIRECTOR_DEFAULTS,actualDurations:directorDurations(),delivery:DIRECTOR_DELIVERY,effectiveTechnicalDefaults:Object.fromEntries(a.inputs.filter((i:Any)=>(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)).map((i:Any)=>[i.id,i.default])),agentWritableInputs:a.inputs.filter((i:Any)=>!(DIRECTOR_MANAGED_INPUTS as readonly string[]).includes(i.id)&&!["advanced_timeline_json","segment_prompts"].includes(i.id)).map((i:Any)=>i.id)}:{}),
         example: a.example ? { values: a.example.values, inputs: a.example.inputs } : null,
-      });
+      }, true);
     } catch (e) { return fail(e); }
   });
 
@@ -219,23 +228,36 @@ export function build(base=BASE): McpServer {
   });
 
   server.registerTool("production_scope", {
-    title: "Find the season, episode, scenes and references in a production",
-    description: "Start here for an existing production. Returns compact official IDs, their labels and matching reference files. Use episodeId/assetQuery to narrow results.",
-    inputSchema: { productionId:z.string(), episodeId:z.string().optional(), assetQuery:z.string().optional(), offset:z.number().int().min(0).optional() },
-    annotations: { readOnlyHint:true },
-  }, async ({productionId,episodeId,assetQuery,offset=0}) => {
+    title: "Find a production's seasons, episodes, scenes and reference assets",
+    description: "Start here for an existing production. Use episodeId to narrow scenes. Use assetCategory or assetQuery to resolve matching reference paths. Use offset to page assets.",
+    inputSchema: {
+      productionId: z.string(), episodeId: z.string().optional(),
+      assetCategory: z.string().max(80).optional().describe("for example characters or environments"),
+      assetQuery: z.string().max(160).optional(), offset: z.number().int().min(0).optional(),
+    },
+    annotations: { readOnlyHint: true },
+  }, async ({ productionId, episodeId, assetCategory, assetQuery, offset = 0 }) => {
     try {
-      const snap=await call(`/api/productions/${encodeURIComponent(productionId)}`);
-      const compact=(rows:unknown, id:string)=>Object.values((rows||{}) as Record<string,Any>).slice(0,60).map(row=>({id:row.id,title:row.title,number:row.number,[id]:row[id]}));
-      const terms=(assetQuery||"").toLowerCase().split(/\s+/).filter(Boolean);
-      const assets=Object.values((snap.assets||{}) as Record<string,Any>).filter(row=>
-        terms.every(term=>[row.id,row.label,row.category,...(row.tags||[])].join(" ").toLowerCase().includes(term)));
-      const scenes=Object.values((snap.scenes||{}) as Record<string,Any>).filter(row=>!episodeId||row.episodeId===episodeId);
-      return text({ production:snap.production && {id:snap.production.id,title:snap.production.title},
-        seasons:compact(snap.seasons,"productionId"), episodes:compact(snap.episodes,"seasonId"),scenes:compact(scenes,"episodeId"),
-        assets:assets.slice(offset,offset+32).map(row=>({id:row.id,label:row.label,kind:row.kind,category:row.category,...(terms.length?{path:row.path}:{})})),
-        assetCount:assets.length,...(assets.length>offset+32?{nextOffset:offset+32}:{}) });
-    } catch(e) { return fail(e); }
+      const snap = await call(`/api/productions/${encodeURIComponent(productionId)}`);
+      const compact = (rows: Any[], parent: string) => rows.slice(0, 60).map(row => ({
+        id: row.id, title: row.title, number: row.number, [parent]: row[parent],
+      }));
+      const terms = (assetQuery ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+      const category = assetCategory?.trim().toLowerCase();
+      const assets = Object.values((snap.assets ?? {}) as Record<string, Any>).filter(row =>
+        (!category || row.category?.toLowerCase() === category) &&
+        terms.every(term => [row.id, row.label, row.category, ...(row.tags ?? [])].join(" ").toLowerCase().includes(term)));
+      const scenes = (snap.scenes ?? []).filter((row: Any) => !episodeId || row.episodeId === episodeId);
+      return text({
+        production: snap.production && { id: snap.production.id, title: snap.production.title },
+        seasons: compact(snap.seasons ?? [], "productionId"), episodes: compact(snap.episodes ?? [], "seasonId"),
+        scenes: compact(scenes, "episodeId"), sceneCount: scenes.length,
+        assets: assets.slice(offset, offset + 24).map(row => ({
+          id: row.id, label: row.label, kind: row.kind, category: row.category, ...(terms.length || category ? { path: row.path } : {}),
+        })),
+        assetCount: assets.length, ...(assets.length > offset + 24 ? { nextOffset: offset + 24 } : {}),
+      }, true);
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("list_productions", {
@@ -264,12 +286,23 @@ export function build(base=BASE): McpServer {
   });
 
   server.registerTool("get_production", {
-    title: "Read a production",
-    description: "Read the production hierarchy, immutable candidates, scene-level decisions, proposals and canonical Bible projection.",
-    inputSchema: { productionId: z.string() },
+    title: "Read a production summary",
+    description: "Read production identity, revision and record counts. Use production_scope for hierarchy and references, get_scene_context for continuity, or includeSnapshot only for an explicit full export.",
+    inputSchema: { productionId: z.string(), includeSnapshot: z.boolean().optional() },
     annotations: { readOnlyHint: true },
-  }, async ({ productionId }) => {
-    try { return text(await call(`/api/productions/${encodeURIComponent(productionId)}`)); } catch (e) { return fail(e); }
+  }, async ({ productionId, includeSnapshot }) => {
+    try {
+      const snapshot = await call(`/api/productions/${encodeURIComponent(productionId)}`);
+      if (includeSnapshot === true) return text(snapshot, true);
+      const { id, title, status, logline } = snapshot.production;
+      const fields = ["seasons", "episodes", "scenes", "assets", "candidates", "observations", "continuityReviews", "productionRuns"];
+      const counts = Object.fromEntries(fields.map(field => [field, Object.keys(snapshot[field] ?? {}).length]));
+      return text({
+        production: { id, title, status, logline: typeof logline === "string" ? logline.slice(0, 500) : logline },
+        revision: snapshot.revision, counts,
+        guidance: "Use production_scope for IDs and reference paths, and get_scene_context for canonical continuity.",
+      }, true);
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("create_season", {
