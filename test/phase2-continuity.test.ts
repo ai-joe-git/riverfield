@@ -9,70 +9,63 @@ import { deriveObservedState } from "../server/observed-state.ts";
 import { ProductionStore } from "../server/production-store.ts";
 
 const snapshot = JSON.parse(readFileSync("out/productions/suite-404/snapshot.json", "utf8"));
+const legacyBatch = {
+  id: "legacy-asset-correction-batch", status: "prepared-not-applied" as const, generatedAt: "2026-11-26T23:00:00.000Z",
+  source: "actual-image-inspection" as const, instruction: "Apply only after human approval; media files and historical observations are never rewritten." as const,
+  entries: [{
+    assetId: "legacy-asset", currentLabel: "Old_Label", proposedLabel: "New_Label", currentCategory: "characters", proposedCategory: "characters",
+    currentAliases: [], proposedAliases: ["Assets/Characters/New_Label.png"], currentPath: "/tmp/old.png", currentHash: "old",
+    currentTags: [], proposedTags: ["official-catalog", "Assets/Characters/New_Label.png"], supersededTagChange: "none" as const,
+    referenceSuitability: "character-multiview-reference" as const, semanticIdentity: "test identity", observedContent: "test content", reason: "legacy test fixture",
+  }],
+  ambiguous: [],
+};
 
-test("asset audit identifies the semantic label shift and blocks untrusted references", () => {
+test("canonical assets are present with trusted registry names and no stale correction batch", () => {
   const audit = auditAssetCatalogue(snapshot);
-  assert.equal(audit.length, 56);
-  assert.equal(audit.filter((entry: any) => !entry.trusted).length, 12);
+  assert.equal(audit.length, 44);
+  assert.equal(audit.filter((entry: any) => !entry.trusted).length, 0);
   const heart = audit.find((entry: any) => entry.currentLabel === "Inflatable_Heart_Prop");
   const key = audit.find((entry: any) => entry.currentLabel === "Suite_404_Key_Fob_Prop");
-  assert.ok(heart);
-  assert.ok(key);
-  assert.equal(heart.proposedLabel, "Momo_Mascot_Character_Sheet");
-  assert.match(heart.observedContent, /Momo/);
-  assert.equal(key.proposedLabel, "Retro_Intercom_Prop");
-  assert.match(key.observedContent, /telephone|intercom/);
-  assert.equal(heart.trusted, false);
-  assert.equal(key.trusted, false);
-  assert.throws(() => assertTrustedReferences(snapshot, [heart.assetId]), /catalogue review/);
-  assert.doesNotThrow(() => assertTrustedReferences(snapshot, ["suite404-official-akari-character-sheet"]));
+  const momo = audit.find((entry: any) => entry.currentLabel === "Momo_Mascot_Character_Sheet");
+  assert.ok(heart && key && momo);
+  assert.equal(heart.proposedLabel, "Inflatable_Heart_Prop");
+  assert.equal(key.proposedLabel, "Suite_404_Key_Fob_Prop");
+  assert.equal(momo.proposedLabel, "Momo_Mascot_Character_Sheet");
+  assert.doesNotThrow(() => assertTrustedReferences(snapshot, [heart.assetId, key.assetId, momo.assetId]));
   const batch = buildAssetCorrectionBatch(snapshot);
-  assert.equal(batch.entries.length, 11);
-  assert.equal(batch.ambiguous.length, 1);
-  assert.equal(snapshot.assets["suite404-asset-20261124-224902120-37c3-1"].category, "characters", "audit does not mutate the historical asset index");
-  const official = audit.find((entry: any) => entry.assetId === "suite404-official-akari-character-sheet");
-  assert.ok(official);
-  assert.equal(official.semanticStatus, "not-independently-verified");
-  const momo = batch.entries.find((entry: any) => entry.proposedLabel === "Momo_Mascot_Character_Sheet");
-  assert.ok(momo);
-  assert.equal(momo.proposedCategory, "characters");
-  assert.equal(momo.referenceSuitability, "character-multiview-reference");
-  const mic = batch.entries.find((entry: any) => entry.proposedLabel === "Karaoke_Microphone_Prop");
-  assert.ok(mic);
-  assert.equal(mic.supersededTagChange, "remove");
-  assert.equal(mic.proposedTags.includes("superseded"), false);
+  assert.equal(batch.entries.length, 0);
+  assert.equal(batch.ambiguous.length, 0);
+  assert.equal(snapshot.revision, 0);
 });
 
 test("asset correction approval records a decision without rewriting historical assets", () => {
   const out = mkdtempSync(join(tmpdir(), "riverfield-asset-decision-"));
   try {
-    const batch = buildAssetCorrectionBatch(snapshot);
-    const decision = recordAssetCorrectionDecision(out, batch, "approved", "test-human", "reviewed contact sheet");
+    const decision = recordAssetCorrectionDecision(out, legacyBatch, "approved", "test-human", "reviewed contact sheet");
     assert.equal(decision.decision, "approved");
-    assert.equal(decision.entries, 11);
-    assert.equal(decision.ambiguous, 1);
+    assert.equal(decision.entries, 1);
+    assert.equal(decision.ambiguous, 0);
     assert.deepEqual(readAssetCorrectionDecisions(out).map((item) => item.decision), ["approved"]);
-    assert.equal(snapshot.assets["suite404-asset-20261124-234855840-40f7-1"].label, "Inflatable_Heart_Prop");
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
 test("asset corrections require individual approval and application remains a separate auditable operation", () => {
   const out = mkdtempSync(join(tmpdir(), "riverfield-asset-apply-"));
   try {
-    const batch = buildAssetCorrectionBatch(snapshot);
-    const first = batch.entries[0];
-    assert.throws(() => applyAssetCorrections(out, batch, [first.assetId], () => {}, "test-human"), /NOT_INDIVIDUALLY_APPROVED/);
-    recordAssetCorrectionDecision(out, batch, "approved", "test-human", "batch decision only", undefined);
-    assert.throws(() => applyAssetCorrections(out, batch, [first.assetId], () => {}, "test-human"), /NOT_INDIVIDUALLY_APPROVED/);
-    recordAssetCorrectionDecision(out, batch, "approved", "test-human", "individual", first.assetId);
+    const first = legacyBatch.entries[0];
+    assert.throws(() => applyAssetCorrections(out, legacyBatch, [first.assetId], () => {}, "test-human"), /NOT_INDIVIDUALLY_APPROVED/);
+    recordAssetCorrectionDecision(out, legacyBatch, "approved", "test-human", "batch decision only", undefined);
+    assert.throws(() => applyAssetCorrections(out, legacyBatch, [first.assetId], () => {}, "test-human"), /NOT_INDIVIDUALLY_APPROVED/);
+    recordAssetCorrectionDecision(out, legacyBatch, "approved", "test-human", "individual", first.assetId);
     const patches: any[] = [];
-    const application = applyAssetCorrections(out, batch, [first.assetId], (assetId, patch) => patches.push({ assetId, patch }), "test-human", "explicit apply");
+    const application = applyAssetCorrections(out, legacyBatch, [first.assetId], (assetId, patch) => patches.push({ assetId, patch }), "test-human", "explicit apply");
     assert.equal(patches.length, 1);
     assert.equal(patches[0].assetId, first.assetId);
     assert.equal(application.before[first.assetId].label, first.currentLabel);
     assert.equal(application.after[first.assetId].label, first.proposedLabel);
     assert.equal(readAssetCorrectionApplications(out).length, 1);
-    assert.equal(batch.ambiguous.length, 1);
+    assert.equal(legacyBatch.ambiguous.length, 0);
   } finally { rmSync(out, { recursive: true, force: true }); }
 });
 

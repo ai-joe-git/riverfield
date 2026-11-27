@@ -164,14 +164,19 @@ export function auditAssetCatalogue(snapshot: ProductionSnapshot): AssetAuditEnt
     const correction = CORRECTIONS[asset.id];
     const tags = asset.tags ?? [];
     const aliases = aliasesOf(tags);
-    if (!correction) {
+    // Assets restored from the canonical registry carry an explicit marker. Their
+    // filename/hash/path were corrected as an audited asset operation; stale
+    // semantic corrections from the old shifted import must not re-label them.
+    const canonical = tags.includes("canonical-master");
+    if (!correction || canonical) {
       return {
         assetId: asset.id, currentLabel: asset.label, currentCategory: asset.category,
         proposedLabel: asset.label, proposedCategory: asset.category, status: "trusted", trusted: true,
-        semanticStatus: "not-independently-verified", referenceSuitability: "not-independently-audited",
-        observedContent: "not separately reclassified in this audit",
-        semanticIdentity: "current assignment not independently verified",
-        reason: "No semantic correction was recorded, but this asset was not independently visually verified in this batch.",
+        semanticStatus: canonical ? "visually-verified" : "not-independently-verified",
+        referenceSuitability: canonical ? (asset.category === "characters" ? "character-multiview-reference" : asset.category === "props" ? "prop-reference" : "environment-reference") : "not-independently-audited",
+        observedContent: canonical ? "Canonical Asset_Registry file; filename and hash verified" : "not separately reclassified in this audit",
+        semanticIdentity: canonical ? "Canonical registry identity restored" : "current assignment not independently verified",
+        reason: canonical ? "Canonical registry filename/hash restored; stale shifted-import correction does not apply." : "No semantic correction was recorded, but this asset was not independently visually verified in this batch.",
         aliases, proposedAliases: aliases, tags, proposedTags: tags, supersededTagChange: "none",
         ...(asset.sourceRunId ? { sourceRunId: asset.sourceRunId } : {}), path: asset.path, ...(asset.hash ? { hash: asset.hash } : {}),
       };

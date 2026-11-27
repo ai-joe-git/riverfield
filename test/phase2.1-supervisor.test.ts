@@ -163,7 +163,7 @@ test("the existing Passion Max plan is generic, compact and resolves its correct
   assert.ok(prompt.length < 20000, `prompt too large: ${prompt.length}`);
   assert.doesNotMatch(prompt, /[0-9a-f]{8}-[0-9a-f-]{20,}/i);
   assert.doesNotMatch(prompt, /P4|P5|P6/);
-  assert.equal(plan.referenceWarnings.length, 2);
+  assert.equal(plan.referenceWarnings.length, 0);
   assert.doesNotMatch(JSON.stringify(plan.referenceWarnings), /P6 historical|P6 observation retains/);
 });
 
