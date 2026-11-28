@@ -1,9 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { extractObservationEvidence } from "../server/observation-evidence.ts";
 import { productionMediaRoots } from "../server/production-media.ts";
+import type { Candidate, SceneRenderBinding } from "../server/production-types.ts";
 
 const snapshot = "out/productions/suite-404/snapshot.json";
 const candidateId = "suite404-20261126-144117031-d4dc";
@@ -35,4 +38,32 @@ test("Velvet Moon evidence extraction is capped at maxFrames and still covers ev
   const tight = extractObservationEvidence({ ...input, config: { ...input.config, visualFrames: bundle.shots.length } });
   const tightShots = new Set(tight.visualFrameIds.map(id => tight.frames.find(frame => frame.id === id)?.shotId));
   assert.deepEqual([...tightShots], bundle.shots.map(shot => shot.id), "cover each shot when the number of slots equals the shot count");
+});
+
+test("implicit evidence budget covers long scenes and explicit limits remain strict", () => {
+  const out = mkdtempSync(join(tmpdir(), "riverfield-evidence-budget-"));
+  try {
+    const dir = join(out, "media");
+    mkdirSync(dir);
+    const outputPath = join(dir, "candidate.mp4");
+    execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=s=16x16:r=24:d=15",
+      "-c:v", "libx264", "-threads", "1", outputPath]);
+    const bindings: SceneRenderBinding[] = Array.from({ length: 15 }, (_, segmentIndex) => ({
+      id: `binding-${segmentIndex}`, sceneId: "scene", candidateId: "candidate", timebase: "final-output", segmentIndex,
+      timelineStartFrame: segmentIndex * 24, timelineEndFrame: (segmentIndex + 1) * 24, fps: 24,
+    }));
+    const candidate: Candidate = {
+      id: "candidate", productionId: "production", label: "Candidate", source: "manual", bindings, contentHash: "fixture",
+      createdAt: "2026-11-28T00:00:00Z", createdBy: "test", outputs: [{ type: "video", file: "candidate.mp4", name: "candidate.mp4", path: outputPath }],
+    };
+    const input = { outDir: out, mediaRoots: [dir], productionId: "production", sceneId: "scene", candidate, bindings, outputPath };
+    const evidence = extractObservationEvidence(input);
+    assert.equal(evidence.shots.length, 15);
+    assert.equal(evidence.config.maxFrames, 17);
+    assert.equal(evidence.frames.length, 17);
+    assert.equal(extractObservationEvidence(input).config.maxFrames, 17);
+    assert.throws(() => extractObservationEvidence({ ...input, config: { maxFrames: 12 } }), /cannot cover 15 detected shots/);
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
 });

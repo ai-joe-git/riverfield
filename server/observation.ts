@@ -431,13 +431,13 @@ export class ObservationManager {
     this.save(job);
     const controller = new AbortController();
     this.controllers.set(job.id, controller);
-    void this.run(job, snap, scene, candidate, bindings, output.path, output.hash, actor, controller, input.workspace).finally(() => this.controllers.delete(job.id));
+    void this.run(job, snap, scene, candidate, bindings, output.path, output.hash, actor, controller, explicitOptions.maxFrames, input.workspace).finally(() => this.controllers.delete(job.id));
     return job;
   }
 
   private async run(
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
-    bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController, workspace?: WorkspaceObserver,
+    bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController, maxFrames: number | undefined, workspace?: WorkspaceObserver,
   ) {
     if (job.options.profile === "senior") return this.runSenior(job, snap, scene, candidate, bindings, actor, controller, workspace);
     let artifactDir: string | null = null;
@@ -457,11 +457,12 @@ export class ObservationManager {
         outDir: this.outDir, mediaRoots: this.mediaRoots,
         productionId: job.productionId, sceneId: job.sceneId, candidate, bindings, outputPath: sourcePath,
         outputHash: sourceHash, config: {
-          maxFrames: job.options.maxFrames, visualFrames: job.options.visualFrames,
+          ...(maxFrames === undefined ? {} : { maxFrames }), visualFrames: job.options.visualFrames,
           sampleIntervalSeconds: job.options.sampleIntervalSeconds, sceneThreshold: job.options.sceneThreshold,
           includeAudio: job.options.includeAudio,
         },
       });
+      if (maxFrames === undefined) job.options.maxFrames = bundle.config.maxFrames;
       job.evidenceDir = bundle.dir;
       job.evidenceCacheKey = bundle.cacheKey;
       this.stage(job, "evidence", "succeeded");

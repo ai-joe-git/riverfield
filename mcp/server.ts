@@ -741,8 +741,8 @@ export function build(base=BASE): McpServer {
     inputSchema: {
       productionId: z.string(), sceneId: z.string(), candidateId: z.string(),
       bindingIds: z.array(z.string()).optional().describe("only these scene bindings; default all bindings for the scene"),
-      maxFrames: z.number().int().min(1).max(48).optional(),
-      visualFrames: z.number().int().min(1).max(9).optional(),
+      maxFrames: z.number().int().min(1).max(48).optional().describe("Omit to fit the detected shots, up to 48 extracted frames. An explicit cap is strict."),
+      visualFrames: z.number().int().min(1).max(9).optional().describe("Images per visual pass. Long sampled reviews process several passes automatically."),
       sampleIntervalSeconds: z.number().min(0.25).max(30).optional(),
       sceneThreshold: z.number().gt(0).lt(1).optional(),
       includeAudio: z.boolean().optional(), visual: z.boolean().optional(), asr: z.boolean().optional(), comparison: z.boolean().optional(),

@@ -135,6 +135,7 @@ export function extractObservationEvidence(input: {
   outputHash?: string;
   config?: Partial<ObservationEvidenceConfig>;
 }): ObservationEvidenceBundle {
+  const automaticFrameBudget = input.config?.maxFrames === undefined;
   const config = { ...DEFAULT_OBSERVATION_EVIDENCE_CONFIG, ...(input.config ?? {}) };
   if (!Number.isInteger(config.maxFrames) || config.maxFrames < 1 || config.maxFrames > 48) {
     throw new ObservationError("INVALID_OBSERVATION_CONFIG", "maxFrames must be between 1 and 48");
@@ -171,6 +172,7 @@ export function extractObservationEvidence(input: {
   const cacheKey = createHash("sha256").update(JSON.stringify({
     schema: 7, sceneId: input.sceneId, candidateHash: input.candidate.contentHash, sourceHash,
     bindingIds: input.bindings.map((binding) => binding.id).sort(), config,
+    ...(automaticFrameBudget ? { automaticFrameBudget } : {}),
   })).digest("hex").slice(0, 32);
   const dir = join(input.outDir, "observations", "evidence", input.productionId, input.sceneId, cacheKey);
   const manifestFile = join(dir, "manifest.json");
@@ -248,6 +250,7 @@ export function extractObservationEvidence(input: {
   // Mandatory coverage: one representative per detected shot plus global opening and
   // closing. maxFrames is a hard total cap; it must be able to hold that minimum.
   if (!plans.length) throw new ObservationError("OBSERVATION_NO_SHOTS", "No detectable shot was found in the selected binding range");
+  if (automaticFrameBudget) config.maxFrames = Math.min(48, Math.max(config.maxFrames, plans.length + 2));
   if (config.maxFrames < plans.length + 2) {
     throw new ObservationError("OBSERVATION_FRAME_BUDGET",
       `maxFrames=${config.maxFrames} cannot cover ${plans.length} detected shots plus opening and closing; use at least ${plans.length + 2}`);
