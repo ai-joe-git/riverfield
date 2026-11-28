@@ -672,7 +672,11 @@ function dropzone(app, inp, rerender) {
 }
 
 function sideField(app, inp, f, ui, rerender) {
-  const set = (v) => { f.values[inp.id] = v; persistSoon(); };
+  const set = (v) => {
+    f.values[inp.id] = v; persistSoon();
+    if (["flex_mode", "unet_name", "model_name"].includes(inp.id))
+      document.querySelectorAll(".dir").forEach(root => root.dispatchEvent(new Event("director-mode-change")));
+  };
   // an option can carry the settings that go with it (the step count of a model, say)
   const syncOption = (o) => {
     let changed = false;

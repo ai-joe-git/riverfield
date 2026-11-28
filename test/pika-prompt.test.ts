@@ -52,11 +52,11 @@ test("Alex binds two real image slots and introduces S1 inline using the officia
  assert.throws(()=>validatePikaValues({...payload.values,image1:file}),/supplied files/);
  const unbound=JSON.parse(payload.values.segment_windows);unbound.windows[0].images=[0,2];assert.throws(()=>validatePikaValues({...payload.values,image1:file,image2:file,segment_windows:JSON.stringify(unbound)}),/supplied files/);
 });
-test("FL2VA uses three sections and an empty material bin",()=>{
+test("FL2VA uses three sections and optional endpoint images",()=>{
  const prompt="integrated_multimodal_description:\n[Shot 1] An empty studio.\noverall_soundscape:\nRoom tone.\nnon_diegetic_music:\nN/A";
  assert.deepEqual(validatePikaPrompt(prompt,{...ctx,mode:"fl2va",pictures:0}),[]);
  assert.doesNotThrow(()=>validatePikaValues({flex_mode:"fl2va",global_prompt:prompt,duration:5}));
- assert.throws(()=>validatePikaValues({flex_mode:"fl2va",global_prompt:prompt,image1:{}}),/empty material bin/);
+ assert.doesNotThrow(()=>validatePikaValues({flex_mode:"fl2va",global_prompt:prompt,image1:{}}),"unassigned bin pictures are dormant");
 });
 test("per-segment material order and total duration stay separate from generation duration",()=>{
  const p=planH3({seconds:5,total_seconds:5,prompts:[pilot],segment_images:[[1,0]]});assert.equal(p.segmentFrames,124);assert.deepEqual(JSON.parse(p.segment_windows).windows[0].images,[1,0]);

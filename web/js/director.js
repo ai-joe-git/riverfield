@@ -15,6 +15,7 @@
 // Explicit overlaps are retained for continuous takes. Dragging is frame-accurate; the length snaps to a
 // legal H3 value on release (or immediately with the H3 button in the segment editor).
 
+import { directorConditioningMode } from "./director-mode.js";
 import { el, icon, toast, clamp, store } from "./util.js";
 import { modal } from "./agent-controls.js";
 import {
@@ -120,6 +121,9 @@ export function pruneMedia(st, app, f) {
   for (const w of st.windows) {
     const images = (w.images || []).filter((i) => has("image", i));
     const audios = (w.audios || []).filter((i) => has("audio", i));
+    for (const key of ["first_frame", "last_frame"]) {
+      if (w[key] !== undefined && !has("image", w[key])) { delete w[key]; changed = true; }
+    }
     if (images.length !== (w.images || []).length) { w.images = images; changed = true; }
     if (audios.length !== (w.audios || []).length) { w.audios = audios; changed = true; }
   }
@@ -202,6 +206,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   // reliable client-side discriminator (and it keeps LTX untouched).
   const h3Planner = app.inputs.some((i) => i.id === "segment_count");
   const defaultSeam = h3Planner ? SEAM : 39;
+  const endpointMode = () => h3Planner && directorConditioningMode({ ...f.values, ...f.files }) === "fl2va";
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
   // Durable project state lives on the server (out/directors/<app>). IndexedDB remains
   // the fast local copy; the server copy makes a reload or another browser on the LAN
@@ -509,15 +514,14 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   }
   const allPictures = () => mediaOf(app, f, "image").map((m) => m.index);
   function fillDefaultPictures() {
-    if (!h3Planner) return false;
+    if (!h3Planner || endpointMode()) return false;
     const pictures = allPictures();
     if (!pictures.length) return false;
     let changed = false;
     for (const w of st.windows) {
       const rank = new Map(pictures.map((index, pos) => [index, pos]));
       const current = (w.images || []).filter((index) => rank.has(index));
-      const sorted = current.slice().sort((a, b) => rank.get(a) - rank.get(b));
-      const next = sorted.length ? sorted : [...pictures];
+      const next = current.length ? current : [...pictures];
       if (JSON.stringify(next) !== JSON.stringify(w.images || [])) { w.images = next; changed = true; }
     }
     return changed;
@@ -529,6 +533,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
 
   const meta = mediaMeta();
   const root = el("div", { class: "dir" });
+  root.addEventListener("director-mode-change", () => { persistState(app, f, st); saveDirty(); draw(); });
   let ghostEl = null;
   let renderEl = null;
 
@@ -664,7 +669,10 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     const type = slot.replace(/\d+$/, "");
     const index = Number(slot.replace(/\D/g, "")) - 1;
     for (const w of st.windows) {
-      if (type === "image") w.images = (w.images || []).filter((i) => i !== index);
+      if (type === "image") {
+        w.images = (w.images || []).filter((i) => i !== index);
+        for (const key of ["first_frame", "last_frame"]) if (w[key] === index) delete w[key];
+      }
       if (type === "audio") w.audios = (w.audios || []).filter((i) => i !== index);
     }
     if (type === "video") st.videos = st.videos.filter((v) => v.index !== index);
@@ -677,7 +685,9 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     const items = list.map((m) => {
       const info = meta.get(m.slot);
       const selectedWin = st.windows[selected];
-      const inSeg = selectedWin && type !== "video" ? (type === "image" ? selectedWin.images : selectedWin.audios)?.includes(m.index) : false;
+      const inSeg = selectedWin && type !== "video" ? (type === "image"
+        ? (endpointMode() ? [selectedWin.first_frame, selectedWin.last_frame] : selectedWin.images)
+        : selectedWin.audios)?.includes(m.index) : false;
       const thumb = type === "image"
         ? el("img", { src: m.url, alt: m.name })
         : el("span", { class: "dir-media-icon" }, icon(type === "video" ? "film" : "audio"));
@@ -744,7 +754,8 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
             if (where === null || where === undefined) return;
             if (type === "image") {
               const w = st.windows[where];
-              if (w && !w.images.includes(m.index)) { selected = where; w.images = [...w.images, m.index]; changed(); }
+              if (w && endpointMode()) { selected = where; drawSegment(); toast("Choose First frame or Last frame below."); }
+              else if (w && !w.images.includes(m.index)) { selected = where; w.images = [...w.images, m.index]; changed(); }
               return;
             }
             const item = clipFor(type, m.index);
@@ -1123,6 +1134,32 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
         icon("film"), el("span", {}, m.name), el("small", {}, `${fmt(v.duration)}s`), mode);
     }).filter(Boolean);
 
+    const framePicker = (key, label) => {
+      const selectedFrame = imgs.find(m => m.index === w[key]);
+      const select = el("select", { class: "dir-frame-select", "aria-label": `${label} (optional)`,
+        onchange: e => {
+          if (e.target.value === "") delete w[key]; else w[key] = Number(e.target.value);
+          changed();
+        } },
+        el("option", { value: "" }, "None — optional"),
+        ...imgs.map(m => el("option", { value: String(m.index) }, m.name)));
+      select.value = selectedFrame ? String(selectedFrame.index) : "";
+      return [el("span", { class: "dir-assign-lbl" }, label),
+        el("div", { class: "dir-chips dir-frame", "data-frame": key },
+          selectedFrame ? el("img", { src: selectedFrame.url, alt: `${label}: ${selectedFrame.name}` }) : null,
+          select)];
+    };
+    const imageControls = endpointMode()
+      ? [...framePicker("first_frame", "First frame"), ...framePicker("last_frame", "Last frame"),
+        el("span", {class:"dir-assign-lbl"}, "Conditioning"),
+        el("span", {class:"dim"}, "Both frames are optional. Leave both empty for text-to-video.")]
+      : [el("span", { class: "dir-assign-lbl" }, "Add picture"),
+        imgs.length
+          ? (imgs.some(m => !w.images.includes(m.index))
+            ? el("div", {class:"dir-chips"}, ...imgs.filter(m => !w.images.includes(m.index)).map(m => addChip("image", m)))
+            : el("span", {class:"dim"}, "all pictures assigned"))
+          : el("span", {class:"dim"}, "none — optional, pure text-to-video")];
+
     segEl.replaceChildren(
       el("div", { class: "dir-seg-head" },
         el("span", { class: "dir-seg-title" }, `Segment ${selected + 1}`),
@@ -1135,7 +1172,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
             const last = st.windows[st.windows.length - 1];
             const len = last.end - last.start;
             const start = last.end - Math.min(defaultSeam, len - 1);
-            st.windows.push({ start, end: start + len, prompt: "", images: h3Planner ? allPictures() : [...last.images], audios: [...last.audios] });
+            st.windows.push({ start, end: start + len, prompt: "", images: h3Planner ? (endpointMode() ? [] : allPictures()) : [...last.images], audios: [...last.audios] });
             selected = st.windows.length - 1; changed();
           } }, icon("plus"), "Segment"),
           el("button", { type: "button", class: "btn small ghost", disabled: st.windows.length <= 1 ? "true" : undefined, onclick: () => {
@@ -1153,19 +1190,14 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
           } }, "Remove"))),
       promptBox,
       el("div", { class: "dir-assign" },
-        el("span", { class: "dir-assign-lbl" }, "In this segment"),
+        el("span", { class: "dir-assign-lbl" }, endpointMode() ? "Audio in segment" : "In this segment"),
         el("div", { class: "dir-chips" },
-          ...w.images.map((idx, pos) => assignedChip("image", idx, pos, w.images.length)).filter(Boolean),
+          ...(endpointMode() ? [] : w.images.map((idx, pos) => assignedChip("image", idx, pos, w.images.length)).filter(Boolean)),
           ...w.audios.map((idx, pos) => assignedChip("audio", idx, pos, w.audios.length)).filter(Boolean),
-          !w.images.length && !w.audios.length ? el("span", { class: "dim" }, "nothing yet") : null),
+          (endpointMode() || !w.images.length) && !w.audios.length ? el("span", { class: "dim" }, "nothing yet") : null),
         el("span", { class: "dir-assign-lbl" }, "Videos here"),
         videoChips.length ? el("div", { class: "dir-chips" }, ...videoChips) : el("span", { class: "dim" }, "no video clip overlaps this window"),
-        el("span", { class: "dir-assign-lbl" }, "Add picture"),
-        imgs.length
-          ? (imgs.some((m) => !w.images.includes(m.index))
-            ? el("div", { class: "dir-chips" }, ...imgs.filter((m) => !w.images.includes(m.index)).map((m) => addChip("image", m)))
-            : el("span", { class: "dim" }, "all pictures assigned"))
-          : el("span", { class: "dim" }, "none — optional, pure text-to-video"),
+        ...imageControls,
         el("span", { class: "dir-assign-lbl" }, "Add audio"),
         auds.length
           ? (auds.some((m) => !w.audios.includes(m.index))
@@ -1210,7 +1242,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       }
       const old = st.windows;
       const next = [];
-      const everyPicture = h3Planner ? allPictures() : null;
+      const everyPicture = h3Planner ? (endpointMode() ? [] : allPictures()) : null;
       for (let index = 0; index < prompts.length; index += 1) {
         const item = prompts[index];
         const len = alignedLength(Math.max(MIN_LEN, Math.round(item.duration * FPS)), MIN_LEN);
@@ -1224,7 +1256,9 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
         const media = replace ? old[index] : old[old.length - 1];
         next.push({
           start, end, prompt: item.prompt,
-          images: h3Planner ? [...everyPicture] : [...(media?.images || [])],
+          images: h3Planner ? (endpointMode() ? [...(media?.images || [])] : [...everyPicture]) : [...(media?.images || [])],
+          ...(replace && media?.first_frame !== undefined ? {first_frame:media.first_frame} : {}),
+          ...(replace && media?.last_frame !== undefined ? {last_frame:media.last_frame} : {}),
           audios: [...(media?.audios || [])],
         });
       }
@@ -1475,6 +1509,7 @@ function stateFor(app, f) {
 }
 
 function persistState(app, f, st) {
+  if (app.inputs.some(i => i.id === "segment_count")) st.conditioning_mode = directorConditioningMode({...f.values, ...f.files});
   f.values.segment_windows = JSON.stringify(st);
   const first = st.windows[0];
   if (first) f.values.duration = +(((first.end - first.start) / FPS).toFixed(2));

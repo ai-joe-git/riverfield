@@ -1,4 +1,6 @@
 import { assertTrustedReferences } from "./asset-audit.ts";
+// @ts-ignore Shared browser/server mode resolver.
+import { directorConditioningMode } from "../web/js/director-mode.js";
 import { directorWriterMedia } from "./director-writer-media.ts";
 import { validateWorkspaceObserver } from "./workspace-observer.ts";
 // Minimal HTTP API for the web UI. Node's built-in http plus the Fetch API types; no framework.
@@ -333,7 +335,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
   if (!target) target = { kind: "global", prompts: [String(next.global_prompt ?? "")] };
   if (!target.prompts.some((p) => p.trim())) return next;
 
-  const flexMode = String(next.flex_mode ?? "");
+  const flexMode = directorConditioningMode(next);
   const ltx = app.id.startsWith("ltx-");
   const simpleH3 = Boolean(writer && !ltx);
   const selected = target.prompts.map((_, i) => directorWriterMedia(next,

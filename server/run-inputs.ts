@@ -13,7 +13,7 @@ export function normalizeRunInputs(app:Manifest,rawValues:Record<string,unknown>
    if(files[input.id]!==undefined&&files[input.id]!==path)throw new InputError(`${input.id}: conflicting file bindings`,[{code:"FILE_BINDING_CONFLICT",field:`files.${input.id}`,message:"values and files specify different paths; neither was selected"}]);
    files[input.id]=path;delete values[input.id];
   }
-  if(input.id==="segment_windows"&&(app.id==="h3-studio-director-flash"||app.id==="pika-studio-director")){
+  if(input.id==="segment_windows"&&(app.id==="h3-studio-director-flash"||app.id==="pika-studio-director"||inputs.some(i=>i.id==="segment_count"))){
    const timeline=values.segment_windows;
    if(timeline&&typeof timeline==="object"&&!Array.isArray(timeline))values.segment_windows=JSON.stringify(timeline);
   }

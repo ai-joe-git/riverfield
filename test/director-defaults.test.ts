@@ -32,7 +32,7 @@ test("both actual app modes accept native segments; Ref2VA also binds optional s
  const spec=JSON.parse(example.values.segment_windows);spec.windows[0].prompt=spec.windows[0].prompt.replace("summary:","<Audio 1> supplies a quiet apartment ambience reference.\nsummary:");spec.windows[0].audios=[0];
  assert.doesNotThrow(()=>resolveValues(app,{...example.values,segment_windows:JSON.stringify(spec),image1:file,image2:file,audio1:file,audio_mode:"reference"}));
  const fl=directorValues({flex_mode:"fl2va",global_prompt:"integrated_multimodal_description:\n[Shot 1] A quiet room at night.\noverall_soundscape:\nSoft room tone.\nnon_diegetic_music:\nN/A"});assert.doesNotThrow(()=>resolveValues(app,fl));
- assert.throws(()=>resolveValues(app,{...fl,image1:file}),/empty material bin/);
+ assert.doesNotThrow(()=>resolveValues(app,{...fl,image1:file}),"unassigned pictures stay dormant in FL2VA");
  assert.throws(()=>resolveValues(app,{...example.values,image1:file}),/supplied file slots/);
 });
 test("omitted mode follows the actual material files without overriding an explicit choice",()=>{

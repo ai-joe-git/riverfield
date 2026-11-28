@@ -21,7 +21,7 @@ NATIVE = Path(os.environ.get("RIVERFIELD_NATIVE_DIRECTOR", Path.home() / "comfyu
 def native_functions():
     namespace = dict(copy=copy, json=json, math=math, Path=Path, FPS=24, H3_FPS=24, MAX_REF_IMAGES=9, MAX_REF_AUDIOS=3)
     wanted = {
-        "minimax_h3_timeline_director.py": {"_float", "_audio_mode", "_locked_audio_assets", "_ordered_segment_assets", "_timeline_for_prompt_index", "_require_timeline_plan", "_reference_manifest"},
+        "minimax_h3_timeline_director.py": {"_float", "_audio_mode", "_locked_audio_assets", "_ordered_segment_assets", "_timeline_for_prompt_index", "_require_timeline_plan", "_reference_manifest", "_endpoint_image_guides", "_encode_timeline_plan"},
         "minimax_h3_finite_segments.py": {"_plan_for_segment", "_finite_plan_for_segment", "_prepare_timeline_segments", "_locked_audio_for_plan", "_finite_locked_audio_asset", "_video_soundtrack_lock_for_plan", "_finite_video_audio_muted"},
         "experimental_latent_guide.py": {"_valid_guide_frames"},
     }
@@ -34,8 +34,8 @@ def native_functions():
     return namespace
 
 
-def plan(windows, mode="reference", global_prompt=""):
-    timeline = json.loads(builder.build_timeline(generation_seconds=7.3, global_prompt=global_prompt, images=["alex.png", "room.png"], audios=["music.wav", "other.wav"], audio_mode=mode, segment_windows=json.dumps({"windows": windows})))
+def plan(windows, mode="reference", global_prompt="", conditioning_mode="ref2va"):
+    timeline = json.loads(builder.build_timeline(generation_seconds=7.3, global_prompt=global_prompt, images=["alex.png", "room.png"], audios=["music.wav", "other.wav"], audio_mode=mode, segment_windows=json.dumps({"windows": windows, "conditioning_mode": conditioning_mode})))
     return dict(type="MINIMAX_H3_TIMELINE_PLAN", timeline=timeline, width=480, height=832, length=175, generation_seconds=7.3, prompt_index=None, segment_count=len(windows))
 
 
@@ -83,6 +83,58 @@ class InstalledNativeContractTest(unittest.TestCase):
         finite = self.native["_prepare_timeline_segments"](plan(windows(3, overlap=39)))
         self.assertEqual(finite["segment_overlaps"], [0, 39, 39])
         self.assertEqual(finite["target_output_frames"], 447)
+
+    def test_fl2va_endpoints_survive_segment_selection_without_reference_images(self):
+        rows = windows(3)
+        rows[0].update(first_frame=1, last_frame=0)
+        rows[1].update(last_frame=1)
+        finite = self.native["_prepare_timeline_segments"](plan(rows, conditioning_mode="fl2va"))
+        first, second, third = [p["timeline"] for p in finite["segment_plans"]]
+        self.assertEqual(first["images"], [])
+        self.assertEqual(first["firstFrame"]["file"], "room.png")
+        self.assertEqual(first["lastFrame"]["file"], "alex.png")
+        self.assertNotIn("firstFrame", second)
+        self.assertEqual(second["lastFrame"]["file"], "room.png")
+        self.assertNotIn("firstFrame", third)
+        self.assertNotIn("lastFrame", third)
+        self.assertEqual(finite["segment_overlaps"], [0, 0, 0])
+
+    def test_endpoint_images_are_native_guides_at_the_exact_first_and_last_frames(self):
+        self.native["_safe_input_path"] = lambda path: path
+        self.native["_load_image"] = lambda path, w, h: (path, w, h)
+        guides = self.native["_endpoint_image_guides"]({"firstFrame": {"file": "first.png"}, "lastFrame": {"file": "last.png"}}, 480, 832, 175)
+        self.assertEqual([(g["image"], g["frame_idx"]) for g in guides], [(("first.png", 480, 832), 0), (("last.png", 480, 832), 174)])
+        self.assertEqual(self.native["_endpoint_image_guides"]({}, 480, 832, 175), [])
+        for key in ("firstFrame", "lastFrame"):
+            with self.assertRaisesRegex(ValueError, "endpoint asset"):
+                self.native["_endpoint_image_guides"]({key: {}}, 480, 832, 175)
+
+    def test_native_encoder_applies_endpoints_to_the_existing_conditioning_path(self):
+        # Execute the real installed encode function; replace only GPU/media operations.
+        from types import SimpleNamespace
+        native = dict(self.native)
+        captured = []
+        native.update({
+            "log": SimpleNamespace(info=lambda *args: None),
+            "_require_timeline_plan": lambda p: p,
+            "_build_references": lambda *args: ({}, {}, {}, {}, []),
+            "_timeline_video_audio": lambda timeline: {},
+            "_standalone_audio_track": lambda timeline: {},
+            "_execute_h3_independent_first": lambda *args: ("conditioning", "latent"),
+            "_safe_input_path": lambda path: path,
+            "_load_image": lambda path, w, h: path,
+            "_apply_h3_guides": lambda conditioning, latent, vae, audio_vae, guides: captured.extend(guides) or conditioning,
+        })
+        # Rebind the extracted function to these test-local media/runtime stubs.
+        import types
+        encode = types.FunctionType(native["_encode_timeline_plan"].__code__, native)
+        guide_helper = types.FunctionType(native["_endpoint_image_guides"].__code__, native)
+        native["_endpoint_image_guides"] = guide_helper
+        source = {"width": 480, "height": 832, "length": 175,
+                  "timeline": {"firstFrame": {"file": "first.png"}, "lastFrame": {"file": "last.png"}}}
+        result = encode(source, None, None, None, "Prompt unchanged", "match")
+        self.assertEqual(result[:2], ("conditioning", "latent"))
+        self.assertEqual([(g["image"], g["frame_idx"]) for g in captured], [("first.png", 0), ("last.png", 174)])
 
     def test_global_fallback_is_all_or_nothing(self):
         rows = windows()

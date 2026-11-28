@@ -1,16 +1,18 @@
+// @ts-ignore Shared browser/server mode resolver.
+import {directorConditioningMode} from "../web/js/director-mode.js";
 import {z} from "zod";
 import { InputError } from "./input-error.ts";
 
 const nativeFrames = (seconds: number) => Math.min(3592, 5 + 17 * Math.max(0, Math.round((seconds * 24 - 5) / 17)));
 const legal=(length:number)=>Number.isInteger(length)&&length>=5&&length<=3592&&(length-5)%17===0;
 const imageSlots=z.array(z.number().int().min(0).max(8)).max(9),audioSlots=z.array(z.number().int().min(0).max(2)).max(3);
-export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150).describe("Requested duration of EACH generated segment, not total story duration"),total_seconds:z.number().positive().optional().describe("Optional total timeline duration to validate, including overlap"),overlap_frames:z.number().int().min(0).max(3591).optional().describe("Defaults to 0 (hard cuts). Set a legal overlap explicitly only to extend the same continuous camera take, for example beyond 15 seconds."),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:imageSlots.default([]),audios:audioSlots.default([]),segment_images:z.array(imageSlots).max(64).optional(),segment_audios:z.array(audioSlots).max(64).optional()});
+export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150).describe("Requested duration of EACH generated segment, not total story duration"),total_seconds:z.number().positive().optional().describe("Optional total timeline duration to validate, including overlap"),overlap_frames:z.number().int().min(0).max(3591).optional().describe("Defaults to 0 (hard cuts). Set a legal overlap explicitly only to extend the same continuous camera take, for example beyond 15 seconds."),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:imageSlots.default([]),audios:audioSlots.default([]),segment_first_frames:z.array(z.number().int().min(0).max(8).nullable()).max(64).optional().describe("Optional first-frame Picture bin slot per segment (zero based); null leaves it empty. Use with FL2VA."),segment_last_frames:z.array(z.number().int().min(0).max(8).nullable()).max(64).optional().describe("Optional last-frame Picture bin slot per segment (zero based); null leaves it empty. Use with FL2VA."),segment_images:z.array(imageSlots).max(64).optional(),segment_audios:z.array(audioSlots).max(64).optional()});
 /** Same frame geometry as the Material Planner. Arithmetic belongs in code, not in an LLM. */
-export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,prompts,images,audios,segment_images,segment_audios}=segmentRequest.parse(raw);const length=nativeFrames(seconds);const seam=overlap_frames??0;
+export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,prompts,images,audios,segment_images,segment_audios,segment_first_frames,segment_last_frames}=segmentRequest.parse(raw);const length=nativeFrames(seconds);const seam=overlap_frames??0;
  if(seam>=length||(seam!==0&&seam!==1&&!legal(seam)))throw new Error("Overlap must be 0, 1 or 5 + 17*n frames and shorter than the segment.");
  const stride=length-seam;
- for(const [name,slots] of [["segment_images",segment_images],["segment_audios",segment_audios]] as const)if(slots&&slots.length!==prompts.length)throw new Error(`${name} must have one entry per prompt`);
- const windows=prompts.map((prompt,i)=>({start:i*stride,end:i*stride+length,prompt,images:[...(segment_images?.[i]??images)],audios:[...(segment_audios?.[i]??audios)]})),total=windows.at(-1)!.end/24;
+ for(const [name,slots] of [["segment_images",segment_images],["segment_audios",segment_audios],["segment_first_frames",segment_first_frames],["segment_last_frames",segment_last_frames]] as const)if(slots&&slots.length!==prompts.length)throw new Error(`${name} must have one entry per prompt`);
+ const windows=prompts.map((prompt,i)=>({start:i*stride,end:i*stride+length,prompt,...(segment_first_frames?.[i]!=null?{first_frame:segment_first_frames[i]}:{}),...(segment_last_frames?.[i]!=null?{last_frame:segment_last_frames[i]}:{}),images:[...(segment_images?.[i]??images)],audios:[...(segment_audios?.[i]??audios)]})),total=windows.at(-1)!.end/24;
  if(total_seconds!==undefined&&Math.abs(total-total_seconds)>.5)throw new Error(`${prompts.length} segments of ${seconds}s overlap to ${total.toFixed(2)}s, not total_seconds=${total_seconds}. Change segment duration or prompt count; seconds is per segment.`);
  return {segment_windows:JSON.stringify({windows,videos:[],audios:[]}),frames:windows.at(-1)!.end,seconds:total,segmentSeconds:length/24,segmentFrames:length,overlapFrames:seam,promptValidation:"not_performed"};}
 
@@ -36,7 +38,7 @@ export function planDirectorSegments(raw:unknown){
 /** Normalize only the automated Pika path, BEFORE approval, without changing creative text/materials. */
 export function directorValues(values:Record<string,unknown>,files?:Record<string,unknown>):Record<string,unknown>{
  const out={...values,duration:DIRECTOR_DEFAULTS.segmentSeconds,start_seconds:0};
- if(values.flex_mode===undefined&&files!==undefined)(out as Record<string,unknown>).flex_mode=Object.entries(files).some(([key,value])=>/^(image|video)\d+$/.test(key)&&value)?"ref2va":"fl2va";
+ if(values.flex_mode===undefined&&files!==undefined)(out as Record<string,unknown>).flex_mode=directorConditioningMode({...values,...files,flex_mode:"auto"});
  // Actual manifest defaults own technical settings, not the model.
  for(const key of DIRECTOR_MANAGED_INPUTS)if(key!=="duration"&&key!=="start_seconds")delete (out as Record<string,unknown>)[key];
  if(!values.segment_windows)return out;
@@ -63,7 +65,12 @@ export function validateH3(values:Record<string,unknown>){
   if(!w||!Number.isInteger(w.start)||!Number.isInteger(w.end)||w.start<0||!legal(w.end-w.start))throw new Error(`Segment ${i+1}: integer boundaries and length 5 + 17*n (5..3592 frames) required. Use plan_segments.`);
   const overlap=previous?previous.end-w.start:0;
   if((!previous&&w.start!==0)||(previous&&(w.start<=previous.start||w.end<=previous.end||overlap<0||overlap>=Math.min(previous.end-previous.start,w.end-w.start)||(overlap!==0&&overlap!==1&&!legal(overlap)))))throw new Error(`Segment ${i+1}: windows must advance without gaps, with overlap 0, 1 or 5 + 17*n frames. Use plan_segments.`);
-  for(const [key,type,max] of [["images","image",9],["audios","audio",3]] as const){if(w[key]!==undefined&&(!Array.isArray(w[key])||w[key].some((n:any)=>!Number.isInteger(n)||n<0||n>=max||!values[`${type}${n+1}`])))throw new Error(`Segment ${i+1}: ${key} must refer to supplied file slots (zero based)`);}
+  for (const key of directorConditioningMode(values)==="fl2va" ? ["first_frame", "last_frame"] as const : []) {
+    const slot = w[key];
+    if (slot !== undefined && slot !== null && (!Number.isInteger(slot) || slot < 0 || slot > 8 || !values[`image${slot+1}`]))
+      throw new Error(`Segment ${i+1}: ${key} must refer to a supplied Picture bin slot (zero based).`);
+  }
+  for(const [key,type,max] of [["images","image",9],["audios","audio",3]] as const){if((key!=="images"||directorConditioningMode(values)!=="fl2va")&&w[key]!==undefined&&(!Array.isArray(w[key])||w[key].some((n:any)=>!Number.isInteger(n)||n<0||n>=max||!values[`${type}${n+1}`])))throw new Error(`Segment ${i+1}: ${key} must refer to supplied file slots (zero based)`);}
   previous=w;
  }
 }

@@ -20,7 +20,7 @@
       "hidden": true,
       "required": false,
       "default": "",
-      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment.",
+      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment. In FL2VA, first_frame and last_frame are optional zero-based Picture bin slots per window. Reference images remain dormant. Ref2VA continues to use the ordered images list.",
       "bind": [
         {
           "node": "rfplan",
@@ -570,7 +570,7 @@
         },
         {
           "value": "fl2va",
-          "label": "fl2va — text → video (plain text2v, empty bin)",
+          "label": "fl2va — optional first / last frames",
           "sets": [
             {
               "node": "1",
@@ -580,7 +580,7 @@
           ]
         }
       ],
-      "help": "The Flash H3 model moves with the mode: auto picks ref2va when the bin has a picture or clip and fl2va for an empty text-only bin. Explicit ref2va/fl2va remain available; both use the same 4/6/8-step sigmas, euler, p-H3 encoder, SLA 0.80 and Production recipe."
+      "help": "Ref2VA uses ordered references per segment. FL2VA uses optional first and last frames per segment; leave both empty for text-to-video. Auto uses endpoint assignments when present, otherwise follows the reference bin. Model and sampler settings remain paired with the selected mode."
     },
     {
       "id": "aspect",
@@ -1177,7 +1177,7 @@
   "workflow": "workflow.api.json",
   "layout": "director",
   "panel_title": "Flash H3 Director",
-  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave the bin empty for plain text-to-video). The first/last-frame endpoint inputs are not exposed here; use h3-flf2v-flash for endpoint conditioning. 8 steps, euler, SLA 0.80 and multiple 32 are studio-managed. The Production recipe has been rendered; start with one 7.3 s segment. Build & Test runs at 0.1 MP with RelayVSR off; Production defaults to 0.3 MP with its own remembered resolution and RelayVSR x2. Switching profiles never changes the timeline, prompts, references or seed, and never starts a render. A succeeded preview can be promoted to Production from the history; the production request keeps the preview's exact creative payload, and both jobs stay linked in the history. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render. Qwen3.8 Heretic prompt enhancement is enabled by default; it rewrites every Material Planner segment in order, feeding previous scenes as context and using each segment's ordered pictures/clips.",
+  "notes": "The panel builds a native H3 timeline: each window has its own prompt and ordered reference pictures/audio. ref2va uses the reference model (give it at least one picture or clip); fl2va uses the text/first-last model (leave both endpoint assignments empty for plain text-to-video). Each FL2VA window accepts first_frame and last_frame as optional zero-based Picture bin slots; they condition the endpoints and are not Ref2VA references. 8 steps, euler, SLA 0.80 and multiple 32 are studio-managed. The Production recipe has been rendered; start with one 7.3 s segment. Build & Test runs at 0.1 MP with RelayVSR off; Production defaults to 0.3 MP with its own remembered resolution and RelayVSR x2. Switching profiles never changes the timeline, prompts, references or seed, and never starts a render. A succeeded preview can be promoted to Production from the history; the production request keeps the preview's exact creative payload, and both jobs stay linked in the history. The published gallery example is a single 15 s segment from the measured h3-video-flash run (same Flash H3 model stack), not a multi-segment director render. Qwen3.8 Heretic prompt enhancement is enabled by default; it rewrites every Material Planner segment in order, feeding previous scenes as context and using each segment's ordered pictures/clips.",
   "custom_nodes": [
     {
       "repo": "https://github.com/BennyDaBall930/comfyui_hyperflow_int8_nodes",

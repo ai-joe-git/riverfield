@@ -137,6 +137,11 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     assert.ok(continuous.seconds > 15);
     const continuousWindows = JSON.parse(continuous.segment_windows).windows;
     assert.equal(continuousWindows[1].start, continuousWindows[0].end - 39);
+    const endpointPlan = resultData(await client.call("plan_segments", {
+      app:"h3-studio-director-flash", prompts:["First scene", "Second scene"],
+      segment_first_frames:[1,null], segment_last_frames:[0,1],
+    }));
+    assert.deepEqual(JSON.parse(endpointPlan.segment_windows).windows.map((w:any)=>[w.first_frame??null,w.last_frame??null]),[[1,0],[null,1]]);
     const invalidOverlap = await client.call("plan_segments", { app: "h3-studio-director-flash", overlap_frames: 2 });
     assert.equal(invalidOverlap.isError, true);
     assert.equal(received.length, 0);

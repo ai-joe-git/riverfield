@@ -20,7 +20,7 @@
       "hidden": true,
       "required": false,
       "default": "",
-      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment.",
+      "help": "Written by the Material Planner panel: windows, per-segment prompts and media assignment. In FL2VA, first_frame and last_frame are optional zero-based Picture bin slots per window. Reference images remain dormant. Ref2VA continues to use the ordered images list.",
       "bind": [
         {
           "node": "rfplan",

@@ -55,7 +55,7 @@ export function validatePikaValues(values:Record<string,unknown>){
  const pictures=count("image",9),videos=count("video",3),audios=count("audio",3);
  const mode=values.flex_mode==="auto"?(pictures+videos?"ref2va":"fl2va"):values.flex_mode;
  if(mode!=="ref2va"&&mode!=="fl2va")return reject("PIKA_MODE","flex_mode","Pika requires flex_mode auto, ref2va or fl2va");
- if(mode==="fl2va"&&pictures+videos+audios)reject("PIKA_MATERIALS","files","FL2VA in Pika Director requires an empty material bin; use Ref2VA for references");
+ if(mode==="fl2va"&&videos)reject("PIKA_MATERIALS","files","FL2VA uses optional first/last images; remove video references or use Ref2VA.");
  if(mode==="ref2va"&&!pictures&&!videos)reject("PIKA_MATERIALS","files","Ref2VA requires a supplied picture or video; use FL2VA for text-only generation");
  if(!values.segment_windows&&String(values.segment_prompts||"").trim())reject("PIKA_PROMPT_INPUT","segment_prompts","Pika multi-line prompts must use global_prompt or segment_windows, not the line-split segment_prompts field");
  let spec:any;
@@ -66,10 +66,10 @@ export function validatePikaValues(values:Record<string,unknown>){
   if(selection.length!==1||windows.some((w:any)=>!Array.isArray(w.audios)||w.audios.length!==1||w.audios[0]!==selection[0]))reject("PIKA_LOCKED_SOUNDTRACK","segment_windows.windows.audios","Finite sampling requires exactly the same one locked soundtrack in every segment; locked audio does not consume an Audio N reference label");
  }
  for(const [i,w] of windows.entries()){
-  const images=w.images||[],audio=w.audios||[];
+  const images=mode==="fl2va"?[w.first_frame,w.last_frame].filter(n=>n!==undefined&&n!==null):(w.images||[]),audio=w.audios||[];
   for(const [slots,kind,max] of [[images,"image",9],[audio,"audio",3]] as const){
    if(!Array.isArray(slots)||slots.some(n=>!Number.isInteger(n)||n<0||n>=max||!values[`${kind}${n+1}`]))reject("PIKA_UNBOUND_SLOT",`segment_windows.windows.${i}.${kind}s`,`Pika segment ${i+1}: ${kind} slots must refer to supplied files (zero based)`);
-   if(new Set(slots).size!==slots.length)reject("PIKA_DUPLICATE_SLOT",`segment_windows.windows.${i}.${kind}s`,`Pika segment ${i+1}: duplicate material slots`);
+   if(!(mode==="fl2va"&&kind==="image")&&new Set(slots).size!==slots.length)reject("PIKA_DUPLICATE_SLOT",`segment_windows.windows.${i}.${kind}s`,`Pika segment ${i+1}: duplicate material slots`);
   }
   if(mode==="ref2va"&&!images.length&&!videos)reject("PIKA_MATERIALS",`segment_windows.windows.${i}.images`,`Pika segment ${i+1}: Ref2VA requires a visual reference assigned to this segment`);
   const issues=pikaPromptIssues(String(w.prompt||values.global_prompt||""),{mode,pictures:images.length,videos:videos?null:0,audios:videos?null:values.audio_mode==="locked"?0:audio.length,seconds:w.end!==undefined?(w.end-w.start)/24:Number(values.duration)||5}).map(issue=>({...issue,field:`segment_windows.windows.${i}.prompt.${issue.field}`}));

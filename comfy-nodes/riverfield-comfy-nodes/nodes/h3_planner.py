@@ -155,6 +155,7 @@ def build_timeline(
         })
         video_by_slot[slot] = video_assets[-1]
 
+    endpoint_mode = isinstance(spec, dict) and spec.get("conditioning_mode") == "fl2va"
     spec_windows = None
     if isinstance(spec, dict) and isinstance(spec.get("windows"), list) and spec["windows"]:
         spec_windows = []
@@ -167,9 +168,16 @@ def build_timeline(
                 "startFrame": window_start,
                 "endFrame": end,
                 "prompt": str(raw.get("prompt") or ""),
-                "images": [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and i in image_ids],
+                "images": [] if endpoint_mode else [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and i in image_ids],
                 "audios": [audio_ids[i] for i in (raw.get("audios") or []) if isinstance(i, int) and i in audio_ids],
             })
+            if endpoint_mode:
+                for field, target in (("first_frame", "firstFrame"), ("last_frame", "lastFrame")):
+                    slot = raw.get(field)
+                    if slot is not None:
+                        if type(slot) is not int or slot not in image_ids:
+                            raise ValueError(f"Segment {index+1}: {field} requires an uploaded picture slot")
+                        spec_windows[-1][target] = image_ids[slot]
     if spec_windows:
         windows = spec_windows
         count = len(windows)

@@ -29,6 +29,8 @@ done
 cp -r comfy-nodes/riverfield-comfy-nodes "$COMFY/custom_nodes/riverfield-comfy-nodes"
 echo "copié : riverfield-comfy-nodes"
 
+python3 local/patch-h3-frame-endpoints.py "$COMFY" || echo "h3-endpoints : patch non appliqué (pack absent ou modifié)"
+
 # 2. les patchs des packs tiers (idempotents, sauvegarde .orig-riverfield)
 python3 local/patch-h3-sla-solattn.py "$COMFY" || echo "h3-sla : patch non appliqué (pack absent ou modifié)"
 python3 local/patch-ltx-director-iclora.py "$COMFY" || echo "ltx-director : patch non appliqué (pack absent ou modifié)"

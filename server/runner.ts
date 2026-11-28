@@ -3,6 +3,8 @@
 import { Comfy } from "@comfyorg/sdk";
 import type { App, Input } from "./registry.ts";
 import { isFileInput, modelKey } from "./registry.ts";
+// @ts-ignore Shared browser/server mode resolver.
+import {directorConditioningMode} from "../web/js/director-mode.js";
 import {validateH3} from "./h3-plan.ts";
 import {validatePikaValues} from "./pika-prompt.ts";
 import {applyRenderProfile} from "./render-profile.ts";
@@ -146,10 +148,21 @@ export function resolveValues(app: App, values: Values, { draftPrompt = false } 
   // Pika's auto adapter follows the material bin after the optional file slots are resolved.
   // The UI can keep its empty default and still pick the correct FL2VA/Ref2VA checkpoint pair.
   if((app.id==="pika-studio-director"||app.id==="h3-studio-director-flash")&&out.flex_mode==="auto"){
-    const visual=["image1","image2","image3","image4","image5","image6","image7","image8","image9","video1","video2","video3"].some((id)=>out[id]!==undefined);
-    out.flex_mode=visual?"ref2va":"fl2va";
+    out.flex_mode=directorConditioningMode(out);
   }
-  if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){try{validateH3(out);}catch(e){throw new InputError((e as Error).message);}}
+  if(Object.values(app.graph||{}).some(n=>n.class_type==="RiverFieldH3Planner")&&!out.advanced_timeline_json){
+    try {
+      if (out.segment_windows) {
+        const spec = typeof out.segment_windows === "string" ? JSON.parse(out.segment_windows) : out.segment_windows;
+        if (spec && typeof spec === "object") {
+          const mode = directorConditioningMode(out);
+          if ((mode === "fl2va" || spec.conditioning_mode !== undefined) && spec.conditioning_mode !== mode)
+            out.segment_windows = JSON.stringify({...spec, conditioning_mode:mode});
+        }
+      }
+      validateH3(out);
+    } catch(e){throw new InputError((e as Error).message);}
+  }
   if(app.id==="pika-studio-director"&&!out.advanced_timeline_json&&!draftPrompt)validatePikaValues(out);
   if(app.id==="relayvsr-upscale"){
     const paired=app.inputs.find(i=>i.id==="unet_name")?.options?.find(o=>o.value===out.unet_name)?.sync?.vae_name;
