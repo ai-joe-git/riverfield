@@ -14,11 +14,12 @@ test("Velvet Moon evidence extraction is capped at maxFrames and still covers ev
   const snap = JSON.parse(readFileSync(snapshot, "utf8"));
   const candidate = snap.candidates[candidateId];
   const bindings = (snap.bindings[candidateId] ?? []).filter((binding: { sceneId: string }) => binding.sceneId === sceneId);
-  const bundle = extractObservationEvidence({
+  const input = {
     outDir: out, mediaRoots: productionMediaRoots(out), productionId: snap.production.id,
     sceneId, candidate, bindings, outputPath: candidate.outputs[0].path, outputHash: candidate.outputs[0].hash,
     config: { maxFrames: 12, visualFrames: 7, sampleIntervalSeconds: 2, sceneThreshold: 0.3, includeAudio: true },
-  });
+  };
+  const bundle = extractObservationEvidence(input);
   assert.equal(bundle.frames.length, 12, "maxFrames is a hard total cap");
   assert.equal(bundle.shots.length, 5);
   assert.equal(new Set(bundle.shots.map((shot) => shot.id)).size, 5);
@@ -31,4 +32,7 @@ test("Velvet Moon evidence extraction is capped at maxFrames and still covers ev
   assert.ok(visual.some((frame) => frame.kind === "closing_frame" && frame.shotId === bundle.shots.at(-1)?.id), "last shot closing is supplied");
   assert.equal(bundle.technical.sceneEndFrame, 362, "binding end is exclusive and equals the actual frame count");
   assert.equal(bundle.nativeBoundaries[0]?.endFrame, 362);
+  const tight = extractObservationEvidence({ ...input, config: { ...input.config, visualFrames: bundle.shots.length } });
+  const tightShots = new Set(tight.visualFrameIds.map(id => tight.frames.find(frame => frame.id === id)?.shotId));
+  assert.deepEqual([...tightShots], bundle.shots.map(shot => shot.id), "cover each shot when the number of slots equals the shot count");
 });

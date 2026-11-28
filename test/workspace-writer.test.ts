@@ -56,3 +56,23 @@ test("Workspace normalizes complete fences and rejects unfinished wrappers", asy
     else assert.equal(await result, expected);
   }
 });
+
+test("Workspace observation uses no reasoning budget only for a compatible writer", async () => {
+  const { observeWithWorkspace, validateWorkspaceObserver, workspaceAsr } = await import("../server/workspace-observer.ts");
+  const chat = { baseUrl: "http://127.0.0.1:8731/v1", model: "active-halogen" };
+  const observer = validateWorkspaceObserver({ chat, reasoningNone: true, asrError: "NPU host unavailable" });
+  const requests: Record<string, unknown>[] = [];
+  const request = (async (_url: string, init: RequestInit) => {
+    requests.push(JSON.parse(String(init.body)));
+    return Response.json({ choices: [{ message: { content: "{}" }, finish_reason: "stop" }] });
+  }) as typeof fetch;
+  const values = { prompt: "Review", system_prompt: "Return JSON", thinking: false, max_output_tokens: 4096 };
+  await observeWithWorkspace({ ...observer.chat, reasoningNone: observer.reasoningNone }, values, undefined, request);
+  await observeWithWorkspace(observer.chat, values, undefined, request);
+  assert.equal(requests[0].reasoning_effort, "none");
+  assert.equal(requests[1].reasoning_effort, undefined);
+  assert.equal(requests[0].max_tokens, 4096);
+  await assert.rejects(workspaceAsr(undefined, request, observer.asrError).transcribe({
+    audio: "unused", offsetSeconds: 0, fps: 24, bindingId: "binding",
+  }), /NPU host unavailable/);
+});

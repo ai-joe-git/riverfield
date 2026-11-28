@@ -1,43 +1,46 @@
 #!/usr/bin/env bash
-# Arrête tout ce que start.sh a lancé (backend complet + interface web).
+# Stop this checkout's studio processes and wait for graceful shutdown.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
-LOG="${RIVERFIELD_LOG:-/tmp/opencode/riverfield}"
+# shellcheck source=local/service-lifecycle.sh
+source ./local/service-lifecycle.sh
+if [[ -f "$RIVERFIELD_ROOT/.env" ]]; then
+    source "$RIVERFIELD_ROOT/.env"
+fi
+mkdir -p "$RIVERFIELD_LOG"
+exec > >(tee -a "$RIVERFIELD_LOG/stop.log") 2>&1
+service_lock || { printf 'Une autre commande Riverfield est encore en cours.\n' >&2; exit 1; }
 
-stop_tree() {
-  local pid="$1"
-  [[ -z "$pid" ]] && return
-  kill -0 "$pid" 2>/dev/null || return
-  local kids
-  kids=$(pgrep -P "$pid" 2>/dev/null || true)
-  for k in $kids; do stop_tree "$k"; done
-  kill "$pid" 2>/dev/null || true
-}
-
-# ports réellement utilisés au dernier démarrage (run-backend.sh les choisit libres)
-# shellcheck disable=SC1091
-[[ -f "$LOG/ports.env" ]] && source "$LOG/ports.env"
-COMFY_PORT="${COMFY_PORT:-8188}"
-
-for name in web mcp backend; do
-  f="$LOG/$name.pid"
-  if [[ -f "$f" ]]; then
-    pid=$(cat "$f")
-    stop_tree "$pid"
-    rm -f "$f"
-    echo "$name arrêté (PID $pid)"
-  fi
+declare -A stopping=()
+failed=0
+for name in mcp web backend; do
+    port=$(service_port "$name")
+    rows=$(listener_rows "$port") || { failed=1; continue; }
+    if pid=$(listener_pid "$name" "$rows") || pid=$(saved_service_pid "$name"); then
+        stopping[$name]=$pid
+        kill -TERM "$pid" 2>/dev/null || true
+    elif [[ -n "$rows" ]]; then
+        printf 'Le port %s appartient à un autre service.\n' "$port"
+    else
+        rm -f "$RIVERFIELD_LOG/$name.pid"
+    fi
 done
 
-# filet de sécurité : les enfants restés en vie si le parent est parti avant eux.
-# On ne tue que des interpréteurs (python/node), jamais le shell qui lance ce script.
-for pat in "main.py --listen 127.0.0.1 --port $COMFY_PORT" "comfy-api-proxy --comfyui http://127.0.0.1:$COMFY_PORT" "infra/gateway.py" "server/server.ts" "mcp/server.ts"; do
-  for p in $(pgrep -f "$pat" 2>/dev/null || true); do
-    [[ "$p" == "$$" ]] && continue
-    case "$(ps -o comm= -p "$p" 2>/dev/null | tr -d ' ')" in
-      python|python3|node) kill "$p" 2>/dev/null && echo "arrêté PID $p ($pat)" ;;
-    esac
-  done
+deadline=$((SECONDS + 30))
+for name in mcp web backend; do
+    pid=${stopping[$name]:-}
+    [[ -n "$pid" ]] || continue
+    while service_pid_matches "$name" "$pid" || { [[ "$name" == backend ]] && service_pid_matches gateway "$pid"; }; do
+        if (( SECONDS >= deadline )); then
+            printf 'Le service %s (PID %s) attend toujours son arrêt.\n' "$name" "$pid" >&2
+            failed=1
+            break
+        fi
+        sleep 0.2
+    done
+    if ! service_pid_matches "$name" "$pid" && { [[ "$name" != backend ]] || ! service_pid_matches gateway "$pid"; }; then
+        rm -f "$RIVERFIELD_LOG/$name.pid"
+        printf '%s arrêté.\n' "$name"
+    fi
 done
-sleep 2
-echo "terminé."
+exit "$failed"

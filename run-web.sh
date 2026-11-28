@@ -3,17 +3,17 @@
 # Needs the backend: ./run-backend.sh
 #
 # Un shell non interactif (systemd, cron, opencode) n'a pas nvm dans son PATH : on le
-# retrouve nous-mêmes, sinon `npm` est introuvable et le web ne démarre pas.
+# retrouve nous-mêmes, sinon `node` est introuvable et le web ne démarre pas.
 set -Eeuo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if ! command -v npm >/dev/null 2>&1 && [[ -d "$HOME/.nvm/versions/node" ]]; then
+if ! command -v node >/dev/null 2>&1 && [[ -d "$HOME/.nvm/versions/node" ]]; then
   newest=$(ls -1 "$HOME/.nvm/versions/node" | sort -V | tail -1)
   export PATH="$HOME/.nvm/versions/node/$newest/bin:$PATH"
 fi
-command -v npm >/dev/null 2>&1 || {
-  echo "ERROR: npm introuvable (Node 22.6+ requis, ou nvm non chargé)"
+command -v node >/dev/null 2>&1 || {
+  echo "ERROR: node introuvable (Node 22.6+ requis, ou nvm non chargé)"
   exit 1
 }
 
-exec npm run serve
+exec node --env-file-if-exists=.env --experimental-strip-types --disable-warning=ExperimentalWarning server/server.ts

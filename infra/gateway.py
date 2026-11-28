@@ -108,8 +108,15 @@ class ComfyWorker:
             async with self.session.post(f"{COMFYUI_URL}/riverfield-memory/retire",
                                          headers={"Authorization": f"Bearer {self.token}"},
                                          timeout=ClientTimeout(total=5)) as response:
-                if response.status != 200 or (await response.json()).get("worker_pid") != self.process.pid:
-                    raise web.HTTPConflict(text="ComfyUI is busy or could not confirm that its owned worker is safe to stop")
+                if response.status == 409:
+                    raise web.HTTPConflict(text="ComfyUI has an active submission or queued work")
+                if response.status != 200:
+                    log.warning("ComfyUI worker %s rejected retirement (HTTP %s)", self.process.pid, response.status)
+                    raise web.HTTPBadGateway(text=f"ComfyUI retirement returned HTTP {response.status}")
+                state = await response.json()
+                if state.get("worker_pid") != self.process.pid:
+                    log.warning("ComfyUI retirement acknowledgement did not match worker %s", self.process.pid)
+                    raise web.HTTPConflict(text="ComfyUI could not confirm the owned worker's identity")
         await self.stop()
         return await self.status()
 
@@ -148,6 +155,13 @@ class Pantry:
     async def ensure_worker(self) -> None:
         if self.worker and await self.worker.start():
             self.models, self.app = None, None
+
+    async def wake_workspace(self) -> dict:
+        if not self.worker:
+            raise web.HTTPConflict(text="Riverfield does not own this ComfyUI worker")
+        async with self.lock:
+            await self.ensure_worker()
+            return {**await self.worker.status(), "port": self.worker.port}
 
     async def workspace(self, park: bool) -> dict:
         if not self.worker:
@@ -266,6 +280,12 @@ async def workspace_comfy(request: web.Request) -> web.Response:
     return web.json_response(await request.app["pantry"].workspace(request.method == "POST"))
 
 
+async def wake_workspace_comfy(request: web.Request) -> web.Response:
+    if request.remote not in ("127.0.0.1", "::1") or request.headers.get("Origin"):
+        raise web.HTTPForbidden()
+    return web.json_response(await request.app["pantry"].wake_workspace())
+
+
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "0.0.0.0", "[::1]")
 
 
@@ -357,6 +377,7 @@ def make_app() -> web.Application:
     app.router.add_post("/riverfield/release", release)
     app.router.add_get("/riverfield/workspace-comfy", workspace_comfy)
     app.router.add_post("/riverfield/workspace-comfy", workspace_comfy)
+    app.router.add_post("/riverfield/workspace-comfy/wake", wake_workspace_comfy)
     app.router.add_get("/riverfield/status", status)
     app.router.add_route("*", "/{tail:.*}", forward)
     app.on_startup.append(on_startup)

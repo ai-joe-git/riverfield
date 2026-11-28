@@ -137,8 +137,13 @@ class ManagedWorkerTests(unittest.IsolatedAsyncioTestCase):
                     try:
                         self.assertEqual(await pantry.workspace(False), {"managed": True, "state": "parked"})
                         self.assertEqual((await pantry.release())["retained_gpu_bytes"], 0)
+                        ready = await pantry.wake_workspace()
+                        self.assertEqual(ready["state"], "running")
+                        self.assertEqual(ready["port"], port)
+                        pid = ready["comfyui"]["worker_pid"]
+                        self.assertEqual((await pantry.wake_workspace())["comfyui"]["worker_pid"], pid)
                         await pantry.prepare("first", "models")
-                        pid = (await pantry.workspace(False))["comfyui"]["worker_pid"]
+                        self.assertEqual((await pantry.workspace(False))["comfyui"]["worker_pid"], pid)
                         async with session.post(f"http://127.0.0.1:{port}/riverfield-memory/retire") as response:
                             self.assertEqual(response.status, 403)
                         (root / "busy").touch()

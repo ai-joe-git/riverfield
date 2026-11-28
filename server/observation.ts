@@ -486,7 +486,7 @@ export class ObservationManager {
           model: workspace?.chat.model ?? visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: Math.max(0, 9 - job.options.visualFrames),
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          ...(workspace ? { complete: (values, signal) => observeWithWorkspace(workspace.chat, values, signal) } : { checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family } }),
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal) } : { checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family } }),
         });
       const comparisonBackend: SceneComparator = this.comparator ??
         (this.observer?.compare ? this.observer as SceneComparator : undefined) ??
@@ -494,7 +494,7 @@ export class ObservationManager {
           model: workspace?.chat.model ?? comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          ...(workspace ? { complete: (values, signal) => observeWithWorkspace(workspace.chat, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
         });
 
       const nativeInputs: NonNullable<ObservationReport["observer"]["nativeInputs"]> = {};
@@ -543,7 +543,7 @@ export class ObservationManager {
       }
       writeArtifact("native-inputs.json", { requested: { video: job.options.nativeVideo, audio: job.options.nativeAudio }, supplied: nativeInputs, evidence: nativeEvidence, limitations: nativeLimitations });
 
-      const asr = workspace ? workspaceAsr(workspace.asr) : this.asr;
+      const asr = workspace ? workspaceAsr(workspace.asr, fetch, workspace.asrError) : this.asr;
       const runStages = async () => {
         controller.signal.throwIfAborted();
         // Whisper first, then Qwen visual + comparison consecutively. The visual pass
@@ -749,7 +749,10 @@ export class ObservationManager {
       writeArtifact("observation-record.json", observation ?? null);
       writeArtifact("errors.json", { stageErrors, failure: report.failure ?? null });
       this.stage(job, "report", "succeeded");
-      job.status = "succeeded"; job.finishedAt = this.now().toISOString();
+      const failedWorkspaceReview = workspace && stageErrors.length > 0 && !visual && !dialogue && !comparison;
+      job.status = failedWorkspaceReview ? "failed" : "succeeded";
+      if (failedWorkspaceReview) job.error = stageErrors.join(" | ");
+      job.finishedAt = this.now().toISOString();
       job.progress = { stage: "report", percent: 100 };
       this.save(job);
     } catch (error) {
@@ -830,7 +833,7 @@ export class ObservationManager {
           model: workspace?.chat.model ?? comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          ...(workspace ? { complete: (values, signal) => observeWithWorkspace(workspace.chat, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
         });
       const intendedBrief = extractIntendedBrief(candidate.prompt || scene.summary, candidate.prompt ? "candidate-prompt" : "scene");
       const dialogueAlignment = alignDialogue(intendedBrief.utterances, sourceReport.dialogue);

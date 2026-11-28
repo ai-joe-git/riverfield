@@ -49,7 +49,7 @@ export type ObservationEvidenceBundle = {
   sourceHash: string;
 };
 
-type EvidenceManifest = Omit<ObservationEvidenceBundle, "dir"> & { complete: true; createdAt: string; schemaVersion: 6 };
+type EvidenceManifest = Omit<ObservationEvidenceBundle, "dir"> & { complete: true; createdAt: string; schemaVersion: 7 };
 
 const frameRate = (value: string | undefined): number => {
   const [num, den] = String(value ?? "").split("/").map(Number);
@@ -169,7 +169,7 @@ export function extractObservationEvidence(input: {
   if (!(fps > 0) || !(duration > 0)) throw new ObservationError("OBSERVATION_MEDIA_INVALID", "The selected output has no countable video timeline");
 
   const cacheKey = createHash("sha256").update(JSON.stringify({
-    schema: 6, sceneId: input.sceneId, candidateHash: input.candidate.contentHash, sourceHash,
+    schema: 7, sceneId: input.sceneId, candidateHash: input.candidate.contentHash, sourceHash,
     bindingIds: input.bindings.map((binding) => binding.id).sort(), config,
   })).digest("hex").slice(0, 32);
   const dir = join(input.outDir, "observations", "evidence", input.productionId, input.sceneId, cacheKey);
@@ -308,6 +308,7 @@ export function extractObservationEvidence(input: {
   addVisual(frames.find((frame) => frame.kind === "opening_frame" && frame.shotId === shots[0]?.id));
   addVisual(frames.find((frame) => frame.kind === "closing_frame" && frame.shotId === shots.at(-1)?.id));
   for (const shot of shots) {
+    if (selectedVisual.some((frame) => frame.shotId === shot.id)) continue;
     const candidates = shotFrames(shot.id);
     addVisual(candidates.find((frame) => frame.kind === "shot_frame") ?? candidates[0]);
   }
@@ -335,7 +336,7 @@ export function extractObservationEvidence(input: {
   };
 
   const manifest: EvidenceManifest = {
-    schemaVersion: 6, complete: true, createdAt: new Date().toISOString(), cacheKey,
+    schemaVersion: 7, complete: true, createdAt: new Date().toISOString(), cacheKey,
     source: { path: source, hash: sourceHash, ...(expectedHash ? { expectedHash } : {}), verified: technical.sourceVerified },
     technical, nativeBoundaries, shots, frames, audio, visualFrameIds, config, sourceHash,
   };

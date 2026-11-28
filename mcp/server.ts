@@ -700,7 +700,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("analyze_scene", {
     title: "Analyze a scene candidate",
-    description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. It extracts cached FFmpeg evidence, runs the selected installed multimodal observer and the Whisper Turbo ASR adapter through the shared queue, then records a structured observation report. It does not approve or canonize anything.",
+    description: "Start an explicit, evidence-only observation of one immutable candidate and one scene binding set. BlackRiver uses its active vision model and enabled Halogen NPU ASR. Riverfield’s standalone path uses its installed observer and Whisper Turbo. Both record a structured observation report from cached FFmpeg evidence. It does not approve or canonize anything.",
     inputSchema: {
       productionId: z.string(), sceneId: z.string(), candidateId: z.string(),
       bindingIds: z.array(z.string()).optional().describe("only these scene bindings; default all bindings for the scene"),
@@ -709,6 +709,7 @@ export function build(base=BASE): McpServer {
       sampleIntervalSeconds: z.number().min(0.25).max(30).optional(),
       sceneThreshold: z.number().gt(0).lt(1).optional(),
       includeAudio: z.boolean().optional(), visual: z.boolean().optional(), asr: z.boolean().optional(), comparison: z.boolean().optional(),
+      asrModel: z.enum(["qwen3-asr-0.6b", "qwen3-asr-1.7b"]).optional().describe("BlackRiver only. Omit to use its enabled NPU ASR checkpoint."),
       profile: z.enum(["custom", "fast", "detailed", "senior", "experimental-av"]).optional().describe("observer profile; Senior Review reuses an existing observation and evidence"),
       sourceObservationId: z.string().optional().describe("existing observation to review in Senior Review; defaults to the latest structured observation for the scene/candidate"),
       visualModel: z.string().optional().describe("installed observer model id for the independent visual pass; list_observer_models returns ids"),
@@ -726,6 +727,7 @@ export function build(base=BASE): McpServer {
   }, async ({ productionId, request_id, ...body }) => {
     try {
       const payload: Any = { ...body };
+      delete payload.asrModel;
       const optionKeys = ["maxFrames", "visualFrames", "sampleIntervalSeconds", "sceneThreshold", "includeAudio", "visual", "asr", "comparison", "visualModel", "comparisonModel", "nativeVideo", "nativeAudio", "temperature", "maxOutputTokens", "topK", "topP"] as const;
       if (optionKeys.some((key) => body[key] !== undefined)) {
         payload.options = Object.fromEntries(optionKeys.filter((key) => body[key] !== undefined).map((key) => [key, body[key]]));

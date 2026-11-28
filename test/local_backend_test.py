@@ -41,8 +41,16 @@ class LocalBackendTest(unittest.TestCase):
             if url.endswith("/health"):
                 handlers[signal.SIGTERM](signal.SIGTERM, None)
 
-        with patch.object(backend, "env_token", return_value="test"), patch.object(backend, "find_proxy", return_value="proxy"), patch.object(backend.signal, "signal", side_effect=register), patch.object(backend.subprocess, "Popen", side_effect=children), patch.object(backend, "wait_http", side_effect=interrupted_health), patch.object(backend, "wait_port"):
-            backend.serve(Path("/unused"), [], 8000)
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(backend, "env_token", return_value="test"),
+            patch.object(backend, "find_proxy", return_value="proxy"),
+            patch.object(backend.signal, "signal", side_effect=register),
+            patch.object(backend.subprocess, "Popen", side_effect=children),
+            patch.object(backend, "wait_http", side_effect=interrupted_health),
+            patch.object(backend, "wait_port"),
+        ):
+            backend.serve(Path(directory), [], 8000)
         for child in children:
             child.terminate.assert_called_once()
             child.wait.assert_called_once_with(timeout=15)

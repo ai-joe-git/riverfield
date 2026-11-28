@@ -145,8 +145,12 @@ laissé à ton ComfyUI de `15_RUN_COMFYUI_ROCM101.sh`** (ce script ignore sa var
 son `exec` ne passe pas `--port`, donc il prend 8188). Le proxy suit (8190…), le gateway
 reste sur 8000. Les ports retenus sont écrits dans `/tmp/opencode/riverfield/ports.env`.
 
-`./start.sh` attend que le gateway et l'interface répondent et **échoue bruyamment** (code 1,
-15 dernières lignes du log) si l'un des deux ne vient pas, au lieu d'afficher « prêt ».
+`./start.sh` attend le gateway, l'interface, le MCP et le worker ComfyUI. L’URL directe de ComfyUI
+(8189 si le port est libre) est affichée après confirmation du démarrage. Utilisez
+`./start.sh --on-demand` si vous souhaitez une ouverture du studio avec ComfyUI à la demande.
+`./stop.sh` retrouve les services de ce checkout qui occupent ces ports lorsque les fichiers PID
+sont périmés et attend leur arrêt. En cas d’échec depuis le gestionnaire de fichiers, consultez
+`/tmp/opencode/riverfield/start.log` ou `stop.log`.
 
 ## Audio : YuE2 (menus et vignettes)
 
