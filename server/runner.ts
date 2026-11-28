@@ -4,7 +4,7 @@ import { Comfy } from "@comfyorg/sdk";
 import type { App, Input } from "./registry.ts";
 import { isFileInput, modelKey } from "./registry.ts";
 // @ts-ignore Shared browser/server mode resolver.
-import {directorConditioningMode} from "../web/js/director-mode.js";
+import {directorConditioningMode,endpointInput,isH3Director} from "../web/js/director-mode.js";
 import {validateH3} from "./h3-plan.ts";
 import {validatePikaValues} from "./pika-prompt.ts";
 import {applyRenderProfile} from "./render-profile.ts";
@@ -129,6 +129,13 @@ export function resolveValues(app: App, values: Values, { draftPrompt = false } 
       out[input.id] = coerce(input, v);
     }
   }
+  for (const [slot,file] of Object.entries(values)) {
+    if (app.inputs.some(i=>i.id===slot)) continue;
+    const input=endpointInput(app,slot,{...out,...values});
+    if (!input) continue;
+    if (!isFileValue(file)) throw new InputError(`${slot}: expected an endpoint image file`);
+    out[slot]=file;
+  }
   out = applyRenderProfile(app, out);
   // The video app exposes a hidden "Use last frame" switch. Derive it from the optional
   // file so the UI only has to show a last-frame dropzone: upload it and it is used,
@@ -248,6 +255,10 @@ export function applyInputs(
     const chosen = input.type === "select" ? input.options?.find((o) => o.value === v) : undefined;
     for (const s of chosen?.sets ?? []) { if (!dropped.has(s.node)) wf.setInput(s.node, s.field, setValue(s.value, values)); }
   }
+  for (const [slot,file] of Object.entries(values)) {
+    if (!app.inputs.some(i=>i.id===slot) && endpointInput(app,slot,values) && isFileValue(file)) wf.setInput("rfplan",slot,asset(file));
+  }
+  if (isH3Director(app)) wf.setInput("rfplan","conditioning_mode",directorConditioningMode(values));
   if (presetId) {
     const preset = (app.presets ?? []).find((p) => p.id === presetId);
     if (!preset) throw new InputError(`preset "${presetId}" does not exist in ${app.id}`);

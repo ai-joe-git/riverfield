@@ -5,7 +5,7 @@
   "section": "video",
   "pack": "video-h3-piflow",
   "status": "ready",
-  "summary": "pi-H3 Director: multi-shot Material Planner segments on the 2/4/6-step pi-H3 adapters, optional RelayVSR x2/x4, with the standard H3 VAE per segment.",
+  "summary": "pi-H3 FL2VA Director: independent scenes, optional first/last frames, native audio and existing 2/4/6-step DWD adapters.",
   "workflow": "workflow.api.json",
   "source": {
     "template": "studio-director + pi-H3 DWD adapters",
@@ -13,6 +13,20 @@
     "notes": "The material planner, timeline encoder and finite segment sampler are RiverField/ComfyUI-MiniMaxH3 nodes. Model chain: MiniMax H3 Ref2VA + the pi-H3 2/4-step DWD adapters in a switch, H3 SLA, then pi-Flow Scheduler. The finite segment sampler decodes each segment with the standard H3 VAE: DWD Decode only works for the single-shot pi-H3 graph, not inside the multi-segment sampler. Use the single-shot pi-H3 DWD apps when the VAE-free DWD decode matters."
   },
   "inputs": [
+    {
+      "id": "flex_mode",
+      "type": "select",
+      "label": "Conditioning mode",
+      "hidden": true,
+      "default": "fl2va",
+      "options": [
+        {
+          "value": "fl2va",
+          "label": "FL2VA — optional first / last frames"
+        }
+      ],
+      "derived": true
+    },
     {
       "id": "segment_windows",
       "type": "text",
@@ -1708,14 +1722,6 @@
   ],
   "models": [
     {
-      "repo": "Comfy-Org/MiniMax-H3",
-      "file": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
-      "dir": "diffusion_models",
-      "gb": 20.97,
-      "phase": "denoise",
-      "license": "MiniMax H3 Community License"
-    },
-    {
       "repo": "PrunaAI/p-h3-image-comfy",
       "file": "text_encoders/p-h3-image_text_encoder_int8_convrot.safetensors",
       "dir": "text_encoders",
@@ -1826,15 +1832,24 @@
       "license": "Apache-2.0",
       "local": true,
       "optional": true
+    },
+    {
+      "repo": "Comfy-Org/MiniMax-H3",
+      "file": "diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "dir": "diffusion_models",
+      "gb": 20.97,
+      "phase": "denoise",
+      "license": "MiniMax H3 Community License"
     }
   ],
   "higgsfield_feature": "AI Director",
-  "notes": "Agent notes. Every input is optional: an empty media slot is ignored. Two ways to drive the Material Planner. (1) Simple: global_prompt + duration (seconds per segment) + segment_count + optional segment_prompts (one prompt per line); the builder splits the duration into equal H3-legal windows and assigns every picture/audio to every segment. (2) Exact: segment_windows, a JSON string {\"windows\":[{\"start\":0,\"end\":192,\"prompt\":\"shot\",\"images\":[0],\"audios\":[0]}],\"videos\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0,\"referenceMode\":\"guide\"}],\"audios\":[{\"index\":0,\"start\":0,\"duration\":5,\"trimStart\":0}]}. Frames are 24 fps, each window length should be 5+17n, windows may overlap (default 39-frame seam). images/audios are 0-based indices into image1..image9 / audio1..audio3; videos are timeline clips indexed into video1..video3 and are sliced per segment by their time window. Files go through run_app.files (absolute paths) under the ids image1..image9, video1..video3, audio1..audio3. audio_mode=locked keeps the source waveform, video_audio carries the videos' sound. two_stage + upscaler + high_steps enable SelfLift. detail is the sparse-attention sparsity (0.9 fast … 0.5 detailed). With an empty media bin, leave images/audios empty in every window: the graph then runs pure text-to-video. Pair the FL2VA DiT with the Pika Flex FL2VA LoRA; the Pika app's flex_mode select does this pairing for you. The 4-step adapter also drives 6-step sampling; RelayVSR x2/x4 can be selected in the Production profile and is applied to the final clip. Qwen3.8 Heretic prompt enhancement is enabled by default; it rewrites every Material Planner segment in order, feeding previous scenes as context and using each segment's ordered pictures/clips.",
+  "notes": "FL2VA-only pi-H3 Director. Each scene has optional first_frame and last_frame indices into the picture library. Leave both empty for text-to-video. The library is for access and reuse; only selected endpoints condition a scene. Ref2VA reference assignment is not used in this app. New scenes use zero-overlap hard cuts; any continuation overlap must be explicitly requested.\n\nThe installed minimax_h3_fl2va_pruned_int8_convrot DiT is paired with the existing pi-H3 DWD adapters: 2 steps uses the 2-step adapter and max_raw_t 0.93; 4 or 6 steps uses the 4-step adapter and max_raw_t 0.96. This Director retains its normal per-segment video VAE decode, native audio, optional RelayVSR and existing sampler controls. No Pika Flex adapter is added.\n\nThe native H3 prompt enhancer remains enabled by default. T2VA, I2VA, L2VA and FL2VA presets are selected from each scene's actual endpoint assignments. Native system prompts and sampling are preserved. segment_windows accepts independent windows, prompts, endpoint indices and existing audio assignments. plan_segments supports this app for native timing; rendering still requires explicit submission.",
   "layout": "director",
   "custom_nodes": [
     {
       "repo": "https://github.com/Lakonik/ComfyUI-piFlow",
       "commit": "bcb6ffb"
     }
-  ]
+  ],
+  "panel_title": "pi-H3 Director"
 }

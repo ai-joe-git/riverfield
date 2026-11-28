@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// @ts-ignore Shared mode-aware endpoint inputs.
+import {endpointInput} from "../web/js/director-mode.js";
 // RiverField MCP server: lets an agent drive the studio the way the web UI does.
 //
 //   node --experimental-strip-types mcp/server.ts            # HTTP, http://127.0.0.1:3010/mcp
@@ -67,12 +69,17 @@ async function manifest(id: string,base=BASE): Promise<Any> {
 /** The same multipart the web UI posts: one field per input, files by path. */
 async function form(id: string, values: Any, files: Any, preset?: string,base=BASE): Promise<FormData> {
   const app = await manifest(id,base);
-  const inputs=new Map<string,Any>(app.inputs.map((input:Any)=>[input.id,input]));
+  const actualInputs=[...app.inputs];
+  for (const slot of Object.keys(files)) if (!actualInputs.some((i:Any)=>i.id===slot)) {
+    const input=endpointInput(app,slot,{...Object.fromEntries(app.inputs.map((i:Any)=>[i.id,i.default])),...values});
+    if(input)actualInputs.push(input);
+  }
+  const inputs=new Map<string,Any>(actualInputs.map((input:Any)=>[input.id,input]));
    for(const key of [...Object.keys(values),...Object.keys(files)])if(!inputs.has(key))throw new InputError(`Unknown input ${key} for ${id}; read get_app instead of guessing parameter names`);
   for(const key of Object.keys(files))if(!["image","video","audio"].includes(inputs.get(key)?.type))throw new InputError(`${key} is not a file input`);
   for(const key of Object.keys(values))if(["image","video","audio"].includes(inputs.get(key)?.type))throw new InputError(`Pass ${key} in files, not values`);
   const fd = new FormData();
-  for (const inp of app.inputs as Any[]) {
+  for (const inp of actualInputs as Any[]) {
     const path = files[inp.id];
     if (path) {
       const abs = resolve(String(path));
@@ -120,7 +127,7 @@ export function build(base=BASE): McpServer {
     for (const [slot, id] of Object.entries(ids)) {
       if (Object.hasOwn(files, slot)) throw new InputError(`files.${slot}: choose a path or a production asset ID for this slot`);
       const asset = Object.hasOwn(snapshot.assets ?? {}, id) ? snapshot.assets[id] : null;
-      const kind = app.inputs.find((field: Any) => field.id === slot)?.type;
+      const kind = app.inputs.find((field: Any) => field.id === slot)?.type || endpointInput(app,slot,{...Object.fromEntries(app.inputs.map((i:Any)=>[i.id,i.default])),...values})?.type;
       if (!asset || asset.kind !== kind || !["image","video","audio"].includes(kind))
         throw new InputError(`asset_ids.${slot}: select an existing ${kind || "media"} asset ID in production_scope for ${productionId}`);
       try {
@@ -171,13 +178,13 @@ export function build(base=BASE): McpServer {
   server.registerTool("plan_segments", {
     title:"Plan Director windows with the selected app",
     description:"Return real 24 fps timeline windows, legal lengths, overlaps and ordered attachments. Pika uses fixed native windows. Scenes use hard cuts by default. H3 Studio Director Flash accepts segment_seconds and an explicit overlap_frames only for a continuous camera take, for example beyond 15 seconds. Pass the exact app ID. If you omit prompts, use the returned count and then prepare that many drafts. No generation.",
-    inputSchema:{ ...directorRequest.shape, app:z.enum(["pika-studio-director","h3-studio-director-flash"]).optional(),
-      segment_seconds:z.number().min(.5).max(60).optional(), overlap_frames:z.number().int().min(0).max(3591).optional().describe("H3 Flash only. Defaults to 0 (hard cuts). Explicit overlap is reserved for extending the same continuous camera take, for example beyond 15 seconds.") },
+    inputSchema:{ ...directorRequest.shape, app:z.enum(["pika-studio-director","h3-studio-director-flash","h3-piflow-director","studio-director"]).optional(),
+      segment_seconds:z.number().min(.5).max(60).optional(), overlap_frames:z.number().int().min(0).max(3591).optional().describe("Native H3 Directors except Pika. Defaults to 0 (hard cuts). Explicit overlap is reserved for extending the same continuous camera take, for example beyond 15 seconds.") },
     annotations:{readOnlyHint:true},
   },async ({app,segment_seconds,overlap_frames,...args})=>{
     try {
-      if(app!=="h3-studio-director-flash"){
-        if(segment_seconds!==undefined||overlap_frames!==undefined)throw new InputError("Only H3 Studio Director Flash accepts custom segment lengths and overlap. Pika uses fixed native windows.");
+      if(!app||app==="pika-studio-director"){
+        if(segment_seconds!==undefined||overlap_frames!==undefined)throw new InputError("Pika uses fixed native windows. Select a native H3 Director for custom segment lengths and overlap.");
         return text(planDirectorSegments(args));
       }
       const seconds=segment_seconds??7.3;

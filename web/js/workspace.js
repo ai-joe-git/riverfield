@@ -1,3 +1,4 @@
+import {compactEndpointLibrary,isH3Director,endpointInput} from "./director-mode.js";
 // An app's workspace. Two layouts, both built from app.json alone:
 //   composer: prompt-first apps (image, audio): results fill the page, a floating prompt bar sits at the bottom
 //   sidebar:  upload-first apps (video, tools): controls in a left column, results and examples on the right
@@ -203,10 +204,11 @@ function missingInputs(app) {
 
 function buildForm(app, { randomSeed = false } = {}) {
   const f = formFor(app);
+  const render = isH3Director(app) ? compactEndpointLibrary(f.values,f.files) : {values:f.values,files:f.files};
   const fd = new FormData();
   for (const inp of app.inputs) {
-    if (isMedia(inp.type)) { const x = f.files[inp.id]; if (x) fd.append(inp.id, x.file, x.file.name); continue; }
-    const v = f.values[inp.id];
+    if (isMedia(inp.type)) { const x = render.files[inp.id]; if (x) fd.append(inp.id, x.file, x.file.name); continue; }
+    const v = render.values[inp.id];
     if (inp.type === "toggle") { fd.append(inp.id, v ? "true" : "false"); continue; }
     if (inp.multiple) { fd.append(inp.id, JSON.stringify(Array.isArray(v) ? v : [])); continue; }   // none picked is a choice too
     if (inp.type === "seed" && (randomSeed || v === -1 || v === "-1" || v === "" || v === null)) continue;
@@ -214,6 +216,9 @@ function buildForm(app, { randomSeed = false } = {}) {
     if (v === "" && (inp.allow_empty || (inp.type === "select" && (inp.options || []).some((o) => o.value === "")))) { fd.append(inp.id, ""); continue; }
     if (v === "" || v === null || v === undefined) continue;
     fd.append(inp.id, String(v));
+  }
+  for (const [slot,x] of Object.entries(render.files)) {
+    if (!app.inputs.some(i=>i.id===slot) && endpointInput(app,slot,render.values)) fd.append(slot,x.file,x.file.name);
   }
   if (f.preset) fd.append("preset", f.preset);
   return fd;

@@ -1,7 +1,7 @@
 // The pages that are not a workspace: Explore (home), Apps (the store), Library and the VRAM map.
 import { el, icon, masonry } from "./util.js";
 import { t } from "./i18n.js";
-import { apps, byId, CATEGORIES, HERO, START_HERE, hosted, tagline, iconOf, fitOf, categoryOf, studioOf, menuGroups } from "./catalog.js";
+import { apps, byId, CATEGORIES, HERO, START_HERE, hosted, tagline, iconOf, fitOf, categoryOf, studioOf, menuGroups, primaryDirectorEntry } from "./catalog.js";
 import { exampleItem, thumb, hoverPlay, optionTile } from "./media.js";
 import { feed, feedView, hooks } from "./feed.js";
 import { pickOption, recreate } from "./workspace.js";
@@ -140,7 +140,7 @@ export function appsView() {
     pills.replaceChildren(...["all", ...cats].map((c) => el("button", { type: "button", "aria-pressed": String(appsCat === c),
       onclick: () => { appsCat = c; draw(); } }, c === "all" ? t("apps.all") : t(`cat.${c}.t`))));
     const q = appsQuery.trim().toLowerCase();
-    const match = (a) => !q || [a.name, a.summary, a.higgsfield_feature, a.id].filter(Boolean).join(" ").toLowerCase().includes(q);
+    const match = (a) => primaryDirectorEntry(a) && (!q || [a.name, a.summary, a.higgsfield_feature, a.id].filter(Boolean).join(" ").toLowerCase().includes(q));
     const sections = (appsCat === "all" ? cats : [appsCat]).map((c) => {
       const list = (c === "more" ? apps.filter((a) => categoryOf(a.id) === "more") : (CATEGORIES.find((x) => x.id === c)?.apps || []).map((id) => byId.get(id)).filter(Boolean)).filter(match);
       if (!list.length) return null;

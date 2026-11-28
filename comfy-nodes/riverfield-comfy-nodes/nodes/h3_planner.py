@@ -31,7 +31,7 @@ except Exception:  # pragma: no cover
 
 FPS = 24
 MAX_LENGTH = 3592
-MAX_IMAGES = 9
+MAX_IMAGES = 128  # up to two endpoints for each of 64 windows; Ref2VA is still capped at nine
 MAX_AUDIOS = 3
 MAX_VIDEOS = 3
 MIN_LENGTH = 5
@@ -86,6 +86,7 @@ def build_timeline(
     upscaler: str = "",
     high_steps: int = 2,
     segment_windows: str = "",
+    conditioning_mode: str = "auto",
 ) -> str:
     fps = int(fps) or FPS
     seconds = max(5.0 / fps, float(generation_seconds))
@@ -155,7 +156,7 @@ def build_timeline(
         })
         video_by_slot[slot] = video_assets[-1]
 
-    endpoint_mode = isinstance(spec, dict) and spec.get("conditioning_mode") == "fl2va"
+    endpoint_mode = conditioning_mode == "fl2va" if conditioning_mode != "auto" else isinstance(spec, dict) and spec.get("conditioning_mode") == "fl2va"
     spec_windows = None
     if isinstance(spec, dict) and isinstance(spec.get("windows"), list) and spec["windows"]:
         spec_windows = []
@@ -168,7 +169,7 @@ def build_timeline(
                 "startFrame": window_start,
                 "endFrame": end,
                 "prompt": str(raw.get("prompt") or ""),
-                "images": [] if endpoint_mode else [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and i in image_ids],
+                "images": [] if endpoint_mode else [image_ids[i] for i in (raw.get("images") or []) if isinstance(i, int) and 0 <= i < 9 and i in image_ids],
                 "audios": [audio_ids[i] for i in (raw.get("audios") or []) if isinstance(i, int) and i in audio_ids],
             })
             if endpoint_mode:
@@ -188,7 +189,7 @@ def build_timeline(
         windows = create_windows(count, frames)
         for i, window in enumerate(windows):
             window["prompt"] = prompts[i] if i < len(prompts) else ""
-            window["images"] = list(image_ids.values())
+            window["images"] = [] if endpoint_mode else list(image_ids.values())[:9]
             window["audios"] = list(audio_ids.values())
 
     # timing des clips vidéo/audio venant du panneau
@@ -280,6 +281,7 @@ class RiverFieldH3Planner:
                     "tooltip": "JSON from the Studio Director panel: windows, per-segment prompts and media assignment."}),
             },
             "optional": {
+                "conditioning_mode": (["auto", "ref2va", "fl2va"], {"default": "auto"}),
                 **{f"image{i}": ("STRING", {"default": "", "tooltip": f"Input-relative file for reference picture {i}."})
                    for i in range(1, MAX_IMAGES + 1)},
                 **{f"audio{i}": ("STRING", {"default": "", "tooltip": f"Input-relative file for reference audio {i}."})
@@ -292,7 +294,7 @@ class RiverFieldH3Planner:
     def build(self, advanced_timeline_json="", global_prompt="", generation_seconds=5.0,
               start_seconds=0.0, fps=FPS, segment_count=1, segment_prompts="",
               audio_mode="reference", video_audio=True, two_stage=False, upscaler="",
-              high_steps=2, segment_windows="", **media):
+              high_steps=2, segment_windows="", conditioning_mode="auto", **media):
         if advanced_timeline_json and advanced_timeline_json.strip():
             return (advanced_timeline_json.strip(),)
         pick = lambda prefix, n: [str(media.get(f"{prefix}{i}") or "").strip() for i in range(1, n + 1)]
@@ -312,6 +314,7 @@ class RiverFieldH3Planner:
             upscaler=upscaler,
             high_steps=high_steps,
             segment_windows=segment_windows,
+            conditioning_mode=conditioning_mode,
         ),)
 
 

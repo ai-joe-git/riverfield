@@ -1231,3 +1231,15 @@ body.dir-dragging * { cursor: grabbing !important; }
 .prod-asset-viewer-meta dd { margin: 0; color: var(--dim); overflow-wrap: anywhere; }
 .prod-asset-viewer-actions { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px; }
 @media (max-width: 720px) { .prod-asset-viewer { grid-template-columns: 1fr; } }
+
+/* A single LTX Director family shares compact controls in its per-scene mode. */
+.dir-sequential .dir-head { flex-wrap: wrap; gap: 10px; }
+.dir-sequential .dir-brand { flex: 1 1 250px; min-width: 0; }
+.dir-sequential .dir-brand > span { white-space: nowrap; }
+.dir-sequential .dir-head-right { flex: 0 1 auto; flex-wrap: wrap; gap: 6px; }
+.dir-sequential .dir-toggle { white-space: nowrap; padding: 8px 10px; min-height: 32px; }
+.dir-sequential .dir-seg-head { flex-wrap: wrap; }
+.dir-sequential .dir-seg-actions { margin-left: auto; }
+
+.dir-image-library .dir-media-list { max-height: min(40vh, 360px); overflow-y: auto; overscroll-behavior: contain; padding-right: 3px; }
+.dir-library-search { width: 100%; margin-bottom: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #0b1018; color: var(--ink); font: inherit; font-size: 12px; }

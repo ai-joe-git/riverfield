@@ -60,6 +60,18 @@ class BuilderContractTest(unittest.TestCase):
         timeline = plan(windows(2, overlap=39))["timeline"]
         self.assertEqual([(w["startFrame"], w["endFrame"]) for w in timeline["segmentConfig"]["segments"]], [(0, 175), (136, 311)])
 
+    def test_endpoint_library_uses_slots_beyond_ref2va_capacity(self):
+        images = [f"image-{i}.png" for i in range(128)]
+        timeline = json.loads(builder.build_timeline(generation_seconds=7.3, images=images,
+            segment_windows=json.dumps({"conditioning_mode":"fl2va", "windows":[{"start":0,"end":175,"prompt":"Scene", "first_frame":126,"last_frame":127,"images":[]}]})))
+        row = timeline["segmentConfig"]["segments"][0]
+        self.assertEqual((row["firstFrame"], row["lastFrame"]), ("rf-image-127", "rf-image-128"))
+        self.assertEqual(row["images"], [])
+
+    def test_fl2va_fallback_does_not_turn_the_library_into_reference_images(self):
+        timeline=json.loads(builder.build_timeline(global_prompt="Scene", conditioning_mode="fl2va", images=["one.png","two.png"], segment_count=2))
+        self.assertEqual([row["images"] for row in timeline["segmentConfig"]["segments"]],[[],[]])
+
     def test_multiline_legacy_field_is_not_a_complete_prompt(self):
         text = "subject_definitions:\n<Subject 1> from Picture 1\nsummary:\nA scene"
         timeline = json.loads(builder.build_timeline(generation_seconds=7.3, segment_prompts=text))

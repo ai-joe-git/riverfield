@@ -15,7 +15,7 @@
 // Explicit overlaps are retained for continuous takes. Dragging is frame-accurate; the length snaps to a
 // legal H3 value on release (or immediately with the H3 button in the segment editor).
 
-import { directorConditioningMode } from "./director-mode.js";
+import { directorConditioningMode, libraryImageSlot } from "./director-mode.js";
 import { el, icon, toast, clamp, store } from "./util.js";
 import { modal } from "./agent-controls.js";
 import {
@@ -85,12 +85,13 @@ export function nearestOverlap(frames, maximum) {
 }
 
 /** Ripple a duration/move edit without inventing overlap at any following cut. */
-export function rippleH3Windows(windows, editedIndex, before) {
+export function rippleH3Windows(windows, editedIndex, before, aligned = true) {
   for (let k = editedIndex + 1; k < windows.length; k += 1) {
     const prev = windows[k - 1], cur = windows[k];
     const len = cur.end - cur.start;
     const requested = Math.max(0, before[k - 1].end - before[k].start);
-    const overlap = legalOverlapFrames(requested, Math.min(len, prev.end - prev.start) - 1);
+    const cap=Math.max(0,Math.min(len,prev.end-prev.start)-1);
+    const overlap = aligned ? legalOverlapFrames(requested,cap) : Math.min(requested,cap);
     cur.start = prev.end - overlap;
     cur.end = cur.start + len;
   }
@@ -99,13 +100,17 @@ export function rippleH3Windows(windows, editedIndex, before) {
 const fmt = (x) => (Math.abs(x) >= 10 ? x.toFixed(1) : x.toFixed(2)).replace(/\.0+$/, "");
 const fmtMp = (x) => `${Number(x).toFixed(2).replace(/\.?0+$/, "")} MP`;
 
-function slotsOf(app, type) {
-  return app.inputs.filter((i) => i.type === type && /^(image|video|audio)\d+$/.test(i.id))
+function slotsOf(app, type, files = {}, library = false) {
+  const inputs = [...app.inputs];
+  if (library && type === "image") for (const slot of Object.keys(files)) if (libraryImageSlot(slot) && !inputs.some(i=>i.id===slot)) inputs.push({id:slot,type:"image"});
+  return inputs.filter((i) => i.type === type && /^(image|video|audio)\d+$/.test(i.id))
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 }
 
 function mediaOf(app, f, type) {
-  return slotsOf(app, type).map((inp, index) => {
+  const library = app.inputs.some(i=>i.id==="segment_count") && directorConditioningMode({...f.values,...f.files})==="fl2va";
+  return slotsOf(app, type, f.files, library).map((inp) => {
+    const index = Number(inp.id.replace(/\D/g,""))-1;
     const x = f.files[inp.id];
     return x ? { index, slot: inp.id, name: x.file.name, url: x.url, file: x.file } : null;
   }).filter(Boolean);
@@ -114,8 +119,8 @@ function mediaOf(app, f, type) {
 /** Drop references to media slots that have no uploaded file: files do not survive a reload. */
 export function pruneMedia(st, app, f) {
   const has = (type, index) => {
-    const slot = slotsOf(app, type)[index];
-    return Boolean(slot && f.files[slot.id]);
+    const slot = `${type}${index+1}`;
+    return Boolean(f.files[slot] && (app.inputs.some(i=>i.id===slot) || (type==="image" && libraryImageSlot(slot) && app.inputs.some(i=>i.id==="segment_count"))));
   };
   let changed = false;
   for (const w of st.windows) {
@@ -203,15 +208,16 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   const st = stateFor(app, f);
   // The browser app object does not include the server-side graph. Every H3 Material
   // Planner manifest exposes segment_count; the LTX directors do not, so this is the
-  // reliable client-side discriminator (and it keeps LTX untouched).
+  // reliable client-side discriminator for the native frame cadence.
   const h3Planner = app.inputs.some((i) => i.id === "segment_count");
-  const defaultSeam = h3Planner ? SEAM : 39;
+  const defaultSeam = SEAM;
   const endpointMode = () => h3Planner && directorConditioningMode({ ...f.values, ...f.files }) === "fl2va";
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
   // Durable project state lives on the server (out/directors/<app>). IndexedDB remains
   // the fast local copy; the server copy makes a reload or another browser on the LAN
   // show the same timeline and the same pictures.
   const mediaInputs = new Set(app.inputs.filter((i) => i.type === "image" || i.type === "video" || i.type === "audio").map((i) => i.id));
+  const validMediaSlot = slot => mediaInputs.has(slot) || (h3Planner && libraryImageSlot(slot));
   const valueInputs = new Set(app.inputs.filter((i) => !(i.type === "image" || i.type === "video" || i.type === "audio")).map((i) => i.id));
   let localSavedAt = Number(store.get(`dir.saved.${app.id}`)) || 0;
   // Profiles are derived from this app's own manifest. Apps without the contract keep
@@ -376,7 +382,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   async function loadServerMedia(remote, overwrite) {
     const media = remote?.media && typeof remote.media === "object" ? remote.media : {};
     for (const [slot, entry] of Object.entries(media)) {
-      if (!mediaInputs.has(slot) || (!overwrite && f.files[slot])) continue;
+      if (!validMediaSlot(slot) || (!overwrite && f.files[slot])) continue;
       try {
         const res = await fetch(`/api/directors/${app.id}/media/${slot}`, { cache: "no-store" });
         if (!res.ok) continue;
@@ -439,7 +445,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     await loadServerMedia(remote, useServer);
     const remoteMedia = remote?.media && typeof remote.media === "object" ? remote.media : {};
     for (const [slot, item] of Object.entries(f.files)) {
-      if (!mediaInputs.has(slot) || !item?.file) continue;
+      if (!validMediaSlot(slot) || !item?.file) continue;
       const saved = remoteMedia[slot];
       if (saved && saved.name === item.file.name && Number(saved.size) === item.file.size) continue;
       try { await uploadServerMedia(slot, item.file); } catch { /* keep local */ }
@@ -641,7 +647,11 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   }
 
   function attachMedia(type, file) {
-    const free = slotsOf(app, type).find((i) => !f.files[i.id]);
+    let free = slotsOf(app, type).find(i => !f.files[i.id]);
+    if (type === "image" && endpointMode()) {
+      let index=1;while(f.files[`image${index}`])index++;
+      free={id:`image${index}`,type:"image"};
+    }
     if (!free) { toast(`No free ${MEDIA[type].label.toLowerCase()} slot`, { error: true }); return false; }
     const maxMb = free.limits?.max_mb;
     if (maxMb && file.size > maxMb * 1e6) { toast(`${file.name}: max ${maxMb} MB`, { error: true }); return false; }
@@ -680,6 +690,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   }
 
   // ---------------------------------------------------------------- media bin
+  let pictureQuery="";
   function binSection(type) {
     const list = mediaOf(app, f, type);
     const items = list.map((m) => {
@@ -808,9 +819,13 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       extra = b;
     }
 
-    return el("section", { class: "dir-bin-sec" },
-      el("h4", {}, icon(MEDIA[type].icon), MEDIA[type].label, extra, el("span", { class: "dir-count" }, `${list.length}/${slotsOf(app, type).length}`)),
-      el("div", { class: "dir-media-list" }, ...items), drop, input);
+    const library=type==="image" && endpointMode();
+    const filter=()=>items.forEach((node,i)=>{node.style.display=list[i].name.toLowerCase().includes(pictureQuery.toLowerCase())?"":"none";});
+    const search=library?el("input",{class:"dir-library-search",type:"search",placeholder:"Search pictures",value:pictureQuery,"aria-label":"Search picture library",oninput:e=>{pictureQuery=e.target.value;filter();}}):null;
+    if(library)filter();
+    return el("section", { class: `dir-bin-sec${library?" dir-image-library":""}` },
+      el("h4", {}, icon(MEDIA[type].icon), MEDIA[type].label, extra, el("span", { class: "dir-count" }, library ? `${list.length} in library` : `${list.length}/${slotsOf(app, type).length}`)),
+      search,el("div", { class: "dir-media-list" }, ...items), drop, input);
   }
 
   // ---------------------------------------------------------------- clips
@@ -920,7 +935,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       st.windows = JSON.parse(JSON.stringify(drag.snap));
       const cur = st.windows[i];
       if (drag.edge === "l") {
-        const minStart = i === 0 ? 0 : Math.max(0, st.windows[i - 1].end - Math.min(h3Planner ? Math.max(0, drag.snap[i - 1].end - drag.snap[i].start) : defaultSeam, cur.end - cur.start - 1));
+        const minStart = i === 0 ? 0 : Math.max(0, st.windows[i - 1].end - Math.min(Math.max(0, drag.snap[i - 1].end - drag.snap[i].start), cur.end - cur.start - 1));
         cur.start = clamp(snap(Math.round(cur.start + delta), i), minStart, cur.end - MIN_LEN);
       } else if (drag.edge === "r") {
         cur.end = Math.max(cur.start + MIN_LEN, snap(Math.round(cur.end + delta), i));
@@ -933,14 +948,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
         else if (snappedEnd !== Math.round(start + len)) { cur.end = snappedEnd; cur.start = snappedEnd - len; }
         else { cur.start = start; cur.end = start + len; }
       }
-      if (h3Planner) rippleH3Windows(st.windows, i, drag.snap);
-      else for (let k = i + 1; k < st.windows.length; k++) {
-        const prev = st.windows[k - 1];
-        const len = st.windows[k].end - st.windows[k].start;
-        const overlap = Math.max(0, Math.min(defaultSeam, Math.min(len, prev.end - prev.start) - 1));
-        st.windows[k].start = prev.end - overlap;
-        st.windows[k].end = st.windows[k].start + len;
-      }
+      rippleH3Windows(st.windows, i, drag.snap, h3Planner);
       persistState(app, f, st);
       st.windows.forEach((x, k) => {
         const n = winNodes[k];
@@ -956,14 +964,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       const w = st.windows[i];
       // snap the length to a legal H3 value once the mouse is released
       w.end = w.start + alignedLength(w.end - w.start, MIN_LEN);
-      if (h3Planner) rippleH3Windows(st.windows, i, drag.snap);
-      else for (let k = i + 1; k < st.windows.length; k++) {
-        const prev = st.windows[k - 1];
-        const len = st.windows[k].end - st.windows[k].start;
-        const overlap = Math.max(0, Math.min(defaultSeam, Math.min(len, prev.end - prev.start) - 1));
-        st.windows[k].start = prev.end - overlap;
-        st.windows[k].end = st.windows[k].start + len;
-      }
+      rippleH3Windows(st.windows, i, drag.snap, h3Planner);
       drag = null;
       changed();
     });
@@ -1032,16 +1033,16 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       const before = st.windows.map(w => ({ ...w }));
       const len = Math.max(MIN_LEN, Math.round(Number(lenField.value) * FPS) || MIN_LEN);
       w.end = w.start + len;
-      if (h3Planner) rippleH3Windows(st.windows, selected, before);
+      rippleH3Windows(st.windows, selected, before, h3Planner);
       changed();
     };
     const snap = el("button", { type: "button", class: "btn small ghost", title: "Snap this window's length to an H3-legal 5+17n frame count",
       onclick: () => {
         const before = st.windows.map(w => ({ ...w }));
         w.end = w.start + alignedLength(w.end - w.start, MIN_LEN);
-        if (h3Planner) rippleH3Windows(st.windows, selected, before);
+        rippleH3Windows(st.windows, selected, before, h3Planner);
         changed();
-      } }, "H3");
+      } }, h3Planner ? "H3" : "Snap");
 
     const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "Prompt for this segment (empty: the global prompt is used)", value: w.prompt || "" });
     prompt.addEventListener("input", () => { w.prompt = prompt.value; persistState(app, f, st); saveDirty(); drawTracks(); });

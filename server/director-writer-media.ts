@@ -1,5 +1,6 @@
 // @ts-ignore Shared browser/server mode resolver.
 import { directorConditioningMode } from "../web/js/director-mode.js";
+import {directorPromptMode} from "./h3-plan.ts";
 import { InputError } from "./input-error.ts";
 import { isFileValue, type Values } from "./runner.ts";
 import { writerHash, type WriterReference } from "./workspace-writer.ts";
@@ -43,9 +44,16 @@ export function directorWriterMedia(values: Values, window?: { images?: number[]
       references.push({slot, ...(assetIds[slot] ? {assetId:assetIds[slot]} : {}), sha256:writerHash(file.bytes), kind:"image"});
       descriptions.push(`<Picture ${index+1}> = ${key === "first_frame" ? "First" : "Last"} frame: ${assetIds[slot] || file.name}`);
     }
-  } else assign("image", frames.length ? frames : window ? (window.images ?? []).map(index => slotName("image", index)) : imageSlots);
+  } else assign("image", frames.length ? frames : window ? (window.images ?? []).map(index => slotName("image", index)) : directorConditioningMode(values)==="fl2va" ? [] : imageSlots);
   assign("audio", window ? ((window.audios ?? []).map(index => slotName("audio", index))) : audioSlots);
   for (const slot of ["video1", "video2", "video3"]) if (values[slot] !== undefined) media[slot] = values[slot];
   return { media, references, descriptions, pictures: references.filter(ref => ref.kind === "image").length,
     audios: references.filter(ref => ref.kind === "audio").length, frames };
+}
+
+/** One routing decision shared by GUI prompt requests and managed render preparation. */
+export function directorWriterMode(values:Values,selection:ReturnType<typeof directorWriterMedia>,window?:{images?:number[]},ltx=false) {
+ return directorPromptMode({flexMode:directorConditioningMode(values),hasVisual:Object.keys(selection.media).length>0,ltx,
+   first:selection.frames.includes("first_frame")||selection.frames.includes("image")||(ltx&&(window?.images?.length??0)>0),
+   last:selection.frames.includes("last_frame")});
 }

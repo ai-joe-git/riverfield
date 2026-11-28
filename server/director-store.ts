@@ -54,6 +54,8 @@ export class DirectorStore {
     const app = this.app(appId);
     if (!/^(?:image|video|audio)\d+$/.test(slot)) throw new Error("invalid media slot");
     const input = app.inputs.find((i) => i.id === slot && MEDIA_TYPES.has(i.type));
+    if (!input && /^image[1-9]\d{0,5}$/.test(slot) && app.inputs.some(i=>i.id==="segment_count"))
+      return {app,input:{id:slot,type:"image" as const}};
     if (!input) throw new Error("unknown media slot");
     return { app, input };
   }

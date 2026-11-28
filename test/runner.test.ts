@@ -345,7 +345,7 @@ test("the LTX 2.5 single-shot apps expose a long duration and resolution", () =>
 test("the sequential director is a ready LTX segment chain", () => {
   const app = byId("ltx-sequential-director");
   assert.equal(app.layout, "director");
-  assert.equal(app.panel_title, "LTX Sequential Director");
+  assert.equal(app.panel_title, "LTX Director");
   assert.ok(app.outputs.some((o) => o.type === "video"));
   assert.equal(app.status, "ready");
   assert.equal(app.inputs.find((i) => i.id === "last_frame")?.required, false);

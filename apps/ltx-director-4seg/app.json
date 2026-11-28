@@ -1,7 +1,7 @@
 {
   "$schema": "../../schema/app.schema.json",
   "id": "ltx-director-4seg",
-  "name": "RiverField LTX Director 4x",
+  "name": "Riverfield LTX Director",
   "section": "video",
   "pack": "video-ltx",
   "status": "draft",
@@ -115,7 +115,7 @@
   ],
   "notes": "Same graph as ltx-director, but the sampling chain is duplicated four times: each chain renders one timeline window with its own prompt, then ImageBatch and AudioConcat join the four pictures and the four audio tracks into a single SaveVideo. One job, one history entry, one video, and four separate passes instead of one 24 s pass. The four windows come from the panel; the app starts with four 7.29 s windows (175 panel frames at 24 fps) and expects four prompts. The reference sheet is shared by all four chains, and the IC-LoRA is applied per chain. There is no handoff between chains: cuts are hard. For continuous camera moves, use ltx-director in one pass or the pack's frontend chunk render, which blends the seams.",
   "layout": "director",
-  "panel_title": "LTX Director 4x",
+  "panel_title": "LTX Director",
   "inputs": [
     {
       "id": "segment_windows",
@@ -927,5 +927,11 @@
         }
       ]
     }
-  ]
+  ],
+  "modes": [
+    "ltx-director",
+    "ltx-sequential-director",
+    "ltx-director-4seg"
+  ],
+  "mode_label": "Fixed four"
 }

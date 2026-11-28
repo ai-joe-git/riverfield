@@ -1,7 +1,7 @@
 import { assertTrustedReferences } from "./asset-audit.ts";
 // @ts-ignore Shared browser/server mode resolver.
-import { directorConditioningMode } from "../web/js/director-mode.js";
-import { directorWriterMedia } from "./director-writer-media.ts";
+import { directorConditioningMode, endpointInput, libraryImageSlot } from "../web/js/director-mode.js";
+import { directorWriterMedia, directorWriterMode } from "./director-writer-media.ts";
 import { validateWorkspaceObserver } from "./workspace-observer.ts";
 // Minimal HTTP API for the web UI. Node's built-in http plus the Fetch API types; no framework.
 //   GET    /api/apps                         catalog (what the UI needs to draw cards and forms)
@@ -275,6 +275,12 @@ async function readValues(app: App, request: Request, preparedForm?: FormData): 
       values[input.id] = v;
     }
   }
+  const modeValues={...Object.fromEntries(app.inputs.filter(i=>i.default!==undefined).map(i=>[i.id,i.default])),...values};
+  for (const [slot,file] of form.entries()) {
+    if (!libraryImageSlot(slot) || app.inputs.some(i=>i.id===slot)) continue;
+    if (!endpointInput(app,slot,modeValues) || typeof file==="string") throw new InputError(`Unsupported endpoint file ${slot}`);
+    values[slot]={bytes:new Uint8Array(await file.arrayBuffer()),name:file.name,type:file.type};
+  }
   const preset = form.get("preset");
   const key=form.get("request_id");if(key!==null&&(typeof key!=="string"||!key.length||key.length>200))throw new InputError("Invalid idempotency key");
   return { values, preset: typeof preset === "string" && preset ? preset : undefined,requestKey:typeof key==="string"?key:undefined };
@@ -286,7 +292,7 @@ function workspaceAssetIds(form: FormData): Record<string, string> {
   try {
     const value = JSON.parse(String(raw));
     if (value && !Array.isArray(value) && typeof value === "object" && Object.entries(value).every(
-      ([slot, id]) => /^(image[1-9]|audio[1-3]|video[1-3])$/.test(slot) && typeof id === "string" && id.length <= 160)) return value;
+      ([slot, id]) => /^(image(?:[1-9]|[1-9]\d|1[01]\d|12[0-8])|audio[1-3]|video[1-3])$/.test(slot) && typeof id === "string" && id.length <= 160)) return value;
   } catch { /* use consistent input error */ }
   throw new InputError("Invalid preparation asset identities.");
 }
@@ -386,9 +392,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
     const draft = target.prompts[i].trim() || String(next.global_prompt ?? "").trim();
     if (!draft) continue;
     const selection = selected[i];
-    const mode = directorPromptMode({ flexMode, hasVisual: Object.keys(selection.media).length > 0,
-      ltx, first: selection.frames.includes("first_frame") || selection.frames.includes("image"),
-      last: selection.frames.includes("last_frame") });
+    const mode=directorWriterMode(next,selection,target.kind==="windows"?target.spec.windows[i]:undefined,ltx);
     let prompt = plainDirectorDraft(draft);
     if (!simpleH3) {
       const start = starts[i] ?? 0;
@@ -456,12 +460,20 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
 }
 
 /** Load the durable Director media into FileValues for a prompt-only enhancement request. */
-function directorMediaValues(app: App, appId: string): Values {
+function directorMediaValues(app: App, appId: string, rawValues: Record<string,unknown> = {}): Values {
   const out: Values = {};
   // Sequential Director keeps its media in browser-local state and has no DirectorStore slots.
   if (!app.inputs.some((input) => input.id === "segment_windows")) return out;
-  for (const input of app.inputs) {
-    if (!isFileInput(input)) continue;
+  const modeValues={...Object.fromEntries(app.inputs.filter(i=>i.default!==undefined).map(i=>[i.id,i.default])),...rawValues};
+  let assigned: Set<string> | undefined;
+  if (app.inputs.some(i=>i.id==="segment_count") && directorConditioningMode(modeValues)==="fl2va") {
+    try {const spec=JSON.parse(String(rawValues.segment_windows||"{}"));assigned=new Set(spec.windows.flatMap((w:any)=>[w.first_frame,w.last_frame].filter(Number.isInteger).map((i:number)=>`image${i+1}`)));} catch {}
+  }
+  const stored=directors.view(appId)?.media||{};
+  const inputs=[...app.inputs.filter(isFileInput),...Object.keys(stored).filter(slot=>libraryImageSlot(slot)&&!app.inputs.some(i=>i.id===slot)).map(slot=>({id:slot,type:"image"}))];
+  for (const input of inputs) {
+    if (!/^(image|video|audio)\d+$/.test(input.id)) continue;
+    if (assigned && input.type==="image" && !assigned.has(input.id)) continue;
     const file = directors.mediaPath(appId, input.id);
     if (!file) continue;
     out[input.id] = {
@@ -488,7 +500,7 @@ function startPromptJob(app: App, rawValues: Record<string, unknown>, index: num
     for (const [key, old] of promptJobs) if (old.status !== "running") { promptJobs.delete(key); break; }
   }
   const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
-  const values: Values = { ...rawValues, ...directorMediaValues(app, app.id) };
+  const values: Values = { ...rawValues, ...directorMediaValues(app, app.id, rawValues) };
   void (async () => {
     try {
       if (!enhancer) throw new Error("Prompt enhancer app is not installed");
@@ -507,7 +519,7 @@ function startPromptJob(app: App, rawValues: Record<string, unknown>, index: num
       const enhanced = await enhanceDirectorValues(app, values, getRunner(), enhancer, index, (done, total) => {
         job.progress = { done, total: Math.max(1, total) };
       });
-      for (const input of app.inputs) if (isFileInput(input)) delete enhanced[input.id];
+      for (const [key,value] of Object.entries(enhanced)) if (value && typeof value==="object" && "bytes" in value) delete enhanced[key];
       job.values = enhanced;
       job.status = "succeeded";
       job.finishedAt = new Date().toISOString();
@@ -1083,14 +1095,19 @@ const server = createServer(async (req, res) => {
           const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
           if (!enhancer) throw new InputError("Prompt enhancer app is not installed");
           if (!app.inputs.some((input) => input.id === "prompt_enhancer")) throw new InputError("This Director has no prompt enhancer");
-          const raw = await (await toRequest(req, 24)).json() as { values?: unknown; index?: unknown; all?: unknown };
+          const request=await toRequest(req,64);
+          let raw:{values?:unknown;index?:unknown;all?:unknown};
+          if(request.headers.get("content-type")?.startsWith("multipart/form-data")) {
+            const form=await request.formData();const parsed=await readValues(app,request,form);
+            raw={values:parsed.values,index:form.has("index")?Number(form.get("index")):undefined,all:form.get("all")==="true"};
+          } else raw=await request.json();
           if (!raw || typeof raw.values !== "object" || raw.values === null || Array.isArray(raw.values)) throw new InputError("Expected values");
-          const values: Values = { ...(raw.values as Record<string, unknown>), ...directorMediaValues(app, id!) };
+          const values: Values = { ...(raw.values as Record<string, unknown>), ...directorMediaValues(app, id!, raw.values as Record<string,unknown>) };
           const index = Number.isInteger(raw.index) ? Number(raw.index) : undefined;
           if (raw.all !== true && index === undefined) throw new InputError("Pass index for one segment or all:true for the whole timeline");
           const enhanced = await enhanceDirectorValues(app, values, getRunner(), enhancer, index);
           // Never send FileValues back to the browser.
-          for (const input of app.inputs) if (isFileInput(input)) delete enhanced[input.id];
+          for (const [key,value] of Object.entries(enhanced)) if (value && typeof value==="object" && "bytes" in value) delete enhanced[key];
           return send(res, 200, { values: enhanced });
         }
         if (req.method === "PUT" && !sub) {

@@ -45,7 +45,7 @@ test("Director project routes refuse non-Director apps, unknown slots and traver
   try {
     const store = new DirectorStore(dir, apps);
     assert.throws(() => store.saveValues("h3-image-edit", {}, 1), /not a Director app/);
-    assert.throws(() => store.putMedia(APP, "image99", new Uint8Array([1]), "x.png", "image/png"), /unknown media slot/);
+    assert.throws(() => store.putMedia(APP, "image1000000", new Uint8Array([1]), "x.png", "image/png"), /unknown media slot/);
     assert.throws(() => store.mediaPath(APP, "../state"), /invalid media slot/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -1,3 +1,4 @@
+import {blankSegment} from "./sequential-state.js";
 // LTX Sequential Director — a chain of LTX 2.5 I2V / first-and-last-frame runs.
 //
 // Each segment is its own History run. The panel always asks the server for the last
@@ -19,28 +20,6 @@ function defaultOf(app, id, fallback) {
   return app.inputs.find((i) => i.id === id)?.default ?? fallback;
 }
 
-function blankSegment(app) {
-  return {
-    prompt: "",
-    duration: Number(defaultOf(app, "duration", 5)),
-    last: null,
-    lastUrl: null,
-    cut: false,
-    cutStart: null,
-    cutStartUrl: null,
-    cutStartData: null,
-    approved: false,
-    running: false,
-    jobId: null,
-    videoUrl: null,
-    videoFile: null,
-    lastFrameUrl: null,
-    lastFrameFile: null,
-    lastData: null,
-    stale: false,
-    error: null,
-  };
-}
 
 function stateFor(app) {
   let st = cache.get(app.id);
@@ -217,7 +196,7 @@ function resumeIndex(segments) {
 
 export function sequentialDirectorView(app, f) {
   const st = stateFor(app);
-  const root = el("div", { class: "dir" });
+  const root = el("div", { class: "dir dir-sequential" });
 
   function checkSettings() {
     const key = settingsKey(app, f);
@@ -306,15 +285,16 @@ export function sequentialDirectorView(app, f) {
       for (let i = first; i <= last; i += 1) {
         const seg = st.segments[i];
         if (!seg.prompt.trim()) continue;
-        const result = await api(`/api/directors/${app.id}/prompts`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ values: {
-            prompt: seg.prompt,
-            prompt_context: promptContextAt(i),
-            enhancer_model: f.values.enhancer_model || defaultOf(app, "enhancer_model", "qwen3.8_27b_w4a8.safetensors"),
-          }, index: 0 }),
-        });
+        const body=new FormData();
+        body.append("prompt",seg.prompt);body.append("prompt_context",promptContextAt(i));
+        body.append("enhancer_model",f.values.enhancer_model || defaultOf(app,"enhancer_model","qwen3.8_27b_w4a8.safetensors"));
+        body.append("index","0");
+        let firstFrame=null;try{firstFrame=await firstFileFor(i);}catch{}
+        if(firstFrame)body.append("image",firstFrame,firstFrame.name);
+        let lastFrame=seg.last;
+        if(!lastFrame && seg.lastUrl && !seg.lastUrl.startsWith("blob:"))lastFrame=await fileFromUrl(seg.lastUrl,`scene-${i+1}-last.png`);
+        if(lastFrame)body.append("last_frame",lastFrame,lastFrame.name);
+        const result = await api(`/api/directors/${app.id}/prompts`, {method:"POST",body});
         if (result?.values?.prompt) {
           seg.prompt = result.values.prompt;
           invalidationFrom(st, i);
@@ -350,19 +330,10 @@ export function sequentialDirectorView(app, f) {
     head.replaceChildren(
       el("div", { class: "dir-brand" }, icon("film"),
         el("span", {}, app.panel_title || "LTX Sequential Director"),
-        el("small", {}, `${st.segments.length} segments · ${fmt(total)}s · ${approved}/${st.segments.length} approved · ${summary(f, app)}${st.busyAll ? ` · generating ${st.selected + 1}/${st.segments.length}` : ""}`)),
+        el("small", {}, `${st.segments.length} scenes · ${fmt(total)}s · ${approved}/${st.segments.length} approved${st.busyAll ? ` · generating ${st.selected + 1}/${st.segments.length}` : ""}`)),
       el("div", { class: "dir-head-right" },
-        enhancerAvailable ? el("button", { type: "button", class: `dir-toggle${f.values.prompt_enhancer ? " on" : ""}`, title: "Use the Qwen3.8 LTX writer before each segment render", disabled: promptBusy, onclick: () => { f.values.prompt_enhancer = !f.values.prompt_enhancer; persist(st, app); draw(); } }, icon("spark"), "Qwen enhancer") : null,
-        enhancerAvailable ? (() => {
-          const options = app.inputs.find((input) => input.id === "enhancer_model")?.options || [];
-          const sel = el("select", { class: "dir-mini", title: "Prompt enhancer model", disabled: promptBusy }, ...options.map((o) => el("option", { value: o.value }, o.label || o.value)));
-          sel.value = f.values.enhancer_model || defaultOf(app, "enhancer_model", "qwen3.8_27b_w4a8.safetensors");
-          sel.onchange = () => { f.values.enhancer_model = sel.value; persist(st, app); };
-          return sel;
-        })() : null,
         enhancerAvailable ? el("button", { type: "button", class: "dir-toggle", title: "Generate every segment prompt only; no video render", disabled: promptBusy || st.busyAll, onclick: () => void generatePrompt(0, true) }, icon("spark"), "Generate all prompts") : null,
         el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => openBatch() }, icon("code"), "Paste prompts"),
-        runStopButton(),
         el("button", { type: "button", class: "dir-toggle", disabled: st.busyAll, onclick: () => {
           if (st.segments.length >= MAX_SEGMENTS) return toast(`${MAX_SEGMENTS} segments is the current maximum.`, { error: true });
           st.segments.push(blankSegment(app));
@@ -370,8 +341,6 @@ export function sequentialDirectorView(app, f) {
           persist(st, app);
           draw();
         } }, icon("plus"), "Add segment"),
-        el("button", { type: "button", class: "dir-toggle on", disabled: st.busyAll || st.assembling, onclick: () => void assemble() },
-          icon("film"), st.assembling ? "Assembling…" : "Assemble"),
         st.autoError ? el("span", { class: "tag red", title: st.autoError }, "chain stopped") : null));
   }
 
@@ -456,7 +425,7 @@ export function sequentialDirectorView(app, f) {
     const endAt = startAt + seg.duration;
     const prev = i > 0 ? st.segments[i - 1] : null;
     const needsPrev = i > 0 && !seg.cut;
-    const ready = i === 0 ? Boolean(st.start) : seg.cut ? Boolean(seg.cutStart) : Boolean(prev?.approved && prev?.lastFrameUrl);
+    const ready = i === 0 ? Boolean(st.start || st.startData || st.startUrl) : seg.cut ? Boolean(seg.cutStart || seg.cutStartData || seg.cutStartUrl) : Boolean(prev?.approved && prev?.lastFrameUrl);
     const status = seg.running ? "running" : seg.error ? "failed" : seg.approved ? "approved" : seg.videoUrl ? "review" : "empty";
 
     const duration = el("input", { class: "dir-num", type: "number", min: "1", max: "30", step: "1", value: String(seg.duration), disabled: st.busyAll });

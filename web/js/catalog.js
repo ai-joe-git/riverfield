@@ -85,8 +85,10 @@ export function modelOf(app) {
 }
 
 /** The apps a top-bar menu lists, grouped like the studio itself: the image apps by category, the video apps by tab. */
+export const primaryDirectorEntry = app => !["ltx-director","ltx-director-4seg"].includes(app.id);
+
 export function menuGroups(studio) {
-  const inMenu = (a) => studio === "image" ? a.section === "image" && studioOf(a) !== "video" : studioOf(a) === studio;
+  const inMenu = (a) => primaryDirectorEntry(a) && (studio === "image" ? a.section === "image" && studioOf(a) !== "video" : studioOf(a) === studio);
   const pick = (ids) => ids.map((id) => byId.get(id)).filter((a) => a && inMenu(a));
   let groups;
   if (studio === "video") {
@@ -136,7 +138,7 @@ export function familyOf(app) {
   if (app.section === "3d") return apps.filter((a) => a.section === "3d");
   if (app.section === "video" || videoTabOf(app.id)) {
     const tab = videoTabOf(app.id);
-    return apps.filter((a) => videoTabOf(a.id) === tab);
+    return apps.filter((a) => videoTabOf(a.id) === tab && primaryDirectorEntry(a));
   }
   return apps.filter((a) => layoutOf(a) === "sidebar" && a.section === app.section && categoryOf(a.id) === categoryOf(app.id));
 }

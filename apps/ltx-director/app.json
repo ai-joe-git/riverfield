@@ -1,7 +1,7 @@
 {
   "$schema": "../../schema/app.schema.json",
   "id": "ltx-director",
-  "name": "RiverField LTX Director",
+  "name": "Riverfield LTX Director",
   "section": "video",
   "pack": "video-ltx",
   "status": "ready",
@@ -933,5 +933,11 @@
         }
       ]
     }
-  ]
+  ],
+  "modes": [
+    "ltx-director",
+    "ltx-sequential-director",
+    "ltx-director-4seg"
+  ],
+  "mode_label": "Timeline"
 }

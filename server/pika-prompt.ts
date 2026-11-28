@@ -67,7 +67,7 @@ export function validatePikaValues(values:Record<string,unknown>){
  }
  for(const [i,w] of windows.entries()){
   const images=mode==="fl2va"?[w.first_frame,w.last_frame].filter(n=>n!==undefined&&n!==null):(w.images||[]),audio=w.audios||[];
-  for(const [slots,kind,max] of [[images,"image",9],[audio,"audio",3]] as const){
+  for(const [slots,kind,max] of [[images,"image",mode==="fl2va"?128:9],[audio,"audio",3]] as const){
    if(!Array.isArray(slots)||slots.some(n=>!Number.isInteger(n)||n<0||n>=max||!values[`${kind}${n+1}`]))reject("PIKA_UNBOUND_SLOT",`segment_windows.windows.${i}.${kind}s`,`Pika segment ${i+1}: ${kind} slots must refer to supplied files (zero based)`);
    if(!(mode==="fl2va"&&kind==="image")&&new Set(slots).size!==slots.length)reject("PIKA_DUPLICATE_SLOT",`segment_windows.windows.${i}.${kind}s`,`Pika segment ${i+1}: duplicate material slots`);
   }
