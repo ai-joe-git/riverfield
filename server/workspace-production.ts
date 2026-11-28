@@ -50,7 +50,7 @@ function saveRecord(dir: string, key: string, record: unknown) {
 
 export type WorkspaceAppPreparation = {
   preparationId: string; app: string; fingerprint: string; owner?: string; requestKey?: string;
-  model: string; writerKey?: string; values: Values; segments: WriterReceipt[]; createdAt: number; expiresAt: number;
+  model: string; writerKey?: string; draftContract?: "h3-plain"; values: Values; segments: WriterReceipt[]; createdAt: number; expiresAt: number;
 };
 
 export function workspaceFingerprint(app: string, values: Values, preset?: string, assetIds: Record<string, string> = {}) {
@@ -155,7 +155,7 @@ export class WorkspaceProduction {
         return inflight.promise;
       }
     }
-    const draftKey = key ? key + ".draft" : undefined;
+    const draftKey = key ? key + ".draft" + (scope.draftContract ? "." + scope.draftContract : "") : undefined;
     const draft = draftKey ? readRecord<{ fingerprint: string; writerKey?: string; segments: WriterReceipt[] }>(
       join(this.appRequests, draftKey + ".json")) : undefined;
     if (draft && (draft.fingerprint !== scope.fingerprint || draft.writerKey !== scope.writerKey))

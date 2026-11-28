@@ -1,11 +1,12 @@
 import {z} from "zod";
 import { InputError } from "./input-error.ts";
 
+const nativeFrames = (seconds: number) => Math.min(3592, 5 + 17 * Math.max(0, Math.round((seconds * 24 - 5) / 17)));
 const legal=(length:number)=>Number.isInteger(length)&&length>=5&&length<=3592&&(length-5)%17===0;
 const imageSlots=z.array(z.number().int().min(0).max(8)).max(9),audioSlots=z.array(z.number().int().min(0).max(2)).max(3);
 export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150).describe("Requested duration of EACH generated segment, not total story duration"),total_seconds:z.number().positive().optional().describe("Optional total timeline duration to validate, including overlap"),overlap_frames:z.number().int().min(0).max(3591).optional().describe("Explicit overlap in frames. Use 0 for clean cuts."),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:imageSlots.default([]),audios:audioSlots.default([]),segment_images:z.array(imageSlots).max(64).optional(),segment_audios:z.array(audioSlots).max(64).optional()});
 /** Same frame geometry as the Material Planner. Arithmetic belongs in code, not in an LLM. */
-export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,prompts,images,audios,segment_images,segment_audios}=segmentRequest.parse(raw);const length=Math.min(3592,5+17*Math.max(0,Math.round((seconds*24-5)/17)));const seam=overlap_frames??[0,1,...Array.from({length:Math.max(0,Math.floor((length-6)/17)+1)},(_,i)=>5+17*i)].filter(n=>n<length).reduce((best,n)=>Math.abs(n-39)<Math.abs(best-39)?n:best,0);
+export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,prompts,images,audios,segment_images,segment_audios}=segmentRequest.parse(raw);const length=nativeFrames(seconds);const seam=overlap_frames??[0,1,...Array.from({length:Math.max(0,Math.floor((length-6)/17)+1)},(_,i)=>5+17*i)].filter(n=>n<length).reduce((best,n)=>Math.abs(n-39)<Math.abs(best-39)?n:best,0);
  if(seam>=length||(seam!==0&&seam!==1&&!legal(seam)))throw new Error("Overlap must be 0, 1 or 5 + 17*n frames and shorter than the segment.");
  const stride=length-seam;
  for(const [name,slots] of [["segment_images",segment_images],["segment_audios",segment_audios]] as const)if(slots&&slots.length!==prompts.length)throw new Error(`${name} must have one entry per prompt`);
@@ -85,22 +86,26 @@ const stableIds = (max: number) => z.array(z.string().min(1).max(160)).max(max).
 export const directorBatchInput = z.object({
   productionId: z.string().min(1).max(160),
   segments: z.array(z.object({
-    frames: z.number().int().min(5).max(3592),
-    brief: z.string().trim().min(1).max(10000),
-    dialogue: z.array(z.string().min(1).max(700)).max(24).default([]),
+    seconds: z.number().min(5 / 24).max(150).optional().describe("Approximate segment duration in seconds. Riverfield aligns it."),
+    frames: z.number().int().min(5).max(3592).optional().describe("Use only to preserve an existing native frame count."),
+    brief: z.string().trim().min(1).max(10000).describe('One or two plain sentences, for example Daichi opens the window and says "It is cold."'),
+    dialogue: z.array(z.string().min(1).max(700)).max(24).default([]).describe("Optional plain dialogue lines. You can put them in the brief instead."),
     imageAssetIds: stableIds(9), audioAssetIds: stableIds(3),
   })).min(1).max(64),
 });
 
 /** Partition an ordered, hard-cut Flash timeline only where the manifest caps or render mode require it. */
 export function planDirectorBatches(raw: z.infer<typeof directorBatchInput>, capacity: { image: number; audio: number }) {
-  type Window = { start: number; end: number; prompt: string; images: number[]; audios: number[] };
+  type Window = { start: number; end: number; prompt: string; images: number[]; audios: number[]; dialogue?: string[] };
   type Batch = { mode: "ref2va" | "fl2va"; images: string[]; audios: string[]; windows: Window[]; sourceStart: number };
   const groups: Batch[] = [];
   const episodeFrames: { segment: number; start: number; end: number }[] = [];
   let position = 0;
   for (const [index, segment] of raw.segments.entries()) {
-    if (!legal(segment.frames)) throw new InputError(`Segment ${index + 1}: frames must be 5 + 17*n.`);
+    if ((segment.seconds === undefined) === (segment.frames === undefined))
+      throw new InputError(`Segment ${index + 1}: supply seconds, or frames for an existing native duration.`);
+    const frames = segment.frames ?? nativeFrames(segment.seconds!);
+    if (!legal(frames)) throw new InputError(`Segment ${index + 1}: frames must be 5 + 17*n. Supply seconds for automatic timing.`);
     const { imageAssetIds, audioAssetIds } = segment;
     if (imageAssetIds.length > capacity.image || audioAssetIds.length > capacity.audio ||
         new Set(imageAssetIds).size !== imageAssetIds.length || new Set(audioAssetIds).size !== audioAssetIds.length)
@@ -117,12 +122,12 @@ export function planDirectorBatches(raw: z.infer<typeof directorBatchInput>, cap
     batch.images.push(...missing(imageAssetIds, batch.images));
     batch.audios.push(...missing(audioAssetIds, batch.audios));
     const start = position - batch.sourceStart;
-    const prompt = [segment.brief, ...segment.dialogue.map(line => `<d>${line}</d>`)].join("\n");
+    const prompt = segment.dialogue.length ? `${segment.brief}\nDialogue:\n${segment.dialogue.join("\n")}` : segment.brief;
     if (prompt.length > 12000) throw new InputError(`Segment ${index + 1} exceeds the 12,000-character brief and dialogue limit.`);
-    batch.windows.push({ start, end: start + segment.frames, prompt,
+    batch.windows.push({ start, end: start + frames, prompt, ...(segment.dialogue.length ? { dialogue:segment.dialogue } : {}),
       images: imageAssetIds.map(id => batch.images.indexOf(id)), audios: audioAssetIds.map(id => batch.audios.indexOf(id)) });
-    episodeFrames.push({ segment: index + 1, start: position, end: position + segment.frames });
-    position += segment.frames;
+    episodeFrames.push({ segment: index + 1, start: position, end: position + frames });
+    position += frames;
   }
   return { fps: 24, frames: position, seconds: position / 24, episodeFrames,
     batches: groups.map((batch, index) => ({ index: index + 1, sourceStart: batch.sourceStart,

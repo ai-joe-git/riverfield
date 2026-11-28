@@ -218,11 +218,15 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     }
     const requested = {productionId,segments:[
       {frames:175,brief:"First setup.",imageAssetIds:imageIds.slice(0,8)},
-      {frames:192,brief:"Second shot.",imageAssetIds:[imageIds[8],imageIds[0]]},
+      {seconds:8,brief:"Second shot.",imageAssetIds:[imageIds[8],imageIds[0]]},
       {frames:209,brief:"Third shot.",imageAssetIds:[imageIds[9],imageIds[10]]},
       {frames:226,brief:"A clean text-only ending.",imageAssetIds:[]},
     ]};
-    const planned = await tool("plan_director_batches",requested);
+    const planned = await tool("plan_director_batches",{...requested,segments:JSON.stringify(requested.segments)});
+    assert.equal((await tool("plan_director_batches",{...requested,segments:"{}"})).isError,true);
+    const compactScope = await tool("production_scope",{productionId,assetsOnly:"true"});
+    assert.equal(compactScope.data.assetCount,11);
+    assert.equal(compactScope.data.scenes,undefined);
     assert.equal(planned.isError,false,JSON.stringify(planned.data));
     assert.deepEqual(planned.data.batches.map((batch: any) => [batch.frames,batch.refs,batch.mode]),[[367,9,"ref2va"],[209,2,"ref2va"],[226,0,"fl2va"]]);
     assert.equal(planned.data.frames,802);
@@ -244,8 +248,12 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     const requests = [writerRequests[3], writerRequests[5]];
     assert.equal(requests[0].messages[1].content.length,9);
     assert.equal(requests[1].messages[1].content.length,3);
-    assert.deepEqual(requests[1].messages.slice(0,2).map((row: any)=>row.role),["system","user"]);
-    assert.match(requests[1].messages[1].content[0].text,/<Picture 1> = fixture-image-8; <Picture 2> = fixture-image-0/);
+    assert.deepEqual(requests[1].messages.map((row: any)=>row.role),["system","user"]);
+    assert.equal(requests[0].messages[1].content[0].text,"First setup.");
+    assert.equal(requests[1].messages[1].content[0].text,"Second shot.");
+    const bytesInOrder = requests[1].messages[1].content.slice(1).map((part: any) =>
+      Buffer.from(part.image_url.url.split(",")[1],"base64").at(-1));
+    assert.deepEqual(bytesInOrder,[8,0]);
     const audit = JSON.parse(readFileSync(join(out,"workspace-app-preparations",receipt.preparationId + ".json"),"utf8"));
     assert.deepEqual(audit.segments[1].references.map((ref: any)=>ref.assetId),[imageIds[8],imageIds[0]]);
     await restart();
@@ -254,7 +262,10 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     assert.equal(writes,6,"restart reuses the saved receipt without a writer");
     const tampered = await tool("run_app",{...batch,values:{...batch.values,steps:6},workspace_managed:true,workspace_preparation_id:receipt.preparationId});
     assert.match(tampered.data.error,/different render inputs/);
-    const direct = await tool("run_app",{...batch,workspace_managed:true,workspace_preparation_id:receipt.preparationId});
+    const bypass = await tool("run_app",{...batch,values:{...batch.values,prompt_enhancer:false},workspace_managed:true,workspace_preparation_id:receipt.preparationId});
+    assert.match(bypass.data.error,/supplies the timeline/);
+    const direct = await tool("run_app",{...batch,values:{...batch.values,prompt_enhancer:true,production_id:productionId,flex_mode:"ref2va"},
+      workspace_managed:true,workspace_preparation_id:receipt.preparationId});
     assert.equal(direct.isError,false,JSON.stringify(direct.data));
     assert.equal(direct.data.render.workspacePreparation.preparationId,receipt.preparationId);
     assert.equal(direct.data.values.prompt_enhancer,false);

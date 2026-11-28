@@ -160,11 +160,13 @@ export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: Ap
   allowedPictures?: number;
   allowedAudios?: number;
   singleLine?: boolean;
+  /** Native H3 accepts its writer's scene formatting. Compare optional quoted words for the audit. */
+  h3Dialogue?: string[];
 }, request = fetch): Promise<string> {
   const { system, ...workflow } = resolveNativeWriter(enhancer, input.mode);
   const { requestParameters, differences } = workspaceWriterParameters(writer, { system, ...workflow });
   if (input.audit?.references.some(reference => reference.kind === "audio"))
-    differences.push("Standalone audio is carried by the render. The text writer receives its reference description without audio bytes.");
+    differences.push("The render carries standalone audio. The text writer does not receive audio bytes.");
   if (Object.keys(input.media).some(key => key.startsWith("video")))
     throw new InputError("This local writer path accepts image references. Video reference enhancement needs Riverfield's video-capable enhancer.");
   const images = Object.entries(input.media).filter(([key]) => /^image\d+$/.test(key)).sort(([a], [b]) => Number(a.slice(5)) - Number(b.slice(5))).map(([, value]) => value as FileValue);
@@ -195,13 +197,14 @@ export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: Ap
   if (choice?.finish_reason === "length" || !text || text.length > 12000)
     throw new Error("BlackRiver's local writer did not return a complete prompt within Riverfield's 12,000-character limit.");
   validateWriterReferences(text, input.allowedPictures ?? images.length, input.allowedAudios);
-  const dialogue = (value: string) => [...value.matchAll(/<d>([\s\S]*?)<\/d>/gi)].map(match => match[1].trim());
-  const requiredDialogue = dialogue(input.audit?.brief ?? "");
-  if (requiredDialogue.length) {
-    const actual = dialogue(text);
-    const declaredLanguage = /^\[[^\]\r\n]+\]\s*/;
-    if (actual.length !== requiredDialogue.length || requiredDialogue.some((line, i) =>
-      actual[i] !== line && actual[i].replace(declaredLanguage, "") !== line))
+  const actual = nativeDialogueLines(text);
+  if (input.h3Dialogue) {
+    if (input.h3Dialogue.length && !hasDialogueInOrder(input.h3Dialogue, actual))
+      differences.push("The native writer's dialogue differs from the requested lines. Verify the rendered speech when reviewing this segment.");
+  } else {
+    const requiredDialogue = nativeDialogueLines(input.audit?.brief ?? "");
+    if (requiredDialogue.length && (actual.length !== requiredDialogue.length || requiredDialogue.some((line, i) =>
+      actual[i] !== line && actual[i].replace(leadingLanguage, "") !== line)))
       throw new InputError("The writer changed explicitly supplied dialogue. No render was submitted.");
   }
   input.audit?.save({ segment: input.audit.segment, brief: input.audit.brief, systemPrompt: system, systemSha256: writerHash(system),
@@ -209,6 +212,33 @@ export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: Ap
     runtimeVersion: writer.runtimeVersion, workflow, requestParameters, differences, rawResponse,
     finalPrompt: text, finalPromptSha256: writerHash(text) });
   return text;
+}
+
+const leadingLanguage = /^\[[^\]\r\n]+\]\s*/;
+const dialogueTag = /<d>([\s\S]*?)<\/d>/gi;
+
+export function nativeDialogueLines(text: string): string[] {
+  return [...text.matchAll(dialogueTag)].map(match => match[1].trim());
+}
+
+/** Old saved plans wrapped even raw dialogue in native tags. Reopen them as ordinary prose. */
+export function plainDirectorDraft(text: string): string {
+  return text.replace(dialogueTag, (_, dialogue: string) => `"${dialogue.trim().replace(leadingLanguage, "")}"`);
+}
+
+function hasDialogueInOrder(expected: string[], actual: string[]) {
+  const words = (text: string) => (text.normalize("NFC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).join(" ");
+  const spoken = ` ${words(actual.map(line => line.replace(leadingLanguage, "")).join(" "))} `;
+  let next = 0;
+  for (const line of expected) {
+    const quoted = /:\s*["“'](.+)["”']\s*$/.exec(line)?.[1];
+    const phrase = words((quoted ?? line).replace(leadingLanguage, ""));
+    if (!phrase) continue;
+    const offset = spoken.indexOf(` ${phrase} `, next);
+    if (offset < 0) return false;
+    next = offset + phrase.length + 1;
+  }
+  return true;
 }
 
 export function validateWriterReferences(text: string, pictures: number, audios?: number) {

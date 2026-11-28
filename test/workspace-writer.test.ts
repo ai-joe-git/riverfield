@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { loadRegistry, repoRoot } from "../server/registry.ts";
 import { readFileSync } from "node:fs";
 import { applyInputs, resolveValues } from "../server/runner.ts";
-import { resolveNativeWriter, validateWorkspaceWriter, workspaceSystemPrompt, workspaceWriterParameters, writeWorkspacePrompt, writerHash } from "../server/workspace-writer.ts";
+import { resolveNativeWriter, validateWorkspaceWriter, workspaceSystemPrompt, workspaceWriterParameters, writeWorkspacePrompt, writerHash, plainDirectorDraft, type WriterReceipt } from "../server/workspace-writer.ts";
 
 const app = loadRegistry(repoRoot()).apps.find(row=>row.id==="prompt-enhancer")!;
 const model = "halogen-test";
@@ -161,4 +161,28 @@ test("the writer rejects changes to verbatim dialogue or impossible Picture numb
   await assert.rejects(writeWorkspacePrompt(writer,app,input,completion("<d>[English] Almost this!</d>")),/changed explicitly/);
   await assert.rejects(writeWorkspacePrompt(writer,app,input,completion("<Picture 9> <d>[English] Exactly this!</d>")),/supplied segment/);
   assert.equal(await writeWorkspacePrompt(writer,app,input,completion("<d>[English] Exactly this!</d>")),"<d>[English] Exactly this!</d>");
+});
+
+test("native H3 owns dialogue formatting and reports altered words in the receipt", async () => {
+  const dialogue = ['Momo: "Hello there."', 'Daichi: "Did it work?"'];
+  const brief = "Momo opens the window.\nDialogue:\n" + dialogue.join("\n");
+  const outputs = [
+    "<d>[English] Hello there! Did it work?</d>",
+    "<d>[English] Hello there! It worked.</d>",
+  ];
+  for (const [index, message] of outputs.entries()) {
+    let receipt: WriterReceipt | undefined;
+    const final = await writeWorkspacePrompt(writer,app,{prompt:brief,mode:"t2va",media:{},h3Dialogue:dialogue,
+      audit:{segment:1,brief,references:[],save:value=>{receipt=value;}}},async (_url, init) => {
+      const request = JSON.parse(String(init?.body));
+      assert.deepEqual(request.messages, [
+        {role:"system",content:workspaceSystemPrompt(app,"t2va")}, {role:"user",content:brief},
+      ]);
+      return Response.json({choices:[{finish_reason:"stop",message:{content:message}}]});
+    });
+    assert.equal(final,message);
+    assert.ok(receipt);
+    assert.equal(receipt.differences.some(note=>note.includes("native writer's dialogue differs")),index===1);
+  }
+  assert.equal(plainDirectorDraft('Momo says <d>[English] Hello there.</d>'),'Momo says "Hello there."');
 });

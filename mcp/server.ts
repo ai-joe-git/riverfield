@@ -142,11 +142,15 @@ export function build(base=BASE): McpServer {
     let key: string | undefined;
     if (input.director_batch) {
       const { planId, index } = input.director_batch;
-      if (Object.keys(input.files ?? {}).length || Object.keys(ids ?? {}).length ||
-          Object.keys(values).some(name => !["render_profile","build_megapixels","steps","production_megapixels","production_upscale","production_upscale_detail","seed","aspect"].includes(name)))
-        throw new InputError("Saved batches own the creative timeline, media and mode. Supply only render profile or technical settings.");
       const saved = await call(`/api/director-batch-plans/${planId}/${index}`);
       if (saved.app !== canonical.id) throw new InputError("This batch belongs to another Director app.");
+      const technicalSettings = ["render_profile", "build_megapixels", "steps", "production_megapixels",
+        "production_upscale", "production_upscale_detail", "seed", "aspect"];
+      const ownedFlags = ["prompt_enhancer", "production_id", "flex_mode"];
+      if (Object.keys(input.files ?? {}).length || Object.keys(ids ?? {}).length ||
+          Object.entries(values).some(([name, value]) => !technicalSettings.includes(name) &&
+            !(ownedFlags.includes(name) && value === saved.values[name])))
+        throw new InputError("Submit the saved director_batch with only the requested render settings. Riverfield supplies the timeline, media, mode and enhancer automatically.");
       values = { ...values, ...saved.values };
       ids = saved.asset_ids;
       key = `director-batch:${planId}:${index}`;
@@ -248,11 +252,22 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("plan_director_batches", {
     title: "Plan a long Flash H3 Director sequence",
-    description: "Save hard-cut batches using every supplied production reference. Provide variable native frame counts, plain creative briefs and verbatim dialogue. Ordered asset IDs are local to each segment. Returns batch handles and suggested durable request IDs without generating anything.",
-    inputSchema: directorBatchInput.shape,
+    description: "Save hard-cut batches with each segment's seconds, plain brief with exact dialogue, and ordered reference asset IDs. Riverfield aligns native frames and handles prompt writing at preparation. Returns batch handles and request IDs without rendering.",
+    inputSchema: { ...directorBatchInput.shape,
+      segments: z.union([directorBatchInput.shape.segments, z.string().max(600000)])
+        .describe("Ordered segments with seconds, brief and imageAssetIds.") },
   }, async input => {
-    try { return text(await call("/api/director-batch-plans", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)}), true); }
-    catch(e) { return fail(e); }
+    try {
+      let segments: unknown = input.segments;
+      if (typeof segments === "string") {
+        try { segments = JSON.parse(segments); }
+        catch { throw new InputError("Supply segments as a JSON array of segment objects."); }
+      }
+      const parsed = directorBatchInput.safeParse({ ...input, segments });
+      if (!parsed.success) throw new InputError(parsed.error.issues
+        .slice(0, 3).map(issue => `${issue.path.join(".")}: ${issue.message}`).join("; "));
+      return text(await call("/api/director-batch-plans", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(parsed.data)}), true);
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("assemble_director_batches", {
@@ -310,7 +325,7 @@ export function build(base=BASE): McpServer {
     inputSchema: {
       productionId: z.string(), episodeId: z.string().optional(),
       assetCategory: z.string().max(80).optional().describe("for example characters or environments"),
-      assetQuery: z.string().max(160).optional(), assetsOnly: z.boolean().optional(), offset: z.number().int().min(0).optional(),
+      assetQuery: z.string().max(160).optional(), assetsOnly: z.union([z.boolean(), z.enum(["true", "false"])]).optional(), offset: z.number().int().min(0).optional(),
     },
     annotations: { readOnlyHint: true },
   }, async ({ productionId, episodeId, assetCategory, assetQuery, assetsOnly, offset = 0 }) => {
@@ -325,7 +340,7 @@ export function build(base=BASE): McpServer {
         (!category || row.category?.toLowerCase() === category) &&
         terms.every(term => [row.id, row.label, row.category, ...(row.tags ?? [])].join(" ").toLowerCase().includes(term)));
       const production = snap.production && { id: snap.production.id, title: snap.production.title };
-      if (assetsOnly) return text({
+      if (assetsOnly === true || assetsOnly === "true") return text({
         production,
         assets: assets.slice(offset, offset + 12).map(row => ({
           id: row.id, label: row.label, kind: row.kind, category: row.category, path: row.path,

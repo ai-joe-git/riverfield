@@ -27,7 +27,7 @@ import { validateWorkspaceObserver } from "./workspace-observer.ts";
 // RIVERFIELD_MAX_UPLOAD_MB, and each visitor sees only their own runs. Hosted or not, requests from other sites are
 // refused (guard.ts foreign()). RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
-import { validateWorkspaceWriter, validateWriterReferences, writeWorkspacePrompt, writerHash, validateWorkspaceImages, resolveNativeWriter, type WorkspaceWriter, type WriterReceipt } from "./workspace-writer.ts";
+import { validateWorkspaceWriter, validateWriterReferences, writeWorkspacePrompt, writerHash, validateWorkspaceImages, resolveNativeWriter, nativeDialogueLines, plainDirectorDraft, type WorkspaceWriter, type WriterReceipt } from "./workspace-writer.ts";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
@@ -335,6 +335,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
 
   const flexMode = String(next.flex_mode ?? "");
   const ltx = app.id.startsWith("ltx-");
+  const simpleH3 = Boolean(writer && !ltx);
   const selected = target.prompts.map((_, i) => directorWriterMedia(next,
     target!.kind === "windows" ? target!.spec.windows[i] : undefined, audit?.assetIds));
   if (writer) for (const [index, item] of selected.entries()) {
@@ -365,7 +366,7 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
   };
   let productionMemory = "";
   const productionId = String(next.production_id ?? "").trim();
-  if (productionId) {
+  if (productionId && !simpleH3) {
     try {
       const sceneId = String(next.production_scene_id ?? "").trim();
       productionMemory = buildProductionContext(productions.snapshot(productionId), sceneId ? { sceneId } : {}).text;
@@ -382,35 +383,38 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
   for (const i of order) {
     const draft = target.prompts[i].trim() || String(next.global_prompt ?? "").trim();
     if (!draft) continue;
-    const start = starts[i] ?? 0;
-    const end = target.kind === "windows" ? Number(target.spec.windows[i].end) / 24 : null;
-    const timing = end !== null ? `Starts at ${start.toFixed(2)} s and lasts ${(end - start).toFixed(2)} s.` : "";
-    // For Generate all, each new scene sees the scenes already rewritten in this run.
-    // For one segment, it sees the earlier prompts already in the timeline.
-    const previous = only === undefined ? done : target.prompts.slice(0, i).filter(Boolean);
-    const suppliedContext = target.kind === "prompt" ? String(next.prompt_context ?? "").trim() : "";
-    const supplied = contextFor(suppliedContext ? [suppliedContext] : []);
     const selection = selected[i];
     const mode = directorPromptMode({ flexMode, hasVisual: Object.keys(selection.media).length > 0,
       ltx, first: selection.frames.includes("first_frame") || selection.frames.includes("image"),
       last: selection.frames.includes("last_frame") });
-    const refsHint = selection.descriptions.length
-      ? `References in this segment's local encoder order. Use these labels exactly: ${selection.descriptions.join("; ")}.`
-      : "This segment has no Picture or Audio reference labels.";
-    const context = previous.length
-      ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${contextFor(previous)}`
-      : supplied
-        ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${supplied}`
-        : "This is the first scene in the timeline; there is no previous scene.";
-    const prompt = [
-      `You are writing segment ${i + 1} of ${target.prompts.length} for ${app.name}.`,
-      timing,
-      productionMemory ? `Canonical production memory (approved facts; do not contradict them):\n${productionMemory}` : "",
-      context,
-      `Current draft for segment ${i + 1}:\n${draft}`,
-      refsHint,
-      `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready prompt for this segment. Do not add a segment heading or commentary.`,
-    ].filter(Boolean).join("\n\n");
+    let prompt = plainDirectorDraft(draft);
+    if (!simpleH3) {
+      const start = starts[i] ?? 0;
+      const end = target.kind === "windows" ? Number(target.spec.windows[i].end) / 24 : null;
+      const timing = end !== null ? `Starts at ${start.toFixed(2)} s and lasts ${(end - start).toFixed(2)} s.` : "";
+      // For Generate all, each new scene sees the scenes already rewritten in this run.
+      // For one segment, it sees the earlier prompts already in the timeline.
+      const previous = only === undefined ? done : target.prompts.slice(0, i).filter(Boolean);
+      const suppliedContext = target.kind === "prompt" ? String(next.prompt_context ?? "").trim() : "";
+      const supplied = contextFor(suppliedContext ? [suppliedContext] : []);
+      const refsHint = selection.descriptions.length
+        ? `References in this segment's local encoder order. Use these labels exactly: ${selection.descriptions.join("; ")}.`
+        : "This segment has no Picture or Audio reference labels.";
+      const context = previous.length
+        ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${contextFor(previous)}`
+        : supplied
+          ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${supplied}`
+          : "This is the first scene in the timeline; there is no previous scene.";
+      prompt = [
+        `You are writing segment ${i + 1} of ${target.prompts.length} for ${app.name}.`,
+        timing,
+        productionMemory ? `Canonical production memory (approved facts; do not contradict them):\n${productionMemory}` : "",
+        context,
+        `Current draft for segment ${i + 1}:\n${draft}`,
+        refsHint,
+        `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready prompt for this segment. Do not add a segment heading or commentary.`,
+      ].filter(Boolean).join("\n\n");
+    }
     signal?.throwIfAborted();
     const { media, references, pictures, audios } = selection;
     const saved = audit?.segments.find(receipt => receipt.segment === i + 1);
@@ -419,7 +423,11 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
       if (saved.userMessage !== prompt || saved.systemPrompt !== system || JSON.stringify(saved.workflow) !== JSON.stringify(workflow))
         throw new InputError("A saved segment no longer matches its native writer inputs. Start a new preparation.");
     }
-    const text = saved?.finalPrompt ?? (writer ? await writeWorkspacePrompt(writer, enhancer, { prompt, mode, media, signal,
+    const plannedDialogue = target.kind === "windows" ? target.spec.windows[i]?.dialogue : undefined;
+    const h3Dialogue = simpleH3
+      ? Array.isArray(plannedDialogue) && plannedDialogue.every(line => typeof line === "string") ? plannedDialogue : nativeDialogueLines(draft)
+      : undefined;
+    const text = saved?.finalPrompt ?? (writer ? await writeWorkspacePrompt(writer, enhancer, { prompt, mode, media, signal, h3Dialogue,
       singleLine: target.kind === "lines", allowedPictures: pictures, allowedAudios: next.audio_mode === "locked" ? 0 : audios,
       ...(audit ? { audit: { segment: i + 1, brief: draft, references, save: (receipt: WriterReceipt) => {
         audit.segments.push(receipt);
@@ -825,6 +833,7 @@ const server = createServer(async (req, res) => {
                 requestKey: JSON.stringify([context.run.revision, context.scene.sceneId]),
                 fingerprint: workspaceFingerprint(app.id, { ...request.values, ...request.files }, undefined, assetIds),
                 writerKey: writerHash(JSON.stringify(writer)),
+                ...(app.id.startsWith("ltx-") ? {} : { draftContract: "h3-plain" }),
               }, async (segments, checkpoint) => {
                 const enhanced = await enhanceDirectorValues(app, values, undefined, enhancer, undefined, undefined, writer, controller.signal,
                   { segments, assetIds, checkpoint });
@@ -1326,7 +1335,8 @@ const server = createServer(async (req, res) => {
             }
           }
           const record = await workspaceProduction.prepareApp({ app: app.id, model: writer?.model ?? "", requestKey, owner: me,
-            fingerprint: workspaceFingerprint(app.id, values, preset, assetIds), writerKey: writer ? writerHash(JSON.stringify(writer)) : undefined },
+            fingerprint: workspaceFingerprint(app.id, values, preset, assetIds), writerKey: writer ? writerHash(JSON.stringify(writer)) : undefined,
+            ...(app.id.startsWith("ltx-") ? {} : { draftContract: "h3-plain" }) },
             async (segments, checkpoint) => {
             if (!writer) throw new InputError("Select the active BlackRiver local model before running the native prompt enhancer.");
             const enhanced = await enhanceDirectorValues(app, resolved, undefined, enhancer, undefined, undefined, writer, controller.signal, { segments, assetIds, checkpoint });
