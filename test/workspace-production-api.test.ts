@@ -119,7 +119,7 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     assert.equal((await park({ "x-riverfield-workspace": "1" })).status, 200);
     assert.equal(parkRequests, 1);
     const app = "h3-studio-director-flash";
-    const standalone = await tool("prepare_app_run", { app, writer, values: { prompt_enhancer: true, global_prompt: "A paper boat floats.", steps: 8 } });
+    const standalone = await tool("prepare_app_run", { app, writer, values: { prompt_enhancer: false, global_prompt: "A paper boat floats.", steps: 8 } });
     assert.equal(standalone.isError, false, JSON.stringify(standalone.data));
     assert.equal(standalone.data.values.global_prompt, rewritten);
     assert.equal(standalone.data.values.prompt_enhancer, false);

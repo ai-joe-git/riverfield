@@ -354,3 +354,43 @@ test("Workspace observations use Riverfield system prompts and skip both ComfyUI
     assert.deepEqual(calls.map(call => call.system), [VISUAL_OBSERVER_SYSTEM_PROMPT]);
   } finally { globalThis.fetch = originalFetch; rmSync(out, { recursive: true, force: true }); }
 });
+
+
+test("long sampled scenes use the same visual observer in bounded chronological passes", async () => {
+  const { out, store } = fixture();
+  const passes: string[][] = [];
+  try {
+    const observations = new ObservationManager({
+      outDir: out, productions: store, runner: {} as Runner, inference: async (_label, work) => work(),
+      mediaRoots: [join(out, "media")],
+      evidence: input => {
+        const bundle = fakeEvidence(input);
+        const shots = Array.from({length: 15}, (_, index) => ({
+          ...bundle.shots[0], id: `shot-${index+1}`, evidenceIds:[`evidence-${index+1}`],
+        }));
+        const frames = shots.map((shot, index) => ({
+          ...bundle.frames[0], id:shot.evidenceIds[0], shotId:shot.id, timestampSeconds:index/10,
+        }));
+        return { ...bundle, shots, frames, visualFrameIds:frames.slice(0,6).map(frame=>frame.id) };
+      },
+      visualObserver: {
+        observe: async ({frames,shots,analysisImages}) => {
+          assert.deepEqual(frames.map(frame=>frame.shotId), shots.map(shot=>shot.id));
+          assert.equal(analysisImages?.length, frames.length);
+          passes.push(shots.map(shot=>shot.id));
+          return { visual:{...fakeVisual,claims:frames.map(frame=>({text:frame.id,evidenceIds:[frame.id],confidence:"confirmed"}))},
+            model:"fixture", version:"test", promptVersion:"native", configuration:{}, rawText:"{}" };
+        },
+      },
+    });
+    const job = observations.start("suite-404", {sceneId:"scene-a",candidateId:"candidate-a",
+      options:{asr:false,comparison:false,maxFrames:48,visualFrames:6}}, actor);
+    const done = await finished(observations,job.id);
+    assert.equal(done.status,"succeeded",done.error ?? "Observation did not succeed");
+    assert.deepEqual(passes.map(pass=>pass.length),[6,6,3]);
+    assert.deepEqual(passes.flat(),Array.from({length:15},(_,index)=>`shot-${index+1}`));
+    const report=store.snapshot("suite-404").observations[done.observationId!].report;
+    assert.equal(report?.evidenceBudget?.visualFrames,15);
+    assert.equal(report?.visual?.claims.length,15);
+  } finally { rmSync(out,{recursive:true,force:true}); }
+});

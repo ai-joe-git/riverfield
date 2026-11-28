@@ -129,6 +129,50 @@ function stageList(): ObservationStage[] {
   return stageNames.map((name) => ({ name, status: "pending" as const }));
 }
 
+// Each sampled-frame pass uses the ordinary observer and system prompt, with
+// only its own chronological shots and images.
+function sampledVisualBatches(bundle: ObservationEvidenceBundle, capacity: number, split: boolean) {
+  const selected = bundle.visualFrameIds.map(id => bundle.frames.find(frame => frame.id === id))
+    .filter((frame): frame is ObservationEvidence => Boolean(frame));
+  const covered = new Set(selected.map(frame => frame.shotId).filter(Boolean));
+  if (covered.size === bundle.shots.length) return [{ frames: selected, shots: bundle.shots }];
+  if (!split || bundle.shots.length <= capacity)
+    throw new ObservationError("OBSERVATION_VISUAL_COVERAGE",
+      `The ${selected.length} selected visual frames cover ${covered.size}/${bundle.shots.length} detected shots`);
+  const batches = [];
+  for (let offset = 0; offset < bundle.shots.length; offset += capacity) {
+    const shots = bundle.shots.slice(offset, offset + capacity);
+    const frames = shots.map(shot =>
+      selected.find(frame => frame.shotId === shot.id) ??
+      bundle.frames.find(frame => frame.shotId === shot.id && frame.kind === "shot_frame") ??
+      bundle.frames.find(frame => frame.shotId === shot.id));
+    if (frames.some(frame => !frame)) throw new ObservationError("OBSERVATION_VISUAL_COVERAGE", "A detected shot has no usable evidence frame");
+    batches.push({ frames:frames as ObservationEvidence[], shots });
+  }
+  return batches;
+}
+
+function mergeVisualBatches(parts: VisualObserverResult[]): VisualObserverResult {
+  const first = parts[0];
+  if (parts.length === 1) return first;
+  return {
+    ...first,
+    visual: {
+      characters: parts.flatMap(part => part.visual.characters),
+      props: parts.flatMap(part => part.visual.props),
+      actions: parts.flatMap(part => part.visual.actions),
+      composition: parts.flatMap(part => part.visual.composition),
+      expressions: parts.flatMap(part => part.visual.expressions),
+      stylisticEffects: parts.flatMap(part => part.visual.stylisticEffects ?? []),
+      artifacts: parts.flatMap(part => part.visual.artifacts),
+      claims: parts.flatMap(part => part.visual.claims),
+      openingState: first.visual.openingState,
+      closingState: parts.at(-1)?.visual.closingState,
+      uncertainties: [...new Set(parts.flatMap(part => part.visual.uncertainties))],
+    },
+  };
+}
+
 function evidenceForStore(bundle: ObservationEvidenceBundle): Observation["evidence"] {
   return [
     ...bundle.frames.map((frame) => ({ type: frame.kind, path: frame.path ?? join(bundle.dir, frame.file), startFrame: frame.frame, endFrame: frame.frame })),
@@ -162,7 +206,8 @@ function markExperimentalAudioUnverified(visual: VisualObserverResult): void {
 
 function reportSummary(report: Omit<ObservationReport, "createdAt">): string {
   const visual = report.visual ? `${report.visual.characters.length} character observation(s)` : "visual stage incomplete";
-  const speech = report.dialogue?.utterances.length ? `${report.dialogue.utterances.length} transcript segment(s)` : "ASR unavailable";
+  const speech = report.dialogue?.utterances.length ? `${report.dialogue.utterances.length} transcript segment(s)`
+    : report.dialogue?.text.trim() ? "ASR transcript available without timed segments" : "ASR unavailable";
   return `Automated observation: ${report.shots.length} detected shot(s), ${report.evidence.length} evidence item(s); ${visual}; ${speech}.`;
 }
 
@@ -424,9 +469,9 @@ export class ObservationManager {
       mkdirSync(artifactDir, { recursive: true });
       job.artifactDir = artifactDir;
       this.save(job);
-      const selectedFrames = bundle.visualFrameIds
-        .map((id) => bundle.frames.find((frame) => frame.id === id))
-        .filter((frame): frame is ObservationEvidence => Boolean(frame));
+      const batches = job.options.visual ? sampledVisualBatches(bundle, job.options.visualFrames,
+        !job.options.nativeVideo && !job.options.nativeAudio) : [];
+      const selectedFrames = batches.flatMap(batch => batch.frames);
       let analysisImages: AnalysisImage[] = [];
       const coveredShots = new Set(selectedFrames.map((frame) => frame.shotId).filter(Boolean));
       writeArtifact("configuration.json", {
@@ -445,9 +490,6 @@ export class ObservationManager {
         coveredShots: [...coveredShots], allShotsCovered: coveredShots.size === bundle.shots.length,
         references: job.options.referenceAssetIds.map((id) => ({ id, label: snap.assets[id]?.label ?? null, path: snap.assets[id]?.path ?? null })),
       });
-      if (job.options.visual && coveredShots.size !== bundle.shots.length) {
-        throw new ObservationError("OBSERVATION_VISUAL_COVERAGE", `The ${job.options.visualFrames} selected visual frames cover ${coveredShots.size}/${bundle.shots.length} detected shots; refusing to run without complete shot coverage`);
-      }
       if (!workspace) writeArtifact("backend-log-before.txt", fileTail(process.env.RIVERFIELD_BACKEND_LOG || "/tmp/opencode/riverfield/backend.log"), true);
       const memoryFile = join(artifactDir, "memory.jsonl");
       appendFileSync(memoryFile, `${JSON.stringify(sampleMemory())}\n`);
@@ -472,10 +514,13 @@ export class ObservationManager {
           .map((assetId) => snap.assets[assetId])
           .filter(Boolean)
           .map((asset) => ({ id: asset.id, label: `reference:${asset.label}`, path: resolveMediaPath(asset.path, this.mediaRoots), hash: asset.hash }));
-        analysisImages = createAnalysisImages({
-          frames: selectedFrames, references: referenceInputs,
-          outputDir: join(artifactDir, "analysis"),
-        });
+        for (const [index, batch] of batches.entries()) {
+          const images = createAnalysisImages({
+            frames: batch.frames, references: referenceInputs,
+            outputDir: join(artifactDir, "analysis", ...(batches.length === 1 ? [] : [String(index + 1)])),
+          });
+          analysisImages.push(...images);
+        }
         writeArtifact("analysis-images.json", analysisImageManifest(analysisImages));
       }
 
@@ -591,25 +636,37 @@ export class ObservationManager {
         if (job.options.visual) {
           this.stage(job, "visual", "running");
           try {
-            visual = await visualBackend.observe({
-              technical: bundle.technical, shots: bundle.shots,
-              frames: bundle.visualFrameIds
-                .map((id) => bundle.frames.find((frame) => frame.id === id))
-                .filter((frame): frame is ObservationEvidence => Boolean(frame)),
-              referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
-              nativeEvidence, analysisImages,
-              signal: controller.signal,
-            });
+            const parts: VisualObserverResult[] = [];
+            let imageOffset = 0;
+            for (const [index, batch] of batches.entries()) {
+              controller.signal.throwIfAborted();
+              const imageCount = batch.frames.length + referenceFiles.length;
+              const firstShot = batch.shots[0], lastShot = batch.shots.at(-1)!;
+              const technical = batches.length === 1 ? bundle.technical : {
+                ...bundle.technical,
+                sceneStartFrame: firstShot.startFrame, sceneEndFrame: lastShot.endFrame,
+                sceneStartSeconds: firstShot.startSeconds, sceneEndSeconds: lastShot.endSeconds,
+              };
+              const part = await visualBackend.observe({
+                technical, shots: batch.shots, frames: batch.frames,
+                referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
+                nativeEvidence, analysisImages: analysisImages.slice(imageOffset, imageOffset + imageCount),
+                signal: controller.signal,
+              });
+              imageOffset += imageCount;
+              parts.push(part);
+              const name = batches.length === 1 ? "visual" : `visual-batch-${index + 1}`;
+              writeArtifact(name + "-system-prompt.txt", part.systemPrompt ?? "", true);
+              writeArtifact(name + "-input-prompt.txt", part.inputPrompt ?? "", true);
+              writeArtifact(name + "-images.json", {
+                limit: 9, supplied: part.images ?? [], evidenceFrames: batch.frames.map(frame => frame.id),
+                references: job.options.referenceAssetIds,
+              });
+              writeArtifact(name + "-raw.txt", part.rawText, true);
+              if (batches.length > 1) writeArtifact(name + "-parsed.json", part.visual);
+            }
+            visual = mergeVisualBatches(parts);
             if (job.options.profile === "experimental-av") markExperimentalAudioUnverified(visual);
-            writeArtifact("visual-system-prompt.txt", visual.systemPrompt ?? "", true);
-            writeArtifact("visual-input-prompt.txt", visual.inputPrompt ?? "", true);
-            writeArtifact("visual-images.json", {
-              limit: 9,
-              supplied: visual.images ?? [],
-              evidenceFrames: bundle.visualFrameIds,
-              references: job.options.referenceAssetIds,
-            });
-            writeArtifact("visual-raw.txt", visual.rawText, true);
             writeArtifact("visual-parsed.json", visual.visual);
             this.stage(job, "visual", "succeeded");
           } catch (error) {
@@ -623,7 +680,7 @@ export class ObservationManager {
           this.stage(job, "visual", "skipped");
         }
 
-        if (job.options.comparison) {
+        if (job.options.comparison && (visual || dialogue || !job.options.visual && !job.options.asr)) {
           this.stage(job, "comparison", "running");
           const persistRaw = (meta: { rawText: string; jobId?: string; systemPrompt: string; inputPrompt: string }) => {
             writeArtifact("comparison-raw.txt", meta.rawText, true);
@@ -714,7 +771,7 @@ export class ObservationManager {
         createdAt: this.now().toISOString(), technical: bundle.technical,
         evidenceBudget: {
           maxFrames: job.options.maxFrames, extractedFrames: bundle.frames.length,
-          visualFrames: bundle.visualFrameIds.length, mandatoryShotCoverage: true,
+          visualFrames: selectedFrames.length, mandatoryShotCoverage: true,
           semantics: "hard-cap-with-mandatory-shot-coverage",
         },
         nativeBoundaries: bundle.nativeBoundaries,

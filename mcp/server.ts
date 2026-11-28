@@ -23,13 +23,15 @@ import {planH3,planDirectorSegments,directorRequest,directorValues,directorDurat
 import {resolveApp} from "../server/app-reference.ts";
 import {InputError,inputErrorBody} from "../server/input-error.ts";
 import {normalizeRunInputs} from "../server/run-inputs.ts";
+import {assertTrustedReferences} from "../server/asset-audit.ts";
+import {mediaKind,productionMediaRoots,resolveMediaPath} from "../server/production-media.ts";
 
 const BASE = (process.env.RIVERFIELD_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
 const HOST = process.env.RIVERFIELD_MCP_HOST || "127.0.0.1";
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = process.env.RIVERFIELD_OUT || join(ROOT, "out");
-const localWriter = z.object({baseUrl:z.string(),model:z.string(),vision:z.boolean().optional()});
+const localWriter = z.object({baseUrl:z.string(),model:z.string(),vision:z.boolean().optional(),reasoningNone:z.boolean().optional()});
 const DONE = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 
 type Any = Record<string, any>;
@@ -106,6 +108,29 @@ const fail = (e: unknown) => {
 
 export function build(base=BASE): McpServer {
   const call=(path:string,init?:RequestInit)=>api(path,init,base);
+  async function registeredFiles(app: Any, values: Any, files: Record<string, string>, ids?: Record<string, string>) {
+    if (!ids || Object.keys(ids).length === 0) return files;
+    const productionId = String(values.production_id || "").trim();
+    if (!productionId) throw new InputError("asset_ids requires values.production_id from production_scope");
+    const snapshot = await call(`/api/productions/${encodeURIComponent(productionId)}`);
+    const resolved = {...files};
+    for (const [slot, id] of Object.entries(ids)) {
+      if (Object.hasOwn(files, slot)) throw new InputError(`files.${slot}: choose a path or a production asset ID for this slot`);
+      const asset = Object.hasOwn(snapshot.assets ?? {}, id) ? snapshot.assets[id] : null;
+      const kind = app.inputs.find((field: Any) => field.id === slot)?.type;
+      if (!asset || asset.kind !== kind || !["image","video","audio"].includes(kind))
+        throw new InputError(`asset_ids.${slot}: select an existing ${kind || "media"} asset ID in production_scope for ${productionId}`);
+      try {
+        assertTrustedReferences(snapshot, [id]);
+        const path = resolveMediaPath(asset.path, productionMediaRoots(resolve(OUT)));
+        if (mediaKind(path) !== kind) throw new Error("Registered file type does not match the input");
+        Object.defineProperty(resolved, slot, { value:path, enumerable:true, configurable:true, writable:true });
+      } catch (error) {
+        throw new InputError(`asset_ids.${slot} (${id}): ${(error as Error).message}`);
+      }
+    }
+    return resolved;
+  }
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
 
   server.registerTool("plan_segments", {
@@ -197,14 +222,15 @@ export function build(base=BASE): McpServer {
       app: z.string().describe("app id"),
       values: z.record(z.string(), z.any()).optional().describe("input values, by input id. Director segment_windows accepts a timeline object; call plan_segments without prompts to obtain timings first."),
       files: z.record(z.string(), z.string()).optional().describe("file inputs, by input id: absolute path"),
+      asset_ids: z.record(z.string(), z.string()).optional().describe("Exact production asset IDs from production_scope by input slot, e.g. image1. Requires values.production_id. Omit those slots from files."),
       preset: z.string().optional().describe("preset id, when the app has presets"),
       request_id: z.string().max(200).optional().describe("optional durable idempotency key; retrying this key returns the original job, never a second generation"),
     },
-  }, async ({ app, values, files, preset,request_id }) => {
+  }, async ({ app, values, files, asset_ids, preset,request_id }) => {
     try {
       const canonical=await manifest(app,base);
       if(canonical.id==="pika-studio-director"&&values?.advanced_timeline_json)throw new InputError("Automated Pika uses native Director segments; raw advanced_timeline_json is reserved for manual editing");
-      const normalized=normalizeRunInputs(canonical as any,values??{},files??{});
+      const normalized=normalizeRunInputs(canonical as any,values??{},await registeredFiles(canonical,values??{},files??{},asset_ids));
       const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values, normalized.files, preset,base);
       if(request_id)fd.append("request_id",request_id);
       const entry = await call(`/api/apps/${encodeURIComponent(canonical.id)}/run`, { method: "POST", body: fd });
@@ -216,12 +242,15 @@ export function build(base=BASE): McpServer {
   server.registerTool("prepare_app_run", {
     title: "Prepare render prompts on the active local writer",
     description: "Use Riverfield's real enhancer instructions, production memory and ordered references to prepare one app request. Returns only its validated prompt fields. Does not submit any render or start ComfyUI. BlackRiver supplies its active local model.",
-    inputSchema: { app:z.string(), values:z.record(z.string(),z.any()).optional(), files:z.record(z.string(),z.string()).optional(), writer:localWriter },
-  }, async ({app, values, files, writer}) => {
+    inputSchema: { app:z.string(), values:z.record(z.string(),z.any()).optional(), files:z.record(z.string(),z.string()).optional(), asset_ids:z.record(z.string(),z.string()).optional(), writer:localWriter },
+  }, async ({app, values, files, asset_ids, writer}) => {
     try {
       const canonical = await manifest(app,base);
       if (!canonical.inputs.some((input: Any) => input.id === "prompt_enhancer")) return text({applied:false});
-      const normalized = normalizeRunInputs(canonical as any, values ?? {}, files ?? {});
+      const draft = {...values};
+      if (canonical.id.startsWith("h3-") && canonical.inputs.some((input: Any) => input.id === "segment_windows"))
+        draft.prompt_enhancer = true;
+      const normalized = normalizeRunInputs(canonical as any, draft, await registeredFiles(canonical,draft,files??{},asset_ids));
       const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values,normalized.files,undefined,base);
       fd.append("workspace_writer",JSON.stringify(writer));
       return text(await call(`/api/apps/${encodeURIComponent(canonical.id)}/prepare-prompts`,{method:"POST",body:fd}));
@@ -230,14 +259,14 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("production_scope", {
     title: "Find a production's seasons, episodes, scenes and reference assets",
-    description: "Start here for an existing production. Use episodeId to narrow scenes. Use assetCategory or assetQuery to resolve matching reference paths. Use offset to page assets.",
+    description: "Start here for an existing production. Use episodeId to narrow scenes. Use assetCategory or assetQuery and assetsOnly:true for compact, paged reference IDs and paths.",
     inputSchema: {
       productionId: z.string(), episodeId: z.string().optional(),
       assetCategory: z.string().max(80).optional().describe("for example characters or environments"),
-      assetQuery: z.string().max(160).optional(), offset: z.number().int().min(0).optional(),
+      assetQuery: z.string().max(160).optional(), assetsOnly: z.boolean().optional(), offset: z.number().int().min(0).optional(),
     },
     annotations: { readOnlyHint: true },
-  }, async ({ productionId, episodeId, assetCategory, assetQuery, offset = 0 }) => {
+  }, async ({ productionId, episodeId, assetCategory, assetQuery, assetsOnly, offset = 0 }) => {
     try {
       const snap = await call(`/api/productions/${encodeURIComponent(productionId)}`);
       const compact = (rows: Any[], parent: string) => rows.slice(0, 60).map(row => ({
@@ -248,9 +277,17 @@ export function build(base=BASE): McpServer {
       const assets = Object.values((snap.assets ?? {}) as Record<string, Any>).filter(row =>
         (!category || row.category?.toLowerCase() === category) &&
         terms.every(term => [row.id, row.label, row.category, ...(row.tags ?? [])].join(" ").toLowerCase().includes(term)));
+      const production = snap.production && { id: snap.production.id, title: snap.production.title };
+      if (assetsOnly) return text({
+        production,
+        assets: assets.slice(offset, offset + 12).map(row => ({
+          id: row.id, label: row.label, kind: row.kind, category: row.category, path: row.path,
+        })),
+        assetCount: assets.length, ...(assets.length > offset + 12 ? { nextOffset: offset + 12 } : {}),
+      }, true);
       const scenes = (snap.scenes ?? []).filter((row: Any) => !episodeId || row.episodeId === episodeId);
       return text({
-        production: snap.production && { id: snap.production.id, title: snap.production.title },
+        production,
         seasons: compact(snap.seasons ?? [], "productionId"), episodes: compact(snap.episodes ?? [], "seasonId"),
         scenes: compact(scenes, "episodeId"), sceneCount: scenes.length,
         assets: assets.slice(offset, offset + 24).map(row => ({
@@ -782,16 +819,30 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("get_observation_evidence", {
     title: "Read observation evidence",
-    description: "Evidence files and their frame/time references for one observation job. Paths are relative to the evidence directory and are served by the local studio.",
-    inputSchema: { jobId: z.string() },
+    description: "Read the exact saved observation job. view=report returns a bounded page of transcript or visual claims plus stages; view=evidence lists frame and audio evidence. Inspect the returned stage statuses before claiming QA.",
+    inputSchema: { jobId: z.string(), view: z.enum(["report","evidence"]).default("evidence"), section: z.enum(["dialogue","visual"]).default("dialogue"), offset: z.number().int().min(0).default(0) },
     annotations: { readOnlyHint: true },
-  }, async ({ jobId }) => {
+  }, async ({ jobId, view, section, offset }) => {
     try {
       const job = await call(`/api/observation-jobs/${encodeURIComponent(jobId)}`);
       if (!job?.observationId) return text({ job, evidence: [], note: "No structured observation was recorded; inspect the job stages." });
       const observations = await call(`/api/productions/${encodeURIComponent(job.productionId)}/scenes/${encodeURIComponent(job.sceneId)}/observations`);
       const observation = (observations.observations || []).find((item: Any) => item.id === job.observationId);
-      return text({ jobId, observationId: job.observationId, evidenceDir: job.evidenceDir, evidence: observation?.report?.evidence ?? [], shots: observation?.report?.shots ?? [], limitations: observation?.report?.limitations ?? [] });
+      const report = observation?.report;
+      if (view === "report") {
+        const transcript = String(report?.dialogue?.text || "");
+        const claims = report?.visual?.claims ?? [];
+        const size = section === "dialogue" ? 2400 : 6;
+        const total = section === "dialogue" ? transcript.length : claims.length;
+        return text({ jobId, observationId:job.observationId, section,
+          ...(section === "dialogue" ? { transcript:transcript.slice(offset,offset+size), source:report?.dialogue?.provider, limitations:report?.dialogue?.limitations }
+            : { claims:claims.slice(offset,offset+size), shots:report?.shots?.length }),
+          stages:job.stages?.map((row:Any)=>({ name:row.name,status:row.status,error:row.error })),
+          ...(offset+size<total ? { nextOffset:offset+size } : {}),
+        }, true);
+      }
+      return text({ jobId, observationId: job.observationId, evidenceDir: job.evidenceDir,
+        evidence: report?.evidence ?? [], shots: report?.shots ?? [], limitations: report?.limitations ?? [] });
     } catch (e) { return fail(e); }
   });
 
@@ -820,7 +871,7 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("media",{
     title:"Scoped local media utilities",
-    description:"Generic CPU probe/frame/concat/mix. Paths must be existing History media, user Agent uploads, web examples or outputs of this tool. No arbitrary shell/filters. probe returns dimensions/duration/audio; frame extracts one timestamp; concat normalizes and exports H264/AAC MP4; mix combines up to four audio streams. Editing is bounded to 120 seconds and 4.2 MP. Outputs are real files reusable by run_app.",
+    description:"Generic CPU probe/frame/concat/mix. Paths must be existing History media, user Agent uploads, web examples or outputs of this tool. No arbitrary shell/filters. probe returns dimensions/duration/audio; frame extracts one timestamp; concat normalizes and exports H264/AAC MP4; mix combines up to four audio streams. Single-frame inspection is available past 120 seconds (up to 4.2 MP). Concat and mix are bounded to 120 seconds. Outputs are real files reusable by run_app.",
     inputSchema:{operation:z.enum(["probe","frame","concat","mix"]),path:z.string().optional(),paths:z.array(z.string()).max(8).optional(),seconds:z.number().min(0).max(36000).optional(),volumes:z.array(z.number().min(0).max(2)).max(4).optional()},
   },async input=>{try{return text(await call("/api/media",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)}));}catch(e){return fail(e);}});
 

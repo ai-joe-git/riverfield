@@ -2,7 +2,7 @@ import type { App } from "./registry.ts";
 import { InputError } from "./input-error.ts";
 import { setValue, type FileValue } from "./runner.ts";
 
-export type WorkspaceWriter = { baseUrl: string; model: string; vision?: boolean };
+export type WorkspaceWriter = { baseUrl: string; model: string; vision?: boolean; reasoningNone?: boolean };
 
 export function validateWorkspaceWriter(value: unknown): WorkspaceWriter {
   const row = value as Partial<WorkspaceWriter> | undefined;
@@ -13,7 +13,8 @@ export function validateWorkspaceWriter(value: unknown): WorkspaceWriter {
       !url.port || url.username || url.password || url.search || url.hash || !["/v1", "/v1/"].includes(url.pathname) ||
       typeof row?.model !== "string" || !row.model.trim() || row.model.length > 320 || /[\u0000-\u001f\u007f]/.test(row.model))
     throw new InputError("The writer must use the active local OpenAI-compatible engine and an exact model ID.");
-  return { baseUrl: url.origin + "/v1", model: row.model, vision: row?.vision === true };
+  return { baseUrl: url.origin + "/v1", model: row.model, vision: row?.vision === true,
+    ...(row.reasoningNone === true ? { reasoningNone:true } : {}) };
 }
 
 export function workspaceSystemPrompt(app: App, mode: string): string {
@@ -72,7 +73,7 @@ export async function writeWorkspacePrompt(writer: WorkspaceWriter, enhancer: Ap
   const timeoutMs = Number(process.env.RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS || DEFAULT_WORKSPACE_WRITER_TIMEOUT_MS);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)
     throw new Error("RIVERFIELD_WORKSPACE_WRITER_TIMEOUT_MS must be a positive timeout in milliseconds.");
-  const reasoningEffort = process.env.RIVERFIELD_WORKSPACE_WRITER_REASONING_EFFORT?.trim();
+  const reasoningEffort = process.env.RIVERFIELD_WORKSPACE_WRITER_REASONING_EFFORT?.trim() || (writer.reasoningNone ? "none" : "");
   const timeout = AbortSignal.timeout(timeoutMs);
   const signal = input.signal ? AbortSignal.any([timeout, input.signal]) : timeout;
   let choice: any;

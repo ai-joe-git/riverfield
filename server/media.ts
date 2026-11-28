@@ -4,6 +4,7 @@ import {mkdirSync,readFileSync,existsSync,writeFileSync} from "node:fs";
 import {join,resolve,extname,relative} from "node:path";
 import {randomUUID} from "node:crypto";
 import {z} from "zod";
+import {InputError} from "./input-error.ts";
 import {within,atomic,identifier} from "./agent-store.ts";
 export async function command(exe:string,args:string[],signal?:AbortSignal){return new Promise<string>((yes,no)=>{
   const child=spawn(exe,args,{stdio:["ignore","pipe","pipe"],signal:signal?AbortSignal.any([signal,AbortSignal.timeout(120000)]):AbortSignal.timeout(120000)});let out="",error="";
@@ -41,7 +42,7 @@ export class MediaTools {
 
   async run(raw:unknown){const v=mediaSchema.parse(raw),paths=(v.paths||[v.path]).filter((x):x is string=>!!x).map(p=>this.permitted(p));if(!paths.length)throw new Error("Provide path or paths");
     const measured=await Promise.all(paths.map(probe));if(v.operation==="probe")return {path:paths[0],metadata:measured[0]};
-    if(measured.some(m=>m.duration>120||v.operation!=="audio"&&m.width*m.height>4200000))throw new Error("Generic CPU editing is limited to 120-second inputs and 4.2 MP; use a dedicated app/external editor for larger files");
+    if(measured.some(m=>(v.operation!=="frame"&&m.duration>120)||v.operation!=="audio"&&m.width*m.height>4200000))throw new InputError("Generic CPU editing is limited to 120-second inputs and 4.2 MP. Single-frame inspection supports longer videos at or below 4.2 MP.");
     const id=randomUUID(),dir=join(this.out,"media",id);mkdirSync(dir,{recursive:true});const name=v.operation==="frame"?"frame.png":v.operation==="audio"?"soundtrack.wav":v.operation==="mix"?"mix.wav":"export.mp4",file=join(dir,name);
     if(v.operation==="audio"){
       if(paths.length!==1||!measured[0].audio)throw new Error("Choose one video or audio file containing an audio stream");
