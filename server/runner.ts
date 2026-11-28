@@ -20,7 +20,7 @@ export type Settable = {
 };
 
 
-function isFileValue(v: unknown): v is FileValue {
+export function isFileValue(v: unknown): v is FileValue {
   return typeof v === "object" && v !== null && (v as FileValue).bytes instanceof Uint8Array;
 }
 
@@ -240,6 +240,19 @@ export function applyInputs(
     if (!preset) throw new InputError(`preset "${presetId}" does not exist in ${app.id}`);
     for (const s of preset.sets) wf.setInput(s.node, s.field, setValue(s.value, values));
   }
+  if (values.prompt_enhancer === false && graph) {
+    const controls = new Set(app.inputs.find(input => input.id === "prompt_enhancer")?.bind?.map(binding => binding.node));
+    for (const [id, node] of Object.entries(graph)) {
+      const selector = node.inputs?.switch;
+      if (node.class_type !== "ComfySwitchNode" || !Array.isArray(selector) || selector[1] !== 0 ||
+          !controls.has(selector[0]) || graph[selector[0]]?.inputs?.value !== false) continue;
+      const source = node.inputs.on_false;
+      if (!Array.isArray(source)) continue;
+      // Prune the inline writer entirely when native preparation already owns the prompt.
+      for (const dependent of Object.values(graph)) for (const [field, value] of Object.entries(dependent.inputs ?? {}))
+        if (Array.isArray(value) && value[0] === id && value[1] === 0) dependent.inputs[field] = source;
+    }
+  }
   pruneGraph(wf, app.outputs.map((o) => o.node));
 }
 
@@ -397,7 +410,7 @@ export class Runner {
     }
   }
 
-  async submit(app: App, rawValues: Values, presetId?: string) {
+  async submit(app: App, rawValues: Values, presetId?: string, verifyGraph?: (graph: App["graph"]) => void) {
     if (!app.workflowPath) throw new InputError(`${app.id} has no workflow yet`);
     if (app.status !== "ready" && !this.allowDrafts) {
       throw new InputError(`${app.id} is a draft; set RIVERFIELD_DRAFTS=1 (or pass --draft) to run it anyway`);
@@ -432,6 +445,7 @@ export class Runner {
       presetId,
       missing,
     );
+    verifyGraph?.(wf.json as App["graph"]);
     return this.comfy.submit(wf);
   }
 

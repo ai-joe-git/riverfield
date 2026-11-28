@@ -28,14 +28,33 @@ export class MediaTools {
   file(id:string,name:string){const dir=join(this.out,"media",identifier(id)),meta=JSON.parse(readFileSync(join(dir,"meta.json"),"utf8"));if(!meta.outputs.some((o:any)=>o.file===name))throw new Error("Unknown media output");return within(dir,name);}
   /** Fast, lossless concat for a chain whose segments share codec/size/fps. No 8-input or
    * 120-second CPU-editor limit: the concat demuxer copies the streams instead of re-encoding. */
-  async concatMany(paths:string[]){
+  async concatMany(paths:string[], plannedFrames?:number[]){
     if(!paths.length) throw new Error("Provide at least one segment");
+    let streamFormat: string | undefined;
+    if (plannedFrames) for (const [i, path] of paths.entries()) {
+      const streams = JSON.parse(await command("ffprobe", ["-v","error", ...input(path), "-show_streams", "-of","json"])).streams as Record<string, unknown>[];
+      const video = streams.find(stream => stream.codec_type === "video");
+      const audio = streams.find(stream => stream.codec_type === "audio");
+      if (!video || !audio || streams.length !== 2 || video.r_frame_rate !== "24/1" || Number(video.nb_frames) !== plannedFrames[i])
+        throw new InputError(`Batch ${i + 1} must have its planned 24 fps video frames and native audio.`);
+      const shape = JSON.stringify([video.codec_name, video.width, video.height, video.pix_fmt, video.time_base,
+        audio.codec_name, audio.sample_rate, audio.channels, audio.channel_layout, audio.time_base]);
+      if (streamFormat !== undefined && shape !== streamFormat)
+        throw new InputError(`Batch ${i + 1} does not share the episode's video and audio settings.`);
+      streamFormat = shape;
+    }
     const id=randomUUID(),dir=join(this.out,"media",id);mkdirSync(dir,{recursive:true});
     const file=join(dir,"export.mp4"),list=join(dir,"concat.txt");
     const quote=(p:string)=>`file '${p.replace(/'/g,"'\\''")}'`;
-    writeFileSync(list,paths.map(quote).join("\n")+"\n");
+    writeFileSync(list,paths.map((path, i) => plannedFrames ? `${quote(path)}\nduration ${(plannedFrames[i] / 24).toFixed(9)}` : quote(path)).join("\n")+"\n");
     await command("ffmpeg",["-hide_banner","-loglevel","error","-y","-f","concat","-safe","0","-i",list,"-c","copy","-movflags","+faststart",file]);
-    const output={file:"export.mp4",path:resolve(file),type:"video",metadata:await probe(file),url:`/api/media/${id}/files/export.mp4`};
+    const metadata = await probe(file);
+    if (plannedFrames) {
+      const count = Number(await command("ffprobe", ["-v","error", ...input(file), "-select_streams","v:0", "-show_entries","stream=nb_frames", "-of","csv=p=0"]));
+      if (count !== plannedFrames.reduce((sum, frames) => sum + frames, 0) || !metadata.audio)
+        throw new InputError("Assembled video did not preserve the planned frames and native audio.");
+    }
+    const output={file:"export.mp4",path:resolve(file),type:"video",metadata,url:`/api/media/${id}/files/export.mp4`};
     atomic(join(dir,"meta.json"),{id,operation:"concat",inputs:[],outputs:[output]});
     return {id,outputs:[output]};
   }

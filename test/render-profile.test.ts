@@ -175,11 +175,11 @@ test("FL2VA director mode keeps the same Production recipe and auto-selects for 
 });
 
 test("auto flex mode resolves the writer guide from the actual material", () => {
-  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: true, hasSegmentReferences: true }), "ref2va");
-  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: false, hasSegmentReferences: false }), "t2va");
-  assert.equal(directorPromptMode({ flexMode: "fl2va", hasVisual: true, hasSegmentReferences: true }), "t2va", "explicit FL2VA keeps its text-to-video writer");
-  assert.equal(directorPromptMode({ flexMode: undefined, hasVisual: true, hasSegmentReferences: true }), "ref2va");
-  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: true, hasSegmentReferences: true, ltx: true }), "t2v");
+  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: true }), "ref2va");
+  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: false }), "t2va");
+  assert.equal(directorPromptMode({ flexMode: "fl2va", hasVisual: true }), "t2va", "explicit FL2VA keeps its text-to-video writer");
+  assert.equal(directorPromptMode({ flexMode: undefined, hasVisual: true }), "ref2va");
+  assert.equal(directorPromptMode({ flexMode: "auto", hasVisual: true, ltx: true }), "t2v");
 });
 
 test("a Production request cannot force RelayVSR onto an app that has no upscale input", () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,14 +26,22 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
   const out = mkdtempSync(join(tmpdir(), "riverfield-workspace-api-"));
   const rewritten = "A steady camera tracks a paper boat across the pond.";
   let writes = 0;
+  const writerRequests: any[] = [];
+  let failWriterAt = 0;
   let backendSubmissions = 0;
   let parkRequests = 0;
   const backend = createServer((req, res) => {
     res.setHeader("content-type", "application/json");
     if (req.url === "/v1/chat/completions") {
-      req.resume();
+      let body = "";
+      req.on("data", chunk => { body += chunk; });
       req.once("end", () => {
         writes++;
+        writerRequests.push(JSON.parse(body));
+        if (writes === failWriterAt) {
+          res.statusCode = 503;
+          return res.end("{}");
+        }
         res.end(JSON.stringify({ choices: [{ finish_reason: "stop", message: { content: "```text\n" + rewritten + "\n```" } }] }));
       });
     } else if (req.url === "/riverfield/workspace-comfy") {
@@ -145,6 +153,8 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     assert.equal(old.applied, true, JSON.stringify(old));
     assert.equal(old.prompts.segment_windows.windows[0].prompt, rewritten);
     assert.equal(old.model, writer.model);
+    assert.equal((await tool("prepare_production_render", { ...scope, writer })).data.preparationId, old.preparationId);
+    assert.equal(writes,2);
     assert.equal((await json(route + "/pause", {})).status, 200);
     const stale = await control("stale", "resume", { preparation_id: old.preparationId });
     assert.equal(stale.isError, true);
@@ -193,6 +203,64 @@ test("Workspace prepares, reviews and reconciles a production through HTTP and M
     assert.equal(lost.jobs.find((job: any) => job.kind === "render").jobId, jobId);
     assert.equal(backendSubmissions, 1);
     assert.equal(writes, 3);
+    const firstReceipt = JSON.parse(readFileSync(join(out, "workspace-preparations", prepared.preparationId + ".json"), "utf8"));
+    assert.equal(firstReceipt.segments[0].finalPrompt, rewritten);
+    const productionAudit = JSON.parse(readFileSync(join(out, "workspace-render-audit", jobId + ".json"), "utf8"));
+    assert.equal(productionAudit.preparationId, prepared.preparationId);
+    assert.equal(productionAudit.prompts[0].finalPromptSha256, firstReceipt.segments[0].finalPromptSha256);
+
+    const imageIds = Array.from({length: 11}, (_, index) => "fixture-image-" + index);
+    mkdirSync(join(out, "media"), { recursive: true });
+    for (const [index, id] of imageIds.entries()) {
+      const path = join(out, "media", id + ".png");
+      writeFileSync(path, Buffer.concat([Buffer.from("89504e470d0a1a0a","hex"), Buffer.from([index])]));
+      assert.equal((await json(production + "/assets", {id,kind:"image",label:id,path})).status, 201);
+    }
+    const requested = {productionId,segments:[
+      {frames:175,brief:"First setup.",imageAssetIds:imageIds.slice(0,8)},
+      {frames:192,brief:"Second shot.",imageAssetIds:[imageIds[8],imageIds[0]]},
+      {frames:209,brief:"Third shot.",imageAssetIds:[imageIds[9],imageIds[10]]},
+      {frames:226,brief:"A clean text-only ending.",imageAssetIds:[]},
+    ]};
+    const planned = await tool("plan_director_batches",requested);
+    assert.equal(planned.isError,false,JSON.stringify(planned.data));
+    assert.deepEqual(planned.data.batches.map((batch: any) => [batch.frames,batch.refs,batch.mode]),[[367,9,"ref2va"],[209,2,"ref2va"],[226,0,"fl2va"]]);
+    assert.equal(planned.data.frames,802);
+    const batch = { app, director_batch:{planId:planned.data.planId,index:1}, values:{render_profile:"build",steps:8} };
+    const invalid = await tool("run_app",{...batch,workspace_managed:true});
+    assert.match(invalid.data.error,/requires native prompt preparation/);
+    const unavailable = await tool("prepare_app_run",batch);
+    assert.match(unavailable.data.error,/active BlackRiver local model/);
+    failWriterAt = 5;
+    const partial = await tool("prepare_app_run",{...batch,writer:{...writer,vision:true}});
+    assert.equal(partial.isError,true);
+    assert.equal(writes,5);
+    await restart();
+    const receipts = await Promise.all([tool("prepare_app_run",{...batch,writer:{...writer,vision:true}}),tool("prepare_app_run",{...batch,writer:{...writer,vision:true}})]);
+    const receipt = receipts[0].data;
+    assert.equal(receipts[0].isError,false,JSON.stringify(receipt));
+    assert.equal(receipt.preparationId,receipts[1].data.preparationId);
+    assert.equal(writes,6,"only the unfinished segment is retried after an interruption");
+    const requests = [writerRequests[3], writerRequests[5]];
+    assert.equal(requests[0].messages[1].content.length,9);
+    assert.equal(requests[1].messages[1].content.length,3);
+    assert.deepEqual(requests[1].messages.slice(0,2).map((row: any)=>row.role),["system","user"]);
+    assert.match(requests[1].messages[1].content[0].text,/<Picture 1> = fixture-image-8; <Picture 2> = fixture-image-0/);
+    const audit = JSON.parse(readFileSync(join(out,"workspace-app-preparations",receipt.preparationId + ".json"),"utf8"));
+    assert.deepEqual(audit.segments[1].references.map((ref: any)=>ref.assetId),[imageIds[8],imageIds[0]]);
+    await restart();
+    const saved = await tool("prepare_app_run",batch);
+    assert.equal(saved.data.preparationId,receipt.preparationId);
+    assert.equal(writes,6,"restart reuses the saved receipt without a writer");
+    const tampered = await tool("run_app",{...batch,values:{...batch.values,steps:6},workspace_managed:true,workspace_preparation_id:receipt.preparationId});
+    assert.match(tampered.data.error,/different render inputs/);
+    const direct = await tool("run_app",{...batch,workspace_managed:true,workspace_preparation_id:receipt.preparationId});
+    assert.equal(direct.isError,false,JSON.stringify(direct.data));
+    assert.equal(direct.data.render.workspacePreparation.preparationId,receipt.preparationId);
+    assert.equal(direct.data.values.prompt_enhancer,false);
+    assert.equal(JSON.parse(direct.data.values.segment_windows).windows[1].prompt,rewritten);
+    assert.equal((await tool("run_app",{...batch,workspace_managed:true,workspace_preparation_id:receipt.preparationId})).data.id,direct.data.id);
+    assert.equal(writes,6);
   } finally {
     await client?.close();
     if (child) await stop(child);

@@ -1,3 +1,5 @@
+import { assertTrustedReferences } from "./asset-audit.ts";
+import { directorWriterMedia } from "./director-writer-media.ts";
 import { validateWorkspaceObserver } from "./workspace-observer.ts";
 // Minimal HTTP API for the web UI. Node's built-in http plus the Fetch API types; no framework.
 //   GET    /api/apps                         catalog (what the UI needs to draw cards and forms)
@@ -25,7 +27,7 @@ import { validateWorkspaceObserver } from "./workspace-observer.ts";
 // RIVERFIELD_MAX_UPLOAD_MB, and each visitor sees only their own runs. Hosted or not, requests from other sites are
 // refused (guard.ts foreign()). RIVERFIELD_OUT moves out/ (history, the run count), RIVERFIELD_HOST the listening address.
 // web/examples/ holds one example per app, written by lab/publish.py; /api/apps carries it along.
-import { validateWorkspaceWriter, writeWorkspacePrompt, type WorkspaceWriter } from "./workspace-writer.ts";
+import { validateWorkspaceWriter, validateWriterReferences, writeWorkspacePrompt, writerHash, validateWorkspaceImages, resolveNativeWriter, type WorkspaceWriter, type WriterReceipt } from "./workspace-writer.ts";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
@@ -50,7 +52,7 @@ import {projectTool} from "./agent-project.ts";
 import {askTool} from "./production.ts";
 import {inputErrorBody} from "./input-error.ts";
 import {defaultDirectorForm} from "./director-form.ts";
-import {directorDurations,planDirectorSegments,directorPromptMode} from "./h3-plan.ts";
+import {directorBatchInput,planDirectorBatches,directorDurations,planDirectorSegments,directorPromptMode} from "./h3-plan.ts";
 import { ProductionStore, ProductionError, type CreateAssetBuildInput, type CreateEpisodeInput, type CreateSceneInput, type CreateSeasonInput, type IndexAssetInput, type ProposeCanonInput, type RegisterCandidateInput, type RegisterObservationInput } from "./production-store.ts";
 import { buildProductionContext } from "./production-context.ts";
 import { hashFile, probeMedia, productionMediaRoots, resolveMediaPath } from "./production-media.ts";
@@ -59,7 +61,7 @@ import { ObservationManager, type StartObservationInput } from "./observation.ts
 import { runSeniorContinuityReview } from "./continuity-supervisor.ts";
 import { ProductionRunEngine } from "./production-run.ts";
 import { LiveProductionRunAdapters, productionJobTimeoutMs, productionTrackingStatus } from "./production-run-live.ts";
-import { WorkspaceProduction, workspacePreparationPreview } from "./workspace-production.ts";
+import { WorkspaceProduction, workspaceFingerprint, verifyWorkspaceGraph, verifyWorkspaceReferences, workspacePreparationPreview, workspacePromptHashes } from "./workspace-production.ts";
 import { planProductionRun } from "./production-run-plan.ts";
 import { ObservationError } from "./observation-evidence.ts";
 import { DEFAULT_OBSERVER_MODEL_ID, discoverObserverModels } from "./observer-models.ts";
@@ -276,6 +278,17 @@ async function readValues(app: App, request: Request, preparedForm?: FormData): 
   return { values, preset: typeof preset === "string" && preset ? preset : undefined,requestKey:typeof key==="string"?key:undefined };
 }
 
+function workspaceAssetIds(form: FormData): Record<string, string> {
+  const raw = form.get("workspace_asset_ids");
+  if (raw === null) return {};
+  try {
+    const value = JSON.parse(String(raw));
+    if (value && !Array.isArray(value) && typeof value === "object" && Object.entries(value).every(
+      ([slot, id]) => /^(image[1-9]|audio[1-3]|video[1-3])$/.test(slot) && typeof id === "string" && id.length <= 160)) return value;
+  } catch { /* use consistent input error */ }
+  throw new InputError("Invalid preparation asset identities.");
+}
+
 async function jobView(id: string) {
   const job = await getRunner().jobs().get(id);
   return {
@@ -292,7 +305,7 @@ async function jobView(id: string) {
  * call. The inline workflow enhancer is deliberately switched off afterwards so
  * the same prompt is not enhanced twice.
  */
-async function enhanceDirectorValues(app: App, values: Values, runner: Runner | undefined, enhancer: App, only?: number, onProgress?: (done: number, total: number) => void, writer?: WorkspaceWriter, signal?: AbortSignal): Promise<Values> {
+async function enhanceDirectorValues(app: App, values: Values, runner: Runner | undefined, enhancer: App, only?: number, onProgress?: (done: number, total: number) => void, writer?: WorkspaceWriter, signal?: AbortSignal, audit?: { segments: WriterReceipt[]; assetIds: Record<string, string>; checkpoint: () => void }): Promise<Values> {
   const next: Values = { ...values };
   type Target =
     | { kind: "windows"; spec: any; prompts: string[] }
@@ -321,27 +334,22 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
   if (!target.prompts.some((p) => p.trim())) return next;
 
   const flexMode = String(next.flex_mode ?? "");
-  const hasSegmentReferences = target.kind === "windows" && target.spec.windows.some((w: any) => Array.isArray(w.images) && w.images.length);
-  const hasVisual = ["image1","image2","image3","image4","image5","image6","image7","image8","image9","video1","video2","video3"].some((id) => next[id] !== undefined);
-  const mode = directorPromptMode({ flexMode, hasVisual, hasSegmentReferences, ltx: app.id.startsWith("ltx-") });
-  // Use the ordered references attached to THIS segment. The prompt writer has nine
-  // picture slots, matching the Director media bin. Fall back to the global pictures
-  // only when the segment has no explicit image order.
-  const mediaForSegment = (i: number): Record<string, unknown> => {
-    const media: Record<string, unknown> = {};
-    const w = target!.kind === "windows" ? target!.spec.windows[i] : null;
-    const refs = Array.isArray(w?.images) ? w.images : [];
-    if (refs.length) {
-      refs.slice(0, 9).forEach((slot: unknown, j: number) => {
-        const value = next[`image${Number(slot) + 1}`];
-        if (value !== undefined) media[`image${j + 1}`] = value;
-      });
-    } else {
-      for (let j = 1; j <= 9; j += 1) if (next[`image${j}`] !== undefined) media[`image${j}`] = next[`image${j}`];
-    }
-    for (let j = 1; j <= 3; j += 1) if (next[`video${j}`] !== undefined) media[`video${j}`] = next[`video${j}`];
-    return media;
-  };
+  const ltx = app.id.startsWith("ltx-");
+  const selected = target.prompts.map((_, i) => directorWriterMedia(next,
+    target!.kind === "windows" ? target!.spec.windows[i] : undefined, audit?.assetIds));
+  if (writer) for (const [index, item] of selected.entries()) {
+    if (flexMode === "fl2va" && item.pictures && !item.frames.length)
+      throw new InputError(`Segment ${index + 1} assigns Ref2VA pictures to the FL2VA render mode.`);
+    if (Object.keys(item.media).some(slot => slot.startsWith("video")))
+      throw new InputError("The active Workspace writer accepts images. Use the native video-capable enhancer for video references.");
+    const images = Object.values(item.media) as import("./runner.ts").FileValue[];
+    // Check every segment before starting the first inference.
+    validateWorkspaceImages(writer, images);
+    if (item.pictures > enhancer.inputs.filter(field => /^image[1-9]$/.test(field.id)).length)
+      throw new InputError(`Segment ${index + 1} exceeds this standalone writer's image slots.`);
+    validateWriterReferences(target.prompts[index].trim() || String(next.global_prompt ?? ""), item.pictures,
+      next.audio_mode === "locked" ? 0 : item.audios);
+  }
   const MAX_CONTEXT_CHARS = 14000;
   const clipPrompt = (text: string, max: number) => text.length > max ? `${text.slice(0, max)}…` : text;
   // Bounded recall: older prompts are trimmed, not semantically summarized yet.
@@ -382,10 +390,13 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
     const previous = only === undefined ? done : target.prompts.slice(0, i).filter(Boolean);
     const suppliedContext = target.kind === "prompt" ? String(next.prompt_context ?? "").trim() : "";
     const supplied = contextFor(suppliedContext ? [suppliedContext] : []);
-    const segmentRefs = target.kind === "windows" ? (target.spec.windows[i]?.images || []) : [];
-    const refsHint = segmentRefs.length
-      ? `The supplied pictures are this segment's ordered references: ${segmentRefs.map((slot: unknown, n: number) => `Picture ${n + 1} = <Picture ${Number(slot) + 1}>`).join(", ")}. Preserve their order and reference relationships.`
-      : "";
+    const selection = selected[i];
+    const mode = directorPromptMode({ flexMode, hasVisual: Object.keys(selection.media).length > 0,
+      ltx, first: selection.frames.includes("first_frame") || selection.frames.includes("image"),
+      last: selection.frames.includes("last_frame") });
+    const refsHint = selection.descriptions.length
+      ? `References in this segment's local encoder order. Use these labels exactly: ${selection.descriptions.join("; ")}.`
+      : "This segment has no Picture or Audio reference labels.";
     const context = previous.length
       ? `Previous scenes, in order (use them for continuity; do not repeat them):\n${contextFor(previous)}`
       : supplied
@@ -401,9 +412,20 @@ async function enhanceDirectorValues(app: App, values: Values, runner: Runner | 
       `Rewrite only segment ${i + 1}. Keep the story continuous with the previous scenes, preserve every named subject and spoken line, and return only the production-ready prompt for this segment. Do not add a segment heading or commentary.`,
     ].filter(Boolean).join("\n\n");
     signal?.throwIfAborted();
-    const media = mediaForSegment(i);
-    const text = writer ? await writeWorkspacePrompt(writer, enhancer, { prompt, mode, media, signal })
-      : await runner!.generateText(enhancer, { ...media, prompt_mode: mode, model, prompt });
+    const { media, references, pictures, audios } = selection;
+    const saved = audit?.segments.find(receipt => receipt.segment === i + 1);
+    if (saved) {
+      const { system, ...workflow } = resolveNativeWriter(enhancer, mode);
+      if (saved.userMessage !== prompt || saved.systemPrompt !== system || JSON.stringify(saved.workflow) !== JSON.stringify(workflow))
+        throw new InputError("A saved segment no longer matches its native writer inputs. Start a new preparation.");
+    }
+    const text = saved?.finalPrompt ?? (writer ? await writeWorkspacePrompt(writer, enhancer, { prompt, mode, media, signal,
+      singleLine: target.kind === "lines", allowedPictures: pictures, allowedAudios: next.audio_mode === "locked" ? 0 : audios,
+      ...(audit ? { audit: { segment: i + 1, brief: draft, references, save: (receipt: WriterReceipt) => {
+        audit.segments.push(receipt);
+        audit.checkpoint();
+      } } } : {}),
+    }) : await runner!.generateText(enhancer, { ...media, prompt_mode: mode, model, prompt }));
     if (!text) throw new Error(`Prompt enhancer returned an empty segment ${i + 1}`);
     target.prompts[i] = text;
     done.push(text);
@@ -536,9 +558,14 @@ function startRun(app: App, values: Values, preset?: string, requestKey?: string
           runValues = await enhanceDirectorValues(app, values, getRunner(), enhancer);
           history.updateValues(entry, runValues);
         }
-        // The preflight already rewrote the prompts; keep the inline branch off.
-        const job = await getRunner().submit(app, { ...runValues, prompt_enhancer: false }, preset);
+        // Verify the node inputs after native binding and preset application, before submission.
+        const prepared = entry.render?.workspacePreparation as {
+          preparationId: string; prompts: ReturnType<typeof workspacePromptHashes>;
+        } | undefined;
+        const job = await getRunner().submit(app, { ...runValues, prompt_enhancer: false }, preset, prepared
+          ? graph => verifyWorkspaceGraph(app, runValues, graph, prepared.prompts) : undefined);
         const following = history.follow(entry, job);
+        if (prepared) workspaceProduction.linkRender(entry.id, prepared.preparationId, prepared.prompts, job.id);
         if(controller.signal.aborted) await history.cancel(entry.id);
         contact();
         await following;
@@ -792,16 +819,29 @@ const server = createServer(async (req, res) => {
             const stop = () => controller.abort();
             res.once("close", stop);
             try {
-              const enhanced = await enhanceDirectorValues(app, values, undefined, enhancer, undefined, undefined, writer, controller.signal);
-              resolveValues(app, { ...enhanced, prompt_enhancer: false });
+              const assetIds = Object.fromEntries(context.scene.referenceAssetIds.map((id, index) => [`image${index + 1}`, id]));
+              const prepared = await workspaceProduction.prepareApp({
+                app: app.id, model: writer.model, owner: `production:${id}:${runId}`,
+                requestKey: JSON.stringify([context.run.revision, context.scene.sceneId]),
+                fingerprint: workspaceFingerprint(app.id, { ...request.values, ...request.files }, undefined, assetIds),
+                writerKey: writerHash(JSON.stringify(writer)),
+              }, async (segments, checkpoint) => {
+                const enhanced = await enhanceDirectorValues(app, values, undefined, enhancer, undefined, undefined, writer, controller.signal,
+                  { segments, assetIds, checkpoint });
+                const patch = Object.fromEntries(["segment_windows", "segment_prompts", "prompt", "global_prompt"]
+                  .filter(key => typeof enhanced[key] === "string" && enhanced[key]).map(key => [key, enhanced[key]]));
+                const final = resolveValues(app, { ...values, ...patch, prompt_enhancer: false });
+                if (!segments.length) throw new InputError("Enhancement was enabled but no production segment was prepared.");
+                workspacePromptHashes(final, segments);
+                return { values: { ...patch, prompt_enhancer: false }, segments };
+              });
               const current = engine.previewRender(id, runId);
               if (current?.run.revision !== context.run.revision || current.scene.sceneId !== context.scene.sceneId)
                 return send(res, 409, { error: "The current scene changed during prompt preparation. Prepare it again before running." });
-              const patch = Object.fromEntries(["segment_windows", "segment_prompts", "prompt", "global_prompt"]
-                .filter(key => typeof enhanced[key] === "string" && enhanced[key]).map(key => [key, enhanced[key]]));
-              const record = workspaceProduction.prepare(id, runId, writer.model, {
-                revision: context.run.revision, sceneId: context.scene.sceneId, values: { ...patch, prompt_enhancer: false },
-              });
+              const record = workspaceProduction.preparation(id, runId, prepared.preparationId) ??
+                workspaceProduction.prepare(id, runId, prepared.model, {
+                  revision: context.run.revision, sceneId: context.scene.sceneId, values: prepared.values,
+                }, prepared.segments, prepared.preparationId);
               return send(res, 200, workspacePreparationPreview(record));
             } finally {
               res.off("close", stop);
@@ -1215,6 +1255,44 @@ const server = createServer(async (req, res) => {
           "content-disposition": `attachment; filename="riverfield-${app.id}.json"` });
         return res.end(body);
       }
+      if (area === "director-batch-plans") {
+        localAccess(req);
+        if (guard.hosted) return send(res, 403, { error: "Director batch planning is local-only" });
+        if (!id && req.method === "POST") {
+          const raw = directorBatchInput.safeParse(await (await toRequest(req, 2)).json());
+          if (!raw.success) throw new InputError(raw.error.issues.map(issue => `${issue.path.join(".")}: ${issue.message}`).join("; "));
+          const app = byId.get("h3-studio-director-flash");
+          if (!app) throw new InputError("Flash H3 Director is unavailable.");
+          const snapshot = productions.snapshot(raw.data.productionId);
+          const checked = new Set<string>();
+          for (const segment of raw.data.segments) for (const kind of ["image", "audio"] as const) {
+            for (const assetId of segment[kind === "image" ? "imageAssetIds" : "audioAssetIds"]) {
+              const asset = Object.hasOwn(snapshot.assets, assetId) ? snapshot.assets[assetId] : undefined;
+              if (asset?.kind !== kind) throw new InputError(`Unknown registered ${kind} asset ${assetId} in this production.`);
+              if (checked.has(assetId)) continue;
+              const path = resolveMediaPath(asset.path, productionMediaRoots(outDir));
+              if (!asset.hash || writerHash(readFileSync(path)) !== asset.hash)
+                throw new InputError(`The registered reference ${assetId} changed or lacks a verified hash.`);
+              checked.add(assetId);
+            }
+          }
+          assertTrustedReferences(snapshot, [...new Set(raw.data.segments.flatMap(segment => [...segment.imageAssetIds, ...segment.audioAssetIds]))]);
+          const plan = planDirectorBatches(raw.data, {
+            image: app.inputs.filter(field => /^image[1-9]$/.test(field.id)).length,
+            audio: app.inputs.filter(field => /^audio[1-3]$/.test(field.id)).length,
+          });
+          const planId = workspaceProduction.saveBatchPlan(plan);
+          return send(res, 200, { planId, frames: plan.frames, seconds: plan.seconds, fps: plan.fps, episodeFrames: plan.episodeFrames,
+            batches: plan.batches.map(batch => ({ index: batch.index, frames: batch.frames, sourceStart: batch.sourceStart, app: batch.app,
+              mode: batch.values.flex_mode, refs: Object.values(batch.asset_ids).length,
+              request_id: `director-batch:${planId}:${batch.index}` })) });
+        }
+        if (id && req.method === "GET") {
+          const batch = workspaceProduction.batchPlan(id)?.batches.find(batch => batch.index === Number(sub));
+          if (!batch) return send(res, 404, { error: "Unknown Director batch" });
+          return send(res, 200, batch);
+        }
+      }
       if (req.method === "POST" && area === "apps" && sub === "prepare-prompts") {
         localAccess(req);
         if (guard.hosted) return send(res, 403, { error: "Workspace prompt preparation is local-only" });
@@ -1223,26 +1301,45 @@ const server = createServer(async (req, res) => {
         if (!app.inputs.some(input => input.id === "prompt_enhancer")) return send(res, 200, { applied: false });
         const reqBody = await toRequest(req, 64);
         const form = await reqBody.formData();
-        const { values } = await readValues(app, reqBody, form);
+        const { values, preset, requestKey } = await readValues(app, reqBody, form);
         const resolved = resolveValues(app, values, { draftPrompt: true });
-        if (resolved.prompt_enhancer !== true && !["true", true].includes(values.prompt_enhancer as any)) return send(res, 200, { applied: false });
+        if (resolved.prompt_enhancer !== true) return send(res, 200, { applied: false });
         if (resolved.advanced_timeline_json) throw new InputError("Use the Director planner's segment_windows to prepare prompts.");
         let option: unknown;
-        try { option = JSON.parse(String(form.get("workspace_writer") || "")); }
+        try { option = JSON.parse(String(form.get("workspace_writer") || "null")); }
         catch { throw new InputError("A valid local Workspace writer is required."); }
-        const writer = validateWorkspaceWriter(option);
+        const writer = option ? validateWorkspaceWriter(option) : undefined;
         const enhancer = byId.get(app.id.startsWith("ltx-") ? "ltx-prompt-generator" : "prompt-enhancer");
         if (!enhancer) throw new InputError("Riverfield's prompt enhancer manifest is missing.");
         const controller = new AbortController();
         const stop = () => controller.abort();
         res.once("close", stop);
         try {
-          const enhanced = await enhanceDirectorValues(app, resolved, undefined, enhancer, undefined, undefined, writer, controller.signal);
-          const final = { ...enhanced, prompt_enhancer: false };
-          resolveValues(app, final);
-          const patch = Object.fromEntries(["segment_windows", "segment_prompts", "prompt", "global_prompt"]
-            .filter(key => typeof enhanced[key] === "string" && enhanced[key] !== resolved[key]).map(key => [key, enhanced[key]]));
-          return send(res, 200, { applied: true, model: writer.model, values: { ...patch, prompt_enhancer: false } });
+          const assetIds = workspaceAssetIds(form);
+          if (Object.keys(assetIds).length) {
+            const snapshot = productions.snapshot(String(resolved.production_id || ""));
+            for (const [slot, assetId] of Object.entries(assetIds)) {
+              const file = resolved[slot] as import("./runner.ts").FileValue | undefined;
+              const asset = Object.hasOwn(snapshot.assets, assetId) ? snapshot.assets[assetId] : undefined;
+              if (!asset?.hash || !file?.bytes || writerHash(file.bytes) !== asset.hash)
+                throw new InputError(`The bytes of ${slot} do not match the registered reference ${assetId}.`);
+            }
+          }
+          const record = await workspaceProduction.prepareApp({ app: app.id, model: writer?.model ?? "", requestKey, owner: me,
+            fingerprint: workspaceFingerprint(app.id, values, preset, assetIds), writerKey: writer ? writerHash(JSON.stringify(writer)) : undefined },
+            async (segments, checkpoint) => {
+            if (!writer) throw new InputError("Select the active BlackRiver local model before running the native prompt enhancer.");
+            const enhanced = await enhanceDirectorValues(app, resolved, undefined, enhancer, undefined, undefined, writer, controller.signal, { segments, assetIds, checkpoint });
+            if (!segments.length) throw new InputError("Enhancement was enabled but no segment was prepared.");
+            const patch = Object.fromEntries(["segment_windows", "segment_prompts", "prompt", "global_prompt"]
+              .filter(key => typeof enhanced[key] === "string" && enhanced[key] !== resolved[key]).map(key => [key, enhanced[key]]));
+            const final = resolveValues(app, { ...resolved, ...patch, prompt_enhancer: false });
+            workspacePromptHashes(final, segments);
+            return { values: { ...patch, prompt_enhancer: false }, segments };
+          });
+          return send(res, 200, { applied: true, model: record.model, preparationId: record.preparationId,
+            prompts: record.segments.map(segment => ({ segment: segment.segment, finalPromptSha256: segment.finalPromptSha256 })),
+            ...(!requestKey ? { values: record.values } : {}) });
         } finally { res.off("close", stop); }
       }
       if (req.method === "POST" && area === "apps" && sub === "run") {
@@ -1255,14 +1352,63 @@ const server = createServer(async (req, res) => {
         admitting++;
         let view;
         try {
-          const { values, preset, requestKey } = await readValues(app, await toRequest(req));
-          const resolved = resolveValues(app, values);
+          const request = await toRequest(req);
+          const form = await request.formData();
+          const { values, preset, requestKey } = await readValues(app, request, form);
+          const workspaceManaged = form.get("workspace_managed") === "1";
+          const preparationId = form.get("workspace_preparation_id");
+          const productionPreparationId = form.get("workspace_production_preparation");
+          const batchHandle = form.get("workspace_batch");
+          if (workspaceManaged || preparationId || productionPreparationId || batchHandle) {
+            localAccess(req);
+            if (guard.hosted) return send(res, 403, { error: "Workspace render preparation is local-only" });
+          }
+          const prior = requestKey ? history.findRequest(requestKey, me) : undefined;
+          if (prior) {
+            if (prior.app !== app.id) throw new InputError("Idempotency key belongs to another app");
+            return send(res, 202, history.view(prior));
+          }
+          let batchAudit: { planId: string; index: number } | undefined;
+          if (typeof batchHandle === "string") {
+            const [planId, segment] = batchHandle.split(":");
+            const index = Number(segment);
+            const planned = workspaceProduction.batchPlan(planId)?.batches.find(batch => batch.index === index);
+            if (!planned || planned.app !== app.id || values.production_id !== planned.values.production_id ||
+                values.flex_mode !== planned.values.flex_mode || values.segment_windows !== JSON.stringify(planned.values.segment_windows) ||
+                JSON.stringify(workspaceAssetIds(form)) !== JSON.stringify(planned.asset_ids))
+              throw new InputError("Render inputs do not match the saved Director batch.");
+            batchAudit = { planId, index };
+          }
+          let preparedAudit: { preparationId: string; prompts: ReturnType<typeof workspacePromptHashes> } | undefined;
+          let resolved = resolveValues(app, values, { draftPrompt: Boolean(preparationId) });
+          if (typeof preparationId === "string") {
+            const record = workspaceProduction.appPreparation(preparationId, me);
+            if (!record || record.app !== app.id || record.requestKey !== requestKey || record.expiresAt < Date.now() ||
+                record.fingerprint !== workspaceFingerprint(app.id, values, preset, workspaceAssetIds(form)))
+              throw new InputError("The prepared prompt belongs to different render inputs or has expired.");
+            resolved = resolveValues(app, { ...resolved, ...record.values });
+            preparedAudit = { preparationId, prompts: workspacePromptHashes(resolved, record.segments) };
+          } else if (typeof productionPreparationId === "string") {
+            const record = workspaceProduction.productionPreparation(productionPreparationId);
+            if (!record || record.productionId !== resolved.production_id || record.prepared.sceneId !== resolved.production_scene_id ||
+                resolved.prompt_enhancer !== false || !requestKey?.startsWith(`run:${record.runId}:${record.prepared.sceneId}:render:`))
+              throw new InputError("The prepared prompt does not belong to this production render.");
+            if (record.segments) {
+              verifyWorkspaceReferences(resolved, record.segments);
+              preparedAudit = { preparationId: productionPreparationId, prompts: workspacePromptHashes(resolved, record.segments) };
+            }
+          } else if (workspaceManaged && (resolved.prompt_enhancer === true || batchAudit)) {
+            throw new InputError("This managed render requires native prompt preparation before GPU dispatch.");
+          }
           try {
             await getRunner().ping();
           } catch (error) {
             return send(res, 503, { error: (error as Error).message, code: "BACKEND_UNAVAILABLE" });
           }
-          view = startRun(app, resolved, preset, requestKey, me, { render: renderMetadataFor(app, resolved) ?? undefined });
+          const render = renderMetadataFor(app, resolved) ?? undefined;
+          view = startRun(app, resolved, preset, requestKey, me, { render: preparedAudit || batchAudit ? { ...render,
+            ...(preparedAudit ? { workspacePreparation: preparedAudit } : {}), ...(batchAudit ? { directorBatch: batchAudit } : {}) } : render });
+          if (preparedAudit) workspaceProduction.linkRender(view.id, preparedAudit.preparationId, preparedAudit.prompts);
         } finally {
           admitting--;
         }
@@ -1270,16 +1416,30 @@ const server = createServer(async (req, res) => {
         return send(res, 202, view);
       }
       if (area === "sequences" && req.method === "POST" && id === "assemble") {
-        const body = await (await toRequest(req)).json().catch(() => null) as { segments?: unknown } | null;
+        const body = await (await toRequest(req)).json().catch(() => null) as { segments?: unknown; planId?: unknown } | null;
         const segments = Array.isArray(body?.segments) ? body.segments : [];
         if (!segments.length || segments.length > 512) throw new InputError("assemble needs 1 to 512 approved segments");
-        const paths = segments.map((seg) => {
+        const plan = typeof body?.planId === "string" ? workspaceProduction.batchPlan(body.planId) : undefined;
+        if (body?.planId !== undefined) {
+          localAccess(req);
+          if (guard.hosted) return send(res, 403, { error: "Director batch assembly is local-only" });
+          if (!plan || segments.length !== plan.batches.length) throw new InputError("Assembly needs one completed render per planned batch.");
+        }
+        const paths = segments.map((seg, index) => {
           const s = seg as { id?: unknown; file?: unknown };
           if (typeof s.id !== "string" || typeof s.file !== "string") throw new InputError("every segment needs a history id and a video file");
+          if (plan) {
+            const item = history.get(s.id, me);
+            const batch = item?.render?.directorBatch as { planId?: string; index?: number } | undefined;
+            if (item?.status !== "succeeded" || batch?.planId !== body?.planId || batch?.index !== plan.batches[index].index ||
+                !item.outputs.some(output => output.type === "video" && output.file === s.file))
+              throw new InputError(`Position ${index + 1} requires the successful video output of that exact Director batch.`);
+          }
           const file = history.file(s.id, s.file, me);
           if (!file) throw new InputError(`segment ${s.id}: unknown video ${s.file}`);
           return file;
         });
+        if (plan) return send(res, 200, await media.concatMany(paths, plan.batches.map(batch => batch.frames)));
         try {
           return send(res, 200, await media.concatMany(paths));
         } catch (e) {
@@ -1335,14 +1495,20 @@ const server = createServer(async (req, res) => {
             values[input.id] = { bytes: new Uint8Array(readFileSync(file)), name: input.name };
           }
           const resolved = resolveValues(app, values);
+          const prepared = preview.render?.workspacePreparation as {
+            preparationId: string; prompts: ReturnType<typeof workspacePromptHashes>;
+          } | undefined;
+          if (prepared) workspacePromptHashes(resolved, prepared.prompts);
           const entry = startRun(app, resolved, preview.preset ?? undefined, requestKey, me, {
-            render: renderMetadataFor(app, resolved) ?? undefined,
+            render: { ...renderMetadataFor(app, resolved), ...(prepared ? { workspacePreparation: prepared } : {}),
+              ...(preview.render?.directorBatch ? { directorBatch: preview.render.directorBatch } : {}) },
             lineage: {
               relation: "new_generation_from_preview",
               preview: id,
               note: "New Production generation from the preview's exact creative payload; not a pixel-identical reconstruction.",
             },
           });
+          if (prepared) workspaceProduction.linkRender(entry.id, prepared.preparationId, prepared.prompts);
           history.linkProduction(id, entry.id, me);
           return send(res, 202, { ...(history.get(entry.id, me) ?? entry), preview: id });
         }

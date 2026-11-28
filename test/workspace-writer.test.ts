@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadRegistry, repoRoot } from "../server/registry.ts";
-import { validateWorkspaceWriter, workspaceSystemPrompt, writeWorkspacePrompt } from "../server/workspace-writer.ts";
+import { readFileSync } from "node:fs";
+import { applyInputs, resolveValues } from "../server/runner.ts";
+import { resolveNativeWriter, validateWorkspaceWriter, workspaceSystemPrompt, workspaceWriterParameters, writeWorkspacePrompt, writerHash } from "../server/workspace-writer.ts";
 
 const app = loadRegistry(repoRoot()).apps.find(row=>row.id==="prompt-enhancer")!;
 const model = "halogen-test";
-const writer = validateWorkspaceWriter({baseUrl:"http://127.0.0.1:8731/v1",model,vision:true});
+const sampling = ["temperature", "top_p", "top_k", "min_p", "seed", "presence_penalty", "repetition_penalty"];
+const writer = validateWorkspaceWriter({baseUrl:"http://127.0.0.1:8731/v1",model,vision:true,backend:"halogen",
+  sampling,reasoningNone:true,enableThinking:true,noStore:true});
 
 test("Workspace uses the exact installed mode preset and ordered images", async () => {
  const mode = "ref2va";
@@ -13,11 +17,21 @@ test("Workspace uses the exact installed mode preset and ordered images", async 
  assert.equal(workspaceSystemPrompt(app,mode),expected);
  const jpeg={bytes:Buffer.from([255,216,255,1]),name:"first.jpg"};
  const png={bytes:Buffer.from("89504e470d0a1a0a","hex"),name:"second.png"};
- const text=await writeWorkspacePrompt(writer,app,{mode,prompt:"Neutral storyboard",media:{image1:jpeg,image2:png}},async(url,init)=>{
+ let receipt;
+ const text=await writeWorkspacePrompt(writer,app,{mode,prompt:"Neutral storyboard",media:{image2:png,image1:jpeg},
+  audit:{segment:1,brief:"Exact brief",references:[{slot:"image3",assetId:"actor",sha256:writerHash(jpeg.bytes),kind:"image"},
+    {slot:"image2",assetId:"room",sha256:writerHash(png.bytes),kind:"image"}],save:value=>{receipt=value}}},async(url,init)=>{
   assert.equal(url,"http://127.0.0.1:8731/v1/chat/completions");
   const body=JSON.parse(String(init?.body));
   assert.equal(body.model,model);
-  assert.equal(body.reasoning_effort,process.env.RIVERFIELD_WORKSPACE_WRITER_REASONING_EFFORT?.trim() || undefined);
+  assert.equal(body.reasoning_effort,"none");
+  assert.equal(body.enable_thinking,false);
+  assert.equal(body.prompt_cache_policy,"no_store");
+  assert.equal(body.max_tokens,4096);
+  assert.deepEqual(sampling.map(key=>body[key]),[0.7,0.95,64,0.05,0,0,1.05]);
+  assert.deepEqual(body.messages.map((message: {role:string})=>message.role),["system","user"]);
+  assert.equal(body.messages[1].content[0].text,"Neutral storyboard");
+  assert.equal(body.tools,undefined);
   assert.equal(body.messages[0].content,expected);
   assert.match(body.messages[1].content[1].image_url.url,/^data:image\/jpeg/);
   assert.match(body.messages[1].content[2].image_url.url,/^data:image\/png/);
@@ -25,6 +39,8 @@ test("Workspace uses the exact installed mode preset and ordered images", async 
   return Response.json({choices:[{finish_reason:"stop",message:{content:"Finished prompt"}}]});
  });
  assert.equal(text,"Finished prompt");
+ assert.deepEqual([receipt!.brief, receipt!.systemSha256, receipt!.userMessage, receipt!.finalPromptSha256],
+  ["Exact brief", writerHash(String(expected)), "Neutral storyboard", writerHash(text)]);
 });
 
 test("Writer rejects remote endpoints, text-only reference use and truncated rewrites", async () => {
@@ -37,7 +53,10 @@ test("Writer rejects remote endpoints, text-only reference use and truncated rew
 
 test("Workspace resolves a renamed generator and rejects ambiguous manifests", () => {
   const { gen, ...other } = app.graph!;
-  const renamed = { ...app, graph: { ...other, model_writer: gen } };
+  const graph = structuredClone(other);
+  for (const node of Object.values(graph)) for (const [key, value] of Object.entries(node.inputs))
+    if (Array.isArray(value) && value[0] === "gen") node.inputs[key] = ["model_writer", value[1]];
+  const renamed = { ...app, workflowPath: undefined, graph: { ...graph, model_writer: gen } };
   assert.equal(workspaceSystemPrompt(renamed, "t2va"), workspaceSystemPrompt(app, "t2va"));
   assert.throws(() => workspaceSystemPrompt({ ...renamed, graph: { ...renamed.graph, other_writer: gen } }, "t2va"), /system prompt binding/);
 });
@@ -101,4 +120,45 @@ test("Workspace retries truncated review once with identical system prompt and e
   requests.length = 0;
   await assert.rejects(observeWithWorkspace(chat, values, undefined, request, 8192), /8192-token/);
   assert.equal(requests.length, 2);
+});
+
+
+test("all H3 and LTX preset prompts and sampling match the applied standalone graphs", () => {
+  for (const [id, modes] of [
+    ["prompt-enhancer", ["ref2va","t2va","i2va","fl2va","l2va"]],
+    ["ltx-prompt-generator", ["t2v","i2v","first_frame","last_frame","first_last"]],
+  ] as const) {
+    const enhancer = loadRegistry(repoRoot()).apps.find(row=>row.id===id)!;
+    for (const mode of modes) {
+      const graph = JSON.parse(readFileSync(enhancer.workflowPath!, "utf8"));
+      applyInputs(enhancer, resolveValues(enhancer,{prompt:"Fixture",prompt_mode:mode}), {
+        json:graph, setInput(node,field,value){graph[node].inputs[field]=value},
+      }, file=>file);
+      const gen = graph.gen.inputs;
+      const native = resolveNativeWriter(enhancer,mode);
+      assert.equal(native.system,graph[gen.system_prompt[0]].inputs.value);
+      assert.equal(native.maxTokens,gen.max_length);
+      assert.equal(native.thinking,gen.thinking);
+      for (const key of sampling) assert.equal(native.sampling[key as keyof typeof native.sampling],gen["sampling_mode."+key]);
+    }
+  }
+  const inline = loadRegistry(repoRoot()).apps.find(row=>row.id==="h3-studio-director-flash")!;
+  assert.notEqual(workspaceSystemPrompt(app,"ref2va"),inline.graph!.enh_sys.inputs.value);
+  const native = resolveNativeWriter(app,"t2va");
+  const llama = workspaceWriterParameters({...writer,backend:"llama.cpp"},native);
+  assert.equal(llama.requestParameters.repeat_penalty,1.05);
+  assert.equal(llama.requestParameters.repetition_penalty,undefined);
+  assert.deepEqual(llama.requestParameters.chat_template_kwargs,{enable_thinking:false});
+  const unspecified = workspaceWriterParameters(validateWorkspaceWriter({baseUrl:writer.baseUrl,model}),native);
+  assert.equal(unspecified.requestParameters.top_k,undefined);
+  assert.match(unspecified.differences.join(" "),/top_k/);
+});
+
+test("the writer rejects changes to verbatim dialogue or impossible Picture numbers", async () => {
+  const completion = (content: string): typeof fetch => async () => Response.json({ choices: [{ finish_reason:"stop", message:{content} }] });
+  const input = { prompt:"Frame the scene.", mode:"t2va", media:{},
+    audit:{segment:1,brief:"<d>Exactly this!</d>",references:[],save:()=>{}}, allowedPictures:0 };
+  await assert.rejects(writeWorkspacePrompt(writer,app,input,completion("<d>[English] Almost this!</d>")),/changed explicitly/);
+  await assert.rejects(writeWorkspacePrompt(writer,app,input,completion("<Picture 9> <d>[English] Exactly this!</d>")),/supplied segment/);
+  assert.equal(await writeWorkspacePrompt(writer,app,input,completion("<d>[English] Exactly this!</d>")),"<d>[English] Exactly this!</d>");
 });

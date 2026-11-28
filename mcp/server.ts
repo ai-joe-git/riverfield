@@ -19,7 +19,7 @@ import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 import { fileURLToPath } from "node:url";
 import { promptGuidance } from "./prompt-guidance.ts";
-import {planH3,planDirectorSegments,directorRequest,directorValues,directorDurations,DIRECTOR_DEFAULTS,DIRECTOR_MANAGED_INPUTS,DIRECTOR_DELIVERY} from "../server/h3-plan.ts";
+import {directorBatchInput,planH3,planDirectorSegments,directorRequest,directorValues,directorDurations,DIRECTOR_DEFAULTS,DIRECTOR_MANAGED_INPUTS,DIRECTOR_DELIVERY} from "../server/h3-plan.ts";
 import {resolveApp} from "../server/app-reference.ts";
 import {InputError,inputErrorBody} from "../server/input-error.ts";
 import {normalizeRunInputs} from "../server/run-inputs.ts";
@@ -31,7 +31,10 @@ const PORT = Number(process.env.RIVERFIELD_MCP_PORT || 3010);
 const HOST = process.env.RIVERFIELD_MCP_HOST || "127.0.0.1";
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = process.env.RIVERFIELD_OUT || join(ROOT, "out");
-const localWriter = z.object({baseUrl:z.string(),model:z.string(),vision:z.boolean().optional(),reasoningNone:z.boolean().optional()});
+const localWriter = z.object({baseUrl:z.string(),model:z.string(),vision:z.boolean().optional(),reasoningNone:z.boolean().optional(),
+  backend:z.enum(["halogen","llama.cpp"]).optional(), sampling:z.array(z.string()).max(12).optional(),
+  enableThinking:z.boolean().optional(),noStore:z.boolean().optional(),tokenCap:z.number().int().positive().optional(),runtimeVersion:z.string().max(120).optional()});
+const batchHandle = z.object({planId:z.string().uuid(),index:z.number().int().min(1).max(64)});
 const DONE = new Set(["succeeded", "failed", "canceled", "expired", "lost"]);
 
 type Any = Record<string, any>;
@@ -131,6 +134,34 @@ export function build(base=BASE): McpServer {
     }
     return resolved;
   }
+  async function renderForm(input: { app: string; values?: Any; files?: Record<string, string>; asset_ids?: Record<string, string>;
+    preset?: string; director_batch?: z.infer<typeof batchHandle> }, managed = false) {
+    const canonical = await manifest(input.app, base);
+    let values = input.values ?? {};
+    let ids = input.asset_ids;
+    let key: string | undefined;
+    if (input.director_batch) {
+      const { planId, index } = input.director_batch;
+      if (Object.keys(input.files ?? {}).length || Object.keys(ids ?? {}).length ||
+          Object.keys(values).some(name => !["render_profile","build_megapixels","steps","production_megapixels","production_upscale","production_upscale_detail","seed","aspect"].includes(name)))
+        throw new InputError("Saved batches own the creative timeline, media and mode. Supply only render profile or technical settings.");
+      const saved = await call(`/api/director-batch-plans/${planId}/${index}`);
+      if (saved.app !== canonical.id) throw new InputError("This batch belongs to another Director app.");
+      values = { ...values, ...saved.values };
+      ids = saved.asset_ids;
+      key = `director-batch:${planId}:${index}`;
+    }
+    if (managed && canonical.id.startsWith("h3-") && canonical.inputs.some((field: Any) => field.id === "segment_windows"))
+      values = { ...values, prompt_enhancer: true };
+    if (canonical.id === "pika-studio-director" && values.advanced_timeline_json)
+      throw new InputError("Automated Pika uses native Director segments; raw advanced_timeline_json is reserved for manual editing");
+    const normalized = normalizeRunInputs(canonical as any, values, await registeredFiles(canonical, values, input.files ?? {}, ids));
+    const fd = await form(canonical.id, canonical.id === "pika-studio-director" ? directorValues(normalized.values, normalized.files) : normalized.values,
+      normalized.files, input.preset, base);
+    if (ids) fd.append("workspace_asset_ids", JSON.stringify(ids));
+    if (input.director_batch) fd.append("workspace_batch", `${input.director_batch.planId}:${input.director_batch.index}`);
+    return { canonical, fd, key };
+  }
   const server = new McpServer({ name: "riverfield", version: "1.0.0" });
 
   server.registerTool("plan_segments", {
@@ -215,46 +246,62 @@ export function build(base=BASE): McpServer {
     } catch (e) { return fail(e); }
   });
 
+  server.registerTool("plan_director_batches", {
+    title: "Plan a long Flash H3 Director sequence",
+    description: "Save hard-cut batches using every supplied production reference. Provide variable native frame counts, plain creative briefs and verbatim dialogue. Ordered asset IDs are local to each segment. Returns batch handles and suggested durable request IDs without generating anything.",
+    inputSchema: directorBatchInput.shape,
+  }, async input => {
+    try { return text(await call("/api/director-batch-plans", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)}), true); }
+    catch(e) { return fail(e); }
+  });
+
+  server.registerTool("assemble_director_batches", {
+    title: "Assemble completed Director batches in episode order",
+    description: "Losslessly assemble one successful History video per saved batch. Validates job provenance, audio, video format and planned frame counts. Returns one complete video in order.",
+    inputSchema: {planId:z.string().uuid(),segments:z.array(z.object({id:z.string(),file:z.string()})).min(1).max(64)},
+  }, async input => {
+    try { return text({ ...await call("/api/sequences/assemble", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)}), status:"succeeded" }, true); }
+    catch(e) { return fail(e); }
+  });
+
   server.registerTool("run_app", {
-    title: "Run an app",
-    description: "Start a generation. Returns the history entry (id) at once; use wait_job to get the files. `values` are the app's inputs (numbers, strings, booleans, arrays for multi-selects. Director segment_windows can be an object with windows, videos and audios, or its JSON string); `files` maps a file input id (image/video/audio) to an absolute path on this machine. H3 Directors: render_profile 'build' forces 0.1 MP and no upscale; 'production' uses the app's production default (0.3 MP on the current H3 directors) and production_upscale x2 by default; omitting render_profile uses the manifest's declared starting profile (Production on the current H3 directors), or legacy settings for a manifest that declares none. Directors also accept the hidden production_id and production_scene_id fields: when set, approved canonical Production Engine memory is injected into the prompt enhancer; when absent the existing Director context is used unchanged.",
+    title: "Run a studio app",
+    description: "Start a generation and return its History job. Use get_app for exact inputs or director_batch for a saved long Director plan. For native enhancement supply creative briefs; BlackRiver prepares final prompts automatically.",
     inputSchema: {
       app: z.string().describe("app id"),
-      values: z.record(z.string(), z.any()).optional().describe("input values, by input id. Director segment_windows accepts a timeline object; call plan_segments without prompts to obtain timings first."),
+      values: z.record(z.string(), z.any()).optional().describe("App input values or technical overrides for a saved Director batch."),
       files: z.record(z.string(), z.string()).optional().describe("file inputs, by input id: absolute path"),
       asset_ids: z.record(z.string(), z.string()).optional().describe("Exact production asset IDs from production_scope by input slot, e.g. image1. Requires values.production_id. Omit those slots from files."),
+      director_batch: batchHandle.optional(),
       preset: z.string().optional().describe("preset id, when the app has presets"),
-      request_id: z.string().max(200).optional().describe("optional durable idempotency key; retrying this key returns the original job, never a second generation"),
+      request_id: z.string().max(200).optional().describe("Durable idempotency key. Retry returns the original job."),
+      workspace_preparation_id: z.string().uuid().optional(), workspace_managed: z.boolean().optional(),
     },
-  }, async ({ app, values, files, asset_ids, preset,request_id }) => {
+  }, async ({ workspace_preparation_id, workspace_managed, request_id, ...input }) => {
     try {
-      const canonical=await manifest(app,base);
-      if(canonical.id==="pika-studio-director"&&values?.advanced_timeline_json)throw new InputError("Automated Pika uses native Director segments; raw advanced_timeline_json is reserved for manual editing");
-      const normalized=normalizeRunInputs(canonical as any,values??{},await registeredFiles(canonical,values??{},files??{},asset_ids));
-      const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values, normalized.files, preset,base);
-      if(request_id)fd.append("request_id",request_id);
+      const {canonical,fd,key}=await renderForm(input, workspace_managed === true);
+      if(key || request_id) fd.append("request_id",key || request_id!);
+      if(workspace_preparation_id) fd.append("workspace_preparation_id",workspace_preparation_id);
+      if(workspace_managed) fd.append("workspace_managed","1");
       const entry = await call(`/api/apps/${encodeURIComponent(canonical.id)}/run`, { method: "POST", body: fd });
-      return text({ id: entry.id, app: entry.app, status: entry.status, created: entry.created,
-        render: entry.render ?? null, lineage: entry.lineage ?? null });
+      return text(local(entry));
     } catch (e) { return fail(e); }
   });
 
   server.registerTool("prepare_app_run", {
     title: "Prepare render prompts on the active local writer",
-    description: "Use Riverfield's real enhancer instructions, production memory and ordered references to prepare one app request. Returns only its validated prompt fields. Does not submit any render or start ComfyUI. BlackRiver supplies its active local model.",
-    inputSchema: { app:z.string(), values:z.record(z.string(),z.any()).optional(), files:z.record(z.string(),z.string()).optional(), asset_ids:z.record(z.string(),z.string()).optional(), writer:localWriter },
-  }, async ({app, values, files, asset_ids, writer}) => {
+    description: "Internal BlackRiver integration. Prepare and persist an audited render without starting ComfyUI.",
+    inputSchema: { app:z.string(), values:z.record(z.string(),z.any()).optional(), files:z.record(z.string(),z.string()).optional(),
+      asset_ids:z.record(z.string(),z.string()).optional(), director_batch:batchHandle.optional(), preset:z.string().optional(),
+      request_id:z.string().max(200).optional(), writer:localWriter.optional() },
+  }, async ({ writer, request_id, ...input }, context) => {
     try {
-      const canonical = await manifest(app,base);
-      if (!canonical.inputs.some((input: Any) => input.id === "prompt_enhancer")) return text({applied:false});
-      const draft = {...values};
-      if (canonical.id.startsWith("h3-") && canonical.inputs.some((input: Any) => input.id === "segment_windows"))
-        draft.prompt_enhancer = true;
-      const normalized = normalizeRunInputs(canonical as any, draft, await registeredFiles(canonical,draft,files??{},asset_ids));
-      const fd = await form(canonical.id, canonical.id==="pika-studio-director"?directorValues(normalized.values,normalized.files):normalized.values,normalized.files,undefined,base);
-      fd.append("workspace_writer",JSON.stringify(writer));
-      return text(await call(`/api/apps/${encodeURIComponent(canonical.id)}/prepare-prompts`,{method:"POST",body:fd}));
-    } catch(e) { return fail(e); }
+      const {canonical,fd,key}=await renderForm(input, true);
+      if (!canonical.inputs.some((field: Any) => field.id === "prompt_enhancer")) return text({applied:false});
+      if (key || request_id) fd.append("request_id",key || request_id!);
+      if (writer) fd.append("workspace_writer",JSON.stringify(writer));
+      return text(await call(`/api/apps/${encodeURIComponent(canonical.id)}/prepare-prompts`,{method:"POST",body:fd,signal:context.signal}));
+    } catch (e) { return fail(e); }
   });
 
   server.registerTool("production_scope", {
@@ -641,7 +688,7 @@ export function build(base=BASE): McpServer {
   server.registerTool("prepare_production_render", {
     title:"Prepare the current production scene with the BlackRiver local writer",
     description:"Prepare and return the final prompts for the current scene revision, including its references and approved continuity. Pass preparationId to the background render after review. This tool only writes prompts.",
-    inputSchema:{productionId:z.string(),runId:z.string(),writer:localWriter},
+    inputSchema:{productionId:z.string(),runId:z.string(),writer:localWriter.optional()},
   },async ({productionId,runId,writer})=>{
     try{return text(await call(`/api/productions/${encodeURIComponent(productionId)}/runs/${encodeURIComponent(runId)}/prepare-workspace`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({writer})}));}
     catch(e){return fail(e);}

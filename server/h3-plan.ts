@@ -1,4 +1,5 @@
 import {z} from "zod";
+import { InputError } from "./input-error.ts";
 
 const legal=(length:number)=>Number.isInteger(length)&&length>=5&&length<=3592&&(length-5)%17===0;
 const imageSlots=z.array(z.number().int().min(0).max(8)).max(9),audioSlots=z.array(z.number().int().min(0).max(2)).max(3);
@@ -66,15 +67,70 @@ export function validateH3(values:Record<string,unknown>){
  }
 }
 
-/** Resolve an adaptive flex mode before the prompt writer chooses its guide. */
-export function effectiveFlexMode(flexMode: string | undefined, hasVisual: boolean): string {
-  if (flexMode === "auto") return hasVisual ? "ref2va" : "fl2va";
-  return flexMode ?? "";
+/** Render checkpoint names and editor intent are independent. A text-only run can use the FL2VA checkpoint. */
+export function directorPromptMode(input: { flexMode?: string; hasVisual: boolean; ltx?: boolean; first?: boolean; last?: boolean }) {
+  if (input.ltx) {
+    if (input.first && input.last) return "first_last";
+    if (input.first) return "first_frame";
+    if (input.last) return "last_frame";
+    return "t2v";
+  }
+  if (input.first && input.last) return "fl2va";
+  if (input.first) return "i2va";
+  if (input.last) return "l2va";
+  return input.hasVisual && input.flexMode !== "fl2va" ? "ref2va" : "t2va";
 }
 
-/** The prompt writer guide for a director segment. LTX has its own guide. */
-export function directorPromptMode(input: { flexMode?: string; hasVisual: boolean; hasSegmentReferences: boolean; ltx?: boolean }): "t2v" | "ref2va" | "t2va" {
-  if (input.ltx) return "t2v";
-  const flex = effectiveFlexMode(input.flexMode, input.hasVisual);
-  return flex === "ref2va" || (!flex && input.hasSegmentReferences) ? "ref2va" : "t2va";
+const stableIds = (max: number) => z.array(z.string().min(1).max(160)).max(max).default([]);
+export const directorBatchInput = z.object({
+  productionId: z.string().min(1).max(160),
+  segments: z.array(z.object({
+    frames: z.number().int().min(5).max(3592),
+    brief: z.string().trim().min(1).max(10000),
+    dialogue: z.array(z.string().min(1).max(700)).max(24).default([]),
+    imageAssetIds: stableIds(9), audioAssetIds: stableIds(3),
+  })).min(1).max(64),
+});
+
+/** Partition an ordered, hard-cut Flash timeline only where the manifest caps or render mode require it. */
+export function planDirectorBatches(raw: z.infer<typeof directorBatchInput>, capacity: { image: number; audio: number }) {
+  type Window = { start: number; end: number; prompt: string; images: number[]; audios: number[] };
+  type Batch = { mode: "ref2va" | "fl2va"; images: string[]; audios: string[]; windows: Window[]; sourceStart: number };
+  const groups: Batch[] = [];
+  const episodeFrames: { segment: number; start: number; end: number }[] = [];
+  let position = 0;
+  for (const [index, segment] of raw.segments.entries()) {
+    if (!legal(segment.frames)) throw new InputError(`Segment ${index + 1}: frames must be 5 + 17*n.`);
+    const { imageAssetIds, audioAssetIds } = segment;
+    if (imageAssetIds.length > capacity.image || audioAssetIds.length > capacity.audio ||
+        new Set(imageAssetIds).size !== imageAssetIds.length || new Set(audioAssetIds).size !== audioAssetIds.length)
+      throw new InputError(`Segment ${index + 1} has duplicate references or exceeds the native media slots.`);
+    if (segment.dialogue.some(line => /<\/?d>/i.test(line))) throw new InputError("Supply dialogue lines without wrapper tags.");
+    const mode = imageAssetIds.length ? "ref2va" : "fl2va";
+    const missing = (from: string[], used: string[]) => from.filter(id => !used.includes(id));
+    let batch = groups.at(-1);
+    if (!batch || batch.mode !== mode || batch.images.length + missing(imageAssetIds, batch.images).length > capacity.image ||
+        batch.audios.length + missing(audioAssetIds, batch.audios).length > capacity.audio) {
+      batch = { mode, images: [], audios: [], windows: [], sourceStart: position };
+      groups.push(batch);
+    }
+    batch.images.push(...missing(imageAssetIds, batch.images));
+    batch.audios.push(...missing(audioAssetIds, batch.audios));
+    const start = position - batch.sourceStart;
+    const prompt = [segment.brief, ...segment.dialogue.map(line => `<d>${line}</d>`)].join("\n");
+    if (prompt.length > 12000) throw new InputError(`Segment ${index + 1} exceeds the 12,000-character brief and dialogue limit.`);
+    batch.windows.push({ start, end: start + segment.frames, prompt,
+      images: imageAssetIds.map(id => batch.images.indexOf(id)), audios: audioAssetIds.map(id => batch.audios.indexOf(id)) });
+    episodeFrames.push({ segment: index + 1, start: position, end: position + segment.frames });
+    position += segment.frames;
+  }
+  return { fps: 24, frames: position, seconds: position / 24, episodeFrames,
+    batches: groups.map((batch, index) => ({ index: index + 1, sourceStart: batch.sourceStart,
+      frames: batch.windows.at(-1)!.end, app: "h3-studio-director-flash",
+      values: { production_id: raw.productionId, prompt_enhancer: true, flex_mode: batch.mode,
+        segment_windows: { windows: batch.windows, videos: [], audios: [] } },
+      asset_ids: Object.fromEntries([...batch.images.map((id, i) => [`image${i + 1}`, id]),
+        ...batch.audios.map((id, i) => [`audio${i + 1}`, id])]),
+    })),
+  };
 }
