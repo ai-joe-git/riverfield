@@ -25,7 +25,7 @@ export function directorChat(c,{act,markdown,busy=false}){
  const settings=()=>action("Change settings",{action:"choose",key:"settings"});
  const asset=(target,explicit)=>{if(explicit)return [...c.artifacts,...c.attachments].find(a=>a.id===explicit);if(f.staleTargets?.includes(target))return null;const run=c.tools.findLast(t=>t.guidedTarget===target);return run?.job&&c.jobStates[run.job]?.status==="succeeded"?c.artifacts.find(a=>a.job===run.job&&a.type===(target==="video"||target==="relay"?"video":"image")):null;};
  const video=asset("video"),relayRun=c.tools.findLast(t=>t.guidedTarget==="relay"),relayCandidate=asset("relay"),relay=video&&relayRun?.arguments?.files?.video===video.path&&String(relayRun?.arguments?.values?.unet_name||"").includes(`_${f.relay}_`)?relayCandidate:null;
- const timing=n=>((175+(n-1)*136)/24).toFixed(2);
+ const timing=n=>((n*175)/24).toFixed(2);
  const key=s=>s.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim();
  const duplicate=f.actors.some((a,i)=>f.actors.slice(0,i).some(b=>{const aw=new Set(key(a.description).split(" ").filter(Boolean)),bw=new Set(key(b.description).split(" ").filter(Boolean));return key(a.name)===key(b.name)||a.description.trim()&&b.description.trim()&&(key(a.description)===key(b.description)||Math.min(aw.size,bw.size)>=12&&[...aw].filter(w=>bw.has(w)).length/Math.max(aw.size,bw.size)>.85);}));
  if(duplicate&&step!=="edit"&&step!=="settings"){
@@ -36,7 +36,7 @@ export function directorChat(c,{act,markdown,busy=false}){
  if(f.promptsStale&&["draft","references","render"].includes(step)){
   title("The shot prompts need updating");note("The story or cast changed. Old images remain in History, but outdated shot prompts cannot be rendered.");action("Prepare updated shot prompts",{action:"prepare"},true);action("Revise story",{action:"choose",key:"edit",value:"scenario"});note("Writing only; no image or video generation.");return root;
  }
- if(step==="duration"){title("How long should the video be?");choices("duration",[1,2,3,5,8].map(n=>[n,`${timing(n)} s · ${n} ${n===1?"segment":"segments"}`]));note("Native 7.29-second segments; overlaps are already included.");}
+ if(step==="duration"){title("How long should the video be?");choices("duration",[1,2,3,5,8].map(n=>[n,`${timing(n)} s · ${n} ${n===1?"segment":"segments"}`]));note("Native 7.29-second segments, joined with hard cuts.");}
  else if(step==="resolution"){title("Choose the generation resolution");choices("resolution",[[.4,"0.4 MP · economical"],[.8,"0.8 MP"]]);}
  else if(step==="relay"){title("Use RelayVSR after Pika?");choices("relay",[["x2","x2 · default"],["x4","x4"],["off","No upscale"]]);note("x2 doubles width and height: about 1.6 MP from a 0.4 MP source. It is a separate GPU step.");}
  else if(step==="cast"){title("How many main characters?");choices("cast",[[1,"One"],[2,"Two"],[3,"Three"]]);}

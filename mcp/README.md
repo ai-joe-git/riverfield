@@ -108,7 +108,7 @@ curl -s http://127.0.0.1:3010/mcp -H 'content-type: application/json' \
              "audio1": "/abs/voice.wav", "video1": "/abs/clip.mp4" } }
 ```
 
-Frames are 24 fps, window lengths should be `5 + 17n`, windows may overlap (39-frame seam).
+Frames are 24 fps, window lengths should be `5 + 17n`, new windows use hard cuts (zero overlap). Set overlap explicitly only to extend the same continuous camera take, for example beyond 15 seconds.
 `images`/`audios` are 0-based indices into `image1..image9` / `audio1..audio3`; `videos` are
 timeline clips indexed into `video1..video3` and are sliced per segment by their time window.
 `get_app` returns the full notes for the app.
@@ -126,7 +126,7 @@ timeline clips indexed into `video1..video3` and are sliced per segment by their
 
 
 For H3 Studio Director Flash hard cuts, call `plan_segments` with
-`app: "h3-studio-director-flash"` and `overlap_frames: 0`. Request timing
+`app: "h3-studio-director-flash"`; `overlap_frames` defaults to `0`. Request timing
 without prompts first, then send the completed timeline object in
 `run_app.values.segment_windows` together with the ordered file slots. The MCP
 server serializes the timeline. The existing JSON string form also works.

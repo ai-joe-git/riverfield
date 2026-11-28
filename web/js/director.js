@@ -11,8 +11,8 @@
 //         videos: [{index,start,duration,trimStart,sourceDuration,width,height,hasAudio,referenceMode}],
 //         audios: [{index,start,duration,trimStart}] }
 //
-// Geometry follows the plugin: H3 lengths are 5+17n frames, seams default to the nearest legal
-// overlap (39 frames), and windows never gap. Dragging is frame-accurate; the length snaps to a
+// H3 lengths are 5+17n frames; new scenes use hard cuts (zero overlap), without gaps.
+// Explicit overlaps are retained for continuous takes. Dragging is frame-accurate; the length snaps to a
 // legal H3 value on release (or immediately with the H3 button in the segment editor).
 
 import { el, icon, toast, clamp, store } from "./util.js";
@@ -29,7 +29,7 @@ import {
 const FPS = 24;
 const MAX_LENGTH = 3592;
 const MIN_LEN = 5;
-const SEAM = 39;
+const SEAM = 0;
 
 /** One prompt per line. `,13` sets seconds; `,13,3` also sets the overlap with the
  * previous segment. The modal slider supplies the overlap when the third value is absent. */
@@ -81,6 +81,18 @@ export function nearestOverlap(frames, maximum) {
   const choices = [0, 1];
   for (let n = 5; n <= maximum; n += 17) choices.push(n);
   return choices.filter((n) => n <= maximum).reduce((best, n) => (Math.abs(n - frames) < Math.abs(best - frames) ? n : best), 0);
+}
+
+/** Ripple a duration/move edit without inventing overlap at any following cut. */
+export function rippleH3Windows(windows, editedIndex, before) {
+  for (let k = editedIndex + 1; k < windows.length; k += 1) {
+    const prev = windows[k - 1], cur = windows[k];
+    const len = cur.end - cur.start;
+    const requested = Math.max(0, before[k - 1].end - before[k].start);
+    const overlap = legalOverlapFrames(requested, Math.min(len, prev.end - prev.start) - 1);
+    cur.start = prev.end - overlap;
+    cur.end = cur.start + len;
+  }
 }
 
 const fmt = (x) => (Math.abs(x) >= 10 ? x.toFixed(1) : x.toFixed(2)).replace(/\.0+$/, "");
@@ -189,6 +201,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
   // Planner manifest exposes segment_count; the LTX directors do not, so this is the
   // reliable client-side discriminator (and it keeps LTX untouched).
   const h3Planner = app.inputs.some((i) => i.id === "segment_count");
+  const defaultSeam = h3Planner ? SEAM : 39;
   const snapOverlap = (seconds) => h3Planner ? legalOverlapFrames(Math.round(Number(seconds) * FPS), 30 * FPS) / FPS : Math.max(0, Math.min(30, Number(seconds) || 0));
   // Durable project state lives on the server (out/directors/<app>). IndexedDB remains
   // the fast local copy; the server copy makes a reload or another browser on the LAN
@@ -896,7 +909,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       st.windows = JSON.parse(JSON.stringify(drag.snap));
       const cur = st.windows[i];
       if (drag.edge === "l") {
-        const minStart = i === 0 ? 0 : Math.max(0, st.windows[i - 1].end - Math.min(SEAM, cur.end - cur.start - 1));
+        const minStart = i === 0 ? 0 : Math.max(0, st.windows[i - 1].end - Math.min(h3Planner ? Math.max(0, drag.snap[i - 1].end - drag.snap[i].start) : defaultSeam, cur.end - cur.start - 1));
         cur.start = clamp(snap(Math.round(cur.start + delta), i), minStart, cur.end - MIN_LEN);
       } else if (drag.edge === "r") {
         cur.end = Math.max(cur.start + MIN_LEN, snap(Math.round(cur.end + delta), i));
@@ -909,10 +922,11 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
         else if (snappedEnd !== Math.round(start + len)) { cur.end = snappedEnd; cur.start = snappedEnd - len; }
         else { cur.start = start; cur.end = start + len; }
       }
-      for (let k = i + 1; k < st.windows.length; k++) {
+      if (h3Planner) rippleH3Windows(st.windows, i, drag.snap);
+      else for (let k = i + 1; k < st.windows.length; k++) {
         const prev = st.windows[k - 1];
         const len = st.windows[k].end - st.windows[k].start;
-        const overlap = Math.max(0, Math.min(SEAM, Math.min(len, prev.end - prev.start) - 1));
+        const overlap = Math.max(0, Math.min(defaultSeam, Math.min(len, prev.end - prev.start) - 1));
         st.windows[k].start = prev.end - overlap;
         st.windows[k].end = st.windows[k].start + len;
       }
@@ -931,10 +945,11 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       const w = st.windows[i];
       // snap the length to a legal H3 value once the mouse is released
       w.end = w.start + alignedLength(w.end - w.start, MIN_LEN);
-      for (let k = i + 1; k < st.windows.length; k++) {
+      if (h3Planner) rippleH3Windows(st.windows, i, drag.snap);
+      else for (let k = i + 1; k < st.windows.length; k++) {
         const prev = st.windows[k - 1];
         const len = st.windows[k].end - st.windows[k].start;
-        const overlap = Math.max(0, Math.min(SEAM, Math.min(len, prev.end - prev.start) - 1));
+        const overlap = Math.max(0, Math.min(defaultSeam, Math.min(len, prev.end - prev.start) - 1));
         st.windows[k].start = prev.end - overlap;
         st.windows[k].end = st.windows[k].start + len;
       }
@@ -1003,11 +1018,19 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       w.start = start; changed();
     };
     lenField.onchange = () => {
+      const before = st.windows.map(w => ({ ...w }));
       const len = Math.max(MIN_LEN, Math.round(Number(lenField.value) * FPS) || MIN_LEN);
-      w.end = w.start + len; changed();
+      w.end = w.start + len;
+      if (h3Planner) rippleH3Windows(st.windows, selected, before);
+      changed();
     };
     const snap = el("button", { type: "button", class: "btn small ghost", title: "Snap this window's length to an H3-legal 5+17n frame count",
-      onclick: () => { w.end = w.start + alignedLength(w.end - w.start, MIN_LEN); changed(); } }, "H3");
+      onclick: () => {
+        const before = st.windows.map(w => ({ ...w }));
+        w.end = w.start + alignedLength(w.end - w.start, MIN_LEN);
+        if (h3Planner) rippleH3Windows(st.windows, selected, before);
+        changed();
+      } }, "H3");
 
     const prompt = el("textarea", { class: "dir-prompt", rows: "3", placeholder: "Prompt for this segment (empty: the global prompt is used)", value: w.prompt || "" });
     prompt.addEventListener("input", () => { w.prompt = prompt.value; persistState(app, f, st); saveDirty(); drawTracks(); });
@@ -1111,7 +1134,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
           el("button", { type: "button", class: "btn small ghost", onclick: () => {
             const last = st.windows[st.windows.length - 1];
             const len = last.end - last.start;
-            const start = last.end - Math.min(SEAM, len - 1);
+            const start = last.end - Math.min(defaultSeam, len - 1);
             st.windows.push({ start, end: start + len, prompt: "", images: h3Planner ? allPictures() : [...last.images], audios: [...last.audios] });
             selected = st.windows.length - 1; changed();
           } }, icon("plus"), "Segment"),
@@ -1157,11 +1180,11 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
     const max = fixed ?? (Number.isFinite(countMax) && countMax > 0 ? countMax : 512);
     const selectedWindow = st.windows[selected];
     const fallbackSeconds = selectedWindow ? Math.max(MIN_LEN / FPS, (selectedWindow.end - selectedWindow.start) / FPS) : (Number(f.values.duration) || 5);
-    const dialog = modal("Paste prompts", "One prompt per line. Add ,13 for 13 seconds, or ,13,3 for 13 seconds with a 3-second overlap. Lines without values use the defaults below.");
-    const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "Wide shot of the room,13,3\nShe turns toward the window,8,3\nClose-up on her eyes,5" });
+    const dialog = modal("Paste prompts", "One prompt per line. Add ,13 for 13 seconds, or ,13,3 for 13 seconds with a 3-second overlap. Lines without values use hard cuts by default. Use overlap only to extend the same continuous camera take, for example beyond 15 seconds.");
+    const ta = el("textarea", { class: "dir-prompt", rows: "12", placeholder: "Wide shot of the room,13\nShe turns toward the window,8\nClose-up on her eyes,5" });
     const fallback = el("input", { class: "dir-num", type: "number", min: String(MIN_LEN / FPS), max: "30", step: "0.1", value: String(fallbackSeconds) });
-    const overlap = el("input", { class: "dir-num wide", type: "range", min: "0", max: "10", step: "0.1", value: String(SEAM / FPS), style: { width: "160px" } });
-    const overlapValue = el("span", { class: "unit" }, `${(SEAM / FPS).toFixed(1)}s`);
+    const overlap = el("input", { class: "dir-num wide", type: "range", min: "0", max: "10", step: "0.1", value: String(defaultSeam / FPS), style: { width: "160px" } });
+    const overlapValue = el("span", { class: "unit" }, `${(defaultSeam / FPS).toFixed(1)}s`);
     const forceAll = el("input", { type: "checkbox" });
     const info = el("p", { class: "help", style: { margin: "0" } }, "0 segments");
     const refresh = () => {
@@ -1222,7 +1245,7 @@ export function directorView(app, f, { onSubmit, onDirty, onRestored }) {
       ta,
       el("div", { class: "dir-seg-fields" },
         el("label", {}, "default length", fallback, el("span", { class: "unit" }, "s")),
-        el("label", {}, "interlace / overlap", overlap, overlapValue),
+        el("label", {}, "overlap (0 = hard cut)", overlap, overlapValue),
         info),
       el("label", { style: { display: "flex", alignItems: "center", gap: "7px", fontSize: "11.5px", color: "var(--dim)" } },
         forceAll, "Apply the slider overlap to every pasted segment"),

@@ -4,9 +4,9 @@ import { InputError } from "./input-error.ts";
 const nativeFrames = (seconds: number) => Math.min(3592, 5 + 17 * Math.max(0, Math.round((seconds * 24 - 5) / 17)));
 const legal=(length:number)=>Number.isInteger(length)&&length>=5&&length<=3592&&(length-5)%17===0;
 const imageSlots=z.array(z.number().int().min(0).max(8)).max(9),audioSlots=z.array(z.number().int().min(0).max(2)).max(3);
-export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150).describe("Requested duration of EACH generated segment, not total story duration"),total_seconds:z.number().positive().optional().describe("Optional total timeline duration to validate, including overlap"),overlap_frames:z.number().int().min(0).max(3591).optional().describe("Explicit overlap in frames. Use 0 for clean cuts."),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:imageSlots.default([]),audios:audioSlots.default([]),segment_images:z.array(imageSlots).max(64).optional(),segment_audios:z.array(audioSlots).max(64).optional()});
+export const segmentRequest=z.object({seconds:z.number().min(5/24).max(150).describe("Requested duration of EACH generated segment, not total story duration"),total_seconds:z.number().positive().optional().describe("Optional total timeline duration to validate, including overlap"),overlap_frames:z.number().int().min(0).max(3591).optional().describe("Defaults to 0 (hard cuts). Set a legal overlap explicitly only to extend the same continuous camera take, for example beyond 15 seconds."),prompts:z.array(z.string().trim().min(1).max(12000)).min(1).max(64),images:imageSlots.default([]),audios:audioSlots.default([]),segment_images:z.array(imageSlots).max(64).optional(),segment_audios:z.array(audioSlots).max(64).optional()});
 /** Same frame geometry as the Material Planner. Arithmetic belongs in code, not in an LLM. */
-export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,prompts,images,audios,segment_images,segment_audios}=segmentRequest.parse(raw);const length=nativeFrames(seconds);const seam=overlap_frames??[0,1,...Array.from({length:Math.max(0,Math.floor((length-6)/17)+1)},(_,i)=>5+17*i)].filter(n=>n<length).reduce((best,n)=>Math.abs(n-39)<Math.abs(best-39)?n:best,0);
+export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,prompts,images,audios,segment_images,segment_audios}=segmentRequest.parse(raw);const length=nativeFrames(seconds);const seam=overlap_frames??0;
  if(seam>=length||(seam!==0&&seam!==1&&!legal(seam)))throw new Error("Overlap must be 0, 1 or 5 + 17*n frames and shorter than the segment.");
  const stride=length-seam;
  for(const [name,slots] of [["segment_images",segment_images],["segment_audios",segment_audios]] as const)if(slots&&slots.length!==prompts.length)throw new Error(`${name} must have one entry per prompt`);
@@ -15,12 +15,12 @@ export function planH3(raw:unknown){const {seconds,total_seconds,overlap_frames,
  return {segment_windows:JSON.stringify({windows,videos:[],audios:[]}),frames:windows.at(-1)!.end,seconds:total,segmentSeconds:length/24,segmentFrames:length,overlapFrames:seam,promptValidation:"not_performed"};}
 
 /** Stable Agent/MCP profile. Manual Director timelines and other H3 apps remain editable. */
-export const DIRECTOR_DEFAULTS={segmentSeconds:7.3,segmentFrames:175,overlapFrames:39,fps:24} as const;
+export const DIRECTOR_DEFAULTS={segmentSeconds:7.3,segmentFrames:175,overlapFrames:0,fps:24} as const;
 export const DIRECTOR_MANAGED_INPUTS=["duration","start_seconds","clip_name","detail","multiple","sla","format","codec","filename_prefix"] as const;
 export const DIRECTOR_DELIVERY={app:"relayvsr-upscale",defaultScale:"x2",options:["off","x2","x4"],separateRun:true,requiresSucceededVideo:true,pixelAreaMultipliers:{x2:4,x4:16}} as const;
 export function directorDurations(){return [1,2,3,5].map(segments=>{
  const plan=planH3({seconds:DIRECTOR_DEFAULTS.segmentSeconds,prompts:Array(segments).fill("Timing only")});
- return {segments,frames:plan.frames,seconds:plan.seconds,label:`${plan.seconds.toFixed(2)} s (${segments} ${segments===1?"segment":"segments"})`,description:"Native Director duration, including overlaps. Other story targets can be entered as free text."};
+ return {segments,frames:plan.frames,seconds:plan.seconds,label:`${plan.seconds.toFixed(2)} s (${segments} ${segments===1?"segment":"segments"})`,description:"Native Director duration with hard cuts. Other story targets can be entered as free text."};
 });}
 export const directorRequest=segmentRequest.omit({seconds:true,overlap_frames:true}).extend({total_seconds:z.number().positive().optional().describe("Approximate desired story duration; selects a native segment count, never an exact-duration rejection"),prompts:z.array(z.string().trim().min(1).max(12000)).max(64).default([]).describe("One complete prompt per native window; omit initially to obtain the required count")});
 export function planDirectorSegments(raw:unknown){

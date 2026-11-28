@@ -170,9 +170,9 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("plan_segments", {
     title:"Plan Director windows with the selected app",
-    description:"Return real 24 fps timeline windows, legal lengths, overlaps and ordered attachments. Pika uses fixed native windows. H3 Studio Director Flash accepts segment_seconds and overlap_frames, including 0 for clean cuts. Pass the exact app ID. If you omit prompts, use the returned count and then prepare that many drafts. No generation.",
+    description:"Return real 24 fps timeline windows, legal lengths, overlaps and ordered attachments. Pika uses fixed native windows. Scenes use hard cuts by default. H3 Studio Director Flash accepts segment_seconds and an explicit overlap_frames only for a continuous camera take, for example beyond 15 seconds. Pass the exact app ID. If you omit prompts, use the returned count and then prepare that many drafts. No generation.",
     inputSchema:{ ...directorRequest.shape, app:z.enum(["pika-studio-director","h3-studio-director-flash"]).optional(),
-      segment_seconds:z.number().min(.5).max(60).optional(), overlap_frames:z.number().int().min(0).max(3591).optional().describe("H3 Flash only. 0 places each new segment immediately after the previous one.") },
+      segment_seconds:z.number().min(.5).max(60).optional(), overlap_frames:z.number().int().min(0).max(3591).optional().describe("H3 Flash only. Defaults to 0 (hard cuts). Explicit overlap is reserved for extending the same continuous camera take, for example beyond 15 seconds.") },
     annotations:{readOnlyHint:true},
   },async ({app,segment_seconds,overlap_frames,...args})=>{
     try {

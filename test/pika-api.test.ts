@@ -43,7 +43,7 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
   for(const [key,path] of Object.entries(payload.files) as [string,string][]){if(!existsSync(path)){const mock=join(dir,`${key}.png`);writeFileSync(mock,Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5m0AAAAASUVORK5CYII=","base64"));payload.files[key]=mock;}}
   const originalPrompt=JSON.parse(payload.values.segment_windows).windows[0].prompt;
   const tool=(await client.tools()).find(t=>t.name==="plan_segments")!;assert.ok(!(tool.inputSchema as any).properties.seconds,"the model has no segment-duration control");
-  const layout=resultData(await client.call("plan_segments",{total_seconds:30}));assert.equal(layout.ready,false);assert.equal(layout.requiredPrompts,5);assert.equal(layout.frames,719);assert.equal(layout.segment_windows,undefined);
+  const layout=resultData(await client.call("plan_segments",{total_seconds:30}));assert.equal(layout.ready,false);assert.equal(layout.requiredPrompts,4);assert.equal(layout.frames,700);assert.equal(layout.segment_windows,undefined);
   const planned=resultData(await client.call("plan_segments",{prompts:[originalPrompt],segment_images:[[0,1]]}));
   assert.equal(JSON.parse(planned.segment_windows).windows[0].prompt,originalPrompt);assert.equal(planned.segmentFrames,175);
   const flat=resultData(await client.call("plan_segments",{prompts:["Alex sits at his desk."],segment_images:[[0,1]]}));assert.equal(flat.promptValidation,"not_performed");assert.equal(JSON.parse(flat.segment_windows).windows[0].prompt,"Alex sits at his desk.");
@@ -69,7 +69,7 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
   const autoRefValues={...payload.values,duration:11,start_seconds:12,detail:.1,multiple:8,sla:false,clip_name:"qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors",audio_mode:"reference",segment_windows:JSON.stringify(withAudio)};delete autoRefValues.flex_mode;
   const audioDispatch=new Promise<any>(resolve=>dispatched=resolve),audioResult=await client.call("run_app",{...payload,files:{...payload.files,audio1:audio},values:autoRefValues});assert.ok(!audioResult.isError,JSON.stringify(audioResult));
   const audioGraph=(await waitDispatch(audioDispatch)).workflow,audioWindows=JSON.parse(audioGraph.rfplan.inputs.segment_windows).windows;
-  assert.deepEqual(audioWindows.map((w:any)=>[w.start,w.end]),[[0,175],[136,311]]);assert.equal(audioWindows[0].prompt,withAudio.windows[0].prompt);assert.deepEqual(audioWindows[0].audios,[0]);assert.ok(audioGraph.rfplan.inputs.audio1);assert.equal(audioGraph.rfplan.inputs.generation_seconds,7.3);assert.equal(audioGraph.rfplan.inputs.start_seconds,0);assert.equal(audioGraph[41].inputs.megapixels,.3);assert.equal(requests.length,3);
+  assert.deepEqual(audioWindows.map((w:any)=>[w.start,w.end]),[[0,175],[175,350]]);assert.equal(audioWindows[0].prompt,withAudio.windows[0].prompt);assert.deepEqual(audioWindows[0].audios,[0]);assert.ok(audioGraph.rfplan.inputs.audio1);assert.equal(audioGraph.rfplan.inputs.generation_seconds,7.3);assert.equal(audioGraph.rfplan.inputs.start_seconds,0);assert.equal(audioGraph[41].inputs.megapixels,.3);assert.equal(requests.length,3);
   assert.equal(audioGraph[42].inputs.sparsity_ratio,.8);assert.equal(audioGraph[42].inputs.enabled,true);assert.equal(audioGraph[41].inputs.multiple,32);assert.equal(audioGraph[2].inputs.clip_name,"p-h3-image_text_encoder_int8_convrot.safetensors");
   assert.match(audioGraph[1].inputs.unet_name,/ref2va/);assert.match(audioGraph[40].inputs.lora_name,/ref2va/);
   // Existing Relay app remains a separate utility with its OWN paired models and one-step sampler.
@@ -83,7 +83,7 @@ test("real MCP -> real HTTP run route -> multipart -> validator -> SDK dispatch 
    const args=variant==="paths-in-values"?{app:payload.app,values:{...payload.values,aspect:"9:16",segment_windows:mayaWindows,image1:payload.files.image1,image2:payload.files.image2}}:{...payload,values:{...payload.values,segment_windows:mayaWindows,image:[0,1]}};
    const mayaDispatch=new Promise<any>(resolve=>dispatched=resolve);
    const mayaResult:any=await client.call("run_app",args);assert.ok(!mayaResult.isError,JSON.stringify(mayaResult));const mayaGraph=(await waitDispatch(mayaDispatch)).workflow;
-   assert.deepEqual(JSON.parse(mayaGraph.rfplan.inputs.segment_windows).windows.map((w:any)=>[w.start,w.end,w.images]),[[0,175,[0,1]],[136,311,[0,1]],[272,447,[0,1]]]);assert.equal(mayaGraph[41].inputs.aspect_ratio,"9:16 (Portrait Widescreen)");assert.equal(mayaGraph[41].inputs.megapixels,.3);assert.ok(mayaGraph.rfplan.inputs.image1);assert.ok(mayaGraph.rfplan.inputs.image2);
+   assert.deepEqual(JSON.parse(mayaGraph.rfplan.inputs.segment_windows).windows.map((w:any)=>[w.start,w.end,w.images]),[[0,175,[0,1]],[175,350,[0,1]],[350,525,[0,1]]]);assert.equal(mayaGraph[41].inputs.aspect_ratio,"9:16 (Portrait Widescreen)");assert.equal(mayaGraph[41].inputs.megapixels,.3);assert.ok(mayaGraph.rfplan.inputs.image1);assert.ok(mayaGraph.rfplan.inputs.image2);
   }
   assert.equal(requests.length,6);
   // Guided mode: fixed form -> plain-text writer -> code-built run, with NO LLM tool calls.

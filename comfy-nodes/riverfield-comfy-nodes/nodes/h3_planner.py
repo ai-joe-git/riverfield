@@ -9,7 +9,8 @@ This node builds the same document from plain, app-friendly fields, so a RiverFi
 expose every Material Planner option as a normal form input while the planner node still
 receives a real ``timeline_data`` string. ``json.dumps`` does the escaping (a prompt with
 quotes or newlines cannot corrupt the document), and the frame windows use the plugin's own
-geometry (H3 lengths are ``5 + 17*n`` frames, seams default to the nearest valid overlap).
+geometry (H3 lengths are ``5 + 17*n`` frames). New scenes use hard cuts by default;
+explicit segment windows can request overlap for a continuous camera take.
 
 Set ``advanced_timeline_json`` to a non-empty string to bypass the builder and pass a raw
 Material Planner document through unchanged — that is the exact escape hatch for presets or
@@ -50,12 +51,11 @@ def nearest_overlap(frames: int, maximum: int) -> int:
 
 
 def create_windows(count: int, default_frames: int) -> list[dict]:
-    """Same geometry as segment_windows.mjs createWindows([], count, frames)."""
+    """Create independent scenes with contiguous hard cuts and H3-valid lengths."""
     result: list[dict] = []
     for _ in range(max(1, count)):
         length = aligned_length(default_frames)
-        overlap = nearest_overlap(39, min(length, result[-1]["endFrame"] - result[-1]["startFrame"]) - 1) if result else 0
-        start = result[-1]["endFrame"] - overlap if result else 0
+        start = result[-1]["endFrame"] if result else 0
         result.append({"images": [], "audios": [], "prompt": "", "startFrame": start, "endFrame": start + length})
     return result
 

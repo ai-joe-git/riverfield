@@ -21,7 +21,7 @@ test("canonical character and location references persist; unknown/substituted r
 });
 test("H3 planning constructs legal geometry for every supported duration and short segments",()=>{
  for(const seconds of [5/24,.5,1,5,10,150]){const plan=planH3({seconds,prompts:["Arrival","Conversation","Exit"]});assert.doesNotThrow(()=>validateH3({segment_windows:plan.segment_windows}));const windows=JSON.parse(plan.segment_windows).windows;assert.ok(windows.every((w:any)=>(w.end-w.start-5)%17===0));assert.equal(plan.frames,windows.at(-1).end);}
- const p=planH3({seconds:5,prompts:["One","Two"]});assert.equal(p.segmentFrames,124);assert.equal(p.overlapFrames,39);assert.equal(p.frames,209);
+ const p=planH3({seconds:5,prompts:["One","Two"]});assert.equal(p.segmentFrames,124);assert.equal(p.overlapFrames,0);assert.equal(p.frames,248);
 });
 test("bad H3 prompts, alignment, gaps and missing file slots fail before GPU submission",()=>{
  const good=JSON.parse(planH3({seconds:5,prompts:["One","Two"],images:[0]}).segment_windows);

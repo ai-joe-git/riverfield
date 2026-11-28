@@ -39,16 +39,26 @@ def plan(windows, mode="reference", global_prompt=""):
     return dict(type="MINIMAX_H3_TIMELINE_PLAN", timeline=timeline, width=480, height=832, length=175, generation_seconds=7.3, prompt_index=None, segment_count=len(windows))
 
 
-def windows(count=2):
-    return [dict(start=i * 136, end=i * 136 + 175, prompt=f"Prompt {i + 1}", images=[1, 0], audios=[0]) for i in range(count)]
+def windows(count=2, overlap=0):
+    return [dict(start=i * (175 - overlap), end=i * (175 - overlap) + 175, prompt=f"Prompt {i + 1}", images=[1, 0], audios=[0]) for i in range(count)]
 
 
 class BuilderContractTest(unittest.TestCase):
     def test_native_geometry_and_explicit_local_order(self):
         timeline = plan(windows(5))["timeline"]
-        self.assertEqual([(w["startFrame"], w["endFrame"]) for w in timeline["segmentConfig"]["segments"]], [(0, 175), (136, 311), (272, 447), (408, 583), (544, 719)])
+        self.assertEqual([(w["startFrame"], w["endFrame"]) for w in timeline["segmentConfig"]["segments"]], [(i * 175, (i + 1) * 175) for i in range(5)])
         self.assertEqual(timeline["segmentConfig"]["segments"][0]["images"], ["rf-image-2", "rf-image-1"])
         self.assertFalse(timeline["secondPass"])
+
+    def test_default_builder_uses_hard_cuts_without_explicit_windows(self):
+        timeline = json.loads(builder.build_timeline(generation_seconds=7.3, segment_count=3, segment_prompts="A\nB\nC"))
+        rows = timeline["segmentConfig"]["segments"]
+        self.assertEqual([(w["startFrame"], w["endFrame"]) for w in rows], [(0, 175), (175, 350), (350, 525)])
+        self.assertEqual([w["prompt"] for w in rows], ["A", "B", "C"])
+
+    def test_explicit_overlap_is_preserved(self):
+        timeline = plan(windows(2, overlap=39))["timeline"]
+        self.assertEqual([(w["startFrame"], w["endFrame"]) for w in timeline["segmentConfig"]["segments"]], [(0, 175), (136, 311)])
 
     def test_multiline_legacy_field_is_not_a_complete_prompt(self):
         text = "subject_definitions:\n<Subject 1> from Picture 1\nsummary:\nA scene"
@@ -65,9 +75,14 @@ class InstalledNativeContractTest(unittest.TestCase):
     def test_finite_sampler_consumes_builder_geometry_and_order(self):
         finite = self.native["_prepare_timeline_segments"](plan(windows(5)))
         self.assertEqual(finite["segment_lengths"], [175] * 5)
-        self.assertEqual(finite["segment_overlaps"], [0, 39, 39, 39, 39])
-        self.assertEqual(finite["target_output_frames"], 719)
+        self.assertEqual(finite["segment_overlaps"], [0, 0, 0, 0, 0])
+        self.assertEqual(finite["target_output_frames"], 875)
         self.assertEqual([a["file"] for a in finite["segment_plans"][0]["timeline"]["images"]], ["room.png", "alex.png"])
+
+    def test_explicit_same_camera_overlap_reaches_the_native_sampler(self):
+        finite = self.native["_prepare_timeline_segments"](plan(windows(3, overlap=39)))
+        self.assertEqual(finite["segment_overlaps"], [0, 39, 39])
+        self.assertEqual(finite["target_output_frames"], 447)
 
     def test_global_fallback_is_all_or_nothing(self):
         rows = windows()

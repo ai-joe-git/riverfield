@@ -121,14 +121,22 @@ test("the agent talks to the real MCP server: discovery, guidance, idempotent ru
     assert.equal(described.renderProfile?.supported, true, "get_app exposes the render-profile contract");
     const named=resultData(await client.call("get_app",{app:"Z Image"}));assert.equal(named.id,"z-image");
 
-    const plan=resultData(await client.call("plan_segments",{prompts:["Arrival","Exit"]}));assert.equal(plan.frames,311);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,39);assert.equal(received.length,0,"pure planning never submits a job");
+    const plan=resultData(await client.call("plan_segments",{prompts:["Arrival","Exit"]}));assert.equal(plan.frames,350);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,0);assert.equal(received.length,0,"pure planning never submits a job");
     const timing = resultData(await client.call("plan_segments", {
-      app: "h3-studio-director-flash", total_seconds: 50, overlap_frames: 0,
+      app: "h3-studio-director-flash", total_seconds: 50,
     }));
     assert.equal(timing.requiredPrompts, 7);
     assert.equal(timing.frames, 1225);
     assert.equal(timing.overlapFrames, 0);
     assert.deepEqual(timing.windows.map((window: any) => window.start), [0, 175, 350, 525, 700, 875, 1050]);
+    const continuous = resultData(await client.call("plan_segments", {
+      app: "h3-studio-director-flash", segment_seconds: 10,
+      prompts: ["Same camera, first part", "Same camera, continuation"], overlap_frames: 39,
+    }));
+    assert.equal(continuous.overlapFrames, 39);
+    assert.ok(continuous.seconds > 15);
+    const continuousWindows = JSON.parse(continuous.segment_windows).windows;
+    assert.equal(continuousWindows[1].start, continuousWindows[0].end - 39);
     const invalidOverlap = await client.call("plan_segments", { app: "h3-studio-director-flash", overlap_frames: 2 });
     assert.equal(invalidOverlap.isError, true);
     assert.equal(received.length, 0);

@@ -5,25 +5,25 @@ import {DIRECTOR_DEFAULTS,directorRequest,directorValues,directorDurations,planD
 import {loadRegistry} from "../server/registry.ts";
 import {resolveValues} from "../server/runner.ts";
 
-test("stable Director profile matches native default duration and interleaving",()=>{
+test("stable Director profile keeps native durations and defaults to hard cuts",()=>{
  const manifest=JSON.parse(readFileSync("apps/pika-studio-director/app.json","utf8"));assert.equal(manifest.inputs.find((i:any)=>i.id==="duration").default,DIRECTOR_DEFAULTS.segmentSeconds);
  assert.ok(!("seconds" in directorRequest.shape));
- const plan=planDirectorSegments({prompts:Array(8).fill("Original prompt")});assert.equal(plan.ready,true);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,39);
- assert.deepEqual(JSON.parse(plan.segment_windows!).windows.map((w:any)=>[w.start,w.end]),[[0,175],[136,311],[272,447],[408,583],[544,719],[680,855],[816,991],[952,1127]]);
+ const plan=planDirectorSegments({prompts:Array(8).fill("Original prompt")});assert.equal(plan.ready,true);assert.equal(plan.segmentFrames,175);assert.equal(plan.overlapFrames,0);
+ assert.deepEqual(JSON.parse(plan.segment_windows!).windows.map((w:any)=>[w.start,w.end]),Array.from({length:8},(_,i)=>[i*175,(i+1)*175]));
 });
-test("30 seconds yields five native windows, never duration guessing or exact-total rejection",()=>{
- for(const seconds of [10,10.5,11,30]){const incomplete=planDirectorSegments({seconds,total_seconds:30,prompts:["One","Two","Three"]});assert.equal(incomplete.ready,false);assert.equal(incomplete.requiredPrompts,5);assert.equal(incomplete.segment_windows,undefined);assert.equal(incomplete.segmentFrames,175);}
- const complete=planDirectorSegments({total_seconds:30,prompts:["One","Two","Three","Four","Five"]});assert.equal(complete.ready,true);assert.equal(complete.frames,719);assert.equal(complete.requestedSeconds,30);assert.equal(complete.seconds,719/24);
+test("30 seconds yields four native windows, never duration guessing or exact-total rejection",()=>{
+ for(const seconds of [10,10.5,11,30]){const incomplete=planDirectorSegments({seconds,total_seconds:30,prompts:["One","Two","Three"]});assert.equal(incomplete.ready,false);assert.equal(incomplete.requiredPrompts,4);assert.equal(incomplete.segment_windows,undefined);assert.equal(incomplete.segmentFrames,175);}
+ const complete=planDirectorSegments({total_seconds:30,prompts:["One","Two","Three","Four"]});assert.equal(complete.ready,true);assert.equal(complete.frames,700);assert.equal(complete.requestedSeconds,30);assert.equal(complete.seconds,700/24);
 });
-test("interview duration labels are computed with overlaps, never authored by the model",()=>{
- const choices=directorDurations();assert.deepEqual(choices.map(c=>[c.segments,c.frames,c.label]),[[1,175,"7.29 s (1 segment)"],[2,311,"12.96 s (2 segments)"],[3,447,"18.63 s (3 segments)"],[5,719,"29.96 s (5 segments)"]]);
+test("interview duration labels are computed with hard cuts, never authored by the model",()=>{
+ const choices=directorDurations();assert.deepEqual(choices.map(c=>[c.segments,c.frames,c.label]),[[1,175,"7.29 s (1 segment)"],[2,350,"14.58 s (2 segments)"],[3,525,"21.88 s (3 segments)"],[5,875,"36.46 s (5 segments)"]]);
  for(const c of choices)assert.equal(c.seconds,c.frames/24);
 });
 test("native geometry normalization preserves creative prompts, local bindings, audio tracks and resolution",()=>{
  const raw={duration:11,start_seconds:99,segment_count:2,aspect:"9:16 (Portrait Widescreen)",megapixels:.4,flex_mode:"ref2va",segment_windows:JSON.stringify({windows:[{start:0,end:260,prompt:"Keep this exact prompt",images:[1,0],audios:[0]},{start:221,end:481,prompt:"Second prompt",images:[0],audios:[]}],videos:[{index:0,start:0,duration:2}],audios:[{index:0,duration:3}]})};
  const normalized=directorValues(raw),spec=JSON.parse(normalized.segment_windows as string),original=JSON.parse(raw.segment_windows);
  assert.equal(normalized.duration,7.3);assert.equal(normalized.start_seconds,0);assert.equal(normalized.aspect,raw.aspect);assert.equal(normalized.megapixels,.4);
- assert.deepEqual(spec.windows.map((w:any)=>[w.start,w.end]),[[0,175],[136,311]]);assert.equal(spec.windows[0].prompt,original.windows[0].prompt);assert.deepEqual(spec.windows[0].images,[1,0]);assert.deepEqual(spec.windows[0].audios,[0]);assert.deepEqual(spec.videos,original.videos);assert.deepEqual(spec.audios,original.audios);
+ assert.deepEqual(spec.windows.map((w:any)=>[w.start,w.end]),[[0,175],[175,350]]);assert.equal(spec.windows[0].prompt,original.windows[0].prompt);assert.deepEqual(spec.windows[0].images,[1,0]);assert.deepEqual(spec.windows[0].audios,[0]);assert.deepEqual(spec.videos,original.videos);assert.deepEqual(spec.audios,original.audios);
  assert.deepEqual(directorValues(normalized),normalized,"normalization is idempotent");
 });
 test("both actual app modes accept native segments; Ref2VA also binds optional sound references",()=>{

@@ -126,7 +126,7 @@ test("Pika duration and interleaving are native in the exact arguments shown BEF
  try{
   x.a.message(x.c.id,{text:"Use Director defaults"});const c=await settled(x.a,x.c.id),request=c.tools.at(-1)!;
   assert.equal(c.status,"approval");assert.equal(x.calls.filter(t=>t.name==="run_app").length,0);assert.equal((request.arguments.values as any).duration,7.3);assert.equal((request.arguments.values as any).start_seconds,0);
-  const shown=c.messages.flatMap(m=>m.calls||[]).find(t=>t.id===request.id)!;assert.deepEqual(shown.arguments,request.arguments);assert.deepEqual(JSON.parse((shown.arguments.values as any).segment_windows).windows.map((w:any)=>[w.start,w.end]),[[0,175],[136,311]]);
+  const shown=c.messages.flatMap(m=>m.calls||[]).find(t=>t.id===request.id)!;assert.deepEqual(shown.arguments,request.arguments);assert.deepEqual(JSON.parse((shown.arguments.values as any).segment_windows).windows.map((w:any)=>[w.start,w.end]),[[0,175],[175,350]]);
  }finally{await x.cleanup();}
 });
 test("reading an existing pending approval updates only the proposed geometry, not creative content or previous jobs",async()=>{
@@ -140,9 +140,9 @@ test("Pika's initial runtime interview cannot offer hallucinated duration/segmen
  const x=setup([call("ask_user",{questions:[{id:"runtime",header:"Runtime",question:"How long?",options:[{label:"~15s (1 segment)"},{label:"~22s (3 segments)"},{label:"~29s (4 segments)"}]},{id:"genre",header:"Genre",question:"What genre?",options:[{label:"Comedy"},{label:"Drama"}]}]})]);
  try{
   x.a.message(x.c.id,{text:"Use pika-studio-director; ask me the runtime first."});let c=await settled(x.a,x.c.id);assert.equal(c.status,"question");
-  const options=c.questions!.questions[0].options;assert.deepEqual(options.map(o=>o.label),["7.29 s (1 segment)","12.96 s (2 segments)","18.63 s (3 segments)","29.96 s (5 segments)"]);assert.equal(c.questions!.questions[1].options[0].label,"Comedy");
+  const options=c.questions!.questions[0].options;assert.deepEqual(options.map(o=>o.label),["7.29 s (1 segment)","14.58 s (2 segments)","21.88 s (3 segments)","36.46 s (5 segments)"]);assert.equal(c.questions!.questions[1].options[0].label,"Comedy");
   assert.deepEqual((c.tools.at(-1)!.arguments.questions as any[])[0].options,options);assert.deepEqual((c.messages.find(m=>m.calls?.some(t=>t.name==="ask_user"))!.calls![0].arguments.questions as any[])[0].options,options);
-  await x.a.answer(c.id,{answers:{runtime:["12.96 s (2 segments)"],genre:["Comedy"]}});c=await settled(x.a,c.id);assert.equal(c.interview!.answers[0].selected[0],"12.96 s (2 segments)");assert.equal(x.calls.length,0);
+  await x.a.answer(c.id,{answers:{runtime:["14.58 s (2 segments)"],genre:["Comedy"]}});c=await settled(x.a,c.id);assert.equal(c.interview!.answers[0].selected[0],"14.58 s (2 segments)");assert.equal(x.calls.length,0);
  }finally{await x.cleanup();}
 });
 test("unrelated audio runtime questions are not rewritten to Pika timing",async()=>{
