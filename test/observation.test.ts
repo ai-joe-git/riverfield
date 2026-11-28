@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ProductionStore } from "../server/production-store.ts";
 import { ObservationManager, type ObservationDeps } from "../server/observation.ts";
-import type { ObservationEvidenceBundle } from "../server/observation-evidence.ts";
+import { ObservationError, type ObservationEvidenceBundle } from "../server/observation-evidence.ts";
 import type { Runner } from "../server/runner.ts";
 import type {
   Actor, ObservationComparison, ObservationDialogue, ObservationEvidence, ObservationVisual,
@@ -356,7 +356,9 @@ test("Workspace observations use Riverfield system prompts and skip both ComfyUI
 });
 
 
-test("long sampled scenes use the same visual observer in bounded chronological passes", async () => {
+for (const missingPass of [false, true]) test(missingPass
+  ? "Workspace keeps other completed passes when one visual batch reaches its output limit"
+  : "long sampled scenes use the same visual observer in bounded chronological passes", async () => {
   const { out, store } = fixture();
   const passes: string[][] = [];
   try {
@@ -378,19 +380,23 @@ test("long sampled scenes use the same visual observer in bounded chronological 
           assert.deepEqual(frames.map(frame=>frame.shotId), shots.map(shot=>shot.id));
           assert.equal(analysisImages?.length, frames.length);
           passes.push(shots.map(shot=>shot.id));
+          if (missingPass && passes.length === 2) throw new ObservationError("OBSERVATION_OUTPUT_LIMIT", "Output was truncated");
           return { visual:{...fakeVisual,claims:frames.map(frame=>({text:frame.id,evidenceIds:[frame.id],confidence:"confirmed"}))},
             model:"fixture", version:"test", promptVersion:"native", configuration:{}, rawText:"{}" };
         },
       },
     });
     const job = observations.start("suite-404", {sceneId:"scene-a",candidateId:"candidate-a",
-      options:{asr:false,comparison:false,maxFrames:48,visualFrames:6}}, actor);
+      options:{asr:false,comparison:false,maxFrames:48,visualFrames:6},
+      ...(missingPass ? { workspace: { chat: { baseUrl: "http://127.0.0.1:9000/v1", model: "local-vision", vision: true } } } : {})}, actor);
     const done = await finished(observations,job.id);
     assert.equal(done.status,"succeeded",done.error ?? "Observation did not succeed");
     assert.deepEqual(passes.map(pass=>pass.length),[6,6,3]);
     assert.deepEqual(passes.flat(),Array.from({length:15},(_,index)=>`shot-${index+1}`));
     const report=store.snapshot("suite-404").observations[done.observationId!].report;
-    assert.equal(report?.evidenceBudget?.visualFrames,15);
-    assert.equal(report?.visual?.claims.length,15);
+    assert.equal(report?.evidenceBudget?.reviewedShots, missingPass ? 9 : 15);
+    assert.equal(report?.evidenceBudget?.visualFrames, missingPass ? 9 : 15);
+    assert.equal(report?.visual?.claims.length, missingPass ? 9 : 15);
+    assert.equal(done.stages.find(stage => stage.name === "visual")?.status, missingPass ? "failed" : "succeeded");
   } finally { rmSync(out,{recursive:true,force:true}); }
 });

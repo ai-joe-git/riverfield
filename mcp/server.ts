@@ -819,8 +819,8 @@ export function build(base=BASE): McpServer {
 
   server.registerTool("get_observation_evidence", {
     title: "Read observation evidence",
-    description: "Read the exact saved observation job. view=report returns a bounded page of transcript or visual claims plus stages; view=evidence lists frame and audio evidence. Inspect the returned stage statuses before claiming QA.",
-    inputSchema: { jobId: z.string(), view: z.enum(["report","evidence"]).default("evidence"), section: z.enum(["dialogue","visual"]).default("dialogue"), offset: z.number().int().min(0).default(0) },
+    description: "Read the exact saved observation job. view=report returns a bounded page of transcript, visual claims or comparison findings plus stages; view=evidence lists frame and audio evidence. Inspect the returned stage statuses before claiming QA.",
+    inputSchema: { jobId: z.string(), view: z.enum(["report","evidence"]).default("evidence"), section: z.enum(["dialogue","visual","comparison"]).default("dialogue"), offset: z.number().int().min(0).default(0) },
     annotations: { readOnlyHint: true },
   }, async ({ jobId, view, section, offset }) => {
     try {
@@ -831,12 +831,16 @@ export function build(base=BASE): McpServer {
       const report = observation?.report;
       if (view === "report") {
         const transcript = String(report?.dialogue?.text || "");
-        const claims = report?.visual?.claims ?? [];
+        const visual = report?.visual?.claims ?? [];
+        const findings = report?.comparison?.findings ?? [];
+        const rows = section === "comparison" ? findings : visual;
         const size = section === "dialogue" ? 2400 : 6;
-        const total = section === "dialogue" ? transcript.length : claims.length;
-        return text({ jobId, observationId:job.observationId, section,
-          ...(section === "dialogue" ? { transcript:transcript.slice(offset,offset+size), source:report?.dialogue?.provider, limitations:report?.dialogue?.limitations }
-            : { claims:claims.slice(offset,offset+size), shots:report?.shots?.length }),
+        const total = section === "dialogue" ? transcript.length : rows.length;
+        const page = section === "dialogue"
+          ? { transcript:transcript.slice(offset,offset+size), source:report?.dialogue?.provider, limitations:report?.dialogue?.limitations }
+          : section === "comparison" ? { findings:rows.slice(offset,offset+size), limitations:report?.comparison?.limitations }
+            : { claims:rows.slice(offset,offset+size), shots:report?.shots?.length, reviewedShots:report?.evidenceBudget?.reviewedShots };
+        return text({ jobId, observationId:job.observationId, section, ...page,
           stages:job.stages?.map((row:Any)=>({ name:row.name,status:row.status,error:row.error })),
           ...(offset+size<total ? { nextOffset:offset+size } : {}),
         }, true);

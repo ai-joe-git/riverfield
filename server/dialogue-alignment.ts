@@ -1,12 +1,13 @@
 // Deterministic dialogue alignment. This module never calls a model: it extracts
 // intended utterances from the submitted production prompt, normalizes text, aligns
 // tokens, and reports text, speaker, timing and audio-delivery dimensions separately.
-import type { ObservationDialogue, ObservationUtterance } from "./production-types.ts";
+import type { Candidate, ObservationDialogue, ObservationUtterance, SceneRenderBinding } from "./production-types.ts";
 
 export type IntendedUtterance = {
   id: string;
   text: string;
   normalized: string;
+  segment?: number;
   speakerLabel?: string;
   startSeconds?: number;
   source: "candidate-prompt" | "scene";
@@ -14,6 +15,7 @@ export type IntendedUtterance = {
 
 export type IntendedShot = {
   index: number;
+  segment?: number;
   text: string;
   dialogueIds: string[];
 };
@@ -232,6 +234,31 @@ export function extractIntendedBrief(source: string | undefined, kind: "candidat
       "Intended dialogue is extracted mechanically from the submitted prompt; it is not evidence that the rendered clip contains it.",
       "Shot timing and speaker labels are parsed from prompt text and are not inferred from the rendered video.",
     ],
+  };
+}
+
+export function extractCandidateBrief(candidate: Candidate, bindings: SceneRenderBinding[], sceneSummary?: string): IntendedBrief {
+  const segments = (candidate.provenance?.segments ?? []).filter(segment => segment.prompt.trim() && bindings.some(binding =>
+    segment.startFrame === undefined || segment.endFrame === undefined ? binding.segmentIndex === segment.index
+      : segment.startFrame < binding.timelineEndFrame && segment.endFrame > binding.timelineStartFrame,
+  )).sort((a, b) => a.index - b.index);
+  if (!segments.length) return extractIntendedBrief(candidate.prompt || sceneSummary, candidate.prompt ? "candidate-prompt" : "scene");
+  const briefs = segments.map(segment => ({ index: segment.index + 1, brief: extractIntendedBrief(segment.prompt) }));
+  function soundNotes(field: "soundscape" | "music") {
+    return briefs.filter(({ brief }) => brief[field]).map(({ index, brief }) => `Segment ${index}: ${brief[field]}`).join("\n");
+  }
+  return {
+    source: "candidate-prompt",
+    sceneBrief: candidate.provenance?.brief || sceneSummary,
+    shots: briefs.flatMap(({ index, brief }) => {
+      const prefix = `segment-${index}-`;
+      return brief.shots.map(shot => ({ ...shot, segment: index, dialogueIds: shot.dialogueIds.map(id => prefix + id) }));
+    }),
+    utterances: briefs.flatMap(({ index, brief }) => brief.utterances.map(utterance =>
+      ({ ...utterance, id: `segment-${index}-${utterance.id}`, segment: index }))),
+    soundscape: soundNotes("soundscape"),
+    music: soundNotes("music"),
+    limitations: briefs[0].brief.limitations,
   };
 }
 

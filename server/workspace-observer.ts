@@ -3,6 +3,7 @@ import { InputError } from "./input-error.ts";
 import type { FileValue } from "./runner.ts";
 import { validateWorkspaceWriter, workspaceChatContent, type WorkspaceWriter } from "./workspace-writer.ts";
 import type { AsrAdapter } from "./observer-inference.ts";
+import { ObservationError } from "./observation-evidence.ts";
 
 export type WorkspaceObserver = { chat: WorkspaceWriter; asr?: WorkspaceWriter; asrError?: string; reasoningNone?: boolean };
 
@@ -23,20 +24,33 @@ function requestSignal(signal?: AbortSignal) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
-export async function observeWithWorkspace(writer: WorkspaceWriter & { reasoningNone?: boolean }, values: Record<string, unknown>, signal?: AbortSignal, request = fetch) {
+export async function observeWithWorkspace(writer: WorkspaceWriter & { reasoningNone?: boolean }, values: Record<string, unknown>,
+  signal?: AbortSignal, request = fetch, retryTokenLimit?: number) {
   const images = Array.from({ length: 9 }, (_, i) => values[`frame${i + 1}`]).filter(Boolean) as FileValue[];
   const content = workspaceChatContent(writer, String(values.prompt), images);
-  const response = await request(writer.baseUrl + "/chat/completions", {
-    method: "POST", redirect: "error", signal: requestSignal(signal), headers: { "content-type": "application/json" },
-    body: JSON.stringify({ model: writer.model, stream: false, temperature: values.temperature, top_p: values.top_p,
-      max_tokens: values.max_output_tokens, ...(writer.reasoningNone && values.thinking === false ? { reasoning_effort: "none" } : {}), messages: [{ role: "system", content: values.system_prompt }, { role: "user", content }] }),
-  });
-  if (!response.ok) throw new Error(`BlackRiver observer returned HTTP ${response.status}.`);
-  const choice = (await response.json() as any)?.choices?.[0];
+  const requestBody = { model: writer.model, stream: false, temperature: values.temperature, top_p: values.top_p,
+    ...(writer.reasoningNone && values.thinking === false ? { reasoning_effort: "none" } : {}),
+    messages: [{ role: "system", content: values.system_prompt }, { role: "user", content }] };
+  async function complete(maxTokens: number) {
+    signal?.throwIfAborted();
+    const response = await request(writer.baseUrl + "/chat/completions", {
+      method: "POST", redirect: "error", signal: requestSignal(signal), headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...requestBody, max_tokens: maxTokens }),
+    });
+    if (!response.ok) throw new Error(`BlackRiver observer returned HTTP ${response.status}.`);
+    return (await response.json() as any)?.choices?.[0];
+  }
+  let maxOutputTokens = Number(values.max_output_tokens);
+  let choice = await complete(maxOutputTokens);
+  if (choice?.finish_reason === "length" && retryTokenLimit && retryTokenLimit > maxOutputTokens) {
+    maxOutputTokens = retryTokenLimit;
+    choice = await complete(maxOutputTokens);
+  }
   const text = typeof choice?.message?.content === "string" ? choice.message.content.replace(/^(?:\s*<think>[\s\S]*?<\/think>)+\s*/i, "").trim() : "";
-  if (choice?.finish_reason === "length") throw new Error("BlackRiver reached the observation output token limit before completing its structured response.");
+  if (choice?.finish_reason === "length") throw new ObservationError("OBSERVATION_OUTPUT_LIMIT",
+    `BlackRiver reached the ${maxOutputTokens}-token observation output limit before completing its structured response.`);
   if (!text || /^<think>/i.test(text)) throw new Error("BlackRiver returned no complete structured observation.");
-  return { text };
+  return { text, maxOutputTokens };
 }
 
 export function workspaceAsr(asr?: WorkspaceWriter, request = fetch, unavailable?: string): AsrAdapter {

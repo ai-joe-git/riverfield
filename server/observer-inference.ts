@@ -172,7 +172,7 @@ export type ObserverBackendOptions = {
   thinking?: boolean;
   /** Optional immutable checkpoint identity for the report. */
   checkpoint?: { file: string; quantization: string; clipType: string; family: string };
-  complete?: (values: Record<string, unknown>, signal?: AbortSignal) => Promise<{ text: string }>;
+  complete?: (values: Record<string, unknown>, signal?: AbortSignal) => Promise<{ text: string; maxOutputTokens?: number }>;
 };
 
 export class QwenVisualObserver implements VisualObserver, SceneComparator {
@@ -191,7 +191,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
   private readonly checkpoint?: ObserverBackendOptions["checkpoint"];
 
   private readonly workspace: boolean;
-  private readonly complete: (values: Record<string, unknown>, signal?: AbortSignal) => Promise<{ text: string; jobId?: string }>;
+  private readonly complete: (values: Record<string, unknown>, signal?: AbortSignal) => Promise<{ text: string; jobId?: string; maxOutputTokens?: number }>;
   constructor(runner: Runner, app: App, options: ObserverBackendOptions = {}) {
     this.model = options.model ?? "qwen3.8_27b_w4a8.safetensors";
     this.clipType = options.clipType ?? "stable_diffusion";
@@ -305,7 +305,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       })),
     ];
     visualImages.forEach((image, index) => { values[`frame${index + 1}`] = image.file; });
-    const { text: rawText } = await this.complete(values, input.signal);
+    const { text: rawText, maxOutputTokens } = await this.complete(values, input.signal);
     const parsed = parseRaw(rawText);
     const limitations = strings(parsed.limitations, 30);
     const uncertainties = strings(parsed.uncertainties, 30);
@@ -401,7 +401,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       configuration: {
         ...(this.workspace ? { provider: "blackriver" } : { clipType: this.clipType }), maxImages: this.maxImages, maxReferenceImages: this.maxReferenceImages,
         frames: frames.length, referenceFrames: references.length,
-        temperature: this.temperature, maxLength: this.maxOutputTokens, topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
+        temperature: this.temperature, maxLength: maxOutputTokens ?? this.maxOutputTokens, topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
         observationMode: audiovisualMode ? "audiovisual" : "visual",
         nativeEvidenceIds: nativeEvidence.map((item) => item.id),
         analysisImages: analysisImages.length,
@@ -437,7 +437,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       continuityConstraints: input.continuityConstraints,
       allowCanonicalProposals,
     });
-    const { text: rawText, jobId } = await this.complete({
+    const { text: rawText, jobId, maxOutputTokens } = await this.complete({
       ...this.graphValues(),
       system_prompt: systemPrompt, prompt,
     }, input.signal);
@@ -465,7 +465,7 @@ export class QwenVisualObserver implements VisualObserver, SceneComparator {
       jobId,
       model: this.model,
       configuration: {
-        ...(this.workspace ? { provider: "blackriver" } : { clipType: this.clipType }), temperature: this.temperature, maxLength: this.maxOutputTokens,
+        ...(this.workspace ? { provider: "blackriver" } : { clipType: this.clipType }), temperature: this.temperature, maxLength: maxOutputTokens ?? this.maxOutputTokens,
         topK: this.topK, topP: this.topP, seed: this.seed, thinking: this.thinking,
       },
       inputModalities: { text: true, image: false, video: false, audio: false },

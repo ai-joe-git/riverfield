@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { alignDialogue, extractIntendedBrief, extractIntendedUtterances, normalizeDialogue } from "../server/dialogue-alignment.ts";
-import type { ObservationDialogue } from "../server/production-types.ts";
+import { alignDialogue, extractCandidateBrief, extractIntendedBrief, extractIntendedUtterances, normalizeDialogue } from "../server/dialogue-alignment.ts";
+import { comparisonPrompt } from "../server/observer-prompts.ts";
+import type { Candidate, ObservationDialogue, SceneRenderBinding } from "../server/production-types.ts";
 
 const intended = extractIntendedUtterances(`
 [Shot 3] At 00:08.000, the camera cuts to a close-up. The woman (S1) says: <d>[English] You're late, Daichi. I was just about to drink this one too.</d>
@@ -112,4 +113,27 @@ test("numeric equivalents such as twelve percent and 12% compare deterministical
     utterances: [{ id: "u1", startSeconds: 0, endSeconds: 2, text: "the score is 12%", speaker: { label: "Unattributed speaker", attribution: "unknown" }, unclear: false, evidenceIds: ["audio-01"] }],
   });
   assert.equal(alignment.matches[0]?.textMatch, "exact");
+});
+
+test("intended dialogue comes from all and only the selected native timeline segments", () => {
+  const binding: SceneRenderBinding = { id: "binding", sceneId: "scene", candidateId: "candidate", timebase: "final-output",
+    segmentIndex: 0, timelineStartFrame: 0, timelineEndFrame: 48, fps: 24 };
+  const candidate: Candidate = {
+    id: "candidate", productionId: "prod", label: "Candidate", source: "history", outputs: [], bindings: [binding],
+    contentHash: "fixture", createdAt: "2026-11-28T00:00:00Z", createdBy: "test",
+    prompt: "[Shot 1] <d>First-prompt fallback.</d>", provenance: { timebase:"final-output",
+      segments: ["First recorded line", "Second recorded line", "Unselected line"].map((line, index) =>
+        ({ index, images: [], audios: [], prompt: `[Shot 1] The character says <d>[English] ${line}.</d>`, startFrame: index * 24, endFrame: (index + 1) * 24 })) },
+  };
+  const brief = extractCandidateBrief(candidate, [binding]);
+  assert.deepEqual(brief.utterances.map(u => [u.id, u.segment, u.text]), [
+    ["segment-1-intended-001", 1, "First recorded line."], ["segment-2-intended-001", 2, "Second recorded line."],
+  ]);
+  assert.deepEqual(brief.shots.map(shot => shot.dialogueIds), brief.utterances.map(u => [u.id]));
+  const transcript = { ...dialogue, provider: "halogen-npu", text: "First recorded line. Second recorded line.", utterances: [] } as ObservationDialogue;
+  const prompt = comparisonPrompt({ intended: "Scene", canonicalOpening: "", coverage: "No reliable timing",
+    observationJson: { dialogue: transcript }, intendedBrief: brief, dialogueAlignment: alignDialogue(brief.utterances, transcript) });
+  assert.match(prompt, /INTENDED DIALOGUE.*\n.*segment-2-intended-001/);
+  assert.match(prompt, /transcriptOnly/);
+  assert.doesNotMatch(prompt, /First-prompt fallback|Unselected line/);
 });

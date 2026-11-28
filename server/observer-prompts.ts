@@ -114,7 +114,8 @@ export function visualObserverPrompt(input: {
     `TECHNICAL: ${input.technical.width ?? "?"}x${input.technical.height ?? "?"}, ${input.technical.fps} fps, ${input.technical.duration.toFixed(3)}s, scene frames ${input.technical.sceneStartFrame}–${input.technical.sceneEndFrame}.`,
     input.referenceLabels?.length ? `REFERENCE ASSETS (identity comparison only; not proof of appearance): ${input.referenceLabels.join(", ")}.` : "No reference assets were supplied to this pass.",
     "",
-    "Describe the actual observed scene independently. Use the frame ids above. Do not use any intended prompt, screenplay or canonical text in this pass.",
+    "Describe the observed scene independently. Use the frame ids above. Do not use any intended prompt, screenplay or canonical text in this pass.",
+    "Keep the JSON compact. Give at most one concise claim per sampled shot plus up to three material visual defects, with exact evidence IDs. Use short entries and empty arrays for categories without distinct evidence. Avoid repeating descriptions across sections.",
   ].join("\n");
 }
 
@@ -192,7 +193,8 @@ export function comparisonPrompt(input: {
       text: value.dialogue.text, evidenceIds: value.dialogue.evidenceIds, limitations: value.dialogue.limitations,
     } } : {}),
   });
-  const actionLines = (input.intendedBrief?.shots ?? []).map((shot) => `- Shot ${shot.index}: ${shot.text}`);
+  const actionLines = (input.intendedBrief?.shots ?? []).map((shot) => `- ${shot.segment ? `Segment ${shot.segment}, ` : ""}shot ${shot.index}: ${shot.text}`);
+  const intendedDialogue = input.intendedBrief?.utterances.map(({ id, text, segment }) => ({ id, text, segment })) ?? [];
   const intendedById = new Map((input.dialogueAlignment?.intended ?? []).map((item) => [item.id, item]));
   const alignment = input.dialogueAlignment ? {
     matches: input.dialogueAlignment.matches.map((match) => ({
@@ -218,6 +220,9 @@ export function comparisonPrompt(input: {
     "INTENDED MUSIC (separate requirement; actual fulfillment may be not_observable):",
     input.intendedBrief?.music || "(none specified)",
     "",
+    "INTENDED DIALOGUE (verbatim planned lines, separate from observations):",
+    intendedDialogue.length ? JSON.stringify(intendedDialogue) : "(none extracted)",
+    "",
     "DETERMINISTIC DIALOGUE ALIGNMENT (computed by code; inspect text, speaker, timing and audio delivery separately):",
     alignment ? JSON.stringify(alignment, null, 2) : "(not available)",
     "",
@@ -228,6 +233,7 @@ export function comparisonPrompt(input: {
     JSON.stringify(compact(input.observationJson), null, 2),
     "",
     `COVERAGE LIMITATIONS: ${input.coverage}`,
+    "Return concise findings covering the most consequential supported matches and deviations. Group related requirements only when one item can be supported atomically, and put shared unknowns under limitations. Do not repeat the entire scene, script or transcript. Untimed ASR can support word recognition with uncertainty; speaker, timing, performance and unexplained sounds need separate evidence.",
     "",
     input.allowCanonicalProposals === false
       ? "BUILD MODE: Compare findings only. Do not return proposed_changes or canonical memory proposals; the calling code will reject and preserve any proposal field. Do not perform your own word-level calculations. Use not_observable when the supplied evidence cannot decide."

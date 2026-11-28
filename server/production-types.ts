@@ -422,6 +422,7 @@ export type ObservationReport = {
     maxFrames: number;
     extractedFrames: number;
     visualFrames: number;
+    reviewedShots?: number;
     mandatoryShotCoverage: true;
     semantics: "hard-cap-with-mandatory-shot-coverage";
   };

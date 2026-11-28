@@ -29,7 +29,7 @@ import { createObserverApp } from "./observer-app.ts";
 import { ObserverProposalError, auditObservedProposals, buildProductionSubjects, normalizeObservedChange, validateObservedProposals } from "./observer-subjects.ts";
 import { assertTrustedReferences } from "./asset-audit.ts";
 import { analysisImageManifest, createAnalysisImages, type AnalysisImage } from "./evidence-images.ts";
-import { alignDialogue, dialogueAlignmentMarkdown, extractIntendedBrief, type DialogueAlignment, type IntendedBrief } from "./dialogue-alignment.ts";
+import { alignDialogue, dialogueAlignmentMarkdown, extractCandidateBrief, type DialogueAlignment, type IntendedBrief } from "./dialogue-alignment.ts";
 import { observerProfile, profileDefaults, isObserverProfileId, type ObserverProfileId } from "./observer-profiles.ts";
 import {
   DEFAULT_OBSERVER_MODEL, DEFAULT_OBSERVER_MODEL_ID, ObserverModelError,
@@ -375,6 +375,7 @@ export class ObservationManager {
       ...(profile.id === "custom" ? {} : profileDefaults(profile)),
       ...(input.workspace ? explicitOptions : {}),
       profile: profile.id,
+      buildMode: candidate.render?.profile === "build" || candidate.provenance?.render?.profile === "build" || explicitOptions.buildMode === true,
     };
     let sourceObservationId = input.sourceObservationId;
     if (profile.id === "senior") {
@@ -431,15 +432,17 @@ export class ObservationManager {
     this.save(job);
     const controller = new AbortController();
     this.controllers.set(job.id, controller);
-    void this.run(job, snap, scene, candidate, bindings, output.path, output.hash, actor, controller, explicitOptions.maxFrames, input.workspace).finally(() => this.controllers.delete(job.id));
+    void this.run(job, snap, scene, candidate, bindings, output.path, output.hash, actor, controller, explicitOptions, input.workspace).finally(() => this.controllers.delete(job.id));
     return job;
   }
 
   private async run(
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
-    bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController, maxFrames: number | undefined, workspace?: WorkspaceObserver,
+    bindings: SceneRenderBinding[], sourcePath: string, sourceHash: string | undefined, actor: Actor, controller: AbortController, explicitOptions: Partial<ObservationOptions>, workspace?: WorkspaceObserver,
   ) {
-    if (job.options.profile === "senior") return this.runSenior(job, snap, scene, candidate, bindings, actor, controller, workspace);
+    const { maxFrames, maxOutputTokens } = explicitOptions;
+    const retryTokenLimit = maxOutputTokens === undefined ? 8192 : undefined;
+    if (job.options.profile === "senior") return this.runSenior(job, snap, scene, candidate, bindings, actor, controller, workspace, retryTokenLimit);
     let artifactDir: string | null = null;
     let memoryTimer: NodeJS.Timeout | null = null;
     const writeArtifact = (name: string, value: unknown, raw = false) => {
@@ -498,10 +501,12 @@ export class ObservationManager {
       memoryTimer.unref?.();
 
       let visual: VisualObserverResult | undefined;
+      const reviewedShots = new Set<string>();
+      let reviewedFrames = 0;
       let dialogue: ObservationDialogue | undefined;
       let dialogueAlignment: DialogueAlignment | undefined;
       let comparison: ComparisonResult | undefined;
-      const intendedBrief: IntendedBrief = extractIntendedBrief(candidate.prompt || scene.summary, candidate.prompt ? "candidate-prompt" : "scene");
+      const intendedBrief: IntendedBrief = extractCandidateBrief(candidate, bindings, scene.summary);
       const stageErrors: string[] = [];
       const referenceFiles = job.options.referenceAssetIds
         .map((assetId) => snap.assets[assetId])
@@ -532,7 +537,7 @@ export class ObservationManager {
           model: workspace?.chat.model ?? visualModel.file, clipType: visualModel.clipType, maxImages: 9, maxReferenceImages: Math.max(0, 9 - job.options.visualFrames),
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal) } : { checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family } }),
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal, fetch, retryTokenLimit) } : { checkpoint: { file: visualModel.file, quantization: visualModel.quantization, clipType: visualModel.clipType, family: visualModel.family } }),
         });
       const comparisonBackend: SceneComparator = this.comparator ??
         (this.observer?.compare ? this.observer as SceneComparator : undefined) ??
@@ -540,7 +545,7 @@ export class ObservationManager {
           model: workspace?.chat.model ?? comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal, fetch, retryTokenLimit) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
         });
 
       const nativeInputs: NonNullable<ObservationReport["observer"]["nativeInputs"]> = {};
@@ -636,8 +641,9 @@ export class ObservationManager {
 
         if (job.options.visual) {
           this.stage(job, "visual", "running");
+          const parts: VisualObserverResult[] = [];
+          const visualErrors: string[] = [];
           try {
-            const parts: VisualObserverResult[] = [];
             let imageOffset = 0;
             for (const [index, batch] of batches.entries()) {
               controller.signal.throwIfAborted();
@@ -648,14 +654,22 @@ export class ObservationManager {
                 sceneStartFrame: firstShot.startFrame, sceneEndFrame: lastShot.endFrame,
                 sceneStartSeconds: firstShot.startSeconds, sceneEndSeconds: lastShot.endSeconds,
               };
+              const batchImages = analysisImages.slice(imageOffset, imageOffset + imageCount);
+              imageOffset += imageCount;
               const part = await visualBackend.observe({
                 technical, shots: batch.shots, frames: batch.frames,
                 referenceFiles, ...(nativeVideo ? { video: nativeVideo } : {}), ...(nativeAudio ? { audio: nativeAudio } : {}),
-                nativeEvidence, analysisImages: analysisImages.slice(imageOffset, imageOffset + imageCount),
+                nativeEvidence, analysisImages: batchImages,
                 signal: controller.signal,
+              }).catch(error => {
+                if (!(workspace && error instanceof ObservationError && error.code === "OBSERVATION_OUTPUT_LIMIT")) throw error;
+                visualErrors.push(`Pass ${index + 1}/${batches.length}: ${error.message}`);
+                return null;
               });
-              imageOffset += imageCount;
+              if (!part) continue;
               parts.push(part);
+              batch.shots.forEach(shot => reviewedShots.add(shot.id));
+              reviewedFrames += batch.frames.length;
               const name = batches.length === 1 ? "visual" : `visual-batch-${index + 1}`;
               writeArtifact(name + "-system-prompt.txt", part.systemPrompt ?? "", true);
               writeArtifact(name + "-input-prompt.txt", part.inputPrompt ?? "", true);
@@ -666,17 +680,21 @@ export class ObservationManager {
               writeArtifact(name + "-raw.txt", part.rawText, true);
               if (batches.length > 1) writeArtifact(name + "-parsed.json", part.visual);
             }
+          } catch (error) {
+            const raw = (error as Error & { rawText?: string }).rawText;
+            if (raw) writeArtifact("visual-failed-raw.txt", raw, true);
+            visualErrors.push((error as Error).message);
+          }
+          if (parts.length) {
             visual = mergeVisualBatches(parts);
+            if (!reviewedShots.has(bundle.shots[0]?.id)) delete visual.visual.openingState;
+            if (!reviewedShots.has(bundle.shots.at(-1)?.id ?? "")) delete visual.visual.closingState;
             if (job.options.profile === "experimental-av") markExperimentalAudioUnverified(visual);
             writeArtifact("visual-parsed.json", visual.visual);
-            this.stage(job, "visual", "succeeded");
-          } catch (error) {
-            const message = (error as Error).message;
-            const raw = (error as Error & { rawText?: string }).rawText;
-            if (raw) writeArtifact("visual-raw.txt", raw, true);
-            stageErrors.push(`visual: ${message}`);
-            this.stage(job, "visual", controller.signal.aborted ? "canceled" : "failed", message);
           }
+          const message = visualErrors.join(" | ");
+          if (message) stageErrors.push(`visual: ${message}`);
+          this.stage(job, "visual", controller.signal.aborted ? "canceled" : message ? "failed" : "succeeded", message || undefined);
         } else {
           this.stage(job, "visual", "skipped");
         }
@@ -699,7 +717,7 @@ export class ObservationManager {
                 visual: visual?.visual, audiovisual: visual?.audiovisual, nativeEvidence, dialogue,
                 technical: bundle.technical, shots: bundle.shots, evidence: [...bundle.frames, ...bundle.audio],
               },
-              coverage: `${bundle.frames.length} sampled frames across ${bundle.shots.length} detected shots; ${bundle.audio.length} scene audio range(s). Absence from a sample is not proof of absence.`,
+              coverage: `${reviewedFrames} visually reviewed frames covering ${reviewedShots.size}/${bundle.shots.length} detected shots; ${bundle.audio.length} scene audio range(s). Absence from a sample is not proof of absence.`,
               allowCanonicalProposals: !job.options.buildMode,
               onRawResponse: persistRaw,
               signal: controller.signal,
@@ -772,7 +790,7 @@ export class ObservationManager {
         createdAt: this.now().toISOString(), technical: bundle.technical,
         evidenceBudget: {
           maxFrames: job.options.maxFrames, extractedFrames: bundle.frames.length,
-          visualFrames: selectedFrames.length, mandatoryShotCoverage: true,
+          visualFrames: reviewedFrames, reviewedShots: reviewedShots.size, mandatoryShotCoverage: true,
           semantics: "hard-cap-with-mandatory-shot-coverage",
         },
         nativeBoundaries: bundle.nativeBoundaries,
@@ -865,7 +883,7 @@ export class ObservationManager {
   /** Qwen3.8 reviews an existing observation without repeating extraction, ASR or visual inference. */
   private async runSenior(
     job: ObservationJob, snap: ReturnType<ProductionStore["snapshot"]>, scene: Scene, candidate: Candidate,
-    bindings: SceneRenderBinding[], actor: Actor, controller: AbortController, workspace?: WorkspaceObserver,
+    bindings: SceneRenderBinding[], actor: Actor, controller: AbortController, workspace?: WorkspaceObserver, retryTokenLimit?: number,
   ) {
     const source = job.sourceObservationId ? snap.observations[job.sourceObservationId] : undefined;
     const sourceReport = source?.report;
@@ -891,9 +909,9 @@ export class ObservationManager {
           model: workspace?.chat.model ?? comparisonModel.file, clipType: comparisonModel.clipType, maxImages: 0,
           maxOutputTokens: job.options.maxOutputTokens, temperature: job.options.temperature,
           topK: job.options.topK, topP: job.options.topP, seed: job.options.seed, thinking: job.options.thinking,
-          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
+          ...(workspace ? { complete: (values, signal) => observeWithWorkspace({ ...workspace.chat, reasoningNone: workspace.reasoningNone }, values, signal, fetch, retryTokenLimit) } : { checkpoint: { file: comparisonModel.file, quantization: comparisonModel.quantization, clipType: comparisonModel.clipType, family: comparisonModel.family } }),
         });
-      const intendedBrief = extractIntendedBrief(candidate.prompt || scene.summary, candidate.prompt ? "candidate-prompt" : "scene");
+      const intendedBrief = extractCandidateBrief(candidate, bindings, scene.summary);
       const dialogueAlignment = alignDialogue(intendedBrief.utterances, sourceReport.dialogue);
       const continuity = buildContinuityConstraints(snap, scene.id);
       writeArtifact("configuration.json", {

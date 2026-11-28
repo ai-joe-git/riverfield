@@ -76,3 +76,29 @@ test("Workspace observation uses no reasoning budget only for a compatible write
     audio: "unused", offsetSeconds: 0, fps: 24, bindingId: "binding",
   }), /NPU host unavailable/);
 });
+
+test("Workspace retries truncated review once with identical system prompt and evidence", async () => {
+  const { observeWithWorkspace } = await import("../server/workspace-observer.ts");
+  const chat = { baseUrl: "http://127.0.0.1:8731/v1", model: "active-halogen", vision: true, reasoningNone: true };
+  const values = { prompt: "Review frame-001", system_prompt: "Exact native prompt", thinking: false, max_output_tokens: 4096,
+    frame1: { bytes: new Uint8Array([0xff, 0xd8, 0xff]), type: "image/jpeg", name: "frame.jpg" } };
+  const requests: Record<string, unknown>[] = [];
+  let alwaysTruncated = false;
+  const request = (async (_url: string, init: RequestInit) => {
+    requests.push(JSON.parse(String(init.body)));
+    const limited = alwaysTruncated || requests.length === 1;
+    return Response.json({ choices: [{ message: { content: limited ? "{" : "{}" }, finish_reason: limited ? "length" : "stop" }] });
+  }) as typeof fetch;
+  const result = await observeWithWorkspace(chat, values, undefined, request, 8192);
+  assert.deepEqual(result, { text: "{}", maxOutputTokens: 8192 });
+  assert.deepEqual(requests.map(row => row.max_tokens), [4096, 8192]);
+  assert.deepEqual(requests[1], { ...requests[0], max_tokens: 8192 });
+
+  alwaysTruncated = true;
+  requests.length = 0;
+  await assert.rejects(observeWithWorkspace(chat, values, undefined, request), /4096-token/);
+  assert.equal(requests.length, 1);
+  requests.length = 0;
+  await assert.rejects(observeWithWorkspace(chat, values, undefined, request, 8192), /8192-token/);
+  assert.equal(requests.length, 2);
+});
